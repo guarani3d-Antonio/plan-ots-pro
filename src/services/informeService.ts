@@ -231,7 +231,7 @@ async function obtenerOrdenes(proyectoId: string) {
   try {
     const { data, error } = await supabase
       .from('ordenes')
-      .select('id, ot, estado, rubro, responsable, ubicacion, comentarios, prioridad, porcentaje_avance, campos, created_at, updated_at, proyecto_id')
+      .select('id, ot, estado, rubro, responsable, ubicacion, comentarios, prioridad, porcentaje_avance, fecha_fin_trabajos, campos, created_at, updated_at, proyecto_id')
       .eq('proyecto_id', proyectoId)
       .order('ot', { ascending: true })
     if (error) throw error
@@ -242,23 +242,32 @@ async function obtenerOrdenes(proyectoId: string) {
   }
 }
 
-// ─── Helper: extraer fecha de finalización desde campos JSONB ─────────────────
-// Intenta múltiples claves posibles; fallback a updated_at
+// ─── Helper: extraer fecha de finalización ────────────────────────────────────
+// fecha_fin_trabajos es columna top-level (lo que escribe PanelOT). Fallback a
+// claves legacy dentro de campos JSONB, y por último updated_at.
 function extraerFechaFin(
-  campos: Record<string, unknown>,
+  o: Record<string, unknown>,
   updatedAt?: string | null,
 ): string {
+  const fmt = (v: string) =>
+    new Date(v).toLocaleDateString('es-PY', { day: '2-digit', month: 'short', year: 'numeric' })
+
+  const top = o['fecha_fin_trabajos']
+  if (top && typeof top === 'string' && top.trim()) {
+    try { return fmt(top) } catch { /* ignorar fecha inválida */ }
+  }
+
+  const campos = (o['campos'] ?? {}) as Record<string, unknown>
   const candidatos = ['fecha_fin_trabajos', 'fecha_fin', 'fecha_finalizacion', 'fecha_cierre']
   for (const key of candidatos) {
     const val = campos[key]
     if (val && typeof val === 'string' && val.trim()) {
-      try {
-        return new Date(val).toLocaleDateString('es-PY', { day: '2-digit', month: 'short', year: 'numeric' })
-      } catch { /* ignorar fecha inválida */ }
+      try { return fmt(val) } catch { /* ignorar fecha inválida */ }
     }
   }
+
   if (updatedAt) {
-    return new Date(updatedAt).toLocaleDateString('es-PY', { day: '2-digit', month: 'short', year: 'numeric' })
+    try { return fmt(updatedAt) } catch { /* ignorar fecha inválida */ }
   }
   return '—'
 }
@@ -358,8 +367,8 @@ export async function generarInformeHTML(config: InformeConfig): Promise<string>
         ?? (campos['descripcion'] as string)
         ?? '—'
 
-      // ── FIX: fecha = fecha de finalización (desde campos), fallback a updated_at
-      const fecha = extraerFechaFin(campos, o.updated_at as string | null)
+      // ── FIX: fecha = fecha de finalización (top-level o campos), fallback updated_at
+      const fecha = extraerFechaFin(o as unknown as Record<string, unknown>, o.updated_at as string | null)
 
       // ── FIX: avance visible siempre (sin necesidad de campoAvanceId)
       const avVal    = extraerAvance(o as unknown as Record<string, unknown>, config.campoAvanceId)
