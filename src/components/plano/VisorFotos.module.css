@@ -1,0 +1,504 @@
+/* src/components/plano/VisorFotos.module.css */
+/* S12 — Visor/editor de fotos con anotaciones */
+
+/* ── Overlay ─────────────────────────────────────────────────────────────── */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(6, 6, 8, 0.97);
+  z-index: 900;
+  display: flex;
+  flex-direction: column;
+  /* Prevent body scroll bleed-through */
+  overscroll-behavior: none;
+}
+
+/* ── Header ──────────────────────────────────────────────────────────────── */
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: rgba(14, 14, 18, 0.9);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+  gap: 12px;
+  min-height: 48px;
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.catBadge {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 3px 10px;
+  border-radius: 20px;
+  color: #fff;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.counter {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.55);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.annBadge {
+  font-size: 11px;
+  font-weight: 600;
+  background: rgba(74, 158, 255, 0.18);
+  color: #4a9eff;
+  border: 1px solid rgba(74, 158, 255, 0.35);
+  padding: 2px 9px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+
+.shortcutsHint {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.25);
+  white-space: nowrap;
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .shortcutsHint { display: inline; }
+}
+
+.btnClose {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 20px;
+  cursor: pointer;
+  padding: 4px 6px;
+  line-height: 1;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+  flex-shrink: 0;
+}
+
+.btnClose:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* ── Canvas area ─────────────────────────────────────────────────────────── */
+
+.canvasArea {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+  background: #0a0a0c;
+  /* Subtle dot grid so users know where the canvas is */
+  background-image: radial-gradient(circle, rgba(255,255,255,0.04) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* ── Canvas wrapper — receives CSS transform: scale(zoom) ─────────────────── */
+
+.canvasWrapper {
+  position: relative;
+  transform-origin: center center;
+  transition: transform 0.12s ease-out;
+  /* Drop shadow so canvas edge is visible on dark bg */
+  filter: drop-shadow(0 4px 24px rgba(0,0,0,0.6));
+}
+
+/* ── Canvas ──────────────────────────────────────────────────────────────── */
+
+.canvas {
+  display: block;
+  max-width: 90vw;
+  max-height: calc(100vh - 160px);
+  /* Crisp pixel rendering for annotations at low zoom */
+  image-rendering: auto;
+}
+
+/* Cursor styles */
+.cursorDefault { cursor: default; }
+.cursorCross   { cursor: crosshair; }
+.cursorText    { cursor: text; }
+
+/* ── Loading / error states ──────────────────────────────────────────────── */
+
+.stateMsg {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 320px;
+  height: 220px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.4);
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+}
+
+.stateMsgErr {
+  color: #f87171;
+  border-color: rgba(248, 113, 113, 0.3);
+}
+
+/* ── Navigation buttons ──────────────────────────────────────────────────── */
+
+.navBtn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 32px;
+  line-height: 1;
+  padding: 14px 9px;
+  cursor: pointer;
+  z-index: 10;
+  border-radius: 6px;
+  transition: background 0.15s, color 0.15s;
+  /* Keep nav buttons outside canvas zoom transform */
+}
+
+.navBtn:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.8);
+  color: #fff;
+}
+
+.navBtn:disabled {
+  opacity: 0.2;
+  cursor: not-allowed;
+}
+
+.navPrev { left: 12px; }
+.navNext { right: 12px; }
+
+/* ── Status message ──────────────────────────────────────────────────────── */
+
+.statusMsg {
+  flex-shrink: 0;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 16px;
+  transition: opacity 0.3s;
+}
+
+.statusOk {
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+  border-top: 1px solid rgba(34, 197, 94, 0.25);
+}
+
+.statusErr {
+  background: rgba(239, 68, 68, 0.12);
+  color: #f87171;
+  border-top: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+/* ── Toolbar ─────────────────────────────────────────────────────────────── */
+
+.toolbar {
+  display: flex;
+  align-items: flex-end;
+  gap: 0;
+  padding: 8px 12px;
+  background: rgba(14, 14, 18, 0.97);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.1) transparent;
+}
+
+.toolbar::-webkit-scrollbar {
+  height: 3px;
+}
+
+.toolbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.toolbar::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.15);
+  border-radius: 2px;
+}
+
+.toolGroup {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 0 12px;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+}
+
+.toolGroup:last-child {
+  border-right: none;
+}
+
+.groupLabel {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: rgba(255, 255, 255, 0.25);
+  margin-bottom: 2px;
+  white-space: nowrap;
+}
+
+/* ── Tool buttons ────────────────────────────────────────────────────────── */
+
+.toolBtn {
+  background: rgba(255, 255, 255, 0.07);
+  border: 1.5px solid transparent;
+  color: rgba(255, 255, 255, 0.75);
+  border-radius: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1.2;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  min-width: 34px;
+  text-align: center;
+}
+
+.toolBtn:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+
+.toolBtnActive {
+  border-color: #4a9eff;
+  background: rgba(74, 158, 255, 0.18);
+  color: #4a9eff;
+}
+
+/* ── Color picker ────────────────────────────────────────────────────────── */
+
+.colorRow {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+
+.colorBtn {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2.5px solid transparent;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform 0.1s, border-color 0.1s;
+}
+
+.colorBtn:hover {
+  transform: scale(1.15);
+}
+
+.colorBtnActive {
+  border-color: #fff;
+  transform: scale(1.2);
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.6);
+}
+
+/* ── Width picker ────────────────────────────────────────────────────────── */
+
+.widthRow {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.widthBtn {
+  background: rgba(255, 255, 255, 0.07);
+  border: 1.5px solid transparent;
+  color: rgba(255, 255, 255, 0.7);
+  border-radius: 5px;
+  padding: 5px 6px;
+  cursor: pointer;
+  min-width: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.widthBtn:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.widthBtnActive {
+  border-color: #4a9eff;
+  background: rgba(74, 158, 255, 0.18);
+}
+
+/* ── Zoom ────────────────────────────────────────────────────────────────── */
+
+.zoomRow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.zoomBtn {
+  background: rgba(255, 255, 255, 0.07);
+  border: 1.5px solid transparent;
+  color: rgba(255, 255, 255, 0.75);
+  border-radius: 5px;
+  padding: 5px 9px;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  transition: background 0.12s;
+}
+
+.zoomBtn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+
+.zoomBtn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.zoomLabel {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+  font-variant-numeric: tabular-nums;
+  min-width: 38px;
+  text-align: center;
+}
+
+/* ── Action buttons ──────────────────────────────────────────────────────── */
+
+.actionsRow {
+  display: flex;
+  gap: 4px;
+}
+
+.actionBtn {
+  background: rgba(255, 255, 255, 0.07);
+  border: 1.5px solid transparent;
+  color: rgba(255, 255, 255, 0.75);
+  border-radius: 6px;
+  padding: 6px 11px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: background 0.12s, color 0.12s;
+}
+
+.actionBtn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+
+.actionBtn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* ── Save button ─────────────────────────────────────────────────────────── */
+
+.saveBtn {
+  background: #2563eb;
+  border: none;
+  color: #fff;
+  border-radius: 7px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: background 0.15s, opacity 0.15s;
+  box-shadow: 0 1px 6px rgba(37, 99, 235, 0.4);
+}
+
+.saveBtn:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+
+.saveBtn:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* ── Floating text input (fixed, screen-space) ───────────────────────────── */
+
+.floatingTextInput {
+  position: fixed;
+  transform: none;
+  z-index: 1100;
+  background: rgba(10, 10, 14, 0.82);
+  border: none;
+  border-bottom: 2.5px solid; /* color set inline */
+  outline: none;
+  font-size: 18px;
+  font-weight: 700;
+  padding: 4px 10px;
+  min-width: 160px;
+  max-width: 360px;
+  border-radius: 4px 4px 0 0;
+  backdrop-filter: blur(8px);
+  /* color set inline */
+}
+
+.floatingTextInput::placeholder {
+  font-weight: 400;
+  font-size: 13px;
+  opacity: 0.5;
+  color: rgba(255,255,255,0.4);
+}
+
+/* ── Responsive: collapse toolbar on very small screens ──────────────────── */
+
+@media (max-width: 480px) {
+  .header {
+    padding: 8px 10px;
+  }
+
+  .toolbar {
+    padding: 6px 6px;
+    gap: 0;
+  }
+
+  .toolGroup {
+    padding: 0 7px;
+  }
+
+  .canvas {
+    max-width: 100vw;
+    max-height: calc(100vh - 140px);
+  }
+
+  .navBtn {
+    font-size: 24px;
+    padding: 10px 6px;
+  }
+
+  .navPrev { left: 4px; }
+  .navNext { right: 4px; }
+}

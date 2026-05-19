@@ -1,0 +1,501 @@
+/* ComparadorVersiones.module.css — Blueprint Pro · S18
+   Paneles blancos · tipografía bold · contraste con plano oscuro */
+
+/* ─ Workspace ─ */
+.workspace {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  background: #F8FAFC;
+  z-index: 900;
+}
+
+/* ═══════════════════════════════════════════ LEFT PANEL ══ */
+.leftPanel {
+  width: 300px;
+  flex-shrink: 0;
+  background: #fff;
+  border-right: 1px solid #E2E6ED;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+/* Header con gradiente azul, contiene "Volver", nombre del proyecto y badge */
+.leftHeader {
+  padding: 18px 20px 20px;
+  background: linear-gradient(135deg, #2462C9 0%, #1A3A7A 100%);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.backBtn {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 7px;
+  padding: 6px 11px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.backBtn:hover { background: rgba(255, 255, 255, 0.28); }
+
+.proyectoNombre {
+  font-size: 15px;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -0.2px;
+  margin-top: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.comparadorBadge {
+  align-self: flex-start;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: #BFDBFE;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+  padding: 3px 8px;
+}
+
+.hint {
+  font-size: 12px;
+  color: #94A3B8;
+  line-height: 1.5;
+  padding: 16px 20px;
+}
+
+/* ─ Stats grid: 4 tarjetas con números enormes y colores intensos ─ */
+.statsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 16px 20px;
+  border-bottom: 1px solid #F1F5F9;
+}
+.statCard {
+  background: #F8FAFC;
+  border: 1px solid #E2E6ED;
+  border-radius: 10px;
+  padding: 12px 8px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.statNum {
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1;
+  color: #1E293B;
+  letter-spacing: -0.5px;
+}
+.statNumCambios   { color: #2462C9; }
+.statNumNuevas    { color: #16A34A; }
+.statNumEliminadas{ color: #DC2626; }
+.statNumMovidas   { color: #F97316; }
+
+.statLabel {
+  font-size: 10px;
+  font-weight: 700;
+  color: #64748B;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-top: 2px;
+}
+
+/* ─ Version selectors ─ */
+.versionBlock {
+  padding: 14px 20px 0;
+}
+.versionBlock + .versionBlock { padding-top: 10px; }
+
+.versionPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 6px;
+}
+.versionDot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #2462C9;
+  flex-shrink: 0;
+}
+.versionDotA { opacity: 0.5; }
+
+.versionSelect {
+  width: 100%;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid #D1D5DB;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #1E293B;
+  background: #fff;
+  outline: none;
+  cursor: pointer;
+}
+.versionSelect:focus { border-color: #2462C9; box-shadow: 0 0 0 3px rgba(36, 98, 201, 0.12); }
+
+/* ─ Compare button: gradiente, bold, sombra ─ */
+.compareBtn {
+  width: calc(100% - 40px);
+  margin: 16px 20px 20px;
+  height: 42px;
+  background: linear-gradient(135deg, #2462C9 0%, #1A3A7A 100%);
+  border: none;
+  border-radius: 10px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(36, 98, 201, 0.28);
+  transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
+}
+.compareBtn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(36, 98, 201, 0.35);
+}
+.compareBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* ─ Capas (layers) ─ */
+.capasBlock {
+  padding: 16px 20px;
+  border-top: 1px solid #F1F5F9;
+}
+.capasTitle {
+  font-size: 10px;
+  font-weight: 700;
+  color: #64748B;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 10px;
+}
+.capaRow {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #1E293B;
+  cursor: pointer;
+  padding: 6px 0;
+  user-select: none;
+}
+.capaCheck {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: #2462C9;
+  flex-shrink: 0;
+}
+.capaDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #2462C9;
+  flex-shrink: 0;
+}
+.capaDotA { opacity: 0.5; }
+.capaLabel { flex: 1; }
+
+/* ═══════════════════════════════════════ CENTER PANEL ══ */
+.panelCenter {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.planoWrapper {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, #1E3A5F 0%, #0B1929 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.planoImg {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  max-width: 92%;
+  max-height: 92%;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 12px rgba(0, 0, 0, 0.5));
+  user-select: none;
+  pointer-events: none;
+}
+
+.pdfLoading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: #BFDBFE;
+}
+.spinnerPdf {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-top-color: #BFDBFE;
+  border-radius: 50%;
+  animation: spinCV 0.8s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes spinCV { to { transform: rotate(360deg); } }
+.pdfError {
+  font-size: 13px;
+  color: #BFDBFE;
+  padding: 20px;
+  text-align: center;
+}
+
+.svgOverlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ─ Markers ─ */
+.marker {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  cursor: pointer;
+  z-index: 10;
+}
+.markerB { z-index: 11; }
+
+.markerSelected .markerDot {
+  outline: 2.5px solid #F97316;
+  outline-offset: 2px;
+}
+
+.markerDot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+  transition: transform 0.12s;
+}
+.marker:hover .markerDot { transform: scale(1.3); }
+
+.markerLabel {
+  font-size: 9px;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.95);
+  color: #1E293B;
+  padding: 1px 4px;
+  border-radius: 4px;
+  white-space: nowrap;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  pointer-events: none;
+}
+
+/* ═══════════════════════════════════════ RIGHT PANEL ══ */
+.rightPanel {
+  width: 360px;
+  flex-shrink: 0;
+  background: #fff;
+  border-left: 1px solid #E2E6ED;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.rightHeader {
+  padding: 16px 18px;
+  border-bottom: 1px solid #F1F5F9;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+.rightTitle {
+  font-size: 14px;
+  font-weight: 800;
+  color: #1E293B;
+  letter-spacing: -0.2px;
+}
+.totalBadge {
+  font-size: 11px;
+  font-weight: 700;
+  color: #2462C9;
+  background: #EBF2FF;
+  border-radius: 999px;
+  padding: 3px 10px;
+}
+
+.btnClearFilter {
+  font-size: 11px;
+  color: #2462C9;
+  background: #EBF2FF;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  padding: 4px 9px;
+  margin-left: 6px;
+}
+.btnClearFilter:hover { background: #DCE7FB; }
+
+.hintRight {
+  font-size: 12px;
+  color: #94A3B8;
+  padding: 20px 18px;
+  line-height: 1.5;
+}
+
+.tableWrap {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* ─ Grid header: 3 columnas sticky ─ */
+.tableHead {
+  display: grid;
+  grid-template-columns: 1.8fr 1fr 1fr;
+  gap: 8px;
+  padding: 10px 16px;
+  background: #F8FAFC;
+  border-bottom: 1px solid #E2E6ED;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+.thCell {
+  font-size: 10px;
+  font-weight: 700;
+  color: #64748B;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* ─ Diff row: grid · borde izquierdo coloreado por tipo ─ */
+.diffRow {
+  display: grid;
+  grid-template-columns: 1.8fr 1fr 1fr;
+  gap: 8px;
+  padding: 10px 16px 10px 13px;
+  border-bottom: 1px solid #F1F5F9;
+  border-left: 3px solid transparent;
+  cursor: pointer;
+  transition: background 0.1s, border-color 0.1s;
+  align-items: start;
+}
+.diffRow:hover { background: #F8FAFC; }
+.diffRowSelected { background: #EFF4FF !important; border-left-color: #2462C9; }
+
+.diffRowChanged { border-left-color: #2462C9; }
+.diffRowNew     { border-left-color: #22C55E; background: #F7FEF9; }
+.diffRowDeleted { border-left-color: #EF4444; background: #FEF7F7; }
+.diffRowMoved   { border-left-color: #F97316; background: #FFFAF5; }
+
+.otCode {
+  font-size: 12px;
+  font-weight: 700;
+  color: #1E293B;
+  line-height: 1.3;
+  word-break: break-word;
+}
+.campo {
+  font-size: 10px;
+  font-weight: 600;
+  color: #64748B;
+  text-transform: capitalize;
+  margin-top: 2px;
+  display: block;
+  word-break: break-word;
+}
+
+/* ─ Value pills: rojo (A) / verde (B) ─ */
+.valPill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 6px;
+  line-height: 1.35;
+  word-break: break-word;
+  display: inline-block;
+  max-width: 100%;
+}
+.valA {
+  background: #FEF2F2;
+  color: #991B1B;
+  border: 1px solid #FCA5A5;
+}
+.valB {
+  background: #F0FDF4;
+  color: #166534;
+  border: 1px solid #86EFAC;
+}
+
+.tagEliminada {
+  background: #FEE2E2;
+  color: #7F1D1D;
+  border: 1px solid #FCA5A5;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 6px;
+  display: inline-block;
+}
+.tagNueva {
+  background: #DCFCE7;
+  color: #14532D;
+  border: 1px solid #86EFAC;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 6px;
+  display: inline-block;
+}
+
+.dash {
+  color: #CBD5E1;
+  font-weight: 500;
+  font-size: 13px;
+  padding: 4px 8px;
+}

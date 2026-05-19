@@ -1,0 +1,236 @@
+/* ModalNuevoProyecto.module.css — Blueprint Pro */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 17, 23, 0.55);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.modal {
+  background: #fff;
+  border: 1px solid #E2E6ED;
+  border-radius: 14px;
+  width: 100%;
+  max-width: 520px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ─ Header ─ */
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 22px 16px;
+  border-bottom: 1px solid #F1F5F9;
+}
+
+.modalTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1E293B;
+  letter-spacing: -0.3px;
+}
+
+.btnCerrar {
+  width: 30px;
+  height: 30px;
+  border: none;
+  background: #F1F5F9;
+  border-radius: 8px;
+  cursor: pointer;
+  color: #64748B;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+}
+.btnCerrar:hover:not(:disabled) { background: #E2E6ED; color: #1E293B; }
+.btnCerrar:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ─ Body ─ */
+.modalBody {
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-height: 72vh;
+  overflow-y: auto;
+}
+
+.formRow {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+  letter-spacing: 0.1px;
+}
+
+.labelHint {
+  font-weight: 400;
+  color: #94A3B8;
+  font-size: 11px;
+}
+
+.input {
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid #D1D5DB;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #1E293B;
+  background: #fff;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.input:focus {
+  border-color: #2462C9;
+  box-shadow: 0 0 0 3px rgba(36, 98, 201, 0.12);
+}
+.input:disabled { background: #F8FAFC; color: #94A3B8; cursor: not-allowed; }
+.input::placeholder { color: #CBD5E1; }
+
+/* ─ Drop Zone ─ */
+.dropZone {
+  border: 1.5px dashed #CBD5E1;
+  border-radius: 10px;
+  padding: 20px 16px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: #FAFBFC;
+  text-align: center;
+  user-select: none;
+}
+.dropZone:hover { border-color: #2462C9; background: #EFF4FF; }
+
+.dropZoneActive {
+  border-color: #2462C9;
+  background: #EFF4FF;
+  border-style: solid;
+}
+
+.dropIcon  { font-size: 24px; margin-bottom: 2px; }
+.dropText  { font-size: 14px; font-weight: 600; color: #374151; }
+.dropHint  { font-size: 11px; color: #94A3B8; }
+.dropFileName { font-size: 13px; font-weight: 600; color: #1E293B; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dropFileSize { font-size: 11px; color: #94A3B8; }
+
+.scannerBadge {
+  margin-top: 6px;
+  background: #EFF4FF;
+  color: #2462C9;
+  border: 1px solid #BFCFEF;
+  border-radius: 20px;
+  padding: 2px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+/* ─ Preview ─ */
+.previewWrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.previewImg {
+  max-height: 160px;
+  max-width: 100%;
+  border-radius: 8px;
+  border: 1px solid #E2E6ED;
+  object-fit: contain;
+  /* Mirrors the scanner output visually */
+  filter: grayscale(1) contrast(1.9) brightness(1.08);
+}
+.previewLabel {
+  font-size: 11px;
+  color: #94A3B8;
+}
+
+/* ─ Messages ─ */
+.errorMsg {
+  background: #FEF2F2;
+  border: 1px solid #FCA5A5;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 13px;
+  color: #991B1B;
+}
+
+.progresoMsg {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #2462C9;
+  font-weight: 500;
+}
+
+.spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid #BFCFEF;
+  border-top-color: #2462C9;
+  border-radius: 50%;
+  flex-shrink: 0;
+  animation: spinM 0.7s linear infinite;
+}
+@keyframes spinM { to { transform: rotate(360deg); } }
+
+/* ─ Footer ─ */
+.modalFooter {
+  padding: 16px 22px;
+  border-top: 1px solid #F1F5F9;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.btnCancel {
+  height: 38px;
+  padding: 0 18px;
+  background: #F1F5F9;
+  border: 1px solid #E2E6ED;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #64748B;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btnCancel:hover:not(:disabled) { background: #E2E6ED; color: #374151; }
+.btnCancel:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.btnSubmit {
+  height: 38px;
+  padding: 0 22px;
+  background: #2462C9;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+}
+.btnSubmit:hover:not(:disabled) { background: #1a4fa8; }
+.btnLoading { opacity: 0.65; cursor: not-allowed; }

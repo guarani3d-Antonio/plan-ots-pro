@@ -1,0 +1,59 @@
+.wrapper {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+  /* El pin apunta hacia abajo al punto exacto del plano */
+  transform: translate(-50%, -100%);
+  transition: transform 150ms ease, filter 150ms ease;
+  filter: drop-shadow(0 3px 6px rgba(0,0,0,0.45));
+}
+
+.wrapper:hover {
+  transform: translate(-50%, -108%) scale(1.18);
+  filter: drop-shadow(0 4px 10px rgba(0,0,0,0.6));
+  z-index: 100;
+}
+
+.wrapper.selected {
+  filter: drop-shadow(0 0 8px #FBBF24) drop-shadow(0 3px 6px rgba(0,0,0,0.45));
+  z-index: 200;
+}
+
+/* Forma del pin: círculo con punta hacia abajo */
+.pin {
+  width: 56px;
+  height: 56px;
+  border-radius: 50% 50% 50% 0;   /* esquina inferior-izquierda = punta */
+  transform: rotate(-45deg);       /* rota para que la punta quede abajo */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 3px solid rgba(255,255,255,0.75);
+  box-sizing: border-box;
+}
+
+.wrapper.selected .pin {
+  border-color: #FBBF24;
+  border-width: 4px;
+}
+
+/* El emoji contra-rota para quedar vertical */
+.pinEmoji {
+  transform: rotate(45deg);
+  font-size: 26px;
+  line-height: 1;
+  display: block;
+}
+
+/* Sombra puntual debajo del pin */
+.shadow {
+  width: 14px;
+  height: 6px;
+  background: rgba(0,0,0,0.25);
+  border-radius: 50%;
+  margin-top: -3px;
+  filter: blur(3px);
+}

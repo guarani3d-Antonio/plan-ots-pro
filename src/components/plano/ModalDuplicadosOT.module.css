@@ -1,0 +1,135 @@
+/* ModalDuplicadosOT.module.css — diálogo de confirmación de renombres al importar.
+   Hereda el lenguaje visual de ModalNuevoProyecto (overlay + tarjeta + footer).
+*/
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 17, 23, 0.55);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* 100000: ModalImportCSV usa zIndex 99998 inline y sigue montado mientras
+     handleImportar espera la Promise — este modal tiene que quedar por encima. */
+  z-index: 100000;
+  padding: 20px;
+}
+
+.modal {
+  background: #fff;
+  border: 1px solid #E2E6ED;
+  border-radius: 14px;
+  width: 100%;
+  max-width: 560px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.header {
+  padding: 18px 22px 14px;
+  border-bottom: 1px solid #F1F5F9;
+}
+
+.title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1E293B;
+  letter-spacing: -0.3px;
+  margin: 0;
+}
+
+.subtitle {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: #64748B;
+  line-height: 1.4;
+}
+
+.body {
+  padding: 16px 22px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.tabla thead th {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: #64748B;
+  text-align: left;
+  padding: 8px 12px;
+  background: #F8FAFC;
+  border-bottom: 1px solid #E2E6ED;
+}
+
+.tabla tbody td {
+  padding: 8px 12px;
+  border-bottom: 1px solid #F1F5F9;
+  color: #1E293B;
+  font-family: var(--font-mono);
+}
+
+.tabla tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.codigoOriginal {
+  color: #94A3B8;
+  text-decoration: line-through;
+}
+
+.flecha {
+  color: #94A3B8;
+  padding: 0 4px;
+}
+
+.codigoNuevo {
+  color: #2462C9;
+  font-weight: 700;
+}
+
+.footer {
+  padding: 14px 22px;
+  border-top: 1px solid #F1F5F9;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.btnCancel {
+  height: 38px;
+  padding: 0 18px;
+  background: #F1F5F9;
+  border: 1px solid #E2E6ED;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #64748B;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btnCancel:hover { background: #E2E6ED; color: #374151; }
+
+.btnConfirmar {
+  height: 38px;
+  padding: 0 22px;
+  background: #2462C9;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btnConfirmar:hover { background: #1a4fa8; }

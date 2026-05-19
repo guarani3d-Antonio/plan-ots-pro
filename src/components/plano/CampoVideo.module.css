@@ -1,0 +1,94 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ── Player ── */
+.player {
+  width: 100%;
+  max-height: 240px;
+  border-radius: 6px;
+  background: #000;
+  display: block;
+}
+
+/* ── Meta info ── */
+.meta {
+  display: flex;
+  gap: 12px;
+  font-size: 0.78rem;
+  color: var(--text-muted, #888);
+}
+
+/* ── Botones ── */
+.btnSeleccionar {
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: 1px dashed var(--border, #3a3a3a);
+  background: var(--surface-2, #1e1e1e);
+  color: var(--text-primary, #e0e0e0);
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background 0.15s, border-color 0.15s;
+  text-align: left;
+}
+
+.btnSeleccionar:hover {
+  background: var(--surface-3, #2a2a2a);
+  border-color: var(--accent, #4a9eff);
+}
+
+.btnEliminar {
+  align-self: flex-start;
+  padding: 5px 12px;
+  font-size: 0.82rem;
+  border-radius: 5px;
+  border: 1px solid var(--error, #e05555);
+  background: transparent;
+  color: var(--error, #e05555);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btnEliminar:hover {
+  background: rgba(224, 85, 85, 0.1);
+}
+
+/* ── Progreso ── */
+.estadoTexto {
+  font-size: 0.88rem;
+  color: var(--text-muted, #888);
+  margin: 0;
+}
+
+.progressTrack {
+  height: 4px;
+  background: var(--surface-3, #2a2a2a);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progressBar {
+  height: 100%;
+  background: var(--accent, #4a9eff);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+/* ── Textos ── */
+.hint {
+  font-size: 0.75rem;
+  color: var(--text-muted, #888);
+  margin: 0;
+}
+
+.error {
+  font-size: 0.82rem;
+  color: var(--error, #e05555);
+  margin: 0;
+  padding: 6px 10px;
+  background: rgba(224, 85, 85, 0.08);
+  border-radius: 4px;
+  border-left: 3px solid var(--error, #e05555);
+}

@@ -1,0 +1,1573 @@
+// src/components/plano/PanelOT.tsx
+import { useState, useEffect } from 'react';
+import type { OrdenLocal, EstadoOT, PrioridadOT } from '../../types/orden';
+import { useOrdenesStore, rowToOrden } from '../../stores/ordenesStore';
+import { supabase } from '../../db/supabase';
+import { useAuthStore } from '../../stores/authStore';
+import { useProyectosStore } from '../../stores/proyectosStore';
+import {
+  informeDisponible,
+  type TipoInforme,
+} from '../../services/reportService';
+import { validarFotosParaEstado } from '../../utils/validaciones';
+import {
+  diasAbierto,
+  parsearGuaranies,
+  colorEstado,
+  emojiRubro,
+} from '../../utils/calculos';
+import VisorFotos, { type FotoVisor } from './VisorFotos';
+import {
+  subirYRegistrarFoto,
+  cargarFotosDeOrden,
+  eliminarFoto,
+  type FotoSubida,
+  type CategoriaFoto,
+} from '../../services/fotosService';
+import {
+  getCamposDeProyecto,
+  type CampoDefinicion,
+} from '../../services/camposService';
+import CampoRenderer from './CampoRenderer';
+import GestorCampos from './GestorCampos';
+import { ModalComentarioEstado } from './ModalComentarioEstado';
+import { HistorialComentarios } from './HistorialComentarios';
+import { ModalFotoDetalle } from './ModalFotoDetalle';
+import { ModalInformeOT, type TipoInforme as TipoInformeModal } from '../../components/informes/ModalInformeOT';
+import { crearComentario } from '../../services/comentariosService';
+import { useToast } from '../ui/Toast';
+import styles from './PanelOT.module.css';
+
+interface PanelOTProps {
+  orden: OrdenLocal | null;
+  onCerrar: () => void;
+  // ── Modo "forzado fotos" ──
+  // Se activa cuando una OT viene de pos_x === null y se acaba de ubicar en el
+  // plano. El panel se abre con la pestaña de Fotos por defecto, oculta los
+  // botones de cerrar/eliminar y obliga al usuario a completar fotos antes de
+  // poder guardar. El botón extra "Cancelar ubicación" llama `moverOrden(id, null, null)`
+  // para volver la OT al ToolPanel sin haberla configurado.
+  modoForzadoFotos?: boolean;
+}
+
+type Tab = 'datos' | 'fotos' | 'informes' | 'campos';
+type NivelRiesgo = 'Bajo' | 'Medio' | 'Alto' | 'Extremo';
+
+// Catálogo único de rubros — fuente de verdad compartida entre Rubro Principal
+// (select) y Rubro Secundario (multiselect de chips).
+const RUBROS_LISTA = [
+  'Impermeabilización', 'Eléctrica', 'Plomería',
+  'Aire Acondicionado', 'Vidrios', 'Herrería', 'Pintura',
+  'Albañilería', 'Carpintería', 'Jardinería', 'Limpieza',
+  'Seguridad', 'Ascensores', 'Gas', 'Red contra incendio',
+  'Aislación', 'PCI', 'Climatización', 'Sanitarios',
+  'Estructura', 'Revestimientos',
+];
+
+// Sinónimos reales (palabras distintas que apuntan al mismo rubro canónico).
+// Las diferencias por mayúsculas / tildes / ñ las cubre `matchEnum`.
+const RUBROS_SINONIMOS: Record<string, string> = {
+  'Electricidad': 'Eléctrica',
+};
+
+// Matcher genérico para enums/catálogos. Cubre tres niveles de tolerancia:
+//   1. Match exacto case-insensitive ignorando tildes y ñ
+//      ("Herreria" → "Herrería", "ELÉCTRICA" → "Eléctrica").
+//   2. Sinónimos explícitos (palabras distintas como "Electricidad" → "Eléctrica").
+//   3. Swap del sufijo o↔a para errores de género común
+//      ("Medio" → "Media", "Alto" → "Alta", "Bajo" → "Baja").
+const stripAccents = (s: string) =>
+  s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+
+function matchEnum<T extends string>(
+  raw: string | null | undefined,
+  lista: readonly T[],
+  sinonimos?: Record<string, T>,
+): T | null {
+  if (!raw) return null;
+  const t = stripAccents(raw);
+  if (!t) return null;
+
+  const exact = lista.find(item => stripAccents(item) === t);
+  if (exact) return exact;
+
+  if (sinonimos) {
+    for (const [alias, canonical] of Object.entries(sinonimos)) {
+      if (stripAccents(alias) === t) return canonical;
+    }
+  }
+
+  const swapped = t.endsWith('o') ? t.slice(0, -1) + 'a'
+                : t.endsWith('a') ? t.slice(0, -1) + 'o'
+                : t;
+  if (swapped !== t) {
+    const m = lista.find(item => stripAccents(item) === swapped);
+    if (m) return m;
+  }
+
+  return null;
+}
+
+function normalizarRubro(r: string | null | undefined): string {
+  if (!r) return '';
+  return matchEnum(r, RUBROS_LISTA, RUBROS_SINONIMOS) ?? r.trim();
+}
+
+function toDateInput(val: string | null | undefined): string {
+  if (!val) return '';
+  return val.slice(0, 10);
+}
+
+const NIVELES_RIESGO = ['Bajo', 'Medio', 'Alto', 'Extremo'] as const;
+function normalizarNivelRiesgo(
+  r: string | null | undefined,
+): typeof NIVELES_RIESGO[number] | null {
+  return matchEnum(r, NIVELES_RIESGO);
+}
+
+const ESTADOS_OT: readonly EstadoOT[] = ['Pendiente', 'En proceso', 'Cerrada', 'No aplica'];
+function normalizarEstado(r: string | null | undefined): EstadoOT | undefined {
+  return matchEnum(r, ESTADOS_OT) ?? undefined;
+}
+
+const PRIORIDADES_OT: readonly PrioridadOT[] = ['Alta', 'Media', 'Baja'];
+function normalizarPrioridad(r: string | null | undefined): PrioridadOT | undefined {
+  return matchEnum(r, PRIORIDADES_OT) ?? undefined;
+}
+
+const COLOR_PRIORIDAD: Record<PrioridadOT, string> = {
+  'Alta':  '#DC2626',
+  'Media': '#F59E0B',
+  'Baja':  '#64748B',
+};
+
+type FotoConId = FotoSubida & { id: string };
+
+// Form unificado — guarda todos los campos editables del Panel.
+type FormState = Partial<OrdenLocal>;
+
+function ordenToForm(orden: OrdenLocal | null): FormState {
+  if (!orden) return {};
+  return {
+    ...orden,
+    rubro: normalizarRubro(orden.rubro),
+    rubro_secundario: (orden.rubro_secundario ?? []).map(normalizarRubro),
+    nivel_riesgo: normalizarNivelRiesgo(orden.nivel_riesgo),
+    estado: normalizarEstado(orden.estado) ?? orden.estado,
+    prioridad: normalizarPrioridad(orden.prioridad) ?? orden.prioridad,
+  };
+}
+
+// Botones al pie de cada card de foto. Cada uno mantiene su propio hover
+// state porque el background:hover no se puede expresar inline en React.
+// Se renderizan side-by-side (flex 50%/50%) bajo la sección de descripción.
+function BtnEliminarFotoCard({ onClick }: { onClick: () => void }) {
+  const [hover, setHover] = useState(false);
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        width: '50%',
+        padding: '5px 8px',
+        background: hover ? 'rgba(239, 68, 68, 0.08)' : 'transparent',
+        color: '#EF4444',
+        border: 'none',
+        borderTop: '1px solid var(--border-default)',
+        borderRight: '1px solid var(--border-default)',
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '6px',
+        fontSize: '11px',
+        fontWeight: 600,
+        fontFamily: 'inherit',
+        transition: 'background 0.15s',
+      }}
+    >
+      🗑 Eliminar
+    </button>
+  );
+}
+
+function BtnEditarFotoCard({ onClick }: { onClick: () => void }) {
+  const [hover, setHover] = useState(false);
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        width: '50%',
+        padding: '5px 8px',
+        background: hover ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
+        color: 'var(--text-secondary)',
+        border: 'none',
+        borderTop: '1px solid var(--border-default)',
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '6px',
+        fontSize: '11px',
+        fontWeight: 600,
+        fontFamily: 'inherit',
+        transition: 'background 0.15s',
+      }}
+    >
+      ✏️ Editar
+    </button>
+  );
+}
+
+export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false }: PanelOTProps) {
+  const { actualizarOrden, eliminarOrden, moverOrden } = useOrdenesStore();
+  const { user } = useAuthStore();
+  const proyectoActivo = useProyectosStore(s => s.proyectoActivo);
+  const { mostrar, ToastComponent } = useToast();
+
+  // Suscripción directa al store — garantiza datos frescos
+  // independientemente de lo que pase el padre como prop.
+  const ordenFresca = useOrdenesStore(
+    s => ordenProp
+      ? (s.ordenes.find(o => o.id === ordenProp.id) ?? ordenProp)
+      : null
+  );
+
+  const [tab,             setTab]             = useState<Tab>('datos');
+  const [form,            setForm]            = useState<FormState>(() => ordenToForm(ordenFresca));
+
+  const [inputContratista, setInputContratista] = useState('');
+  const [dropdownContratistasOpen, setDropdownContratistasOpen] = useState(false);
+  const [contratistasGlobales, setContratistasGlobales] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem('plan_ots_contratistas') ?? '[]'); }
+    catch { return []; }
+  });
+  const [confirmEliminar, setConfirmEliminar] = useState(false);
+  const [guardando,       setGuardando]       = useState(false);
+  const [modalCierre,     setModalCierre]     = useState(false);
+  // Tipo del informe a mostrar en ModalInformeOT cuando modalCierre === true.
+  // Los 5 botones del tab Informes setean este estado antes de abrir el modal.
+  const [tipoInforme,     setTipoInforme]     = useState<TipoInformeModal>('cierre');
+
+  // ── Fotos (lógica NO TOCAR) ────────────────────────────────────────────────
+  const [fotosAntes,   setFotosAntes]   = useState<FotoConId[]>([]);
+  const [fotosDurante, setFotosDurante] = useState<FotoConId[]>([]);
+  const [fotosDespues, setFotosDespues] = useState<FotoConId[]>([]);
+  const [subiendo,     setSubiendo]     = useState<CategoriaFoto | null>(null);
+  const [errorFotos,   setErrorFotos]   = useState<string | null>(null);
+
+  // Estado de "subida en pantalla previa": apenas el usuario elige un archivo,
+  // queda parqueado acá y se abre <ModalFotoDetalle> para que ingrese
+  // descripción. El upload real recién corre cuando confirma en el modal.
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [pendingCategoria, setPendingCategoria] = useState<'ANTES' | 'DURANTE' | 'DESPUES'>('ANTES');
+
+  // Estado de edición de descripción para fotos ya subidas. Cuando el usuario
+  // hace clic en "✏️ Editar" en una card, se setea con los datos de esa foto
+  // y se monta <ModalFotoDetalle modo="edicion" />.
+  const [editandoFoto, setEditandoFoto] = useState<{
+    id: string;
+    url: string;
+    descripcion: string;
+    categoria: 'ANTES' | 'DURANTE' | 'DESPUES';
+  } | null>(null);
+  const [visorAbierto, setVisorAbierto] = useState(false);
+  const [visorIndex,   setVisorIndex]   = useState(0);
+  const [visorFotos,   setVisorFotos]   = useState<FotoVisor[]>([]);
+
+  const abrirVisor = (todasLasFotos: FotoVisor[], indiceInicial: number) => {
+    setVisorFotos(todasLasFotos);
+    setVisorIndex(indiceInicial);
+    setVisorAbierto(true);
+  };
+
+  // ── Campos personalizados (lógica NO TOCAR) ────────────────────────────────
+  const [camposDefinicion, setCamposDefinicion] = useState<CampoDefinicion[]>([]);
+  const [valoresCampos,    setValoresCampos]    = useState<Record<string, unknown>>({});
+  const [mostrarGestor,    setMostrarGestor]    = useState(false);
+
+  // ── Comentarios obligatorios al cambiar estado ─────────────────────────────
+  // `modalComentario` parquea los callbacks de la Promise que abre el modal;
+  // al cerrar se invoca onConfirmar(texto) u onCancelar(). historialRefresh
+  // se incrementa tras cada crearComentario para que HistorialComentarios
+  // re-fetchee. tabActivo conmuta entre el panel actual y el historial.
+  const [modalComentario, setModalComentario] = useState<{
+    abierto: boolean;
+    estadoAnterior: string;
+    estadoNuevo: string;
+    esPorFoto: boolean;
+    onConfirmar: ((comentario: string) => void) | null;
+    onCancelar: (() => void) | null;
+  }>({
+    abierto: false, estadoAnterior: '', estadoNuevo: '',
+    esPorFoto: false, onConfirmar: null, onCancelar: null
+  });
+  const [historialRefresh, setHistorialRefresh] = useState(0);
+  const [tabActivo, setTabActivo] = useState<'detalle' | 'historial'>('detalle');
+
+  // ── Sync de form: sólo al cambiar de OT (id distinto). Los datos frescos al
+  // abrir el panel los garantiza el fetch a Supabase del effect de abajo; no
+  // reinicializamos el form ante updates de la misma OT para no pisar las
+  // ediciones en curso del usuario (p.ej. auto-transición de estado por foto).
+  useEffect(() => {
+    if (!ordenFresca) return;
+    setForm(ordenToForm(ordenFresca));
+    setValoresCampos(
+      ordenFresca.campos && typeof ordenFresca.campos === 'object'
+        ? ordenFresca.campos : {}
+    );
+  }, [ordenFresca?.id]);
+
+  // ── Resets atados a la identidad de la OT (tab activa, fotos cargadas,
+  // definiciones de campos). NO se incluye `updated_at` para que un guardado
+  // no bote al usuario de la pestaña actual ni re-fetchee fotos innecesariamente.
+  useEffect(() => {
+    if (!ordenProp?.id) return;
+
+    // Fetch fresco desde Supabase para garantizar datos actualizados
+    // al abrir o cambiar de OT (sortea cualquier staleness del store).
+    // capturedId evita que un .then tardío pise ediciones del usuario
+    // si en el ínterin se cambió de OT.
+    const capturedId = ordenProp.id;
+    supabase
+      .from('ordenes')
+      .select('*')
+      .eq('id', capturedId)
+      .single()
+      .then(({ data, error }) => {
+        if (!error && data && ordenProp?.id === capturedId) {
+          const fresh = rowToOrden(data as Record<string, unknown>);
+          useOrdenesStore.getState().agregarOActualizarOrden(fresh);
+          setForm(ordenToForm(fresh));
+          setValoresCampos(
+            fresh.campos && typeof fresh.campos === 'object' ? fresh.campos : {}
+          );
+        }
+      });
+
+    // En modo forzado fotos arrancamos en la pestaña Fotos para que el usuario
+    // las complete antes de poder guardar; en modo normal volvemos a Datos.
+    setTab(modoForzadoFotos ? 'fotos' : 'datos');
+    setConfirmEliminar(false);
+    setErrorFotos(null);
+    setInputContratista('');
+    setDropdownContratistasOpen(false);
+
+    cargarFotosDeOrden(ordenProp.id).then(fotos => {
+      setFotosAntes(  fotos.filter(f => f.categoria === 'ANTES'));
+      setFotosDurante(fotos.filter(f => f.categoria === 'DURANTE'));
+      setFotosDespues(fotos.filter(f => f.categoria === 'DESPUES'));
+    }).catch(err => {
+      console.error('[PanelOT] Error cargando fotos:', err);
+    });
+
+    getCamposDeProyecto(ordenProp.proyecto_id).then(setCamposDefinicion).catch(err => {
+      console.error('[PanelOT] Error cargando campos:', err);
+    });
+  }, [ordenProp?.id]);
+
+  if (!ordenFresca) return null;
+
+  const estado = (form.estado ?? 'Pendiente') as EstadoOT;
+  const validacion = validarFotosParaEstado(fotosAntes, fotosDurante, fotosDespues, estado);
+
+  // ── Helper genérico para setear cualquier campo del form ───────────────────
+  const set = (campo: string, valor: unknown) =>
+    setForm(f => ({ ...f, [campo]: valor }));
+
+  // ── Pedir comentario obligatorio al cambiar de estado ──────────────────────
+  // Abre el ModalComentarioEstado y devuelve una Promise<string | null>: el
+  // texto del comentario si el usuario confirma, o null si cancela. Lo usan
+  // tanto el cambio manual (botones de Estado) como la auto-transición por foto.
+  function pedirComentarioEstado(
+    estadoAnterior: string,
+    estadoNuevo: string,
+    esPorFoto: boolean
+  ): Promise<string | null> {
+    console.log('[pedirComentarioEstado] abriendo modal', { estadoAnterior, estadoNuevo, esPorFoto });
+    return new Promise((resolve) => {
+      setModalComentario({
+        abierto: true,
+        estadoAnterior,
+        estadoNuevo,
+        esPorFoto,
+        onConfirmar: (texto) => {
+          setModalComentario(prev => ({ ...prev, abierto: false }));
+          resolve(texto);
+        },
+        onCancelar: () => {
+          setModalComentario(prev => ({ ...prev, abierto: false }));
+          resolve(null);
+        },
+      });
+    });
+  }
+
+  // ── Flujo de subida de foto en 4 etapas ────────────────────────────────────
+  //
+  //   1. onArchivoSeleccionado    — input file → parquea el File y abre
+  //                                 ModalFotoDetalle (no sube nada todavía).
+  //   2. handleConfirmarFoto      — el usuario aceptó en el modal → limpia el
+  //                                 pending state y dispara procesarSubidaFoto.
+  //   3. handleCancelarFoto       — usuario canceló en el modal → descarta el
+  //                                 File pending.
+  //   4. procesarSubidaFoto       — ejecuta lo que antes hacía handleSubirFoto:
+  //                                 auto-transición de estado (comentario
+  //                                 obligatorio), upload real, persistencia
+  //                                 de la descripción.
+  //
+  // Importante: el modal de comentario obligatorio (ModalComentarioEstado)
+  // arranca DENTRO de procesarSubidaFoto, después de cerrar ModalFotoDetalle
+  // (porque lo cerramos al setear pendingFile=null antes de await el upload).
+
+  const onArchivoSeleccionado = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    categoria: 'ANTES' | 'DURANTE' | 'DESPUES'
+  ) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // reset para permitir re-seleccionar el mismo archivo
+    if (!file) return;
+    setPendingFile(file);
+    setPendingCategoria(categoria);
+  };
+
+  const handleCancelarFoto = () => {
+    setPendingFile(null);
+  };
+
+  const handleConfirmarFoto = (descripcion: string) => {
+    const file = pendingFile;
+    const categoria = pendingCategoria;
+    if (!file) return;
+    // Cerramos el modal antes de arrancar el flujo de upload + posibles
+    // modales adicionales (comentario obligatorio por auto-transición).
+    setPendingFile(null);
+    void procesarSubidaFoto(file, categoria, descripcion);
+  };
+
+  const procesarSubidaFoto = async (
+    file: File,
+    categoria: 'ANTES' | 'DURANTE' | 'DESPUES',
+    descripcion: string,
+  ) => {
+    // Detectar PRIMERO si esta foto disparará auto-transición de estado.
+    // Si la dispara, pedimos comentario obligatorio ANTES de subir nada:
+    // cancelar el comentario aborta la subida completa (la foto no se guarda
+    // y el estado no cambia).
+    const estadoActual = (form.estado ?? ordenFresca?.estado) as EstadoOT;
+    let estadoNuevo: EstadoOT | null = null;
+    if (categoria === 'DURANTE' && estadoActual === 'Pendiente') {
+      estadoNuevo = 'En proceso';
+    } else if (categoria === 'DESPUES' && (estadoActual === 'Pendiente' || estadoActual === 'En proceso')) {
+      estadoNuevo = 'Cerrada';
+    }
+
+    let comentarioAuto: string | null = null;
+    if (estadoNuevo) {
+      comentarioAuto = await pedirComentarioEstado(estadoActual, estadoNuevo, true);
+      if (comentarioAuto === null) return; // canceló → no subir la foto
+    }
+
+    setSubiendo(categoria);
+    setErrorFotos(null);
+    try {
+      const foto = await subirYRegistrarFoto(file, ordenFresca.id, ordenFresca.proyecto_id, categoria);
+
+      // Persistir la descripción capturada en ModalFotoDetalle (si la hay).
+      // El payload de la foto en estado local incluye la descripción para que
+      // el preview del Informe de Cierre la vea sin recargar.
+      const desc = descripcion.trim();
+      let fotoConDesc = foto;
+      if (desc) {
+        await supabase.from('fotos').update({ descripcion: desc }).eq('id', foto.id);
+        fotoConDesc = { ...foto, descripcion: desc };
+      }
+      if (categoria === 'ANTES')   setFotosAntes(  prev => [...prev, fotoConDesc]);
+      if (categoria === 'DURANTE') setFotosDurante(prev => [...prev, fotoConDesc]);
+      if (categoria === 'DESPUES') setFotosDespues(prev => [...prev, fotoConDesc]);
+
+      // Persistir auto-transición + registrar comentario en el historial.
+      // El marcador en el plano cambia de color por la actualización del store;
+      // el resto de los campos del panel sólo se confirman al apretar "Guardar".
+      if (estadoNuevo && comentarioAuto !== null) {
+        set('estado', estadoNuevo);  // ← actualiza botón visualmente
+        await actualizarOrden(ordenFresca.id, { estado: estadoNuevo });
+        await crearComentario({
+          orden_id:        ordenFresca.id,
+          proyecto_id:     ordenFresca.proyecto_id,
+          estado_anterior: estadoActual,
+          estado_nuevo:    estadoNuevo,
+          comentario:      comentarioAuto,
+        });
+        setHistorialRefresh(prev => prev + 1);
+      }
+    } catch (err) {
+      setErrorFotos(err instanceof Error ? err.message : 'Error al subir foto');
+    } finally {
+      setSubiendo(null);
+    }
+  };
+
+  // ── Eliminar foto (NO TOCAR la lógica) ─────────────────────────────────────
+  const handleEliminarFoto = async (foto: FotoConId, categoria: CategoriaFoto) => {
+    const fotosActuales = {
+      ANTES:   fotosAntes,
+      DURANTE: fotosDurante,
+      DESPUES: fotosDespues,
+      ADJUNTO: [] as FotoConId[],
+    }[categoria];
+
+    if (fotosActuales.length === 1) {
+      const val = validarFotosParaEstado(
+        categoria === 'ANTES'   ? [] : fotosAntes,
+        categoria === 'DURANTE' ? [] : fotosDurante,
+        categoria === 'DESPUES' ? [] : fotosDespues,
+        estado
+      );
+      if (!val.valido) {
+        setErrorFotos(`No podés eliminar la única foto ${categoria} — el estado actual la requiere.`);
+        return;
+      }
+    }
+    try {
+      await eliminarFoto(foto.id, foto.path);
+      if (categoria === 'ANTES')   setFotosAntes(  prev => prev.filter(f => f.id !== foto.id));
+      if (categoria === 'DURANTE') setFotosDurante(prev => prev.filter(f => f.id !== foto.id));
+      if (categoria === 'DESPUES') setFotosDespues(prev => prev.filter(f => f.id !== foto.id));
+    } catch (err) {
+      setErrorFotos(err instanceof Error ? err.message : 'Error al eliminar foto');
+    }
+  };
+
+  // ── Guardar OT ─────────────────────────────────────────────────────────────
+  const handleGuardar = async () => {
+    if (!ordenFresca) return;
+
+    console.log('[handleGuardar] form al momento de guardar:', {
+      ot: form.ot,
+      nivel_riesgo: form.nivel_riesgo,
+      reincidencia: form.reincidencia,
+      en_garantia: form.en_garantia,
+      potencialmente_conflictivo: form.potencialmente_conflictivo,
+      estado: form.estado,
+    });
+    console.log('[handleGuardar] ordenFresca al momento de guardar:', {
+      nivel_riesgo: ordenFresca?.nivel_riesgo,
+      reincidencia: ordenFresca?.reincidencia,
+      en_garantia: ordenFresca?.en_garantia,
+    });
+
+    // Validación de fotos (lógica de fotos NO TOCAR).
+    const v = validarFotosParaEstado(fotosAntes, fotosDurante, fotosDespues, estado);
+    if (!v.valido) {
+      mostrar(v.errores.join(' · '), 'error');
+      setTab('fotos');
+      return;
+    }
+
+    setGuardando(true);
+    try {
+      const actualizada = await actualizarOrden(ordenFresca.id, {
+        ot:                         form.ot,
+        descripcion:                form.descripcion ?? '',
+        comentarios:                form.comentarios ?? '',
+        obra:                       form.obra ?? '',
+        unidad_amenities:           form.unidad_amenities ?? '',
+        estado:                     form.estado,
+        prioridad:                  form.prioridad,
+        rubro:                      form.rubro ?? '',
+        rubro_secundario:           form.rubro_secundario ?? [],
+        nivel_riesgo:               form.nivel_riesgo ?? null,
+        responsable:                form.responsable ?? '',
+        contratistas:               form.contratistas ?? [],
+        fecha_ingreso:              form.fecha_ingreso ?? undefined,
+        fecha_inicio_trabajos:      form.fecha_inicio_trabajos ?? undefined,
+        fecha_fin_trabajos:         form.fecha_fin_trabajos ?? undefined,
+        porcentaje_avance:          form.porcentaje_avance ?? 0,
+        costo:                      form.costo ?? undefined,
+        en_garantia:                form.en_garantia ?? false,
+        asiste_facility:            form.asiste_facility ?? false,
+        reincidencia:               form.reincidencia ?? false,
+        potencialmente_conflictivo: form.potencialmente_conflictivo ?? false,
+        acta_conformidad:           form.acta_conformidad ?? 'Pendiente',
+        informe_relevamiento:       form.informe_relevamiento ?? 'Pendiente',
+        informe_avance:             form.informe_avance ?? 'Pendiente',
+        informe_cierre:             form.informe_cierre ?? 'Pendiente',
+        // Campos personalizados (NO TOCAR).
+        campos: valoresCampos,
+      });
+
+      // Sync con el dato autoritativo devuelto por Supabase (`.select().single()`
+      // dentro de actualizarOrden). Si retorna null (error de red post-optimistic
+      // en línea), caemos al snapshot que el store ya tiene aplicado vía el
+      // update optimista — así el form refleja al menos lo que el usuario acaba
+      // de escribir, no el snapshot pre-edit.
+      if (actualizada) {
+        setForm(ordenToForm(actualizada));
+      } else {
+        const fromStore = useOrdenesStore.getState().ordenes.find(o => o.id === ordenFresca.id);
+        if (fromStore) setForm(ordenToForm(fromStore));
+      }
+
+      // Si esta OT venía del flujo de importación CSV, marcarla como completada:
+      // ya está ubicada (pos_x existe — modoForzadoFotos solo deja guardar tras
+      // ubicarla) y ya pasó la validación de fotos arriba. El guard de App.tsx
+      // dejará de bloquear la navegación cuando no queden pendientes.
+      const ordenPersistida = actualizada
+        ?? useOrdenesStore.getState().ordenes.find(o => o.id === ordenFresca.id);
+      const posUbicada =
+        ordenPersistida?.pos_x != null && ordenPersistida?.pos_y != null;
+      const pendientes = useOrdenesStore.getState().otsPendientesImport;
+      if (posUbicada && pendientes.includes(ordenFresca.id)) {
+        useOrdenesStore.getState().completarOtImport(ordenFresca.id);
+      }
+
+      // En el flujo normal el panel queda abierto: cerrar es exclusivo del
+      // botón X. En modoForzadoFotos el header no tiene X (sólo "Cancelar
+      // ubicación"), así que tras guardar sí necesitamos cerrar para que el
+      // flujo de importación CSV avance a la próxima OT pendiente.
+      if (modoForzadoFotos) {
+        onCerrar();
+      }
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  const handleEliminar = () => {
+    if (!confirmEliminar) { setConfirmEliminar(true); return; }
+    eliminarOrden(ordenFresca.id);
+    onCerrar();
+  };
+
+  // Modo forzado fotos: revierte la ubicación recién asignada y cierra el panel,
+  // dejando la OT de vuelta en el ToolPanel de "sin ubicar".
+  const handleCancelarUbicacion = async () => {
+    if (!ordenFresca) return;
+    await moverOrden(ordenFresca.id, null, null);
+    onCerrar();
+  };
+
+  const getValorCampo = (campoId: string): unknown =>
+    valoresCampos[campoId] ?? null;
+
+  const setValorCampo = (campoId: string, valor: unknown) => {
+    setValoresCampos(prev => ({ ...prev, [campoId]: valor }));
+  };
+
+  // ── Datos derivados (readonly) ─────────────────────────────────────────────
+  const creadoPor = ordenFresca.created_by
+    ? (ordenFresca.created_by === user?.id ? (user?.email ?? ordenFresca.created_by) : ordenFresca.created_by)
+    : (user?.email ?? '');
+  const diasAb = diasAbierto(
+    form.fecha_ingreso || ordenFresca.created_at,
+    estado === 'Cerrada' ? form.fecha_fin_trabajos : undefined,
+  );
+
+  // ── Array combinado para el visor (NO TOCAR) ───────────────────────────────
+  const todasLasFotosParaVisor: FotoVisor[] = [
+    ...fotosAntes.map(f   => ({ id: f.id, file_url: f.url, categoria: 'ANTES',   file_type: null })),
+    ...fotosDurante.map(f => ({ id: f.id, file_url: f.url, categoria: 'DURANTE', file_type: null })),
+    ...fotosDespues.map(f => ({ id: f.id, file_url: f.url, categoria: 'DESPUES', file_type: null })),
+  ];
+
+  // ── Lista de informes disponibles en el tab "Informes" ────────────────────
+  // Los 5 abren ModalInformeOT (preview Stitch); handleGenerarInforme y el
+  // flujo viejo de window.open fueron removidos en esta iteración.
+  const INFORMES_CONFIG: { tipo: TipoInforme; icono: string; nombre: string; codigo?: string; subtitulo: string }[] = [
+    { tipo: 'ficha_visita',     icono: '📋', nombre: 'Ficha de Visita',       codigo: 'FOR-09-01', subtitulo: 'Registro inicial de OT' },
+    { tipo: 'relevamiento',     icono: '🔍', nombre: 'Informe de Relevamiento',                    subtitulo: 'Diagnóstico técnico' },
+    { tipo: 'avance',           icono: '📊', nombre: 'Informe de Avance',                          subtitulo: 'Progreso de ejecución' },
+    { tipo: 'cierre',           icono: '✅', nombre: 'Informe de Cierre',                          subtitulo: 'KPIs · días · costo · avance' },
+    { tipo: 'acta_conformidad', icono: '🏛️', nombre: 'Acta de Conformidad',                        subtitulo: 'Encuesta y firma del cliente' },
+  ];
+
+  // ── Bloque de fotos por categoría (Tab Fotos) ──────────────────────────────
+  // Reescrito visualmente con .fotoSeccion/.fotosGrid/.fotoThumb/.addFotoBtn.
+  // La lógica subir/eliminar/visor se conserva tal cual.
+  const bloqueFotos = (
+    categoria: CategoriaFoto,
+    indexOffset: number,
+    label: string,
+    requerida: boolean,
+    ok: boolean,
+    fotos: FotoConId[]
+  ) => {
+    const alerta = requerida && !ok;
+    const cumplida = requerida && ok;
+    const wrapClass = [
+      styles.fotoSeccion,
+      alerta && styles.fotoSeccionAlerta,
+      cumplida && styles.fotoSeccionOk,
+    ].filter(Boolean).join(' ');
+    return (
+    <div className={wrapClass}>
+      <div className={styles.fotoTitulo}>
+        {label}
+        {requerida && <span className={styles.required}>*</span>}
+        {alerta && (
+          <span className={`${styles.fotoEstadoBadge} ${styles.fotoEstadoAlerta}`}>
+            ⚠️ Requerida
+          </span>
+        )}
+        {cumplida && (
+          <span className={`${styles.fotoEstadoBadge} ${styles.fotoEstadoOk}`}>
+            ✓ OK
+          </span>
+        )}
+      </div>
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
+        gap: '10px',
+      }}>
+        {fotos.map((foto, i) => {
+          const badgeColor =
+            categoria === 'ANTES'   ? 'rgba(220, 50, 50, 0.9)' :
+            categoria === 'DURANTE' ? 'rgba(37, 99, 235, 0.9)' :
+            categoria === 'DESPUES' ? 'rgba(22, 163, 74, 0.9)' :
+            'rgba(100, 116, 139, 0.9)';
+          const badgeLabel =
+            categoria === 'DESPUES' ? 'DESPUÉS' : categoria;
+          const desc = (foto.descripcion ?? '').trim();
+          return (
+            <div key={foto.id} style={{
+              width: 'auto',
+              background: 'var(--bg-surface)',
+              border: '1px solid var(--border-default)',
+              borderRadius: '8px',
+              overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column',
+            }}>
+              {/* Foto + badge */}
+              <div style={{ position: 'relative', width: '100%', aspectRatio: '4 / 3' }}>
+                <img
+                  src={foto.url}
+                  alt={foto.nombre}
+                  onClick={() => abrirVisor(todasLasFotosParaVisor, indexOffset + i)}
+                  style={{
+                    width: '100%', height: '100%', objectFit: 'cover',
+                    display: 'block', cursor: 'pointer',
+                  }}
+                />
+                <span style={{
+                  position: 'absolute', top: '8px', left: '8px',
+                  background: badgeColor, color: '#FFFFFF',
+                  fontSize: '9px', fontWeight: 700,
+                  padding: '2px 6px', borderRadius: '4px',
+                  letterSpacing: '0.04em',
+                }}>
+                  {badgeLabel}
+                </span>
+              </div>
+
+              {/* Descripción (read-only, clamp 2 líneas) */}
+              <div style={{ padding: '6px 8px 4px', display: 'flex', flexDirection: 'column', gap: '2px', flex: 1 }}>
+                <span style={{
+                  fontSize: '9px',
+                  color: 'var(--text-secondary)',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  fontWeight: 600,
+                }}>
+                  Descripción
+                </span>
+                <span style={{
+                  fontSize: '11px',
+                  color: desc ? 'var(--text-primary)' : 'var(--text-secondary)',
+                  fontStyle: desc ? 'normal' : 'italic',
+                  minHeight: '28px',
+                  lineHeight: 1.4,
+                  wordBreak: 'break-word',
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden',
+                }}>
+                  {desc || 'Sin descripción'}
+                </span>
+              </div>
+
+              {/* Eliminar + Editar (50/50) */}
+              <div style={{ display: 'flex', gap: 0 }}>
+                <BtnEliminarFotoCard
+                  onClick={() => handleEliminarFoto(foto, categoria)}
+                />
+                <BtnEditarFotoCard
+                  onClick={() => setEditandoFoto({
+                    id: foto.id,
+                    url: foto.url,
+                    descripcion: foto.descripcion ?? '',
+                    categoria: categoria as 'ANTES' | 'DURANTE' | 'DESPUES',
+                  })}
+                />
+              </div>
+            </div>
+          );
+        })}
+
+        {/* Card "Agregar foto" — empty state / botón siempre presente */}
+        <label
+          title={`Agregar foto ${label}`}
+          style={{
+            width: 'auto',
+            minHeight: '160px',
+            border: '2px dashed #444',
+            borderRadius: '8px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            cursor: subiendo ? 'not-allowed' : 'pointer',
+            background: 'transparent',
+            color: 'var(--text-secondary)',
+            opacity: subiendo ? 0.5 : 1,
+          }}
+        >
+          <span style={{ fontSize: '24px', lineHeight: 1 }}>📷</span>
+          <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+            {subiendo === categoria ? 'Subiendo…' : 'Agregar foto'}
+          </span>
+          <input
+            type="file"
+            accept="image/*"
+            style={{ display: 'none' }}
+            disabled={!!subiendo}
+            onChange={e => onArchivoSeleccionado(e, categoria as 'ANTES' | 'DURANTE' | 'DESPUES')}
+          />
+        </label>
+      </div>
+    </div>
+    );
+  };
+
+  // ── Contratistas: agregar a la OT + persistir en lista global ─────────────
+  const agregarContratista = (nombre: string) => {
+    const trimmed = nombre.trim();
+    if (!trimmed) return;
+    if (!form.contratistas?.includes(trimmed)) {
+      setForm(prev => ({
+        ...prev,
+        contratistas: [...(prev.contratistas ?? []), trimmed],
+      }));
+    }
+    if (!contratistasGlobales.includes(trimmed)) {
+      const nueva = [...contratistasGlobales, trimmed].sort((a, b) => a.localeCompare(b));
+      setContratistasGlobales(nueva);
+      try {
+        localStorage.setItem('plan_ots_contratistas', JSON.stringify(nueva));
+      } catch (e) {
+        console.error('[PanelOT] localStorage contratistas:', e);
+      }
+    }
+    setInputContratista('');
+    setDropdownContratistasOpen(false);
+  };
+
+  const sugerenciasContratistas = contratistasGlobales.filter(c => {
+    if (form.contratistas?.includes(c)) return false;
+    if (!inputContratista.trim()) return true;
+    return c.toLowerCase().includes(inputContratista.trim().toLowerCase());
+  });
+
+  // ── Cambio de estado: comentario obligatorio → validar → persistir ─────────
+  // Flujo completo: pedir comentario, validar fotos, refrescar form local,
+  // guardar el comentario y persistir el cambio de estado a Supabase/Dexie
+  // (sin esperar al "Guardar cambios" del footer — el estado se compromete
+  // ya). Por último, refrescar el historial.
+  const handleCambiarEstado = async (nuevoEstado: EstadoOT) => {
+    console.log('[handleCambiarEstado] llamado con:', nuevoEstado);
+    const estadoAnterior = (form.estado ?? 'Pendiente') as EstadoOT;
+    if (nuevoEstado === estadoAnterior) return;
+
+    // 1. Validar fotos PRIMERO. Si faltan, no abrimos el modal: mandamos al
+    // tab Fotos con un toast informativo — al completar las fotos requeridas,
+    // la auto-transición por foto se encarga de pedir el comentario.
+    const validacion = validarFotosParaEstado(fotosAntes, fotosDurante, fotosDespues, nuevoEstado);
+    if (!validacion.valido) {
+      setTab('fotos');
+      mostrar(
+        `Subí las fotos requeridas para cambiar a "${nuevoEstado}" — el estado se actualizará automáticamente`,
+        'info'
+      );
+      return;
+    }
+
+    // 2. Fotos OK → pedir comentario
+    const comentario = await pedirComentarioEstado(estadoAnterior, nuevoEstado, false);
+    if (comentario === null) return; // usuario canceló — nada cambia
+
+    // 3. Guardar comentario en Supabase
+    await crearComentario({
+      orden_id:        ordenFresca.id,
+      proyecto_id:     ordenFresca.proyecto_id,
+      estado_anterior: estadoAnterior,
+      estado_nuevo:    nuevoEstado,
+      comentario,
+    });
+
+    // 4. Actualizar form local (botón activo + color del marcador) y persistir
+    // el cambio de estado a Supabase/Dexie. Mismo mecanismo que usa la
+    // auto-transición por foto: actualiza sólo `estado` sin tocar el resto del
+    // form (las ediciones pendientes se confirman con Guardar).
+    set('estado', nuevoEstado);
+    await actualizarOrden(ordenFresca.id, { estado: nuevoEstado });
+
+    // 5. Refrescar historial
+    setHistorialRefresh(prev => prev + 1);
+  };
+
+  // Helper para los toggle switches (4 campos Si/No)
+  const toggleRow = (campo: string, label: string) => {
+    const on = !!(form as Record<string, unknown>)[campo];
+    return (
+      <div key={campo} className={styles.toggleRow}>
+        <span className={styles.toggleLabel}>{label}</span>
+        <button
+          className={`${styles.toggleSwitch} ${on ? styles.on : ''}`}
+          onClick={() => set(campo, !on)}
+          type="button"
+        >
+          <span className={styles.toggleThumb} />
+        </button>
+      </div>
+    );
+  };
+
+  // ── Render ─────────────────────────────────────────────────────────────────
+  return (
+    <>
+      <div
+        className={styles.backdrop}
+        onClick={modoForzadoFotos ? undefined : onCerrar}
+      >
+        <div className={styles.panel} onClick={e => e.stopPropagation()}>
+
+          {/* HEADER */}
+          <div className={styles.header}>
+            <div className={styles.headerTitle}>
+              <span style={{ color: colorEstado(estado), fontSize: '1.1em', lineHeight: 1 }}>●</span>
+              {' '}
+              {form.ot || 'Nueva OT'}
+              {(form.rubro || form.descripcion)
+                ? ` — ${form.rubro ?? form.descripcion ?? ''}`
+                : ''}
+            </div>
+            {/* En modo forzado el usuario no puede cerrar libremente: o guarda
+                (con fotos válidas) o cancela ubicación (desubica). */}
+            {!modoForzadoFotos && (
+              <button className={styles.closeBtn} onClick={onCerrar}>✕</button>
+            )}
+          </div>
+
+          {/* TABS NIVEL SUPERIOR — Detalle vs Historial de comentarios */}
+          <div style={{ display:'flex', borderBottom:'1px solid #2E3147', marginBottom:'16px' }}>
+            <button
+              onClick={() => setTabActivo('detalle')}
+              style={{
+                padding:'10px 16px', fontSize:'13px', fontWeight:600,
+                background:'transparent', border:'none', cursor:'pointer',
+                borderBottom: tabActivo==='detalle' ? '2px solid #2462C9' : '2px solid transparent',
+                color: tabActivo==='detalle' ? '#E2E8F0' : '#64748B'
+              }}>
+              Detalle
+            </button>
+            <button
+              onClick={() => setTabActivo('historial')}
+              style={{
+                padding:'10px 16px', fontSize:'13px', fontWeight:600,
+                background:'transparent', border:'none', cursor:'pointer',
+                borderBottom: tabActivo==='historial' ? '2px solid #2462C9' : '2px solid transparent',
+                color: tabActivo==='historial' ? '#E2E8F0' : '#64748B'
+              }}>
+              Historial
+            </button>
+          </div>
+
+          {tabActivo === 'detalle' && (<>
+
+          {/* TABS */}
+          <div className={styles.tabs}>
+            {(['datos', 'fotos', 'informes', 'campos'] as const).map(t => (
+              <button
+                key={t}
+                className={`${styles.tab} ${tab === t ? styles.active : ''}`}
+                onClick={() => setTab(t)}
+              >
+                {t === 'datos'    ? 'Datos'
+                 : t === 'fotos'   ? 'Fotos'
+                 : t === 'informes' ? 'Informes'
+                 : 'Campos'}
+              </button>
+            ))}
+          </div>
+
+          {/* BODY */}
+          <div className={styles.body}>
+
+            {/* ── TAB DATOS ── */}
+            {tab === 'datos' && <>
+
+              {/* IDENTIFICACIÓN */}
+              <div className={styles.section}>
+                <div className={styles.sectionTitle}>Identificación</div>
+
+                <div className={styles.field}>
+                  <label className={styles.label}>Código OT</label>
+                  <input
+                    className={styles.input}
+                    value={form.ot ?? ''}
+                    onChange={e => set('ot', e.target.value)}
+                  />
+                </div>
+
+                <div className={styles.field}>
+                  <label className={styles.label}>Fecha de ingreso</label>
+                  <input
+                    className={styles.input}
+                    type="date"
+                    value={toDateInput(form.fecha_ingreso)}
+                    onChange={e => set('fecha_ingreso', e.target.value)}
+                  />
+                </div>
+
+                <div className={styles.field}>
+                  <label className={styles.label}>Obra</label>
+                  <input
+                    className={styles.input}
+                    value={form.obra ?? ''}
+                    onChange={e => set('obra', e.target.value)}
+                    placeholder="Nombre de la obra"
+                  />
+                </div>
+
+                <div className={styles.field}>
+                  <label className={styles.label}>Unidad / Amenities</label>
+                  <input
+                    className={styles.input}
+                    value={form.unidad_amenities ?? ''}
+                    onChange={e => set('unidad_amenities', e.target.value)}
+                    placeholder="ej: Dpto 401 / Gym"
+                  />
+                </div>
+
+                <div className={styles.field}>
+                  <label className={styles.label}>Descripción del reclamo</label>
+                  <textarea
+                    className={styles.textarea}
+                    rows={3}
+                    placeholder="Descripción del problema según el cliente..."
+                    value={form.descripcion ?? ''}
+                    onChange={e => set('descripcion', e.target.value)}
+                  />
+                </div>
+
+                <div className={styles.field}>
+                  <label className={styles.label}>Creado por</label>
+                  <input className={styles.input} readOnly value={creadoPor} />
+                </div>
+
+                <div className={styles.field}>
+                  <label className={styles.label}>Días abierto</label>
+                  <input
+                    className={styles.input}
+                    readOnly
+                    value={`${diasAb} ${diasAb === 1 ? 'día' : 'días'}`}
+                  />
+                </div>
+              </div>
+
+              {/* CLASIFICACIÓN */}
+              <div className={styles.section}>
+                <div className={styles.sectionTitle}>Clasificación</div>
+
+                <div className={styles.field}>
+                  <label className={styles.label}>Estado</label>
+                  <div className={styles.estadoBtns}>
+                    {(['Pendiente', 'En proceso', 'Cerrada', 'No aplica'] as const).map(e => (
+                      <button
+                        key={e}
+                        className={`${styles.estadoBtn} ${estado === e ? styles.active : ''}`}
+                        style={estado === e ? { color: colorEstado(e), borderColor: colorEstado(e) } : {}}
+                        onClick={() => handleCambiarEstado(e)}
+                      >
+                        {e}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className={styles.field}>
+                  <label className={styles.label}>Rubro Principal</label>
+                  <select
+                    className={styles.select}
+                    value={form.rubro ?? ''}
+                    onChange={e => set('rubro', e.target.value)}
+                  >
+                    <option value="">— Seleccionar —</option>
+                    {[...RUBROS_LISTA, 'Otro'].map(r => (
+                      <option key={r} value={r}>{emojiRubro(r)} {r}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className={styles.field}>
+                  <label className={styles.label}>Rubro Secundario</label>
+                  <div className={styles.chipsWrap}>
+                    {RUBROS_LISTA
+                      .filter(r => r !== form.rubro)
+                      .map(r => {
+                        const sel = (form.rubro_secundario ?? []).includes(r);
+                        return (
+                          <span
+                            key={r}
+                            className={`${styles.chip} ${sel ? styles.selected : ''}`}
+                            onClick={() => {
+                              const arr = form.rubro_secundario ?? [];
+                              set('rubro_secundario', sel
+                                ? arr.filter(x => x !== r)
+                                : [...arr, r]);
+                            }}
+                          >
+                            {r}
+                          </span>
+                        );
+                      })}
+                  </div>
+                </div>
+
+                <div className={styles.field}>
+                  <label className={styles.label}>Nivel de Riesgo</label>
+                  <select
+                    className={styles.select}
+                    value={form.nivel_riesgo ?? ''}
+                    onChange={e => set('nivel_riesgo', (e.target.value || null) as NivelRiesgo | null)}
+                  >
+                    <option value="">— Seleccionar —</option>
+                    <option value="Bajo">🟢 Bajo</option>
+                    <option value="Medio">🟡 Medio</option>
+                    <option value="Alto">🟠 Alto</option>
+                    <option value="Extremo">🔴 Extremo</option>
+                  </select>
+                </div>
+
+                <div className={styles.field}>
+                  <label className={styles.label}>Prioridad</label>
+                  <div className={styles.estadoBtns} style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
+                    {(['Alta', 'Media', 'Baja'] as const).map(p => {
+                      const on = form.prioridad === p;
+                      return (
+                        <button
+                          key={p}
+                          className={`${styles.estadoBtn} ${on ? styles.active : ''}`}
+                          style={on ? { color: COLOR_PRIORIDAD[p], borderColor: COLOR_PRIORIDAD[p] } : {}}
+                          onClick={() => set('prioridad', p)}
+                        >
+                          {p}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {toggleRow('reincidencia',               'Reincidencia')}
+                {toggleRow('en_garantia',                'En Garantía')}
+                {toggleRow('potencialmente_conflictivo', 'Potencialmente Conflictivo')}
+                {toggleRow('asiste_facility',            'Asiste Facility Services')}
+              </div>
+
+              {/* EJECUCIÓN */}
+              <div className={styles.section}>
+                <div className={styles.sectionTitle}>Ejecución</div>
+
+                <div className={styles.field}>
+                  <label className={styles.label}>Supervisor / Responsable</label>
+                  <input
+                    className={styles.input}
+                    value={form.responsable ?? ''}
+                    onChange={e => set('responsable', e.target.value)}
+                  />
+                </div>
+
+                <div className={styles.field}>
+                  <label className={styles.label}>Contratista(s)</label>
+
+                  {(form.contratistas ?? []).length > 0 && (
+                    <div className={styles.chipsWrap} style={{ marginBottom: 8 }}>
+                      {(form.contratistas ?? []).map(c => (
+                        <span key={c} className={styles.chip}>
+                          {c}
+                          <span
+                            className={styles.chipRemove}
+                            onClick={() => set('contratistas', (form.contratistas ?? []).filter(x => x !== c))}
+                            title="Quitar de esta OT"
+                          >×</span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className={styles.contratistaInputWrap}>
+                    <input
+                      className={styles.input}
+                      value={inputContratista}
+                      placeholder="Escribir nombre del contratista..."
+                      onChange={e => setInputContratista(e.target.value)}
+                      onFocus={() => setDropdownContratistasOpen(true)}
+                      onBlur={() => setTimeout(() => setDropdownContratistasOpen(false), 150)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' && inputContratista.trim()) {
+                          e.preventDefault();
+                          agregarContratista(inputContratista);
+                        }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className={styles.contratistaAddBtn}
+                      onClick={() => agregarContratista(inputContratista)}
+                      disabled={!inputContratista.trim()}
+                    >
+                      Agregar
+                    </button>
+
+                    {dropdownContratistasOpen && sugerenciasContratistas.length > 0 && (
+                      <div className={styles.contratistaDropdown}>
+                        {sugerenciasContratistas.map(c => (
+                          <button
+                            key={c}
+                            type="button"
+                            className={styles.contratistaDropdownItem}
+                            onMouseDown={e => {
+                              e.preventDefault();
+                              agregarContratista(c);
+                            }}
+                          >
+                            {c}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className={styles.field}>
+                  <label className={styles.label}>Fecha inicio trabajos</label>
+                  <input
+                    className={styles.input}
+                    type="date"
+                    value={toDateInput(form.fecha_inicio_trabajos)}
+                    onChange={e => set('fecha_inicio_trabajos', e.target.value)}
+                  />
+                </div>
+
+                <div className={styles.field}>
+                  <label className={styles.label}>Fecha fin trabajos</label>
+                  <input
+                    className={styles.input}
+                    type="date"
+                    value={toDateInput(form.fecha_fin_trabajos)}
+                    onChange={e => set('fecha_fin_trabajos', e.target.value)}
+                  />
+                </div>
+
+                <div className={styles.field}>
+                  <label className={styles.label}>% Avance</label>
+                  <div className={styles.sliderWrap}>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      className={styles.slider}
+                      value={form.porcentaje_avance ?? 0}
+                      onChange={e => set('porcentaje_avance', +e.target.value)}
+                      style={{ accentColor: '#2563EB' }}
+                    />
+                    <span className={styles.sliderValue}>{form.porcentaje_avance ?? 0}%</span>
+                  </div>
+                  <div style={{ background: '#E5E7EB', borderRadius: 4, height: 8, marginTop: 4 }}>
+                    <div style={{
+                      width: `${form.porcentaje_avance ?? 0}%`,
+                      background: '#3B82F6',
+                      height: '100%',
+                      borderRadius: 4,
+                      transition: 'width 0.2s',
+                    }} />
+                  </div>
+                </div>
+
+                <div className={styles.field}>
+                  <label className={styles.label}>Costo (Gs.)</label>
+                  <input
+                    className={styles.input}
+                    value={form.costo != null && form.costo > 0
+                      ? form.costo.toLocaleString('es-PY')
+                      : ''}
+                    onChange={e => set('costo', parsearGuaranies(e.target.value))}
+                    placeholder="0"
+                  />
+                </div>
+
+                <div className={styles.field}>
+                  <label className={styles.label}>Observaciones del técnico</label>
+                  <textarea
+                    className={styles.textarea}
+                    rows={4}
+                    placeholder="Notas y observaciones del técnico..."
+                    value={form.comentarios ?? ''}
+                    onChange={e => set('comentarios', e.target.value)}
+                  />
+                </div>
+              </div>
+
+              {/* Posición */}
+              {form.pos_x != null && form.pos_y != null && (
+                <div className={styles.posicion}>
+                  📍 Posición: {((form.pos_x ?? 0) * 100).toFixed(1)}% · {((form.pos_y ?? 0) * 100).toFixed(1)}%
+                </div>
+              )}
+            </>}
+
+            {/* ── TAB FOTOS ── (lógica subir/eliminar/visor preservada) */}
+            {tab === 'fotos' && (
+              <div className={styles.section}>
+                {errorFotos && <div className={styles.errorBox}>{errorFotos}</div>}
+                {bloqueFotos('ANTES',   0,                                       'ANTES',   validacion.antesRequerida,   validacion.antesOk,   fotosAntes)}
+                {bloqueFotos('DURANTE', fotosAntes.length,                       'DURANTE', validacion.duranteRequerida, validacion.duranteOk, fotosDurante)}
+                {bloqueFotos('DESPUES', fotosAntes.length + fotosDurante.length, 'DESPUÉS', validacion.despuesRequerida, validacion.despuesOk, fotosDespues)}
+              </div>
+            )}
+
+            {/* ── TAB INFORMES ── (cards conectadas a reportService) */}
+            {tab === 'informes' && (
+              <div className={styles.section}>
+                <p style={{ fontSize: '12px', color: '#94A3B8', marginBottom: '16px' }}>
+                  Los informes se generan con los datos y fotos de esta OT.
+                  Podés imprimir o guardar como PDF desde la nueva pestaña.
+                </p>
+
+                {INFORMES_CONFIG.map(({ tipo, icono, nombre, codigo, subtitulo }) => {
+                  const disponible = informeDisponible(tipo, estado);
+                  return (
+                    <div key={tipo} className={styles.informeCard}>
+                      <div className={styles.informeHeader}>
+                        <span className={styles.informeIcono}>{icono}</span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div className={styles.informeNombre}>
+                            {nombre}
+                            {codigo && <span className={styles.informeCodigo}>{codigo}</span>}
+                          </div>
+                          <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 2 }}>{subtitulo}</div>
+                        </div>
+                        <span className={`${styles.informeEstado} ${disponible ? styles.informeOk : styles.informeNo}`}>
+                          {disponible ? 'Disponible' : 'No disponible'}
+                        </span>
+                      </div>
+                      <button
+                        className={styles.btnGenerar}
+                        onClick={() => {
+                          // Mapear el tipo de INFORMES_CONFIG (reportService) al
+                          // TipoInforme que espera ModalInformeOT.
+                          const tipoModal: TipoInformeModal =
+                            tipo === 'ficha_visita'     ? 'ficha'
+                            : tipo === 'acta_conformidad' ? 'acta'
+                            : tipo; // 'cierre' | 'relevamiento' | 'avance' coinciden
+                          setTipoInforme(tipoModal);
+                          setModalCierre(true);
+                        }}
+                        disabled={!disponible}
+                        type="button"
+                      >
+                        🖨️ Generar
+                      </button>
+                    </div>
+                  );
+                })}
+
+                <p className={styles.informeNota}>
+                  Si el navegador bloquea la ventana, habilitá los popups para este sitio.
+                </p>
+              </div>
+            )}
+
+            {/* ── TAB CAMPOS ── (CampoRenderer + GestorCampos, tema claro) */}
+            {tab === 'campos' && (
+              <div className={`${styles.section} ${styles.camposWrap}`}>
+                <button
+                  className={styles.gestorBtn}
+                  onClick={() => setMostrarGestor(true)}
+                  title="Definir / editar campos personalizados del proyecto"
+                >
+                  ⚙️ Gestionar campos
+                </button>
+                {camposDefinicion.length === 0 ? (
+                  <div className={styles.posicion}>
+                    No hay campos personalizados definidos para este proyecto.
+                  </div>
+                ) : (
+                  camposDefinicion.map(c => (
+                    <CampoRenderer
+                      key={c.id}
+                      campo={c}
+                      valor={getValorCampo(c.id)}
+                      onChange={val => setValorCampo(c.id, val)}
+                      ordenId={ordenFresca.id}
+                      proyectoId={ordenFresca.proyecto_id}
+                    />
+                  ))
+                )}
+              </div>
+            )}
+
+          </div>
+
+          </>)}
+
+          {tabActivo === 'historial' && (
+            <HistorialComentarios
+              ordenId={ordenFresca.id}
+              proyectoId={ordenFresca.proyecto_id}
+              refreshTrigger={historialRefresh}
+            />
+          )}
+
+          {/* FOOTER */}
+          <div className={styles.footer}>
+            {modoForzadoFotos ? (
+              <button
+                className={styles.cancelUbicacionBtn}
+                onClick={handleCancelarUbicacion}
+                disabled={guardando}
+                type="button"
+              >
+                Cancelar ubicación
+              </button>
+            ) : (
+              <button
+                className={styles.deleteBtn}
+                onClick={handleEliminar}
+              >
+                {confirmEliminar ? '¿Confirmar?' : 'Eliminar'}
+              </button>
+            )}
+            <button
+              className={styles.saveBtn}
+              onClick={handleGuardar}
+              disabled={guardando || (modoForzadoFotos && !validacion.valido)}
+            >
+              {guardando ? 'Guardando...' : 'Guardar cambios'}
+            </button>
+          </div>
+
+          {/* Modal GestorCampos (fuera del flujo del tab, encima del panel) */}
+          {mostrarGestor && (
+            <GestorCampos
+              proyectoId={ordenFresca.proyecto_id}
+              onClose={() => {
+                setMostrarGestor(false);
+                getCamposDeProyecto(ordenFresca.proyecto_id).then(setCamposDefinicion);
+              }}
+            />
+          )}
+        </div>
+      </div>
+
+      {/* Visor de fotos con anotaciones — fuera del backdrop para que se vea
+          encima de todo el árbol del Panel. */}
+      {visorAbierto && (
+        <VisorFotos
+          fotos={visorFotos}
+          initialIndex={visorIndex}
+          ordenId={ordenFresca.id}
+          proyectoId={ordenFresca.proyecto_id}
+          onClose={() => setVisorAbierto(false)}
+          onFotoGuardada={() => {
+            cargarFotosDeOrden(ordenFresca.id).then(fotos => {
+              setFotosAntes(  fotos.filter(f => f.categoria === 'ANTES'));
+              setFotosDurante(fotos.filter(f => f.categoria === 'DURANTE'));
+              setFotosDespues(fotos.filter(f => f.categoria === 'DESPUES'));
+            });
+          }}
+        />
+      )}
+
+      {/* Toast — feedback de validación de fotos al cambiar estado / guardar */}
+      {ToastComponent}
+
+      {/* Modal de comentario obligatorio al cambiar de estado (manual o auto-foto) */}
+      <ModalComentarioEstado
+        isOpen={modalComentario.abierto}
+        estadoAnterior={modalComentario.estadoAnterior}
+        estadoNuevo={modalComentario.estadoNuevo}
+        esPorFoto={modalComentario.esPorFoto}
+        onConfirmar={modalComentario.onConfirmar ?? (() => {})}
+        onCancelar={modalComentario.onCancelar ?? (() => {})}
+      />
+
+      {/* Pantalla previa al upload: preview de la foto recién seleccionada +
+          captura de descripción. Al confirmar dispara procesarSubidaFoto. */}
+      {pendingFile && (
+        <ModalFotoDetalle
+          file={pendingFile}
+          categoria={pendingCategoria}
+          onGuardar={handleConfirmarFoto}
+          onCancelar={handleCancelarFoto}
+          onEditarImagen={() => {
+            // TODO: integrar con VisorFotos existente para anotar la imagen
+            // antes del upload. Por ahora, solo se aceptan ediciones post-subida.
+          }}
+        />
+      )}
+
+      {/* Edición de descripción para fotos ya subidas. */}
+      {editandoFoto && (
+        <ModalFotoDetalle
+          modo="edicion"
+          fotoUrl={editandoFoto.url}
+          descripcionInicial={editandoFoto.descripcion}
+          categoria={editandoFoto.categoria}
+          onGuardar={async (desc) => {
+            console.log('[Editar foto] id:', editandoFoto?.id, 'desc:', desc);
+
+            const { data, error } = await supabase
+              .from('fotos')
+              .update({ descripcion: desc })
+              .eq('id', editandoFoto!.id)
+              .select();
+
+            console.log('[Editar foto] resultado Supabase:', { data, error });
+
+            if (error) {
+              console.error('[Editar foto] ERROR:', error.message, error.details, error.hint);
+            } else {
+              const actualizar = (arr: any[]) =>
+                arr.map(f => f.id === editandoFoto!.id ? { ...f, descripcion: desc } : f);
+              setFotosAntes(actualizar(fotosAntes));
+              setFotosDurante(actualizar(fotosDurante));
+              setFotosDespues(actualizar(fotosDespues));
+            }
+            setEditandoFoto(null);
+          }}
+          onCancelar={() => setEditandoFoto(null)}
+          onEditarImagen={() => { /* no aplica en modo edicion */ }}
+        />
+      )}
+
+      {/* Modal de Informe de Cierre — preview + export del informe formal */}
+      {modalCierre && (
+        <ModalInformeOT
+          isOpen={modalCierre}
+          onClose={() => setModalCierre(false)}
+          orden={ordenFresca}
+          proyectoNombre={proyectoActivo?.nombre ?? ''}
+          tipo={tipoInforme}
+        />
+      )}
+    </>
+  );
+}

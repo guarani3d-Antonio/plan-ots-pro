@@ -1,0 +1,26 @@
+/* ─── App.module.css ───────────────────────────────────────────────────────── */
+
+@keyframes viewFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Wrapper que envuelve CADA vista. Cuando cambia la key React remonta este
+   elemento y la animación se dispara desde el principio → sin flash. */
+.viewWrapper {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  animation: viewFadeIn 160ms ease-out forwards;
+}
+
+/* Variante rápida para transiciones entre plano ↔ grilla (mismo proyecto)
+   — levemente más rápida que selector → proyecto para sentirse "in-app" */
+.viewWrapperFast {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  animation: viewFadeIn 100ms ease-out forwards;
+}

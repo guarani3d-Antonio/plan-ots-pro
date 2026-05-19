@@ -1,0 +1,359 @@
+/* ── Backdrop + Modal ────────────────────────────────────────────────── */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10001;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal {
+  width: 95vw;
+  height: 92vh;
+  background: #1A1D27;
+  border: 1px solid #2E3147;
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  color: #E2E8F0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+/* ── Header ──────────────────────────────────────────────────────────── */
+.header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 24px;
+  border-bottom: 1px solid #2E3147;
+  background: #14171F;
+}
+
+.title {
+  font-size: 15px;
+  font-weight: 600;
+  margin-right: 4px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #1F2330;
+  border: 1px solid #2E3147;
+  color: #CBD5E1;
+  letter-spacing: 0.02em;
+}
+
+.badgeOT {
+  background: #1E293B;
+  color: #93C5FD;
+  border-color: #1D4ED8;
+}
+
+.badgeEstadoDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  display: inline-block;
+}
+
+.closeBtn {
+  margin-left: auto;
+  background: transparent;
+  border: 1px solid #2E3147;
+  color: #94A3B8;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.closeBtn:hover {
+  background: #1F2330;
+  color: #E2E8F0;
+}
+
+/* ── Body ────────────────────────────────────────────────────────────── */
+.body {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* ── Panel izquierdo ─────────────────────────────────────────────────── */
+.left {
+  width: 360px;
+  min-width: 360px;
+  background: #0F1117;
+  border-right: 1px solid #2E3147;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+.section {
+  margin-bottom: 22px;
+}
+
+.sectionTitle {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #64748B;
+  margin-bottom: 10px;
+}
+
+.dataGrid {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  row-gap: 6px;
+  column-gap: 10px;
+  font-size: 12.5px;
+}
+
+.dataKey {
+  color: #64748B;
+}
+
+.dataVal {
+  color: #E2E8F0;
+  word-break: break-word;
+}
+
+.label {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #CBD5E1;
+  margin-bottom: 4px;
+}
+
+.sublabel {
+  font-size: 11px;
+  color: #64748B;
+  margin-bottom: 8px;
+  line-height: 1.4;
+}
+
+.textarea {
+  width: 100%;
+  background: #14171F;
+  border: 1px solid #2E3147;
+  border-radius: 8px;
+  color: #E2E8F0;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-family: inherit;
+  resize: vertical;
+  outline: none;
+  line-height: 1.5;
+}
+.textarea:focus {
+  border-color: #3B82F6;
+}
+
+.contador {
+  font-size: 10.5px;
+  color: #64748B;
+  margin-top: 4px;
+  text-align: right;
+}
+
+.skeletonLineas {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.skeletonLinea {
+  height: 12px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #1F2330 0%, #2A2F40 50%, #1F2330 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.2s infinite linear;
+}
+.skeletonLinea:nth-child(2) { width: 90%; }
+.skeletonLinea:nth-child(3) { width: 70%; }
+
+@keyframes shimmer {
+  0%   { background-position:  100% 0; }
+  100% { background-position: -100% 0; }
+}
+
+.checkboxRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.checkboxRow input[type="checkbox"] {
+  margin-top: 2px;
+  cursor: pointer;
+  accent-color: #2462C9;
+}
+
+.checkboxText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.checkboxLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: #E2E8F0;
+}
+
+.btnRefresh {
+  width: 100%;
+  margin-top: 12px;
+  background: #1F2330;
+  border: 1px solid #2E3147;
+  color: #CBD5E1;
+  padding: 9px 12px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btnRefresh:hover:not(:disabled) {
+  background: #262B3B;
+  color: #E2E8F0;
+}
+.btnRefresh:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Panel derecho (preview) ─────────────────────────────────────────── */
+.right {
+  flex: 1;
+  background: #F0F2F5;
+  position: relative;
+  overflow: hidden;
+}
+
+.iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+  background: #FFFFFF;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 17, 23, 0.55);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: #E2E8F0;
+  font-size: 13px;
+  font-weight: 600;
+  z-index: 2;
+}
+
+.spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-top-color: #FFFFFF;
+  border-radius: 999px;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.emptyState {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748B;
+  font-size: 13px;
+  text-align: center;
+  padding: 24px;
+}
+
+/* ── Footer ──────────────────────────────────────────────────────────── */
+.footer {
+  padding: 14px 20px;
+  border-top: 1px solid #2E3147;
+  background: #0F1117;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.btnCancelar,
+.btnSecondary,
+.btnPrimary {
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 9px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+
+.btnCancelar {
+  background: transparent;
+  color: #94A3B8;
+  border-color: #2E3147;
+}
+.btnCancelar:hover {
+  background: #1F2330;
+  color: #E2E8F0;
+}
+
+.btnSecondary {
+  background: #1F2330;
+  color: #CBD5E1;
+  border-color: #2E3147;
+}
+.btnSecondary:hover:not(:disabled) {
+  background: #262B3B;
+  color: #E2E8F0;
+}
+
+.btnPrimary {
+  background: #2462C9;
+  color: #FFFFFF;
+  border-color: #1D4ED8;
+}
+.btnPrimary:hover:not(:disabled) {
+  background: #1D4ED8;
+}
+
+.btnSecondary:disabled,
+.btnPrimary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

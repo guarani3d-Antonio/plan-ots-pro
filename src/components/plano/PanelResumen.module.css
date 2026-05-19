@@ -1,0 +1,216 @@
+/* PanelResumen.module.css — Sidebar izquierdo: stats + filtros + lista */
+
+.panel {
+  width: 260px;
+  flex-shrink: 0;
+  background: #fff;
+  border-right: 1px solid #E2E6ED;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  font-family: var(--font-sans);
+}
+
+/* ─ Section base ─ */
+.section {
+  border-bottom: 1px solid #F1F5F9;
+  padding: 12px 14px;
+  flex-shrink: 0;
+}
+
+.sectionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.collapsible {
+  width: 100%;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.sectionTitle {
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748B;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+.totalPill {
+  font-size: 11px;
+  font-weight: 700;
+  color: #2462C9;
+  background: #EBF2FF;
+  border-radius: 999px;
+  padding: 2px 9px;
+}
+
+.chevron {
+  font-size: 10px;
+  color: #94A3B8;
+  font-weight: 700;
+}
+
+/* ─ Stats grid ─ */
+.statsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.statCard {
+  background: #F8FAFC;
+  border: 1px solid #E2E6ED;
+  border-radius: 8px;
+  padding: 8px 6px;
+  text-align: center;
+}
+
+.statNum {
+  font-size: 18px;
+  font-weight: 800;
+  color: #1E293B;
+  line-height: 1.1;
+}
+
+.statLabel {
+  font-size: 10px;
+  font-weight: 600;
+  color: #64748B;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-top: 2px;
+}
+
+/* ─ Checkbox rows ─ */
+.checkList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.checkRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 4px;
+  font-size: 12px;
+  color: #1E293B;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.1s;
+  user-select: none;
+}
+.checkRow:hover { background: #F8FAFC; }
+
+.checkbox {
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+  margin: 0;
+  flex-shrink: 0;
+  accent-color: #2462C9;
+}
+
+.checkDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.checkLabel {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 500;
+  color: #1E293B;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.checkCount {
+  font-size: 10px;
+  font-weight: 700;
+  color: #94A3B8;
+  font-family: var(--font-mono);
+}
+
+/* ─ Lista de OTs (scrolleable, ocupa el resto) ─ */
+/* La lista ya NO scrollea por sí sola — el panel entero scrollea verticalmente
+   (overflow-y:auto en .panel). Así estado/rubro/prioridad/lista comparten un
+   único scroll y nunca se cortan. */
+.listaSection {
+  display: flex;
+  flex-direction: column;
+  padding: 12px 14px 0;
+}
+
+.lista {
+  margin: 0 -14px;
+  padding: 4px 0;
+}
+
+.empty {
+  padding: 18px 8px;
+  text-align: center;
+  font-size: 12px;
+  color: #94A3B8;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 14px;
+  cursor: pointer;
+  border-bottom: 1px solid #F8FAFC;
+  transition: background 0.1s;
+  min-width: 0;
+}
+.item:hover { background: #F8FAFC; }
+.itemActivo { background: #EFF4FF !important; }
+.itemActivo .itemCodigo { color: #2462C9; }
+
+.itemDot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 1.5px #fff, 0 0 0 2.5px rgba(0,0,0,0.05);
+}
+
+.itemInfo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.itemCodigo {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  color: #0F172A;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.itemDesc {
+  font-size: 11px;
+  color: #64748B;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

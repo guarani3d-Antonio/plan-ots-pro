@@ -1,0 +1,122 @@
+﻿// src/components/plano/PanelResumen.tsx
+import { useState, useMemo } from 'react';
+import type { OrdenLocal, EstadoOT } from '../../types/orden';
+import styles from './PanelResumen.module.css';
+
+interface PanelResumenProps {
+  ordenes: OrdenLocal[];
+  ordenSeleccionadaId?: string;
+  onSeleccionar: (orden: OrdenLocal) => void;
+}
+
+const COLOR_ESTADO: Record<string, string> = {
+  'Pendiente':   '#4FC3F7',
+  'En progreso': '#CC7A00',
+  'Completada':  '#4CAF50',
+  'Bloqueada':   '#E85C5C',
+};
+
+const ESTADOS: EstadoOT[] = ['Pendiente', 'En progreso', 'Completada', 'Bloqueada'];
+
+export function PanelResumen({ ordenes, ordenSeleccionadaId, onSeleccionar }: PanelResumenProps) {
+  const [abierto, setAbierto]       = useState(true);
+  const [filtro, setFiltro]         = useState<EstadoOT | 'Todos'>('Todos');
+
+  const conteos = useMemo(() => {
+    const c: Record<string, number> = { Todos: ordenes.length };
+    ESTADOS.forEach(e => { c[e] = ordenes.filter(o => o.estado === e).length; });
+    return c;
+  }, [ordenes]);
+
+  const ordenesFiltradas = useMemo(() =>
+    filtro === 'Todos' ? ordenes : ordenes.filter(o => o.estado === filtro),
+    [ordenes, filtro]
+  );
+
+  return (
+    <div className={`${styles.panel} ${abierto ? styles.abierto : styles.cerrado}`}>
+
+      {/* Toggle */}
+      <button
+        className={styles.toggleBtn}
+        onClick={() => setAbierto(a => !a)}
+        title={abierto ? 'Colapsar panel' : 'Expandir panel'}
+      >
+        {abierto ? 'â—€' : 'â–¶'}
+      </button>
+
+      {abierto && (
+        <>
+          {/* Stats */}
+          <div className={styles.stats}>
+            {ESTADOS.map(est => (
+              <div key={est} className={styles.statItem}>
+                <span
+                  className={styles.statDot}
+                  style={{ backgroundColor: COLOR_ESTADO[est] }}
+                />
+                <span className={styles.statNum}>{conteos[est] ?? 0}</span>
+                <span className={styles.statLabel}>{est.split(' ')[0]}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Filtros */}
+          <div className={styles.filtros}>
+            <button
+              className={`${styles.filtroBtn} ${filtro === 'Todos' ? styles.filtroBtnActivo : ''}`}
+              onClick={() => setFiltro('Todos')}
+            >
+              Todos ({conteos.Todos})
+            </button>
+            {ESTADOS.map(est => conteos[est] > 0 && (
+              <button
+                key={est}
+                className={`${styles.filtroBtn} ${filtro === est ? styles.filtroBtnActivo : ''}`}
+                style={filtro === est ? { borderColor: COLOR_ESTADO[est], color: COLOR_ESTADO[est] } : {}}
+                onClick={() => setFiltro(est)}
+              >
+                {est.split(' ')[0]} ({conteos[est]})
+              </button>
+            ))}
+          </div>
+
+          {/* Lista de OTs */}
+          <div className={styles.lista}>
+            {ordenesFiltradas.length === 0 ? (
+              <div className={styles.vacio}>Sin OTs</div>
+            ) : (
+              ordenesFiltradas.map(orden => (
+                <div
+                  key={orden.id}
+                  className={`${styles.item} ${ordenSeleccionadaId === orden.id ? styles.itemActivo : ''}`}
+                  onClick={() => onSeleccionar(orden)}
+                >
+                  <span
+                    className={styles.itemDot}
+                    style={{ backgroundColor: COLOR_ESTADO[orden.estado] }}
+                  />
+                  <div className={styles.itemInfo}>
+                    <span className={styles.itemCodigo}>{orden.ot}</span>
+                    {orden.descripcion && (
+                      <span className={styles.itemDesc}>{orden.descripcion}</span>
+                    )}
+                    {orden._temp && (
+                      <span className={styles.itemTemp}>Sin completar</span>
+                    )}
+                  </div>
+                  <span
+                    className={styles.itemEstado}
+                    style={{ color: COLOR_ESTADO[orden.estado] }}
+                  >
+                    {orden.estado.charAt(0)}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}

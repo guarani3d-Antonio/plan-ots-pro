@@ -1,0 +1,260 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1100;
+}
+
+.modal {
+  background: var(--color-surface, #1e1e2e);
+  border: 1px solid var(--color-border, #333);
+  border-radius: 12px;
+  width: 560px;
+  max-width: 95vw;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--color-border, #333);
+}
+
+.header h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text, #fff);
+}
+
+.btnCerrar {
+  background: none;
+  border: none;
+  color: var(--color-text-muted, #888);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+.btnCerrar:hover { background: var(--color-hover, #2a2a3e); }
+
+.body {
+  padding: 16px 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.placeholder {
+  color: var(--color-text-muted, #888);
+  font-size: 14px;
+  text-align: center;
+  padding: 24px 0;
+}
+
+/* Lista */
+.lista {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 12px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.item {
+  background: var(--color-surface2, #252535);
+  border: 1px solid var(--color-border, #333);
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: grab;
+}
+
+.item.dragging {
+  opacity: 0.5;
+  border-color: var(--color-primary, #7c6af7);
+}
+
+.itemContent {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+}
+
+.dragHandle {
+  color: var(--color-text-muted, #888);
+  font-size: 16px;
+  cursor: grab;
+  user-select: none;
+}
+
+.tipoIcon { font-size: 16px; }
+
+.itemNombre {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text, #fff);
+}
+
+.itemTipo {
+  font-size: 12px;
+  color: var(--color-text-muted, #888);
+}
+
+.badge {
+  font-size: 11px;
+  background: var(--color-primary-dim, #3d3468);
+  color: var(--color-primary, #a89cf7);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.itemAcciones {
+  display: flex;
+  gap: 4px;
+}
+.itemAcciones button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  opacity: 0.6;
+}
+.itemAcciones button:hover { opacity: 1; background: var(--color-hover, #2a2a3e); }
+
+/* Confirm delete */
+.confirmDelete {
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--color-text, #fff);
+}
+.confirmDelete div { display: flex; gap: 8px; }
+
+/* Formulario */
+.formPanel {
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.formRow {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.formRow label {
+  font-size: 12px;
+  color: var(--color-text-muted, #888);
+  font-weight: 500;
+}
+
+.formRow input,
+.formRow select {
+  background: var(--color-input, #111120);
+  border: 1px solid var(--color-border, #333);
+  border-radius: 6px;
+  color: var(--color-text, #fff);
+  font-size: 14px;
+  padding: 8px 10px;
+  outline: none;
+}
+.formRow input:focus,
+.formRow select:focus {
+  border-color: var(--color-primary, #7c6af7);
+}
+
+.formRowCheck {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--color-text, #fff);
+}
+
+.tipoLock {
+  font-size: 11px;
+  color: var(--color-text-muted, #888);
+  margin-top: 2px;
+}
+
+.errorMsg {
+  font-size: 13px;
+  color: #f87171;
+  margin: 0;
+}
+
+.formActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* Botones */
+.btnPrimario {
+  background: var(--color-primary, #7c6af7);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btnPrimario:disabled { opacity: 0.5; cursor: not-allowed; }
+.btnPrimario:hover:not(:disabled) { background: var(--color-primary-hover, #6a58e0); }
+
+.btnSecundario {
+  background: transparent;
+  color: var(--color-text-muted, #888);
+  border: 1px solid var(--color-border, #444);
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.btnSecundario:hover { background: var(--color-hover, #2a2a3e); }
+
+.btnDanger {
+  background: #ef4444;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.btnDanger:hover { background: #dc2626; }
+
+.btnAgregar {
+  width: 100%;
+  padding: 10px;
+  background: transparent;
+  border: 1px dashed var(--color-border, #444);
+  border-radius: 8px;
+  color: var(--color-text-muted, #888);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btnAgregar:hover {
+  border-color: var(--color-primary, #7c6af7);
+  color: var(--color-primary, #7c6af7);
+  background: var(--color-primary-dim, #1e1a3a);
+}

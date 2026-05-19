@@ -1,0 +1,343 @@
+﻿// src/stores/ordenesStore.ts
+import { create } from 'zustand';
+import { v4 as uuidv4 } from 'uuid';
+import { supabase } from '../db/supabase';
+import { useAuthStore } from './authStore';
+import { db } from '../db/dexie';
+import type { OrdenLocal, EstadoOT, PrioridadOT } from '../types/orden';
+
+// â”€â”€â”€ Mapper: fila Supabase â†’ OrdenLocal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+function rowToOrden(row: Record<string, unknown>): OrdenLocal {
+  return {
+    id:            row.id as string,
+    proyecto_id:   row.proyecto_id as string,
+    ot:            row.ot as string,
+    ubicacion: (row.ubicacion as string) ?? '',
+    descripcion:   (row.comentarios as string) ?? '',  // comentarios â†’ descripcion
+    estado:        (row.estado as EstadoOT) ?? 'Pendiente',
+    prioridad:     (row.prioridad as PrioridadOT) ?? 'Media',
+    responsable:   (row.responsable as string) ?? '',
+    rubro:         (row.rubro as string) ?? '',
+    pos_x:         (row.pos_x as number) ?? 0,
+    pos_y:         (row.pos_y as number) ?? 0,
+    plano_ref_url: (row.plano_ref_url as string) ?? '',
+    campos:        (row.campos as Record<string, unknown>) ?? {},
+    conflict_flag: (row.conflict_flag as boolean) ?? false,
+    created_at:    row.created_at as string,
+    updated_at:    row.updated_at as string,
+    _synced:       true,
+    _last_fetched: Date.now(),
+  };
+}
+
+// â”€â”€â”€ Mapper: OrdenLocal â†’ payload para Supabase â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+function ordenToRow(o: OrdenLocal) {
+  return {
+    id:            o.id,
+    proyecto_id:   o.proyecto_id,
+    ot:            o.ot,
+    ubicacion:     o.ubicacion ?? '',
+    comentarios:   o.descripcion,   // descripcion â†’ comentarios
+    estado:        o.estado,
+    prioridad:     o.prioridad,
+    responsable:   o.responsable,
+    rubro:         o.rubro,
+    pos_x:         o.pos_x,
+    pos_y:         o.pos_y,
+    plano_ref_url: o.plano_ref_url,
+    campos:        o.campos,
+    conflict_flag: o.conflict_flag,
+    created_by:    o.created_by  ?? null,   // â† NUEVO
+    updated_by:    o.updated_by  ?? null,   // â† NUEVO
+  };
+}
+
+// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+function isOnline(): boolean {
+  return navigator.onLine;
+}
+
+/** Genera el siguiente cÃ³digo correlativo: OT-001, OT-002... */
+function nextCodigoOT(ordenes: OrdenLocal[]): string {
+  const nums = ordenes
+    .map(o => parseInt(o.ot.replace('OT-', ''), 10))
+    .filter(n => !isNaN(n));
+  const max = nums.length > 0 ? Math.max(...nums) : 0;
+  return `OT-${String(max + 1).padStart(3, '0')}`;
+}
+
+/** Encola un UPDATE en syncQueue (id auto-numÃ©rico de Dexie, no pasamos id) */
+async function encolarUpdate(
+  ordenId: string,
+  campos: Partial<OrdenLocal>
+): Promise<void> {
+  await db.syncQueue.add({
+    tipo:       'UPDATE_OT',
+    payload:    { id: ordenId, campos },
+    created_at: new Date().toISOString(),
+    intentos:   0,
+  });
+}
+
+// â”€â”€â”€ Tipos del store â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+interface OrdenesState {
+  ordenes:           OrdenLocal[];
+  ordenSeleccionada: string | null;
+  cargando:          boolean;
+  error:             string | null;
+
+  cargarOrdenes:        (proyectoId: string) => Promise<void>;
+  crearOrdenEnPosicion: (proyectoId: string, posX: number, posY: number) => Promise<OrdenLocal>;
+  moverOrden:           (id: string, posX: number, posY: number) => Promise<void>;
+  actualizarOrden:      (id: string, cambios: Partial<OrdenLocal>) => Promise<void>;
+  eliminarOrden:        (id: string) => Promise<void>;
+  seleccionar:             (id: string | null) => void;
+  limpiar:                 () => void;
+  crearOrdenDesdeImport:   (datos: Omit<OrdenLocal, 'id' | '_synced' | '_temp' | '_last_fetched'>) => Promise<void>;
+}
+
+// â”€â”€â”€ Store â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+export const useOrdenesStore = create<OrdenesState>((set, get) => ({
+  ordenes:           [],
+  ordenSeleccionada: null,
+  cargando:          false,
+  error:             null,
+
+  // â”€â”€ CARGAR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  cargarOrdenes: async (proyectoId) => {
+    set({ cargando: true, error: null });
+    try {
+      if (isOnline()) {
+        const { data, error } = await supabase
+          .from('ordenes')
+          .select('*')
+          .eq('proyecto_id', proyectoId)
+          .order('ot', { ascending: true });
+
+        if (error) throw error;
+
+        const ordenes = (data ?? []).map(rowToOrden);
+
+        // Actualizar cachÃ© Dexie
+        await db.transaction('rw', db.ordenes, async () => {
+          await db.ordenes.where('proyecto_id').equals(proyectoId).delete();
+          if (ordenes.length > 0) await db.ordenes.bulkPut(ordenes);
+        });
+
+        set({ ordenes, cargando: false });
+
+      } else {
+        // Offline: leer desde Dexie
+        const ordenes = await db.ordenes
+          .where('proyecto_id')
+          .equals(proyectoId)
+          .sortBy('ot');
+        set({ ordenes, cargando: false });
+      }
+    } catch (err) {
+      console.error('[ordenesStore] cargarOrdenes:', err);
+      // Fallback a Dexie si Supabase falla
+      try {
+        const ordenes = await db.ordenes
+          .where('proyecto_id')
+          .equals(proyectoId)
+          .sortBy('ot');
+        set({ ordenes, cargando: false, error: 'Modo offline â€” mostrando datos locales' });
+      } catch {
+        set({ cargando: false, error: 'Error al cargar Ã³rdenes' });
+      }
+    }
+  },
+
+  // â”€â”€ CREAR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  crearOrdenEnPosicion: async (proyectoId, posX, posY) => {
+    const { ordenes } = get();
+    const now = new Date().toISOString();
+    const userId = useAuthStore.getState().user?.id ?? null;  // â† NUEVO
+
+    const nueva: OrdenLocal = {
+      id:            uuidv4(),
+      proyecto_id:   proyectoId,
+      ot:            nextCodigoOT(ordenes),
+      ubicacion:     '',
+      descripcion:   '',
+      estado:        'Pendiente',
+      prioridad:     'Media',
+      responsable:   '',
+      rubro:         '',
+      pos_x:         posX,
+      pos_y:         posY,
+      plano_ref_url: '',
+      campos:        {},
+      conflict_flag: false,
+      created_at:    now,
+      updated_at:    now,
+      created_by:    userId,   // â† NUEVO
+      updated_by:    userId,   // â† NUEVO
+      _synced:       false,
+      _last_fetched: Date.now(),
+    };
+
+    // Optimistic update: aparece en plano inmediatamente
+    set({ ordenes: [...ordenes, nueva] });
+
+    // Persistir en Dexie siempre (fuente offline)
+    await db.ordenes.put(nueva);
+
+    if (isOnline()) {
+      const { error } = await supabase
+        .from('ordenes')
+        .insert(ordenToRow(nueva));
+
+      if (error) {
+        console.error('[ordenesStore] crearOrden Supabase error:', error);
+        // No pudo subir â†’ encolar (sin id, Dexie lo auto-genera con ++id)
+        await db.syncQueue.add({
+          tipo:       'CREATE_OT',
+          payload:    nueva,
+          created_at: now,
+          intentos:   0,
+        });
+      } else {
+        await db.ordenes.update(nueva.id, { _synced: true });
+        set(state => ({
+          ordenes: state.ordenes.map(o =>
+            o.id === nueva.id ? { ...o, _synced: true } : o
+          ),
+        }));
+      }
+    } else {
+      // Offline: encolar
+      await db.syncQueue.add({
+        tipo:       'CREATE_OT',
+        payload:    nueva,
+        created_at: now,
+        intentos:   0,
+      });
+    }
+
+    return nueva;
+  },
+
+  // â”€â”€ MOVER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  moverOrden: async (id, posX, posY) => {
+    const now = new Date().toISOString();
+    const patch = { pos_x: posX, pos_y: posY, updated_at: now, _synced: false };
+
+    // Optimistic update
+    set(state => ({
+      ordenes: state.ordenes.map(o => o.id === id ? { ...o, ...patch } : o),
+    }));
+    await db.ordenes.update(id, patch);
+
+    if (isOnline()) {
+      const userId = useAuthStore.getState().user?.id ?? null;
+const { error } = await supabase
+  .from('ordenes')
+  .update({ pos_x: posX, pos_y: posY, updated_at: now, updated_by: userId })
+  .eq('id', id);
+
+      if (error) {
+        console.error('[ordenesStore] moverOrden Supabase error:', error);
+        await encolarUpdate(id, { pos_x: posX, pos_y: posY });
+      } else {
+        await db.ordenes.update(id, { _synced: true });
+        set(state => ({
+          ordenes: state.ordenes.map(o =>
+            o.id === id ? { ...o, _synced: true } : o
+          ),
+        }));
+      }
+    } else {
+      await encolarUpdate(id, { pos_x: posX, pos_y: posY });
+    }
+  },
+
+  // â”€â”€ ACTUALIZAR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  actualizarOrden: async (id, cambios) => {
+    const now = new Date().toISOString();
+    const patch = { ...cambios, updated_at: now, _synced: false };
+
+    // Optimistic update
+    set(state => ({
+      ordenes: state.ordenes.map(o => o.id === id ? { ...o, ...patch } : o),
+    }));
+    await db.ordenes.update(id, patch);
+
+    if (isOnline()) {
+      // Construir payload limpio para Supabase (sin campos internos)
+      const userId = useAuthStore.getState().user?.id ?? null;
+const supabasePatch: Record<string, unknown> = { updated_at: now, updated_by: userId };
+      const camposPublicos: (keyof OrdenLocal)[] = [
+  'ot', 'estado', 'prioridad', 'responsable',
+  'rubro', 'pos_x', 'pos_y', 'plano_ref_url',
+  'campos', 'conflict_flag',
+];
+camposPublicos.forEach(k => {
+  if (k in cambios) supabasePatch[k] = cambios[k];
+});
+// Mapear descripcion â†’ comentarios manualmente
+if ('descripcion' in cambios) supabasePatch['comentarios'] = cambios.descripcion;
+      const { error } = await supabase
+        .from('ordenes')
+        .update(supabasePatch)
+        .eq('id', id);
+
+      if (error) {
+        console.error('[ordenesStore] actualizarOrden Supabase error:', error);
+        await encolarUpdate(id, cambios);
+      } else {
+        await db.ordenes.update(id, { _synced: true });
+        set(state => ({
+          ordenes: state.ordenes.map(o =>
+            o.id === id ? { ...o, _synced: true } : o
+          ),
+        }));
+      }
+    } else {
+      await encolarUpdate(id, cambios);
+    }
+  },
+
+  // â”€â”€ ELIMINAR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  eliminarOrden: async (id) => {
+    const now = new Date().toISOString();
+
+    // Optimistic update
+    set(state => ({
+      ordenes: state.ordenes.filter(o => o.id !== id),
+      ordenSeleccionada:
+        state.ordenSeleccionada === id ? null : state.ordenSeleccionada,
+    }));
+    await db.ordenes.delete(id);
+
+    if (isOnline()) {
+      const { error } = await supabase
+        .from('ordenes')
+        .delete()
+        .eq('id', id);
+
+      if (error) {
+        console.error('[ordenesStore] eliminarOrden Supabase error:', error);
+        await db.syncQueue.add({
+          tipo:       'DELETE_OT',
+          payload:    { id },
+          created_at: now,
+          intentos:   0,
+        });
+      }
+    } else {
+      await db.syncQueue.add({
+        tipo:       'DELETE_OT',
+        payload:    { id },
+        created_at: now,
+        intentos:   0,
+      });
+    }
+  },
+
+  // â”€â”€ UI â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  seleccionar: (id) => set({ ordenSeleccionada: id }),
+
+  limpiar: () => set({ ordenes: [], ordenSeleccionada: null, error: null }),
+}));

@@ -1,0 +1,412 @@
+/* ============================================================
+   Plan-OTs · InformePanel.module.css — S15 Redesign
+   Nombres exactos del TSX
+   ============================================================ */
+
+/* ── Fullscreen overlay ── */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--bg-app);
+  z-index: var(--z-overlay);
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
+  animation: fadeIn var(--t-base) ease;
+}
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* ── Main panel (fills overlay) ── */
+.panel {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family: var(--font-sans);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   HEADER
+══════════════════════════════════════════════════════════════ */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 52px;
+  padding: 0 var(--sp-6);
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-default);
+  box-shadow: var(--shadow-xs);
+  flex-shrink: 0;
+  gap: var(--sp-4);
+}
+
+.titulo {
+  font-size: var(--text-lg);
+  font-weight: var(--w-semi);
+  color: var(--text-primary);
+  letter-spacing: -.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.btnCerrar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--r-md);
+  font-size: 14px;
+  color: var(--text-tertiary);
+  background: transparent;
+  border: 1px solid var(--border-default);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all var(--t-fast);
+  font-family: var(--font-sans);
+}
+.btnCerrar:hover {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+  border-color: var(--border-danger);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   BODY (config + preview split)
+══════════════════════════════════════════════════════════════ */
+.body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   CONFIG COLUMN (left)
+══════════════════════════════════════════════════════════════ */
+.config {
+  width: 520px;
+  flex-shrink: 0;
+  background: var(--bg-surface);
+  border-right: 1px solid var(--border-default);
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.configGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  min-height: 100%;
+}
+
+.colLeft,
+.colRight {
+  padding: var(--sp-5) var(--sp-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+}
+
+.colLeft { border-right: 1px solid var(--border-subtle); }
+
+/* ── Section ── */
+.seccion {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.secLabel {
+  font-size: var(--text-xs);
+  font-weight: var(--w-semi);
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin: 0;
+}
+
+/* ── Logo area ── */
+.logoArea {
+  width: 100%;
+  height: 64px;
+  border: 1.5px dashed var(--border-strong);
+  border-radius: var(--r-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  overflow: hidden;
+  background: var(--bg-subtle);
+  transition: all var(--t-fast);
+}
+.logoArea:hover {
+  border-color: var(--accent);
+  background: var(--accent-subtle);
+}
+
+.logoPreview {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.logoPlaceholder {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  text-align: center;
+  padding: var(--sp-2);
+}
+
+/* ── Link button ── */
+.btnLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  font-size: var(--text-xs);
+  font-weight: var(--w-medium);
+  font-family: var(--font-sans);
+  color: var(--text-link);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: color var(--t-fast);
+  width: fit-content;
+}
+.btnLink:hover { color: var(--accent-hover); text-decoration: underline; }
+
+/* ── Chip group ── */
+.chipGroup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: var(--r-full);
+  font-size: var(--text-xs);
+  font-weight: var(--w-medium);
+  font-family: var(--font-sans);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--t-fast);
+}
+.chip:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+}
+.chipActivo {
+  background: var(--accent-subtle);
+  border-color: var(--accent-mid);
+  color: var(--accent);
+}
+
+/* ── Toggle row ── */
+.toggleRow {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--text-sm);
+  font-weight: var(--w-medium);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-family: var(--font-sans);
+}
+.toggleRow input { cursor: pointer; accent-color: var(--accent); }
+
+/* ── Input / Select ── */
+.input {
+  width: 100%;
+  padding: 7px 10px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-md);
+  font-size: var(--text-md);
+  font-family: var(--font-sans);
+  color: var(--text-primary);
+  transition: border-color var(--t-fast), box-shadow var(--t-fast);
+  line-height: var(--lh-base);
+}
+.input:focus {
+  outline: none;
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px rgba(36, 98, 201, .10);
+  background: var(--bg-surface);
+}
+.input::placeholder { color: var(--text-tertiary); }
+
+/* Select arrow */
+select.input {
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2394A3B8' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 28px;
+  cursor: pointer;
+}
+
+/* ── Radio group ── */
+.radioGroup {
+  display: flex;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}
+
+.radioLabel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-family: var(--font-sans);
+}
+.radioLabel input { cursor: pointer; accent-color: var(--accent); }
+
+/* ── Firmante row ── */
+.firmanteRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: var(--sp-2);
+  align-items: center;
+}
+
+/* ── Action buttons ── */
+.acciones {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding-top: var(--sp-2);
+}
+
+.btnGenerar {
+  width: 100%;
+  height: 38px;
+  border-radius: var(--r-md);
+  font-size: var(--text-md);
+  font-weight: var(--w-semi);
+  font-family: var(--font-sans);
+  background: var(--accent);
+  color: white;
+  border: none;
+  cursor: pointer;
+  transition: background var(--t-fast), box-shadow var(--t-fast), transform var(--t-fast);
+  box-shadow: 0 1px 4px var(--accent-glow);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+}
+.btnGenerar:hover {
+  background: var(--accent-hover);
+  box-shadow: 0 2px 10px var(--accent-glow);
+  transform: translateY(-1px);
+}
+.btnGenerar:active { transform: translateY(0); }
+.btnGenerar:disabled {
+  background: var(--border-strong);
+  box-shadow: none;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btnSecundario {
+  width: 100%;
+  height: 34px;
+  border-radius: var(--r-md);
+  font-size: var(--text-sm);
+  font-weight: var(--w-medium);
+  font-family: var(--font-sans);
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-default);
+  cursor: pointer;
+  transition: all var(--t-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.btnSecundario:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   PREVIEW COLUMN (right)
+══════════════════════════════════════════════════════════════ */
+.preview {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg-subtle);
+  min-width: 0;
+}
+
+.previewToolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-5);
+  border-bottom: 1px solid var(--border-default);
+  background: var(--bg-surface);
+  flex-shrink: 0;
+}
+
+.previewLabel {
+  font-size: var(--text-xs);
+  font-weight: var(--w-semi);
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  flex: 1;
+}
+
+/* Make toolbar buttons compact */
+.previewToolbar .btnSecundario,
+.previewToolbar .btnGenerar {
+  width: auto;
+  padding: 0 var(--sp-4);
+  height: 30px;
+  font-size: var(--text-sm);
+}
+
+/* The iframe */
+.iframe {
+  flex: 1;
+  width: 100%;
+  border: none;
+  background: white;
+}
+
+/* Empty preview state */
+.previewEmpty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: var(--sp-8);
+}
+.previewEmpty span {
+  font-size: var(--text-md);
+  color: var(--text-tertiary);
+  line-height: var(--lh-relaxed);
+  font-family: var(--font-sans);
+}
+.previewEmpty strong {
+  color: var(--text-secondary);
+  font-weight: var(--w-semi);
+}

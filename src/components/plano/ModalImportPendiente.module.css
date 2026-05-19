@@ -1,0 +1,124 @@
+/* ModalImportPendiente.module.css — guard de navegación con pendientes de import. */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 17, 23, 0.55);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Encima del topbar y del sidebar pero debajo del overlay de fade-transition
+     (que vive en 99999). Esto garantiza que se vea durante el guard sin tapar
+     el fade. */
+  z-index: 99500;
+  padding: 20px;
+}
+
+.modal {
+  background: #fff;
+  border: 1px solid #E2E6ED;
+  border-radius: 14px;
+  width: 100%;
+  max-width: 520px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.22);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.header {
+  padding: 18px 22px 14px;
+  border-bottom: 1px solid #F1F5F9;
+}
+
+.title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #B45309;
+  margin: 0;
+}
+
+.subtitle {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: #475569;
+  line-height: 1.4;
+}
+
+.body {
+  padding: 14px 22px;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+.lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.item {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 8px 12px;
+  background: #FFFBEB;
+  border: 1px solid #FCD34D;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.codigo {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: #92400E;
+  flex-shrink: 0;
+}
+
+.desc {
+  color: #78350F;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.footer {
+  padding: 14px 22px;
+  border-top: 1px solid #F1F5F9;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.btnCancelar {
+  height: 38px;
+  padding: 0 18px;
+  background: white;
+  border: 1.5px solid #EF4444;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #EF4444;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btnCancelar:hover { background: #FEF2F2; }
+
+.btnContinuar {
+  height: 38px;
+  padding: 0 22px;
+  background: #2462C9;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btnContinuar:hover { background: #1a4fa8; }

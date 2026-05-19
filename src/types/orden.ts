@@ -1,0 +1,70 @@
+export type EstadoOT = 'Pendiente' | 'En proceso' | 'Cerrada' | 'No aplica';
+export type PrioridadOT = 'Alta' | 'Media' | 'Baja';
+
+export interface OrdenLocal {
+  id: string;
+  proyecto_id: string;
+  ot: string;
+  ubicacion: string;
+  rubro: string;
+  estado: EstadoOT;
+  responsable: string;
+  prioridad: PrioridadOT;
+  pos_x: number;
+  pos_y: number;
+  plano_ref_url: string;
+  comentarios: string;
+  campos: Record<string, unknown>;
+  created_by: string | null;
+  updated_by: string | null;
+  created_at: string;
+  updated_at: string;
+  _synced: boolean;
+  _last_fetched: number;
+  fotos_pendientes_upload: string[];
+  conflict_flag: boolean;
+  fecha_ingreso?: string;
+  obra?: string;
+  unidad_amenities?: string;
+  descripcion?: string;
+  en_garantia?: boolean;
+  asiste_facility?: boolean;
+  costo?: number;
+  nivel_riesgo?: 'Bajo' | 'Medio' | 'Alto' | 'Extremo' | null;
+  rubro_secundario?: string[];
+  contratistas?: string[];
+  fecha_inicio_trabajos?: string;
+  porcentaje_avance?: number;
+  fecha_fin_trabajos?: string;
+  reincidencia?: boolean;
+  potencialmente_conflictivo?: boolean;
+  acta_conformidad?: 'Pendiente' | 'enviada' | 'firmada' | 'no aplica';
+  informe_relevamiento?: 'Pendiente' | 'enviada' | 'no aplica';
+  informe_avance?: 'Pendiente' | 'enviada' | 'no aplica';
+  informe_cierre?: 'Pendiente' | 'enviada' | 'no aplica';
+  acta_conformidad_url?: string;
+  informe_relevamiento_url?: string;
+  informe_avance_url?: string;
+  informe_cierre_url?: string;
+}
+
+export interface OrdenSupabase {
+  id: string;
+  proyecto_id: string;
+  ot: string;
+  ubicacion: string;
+  rubro: string;
+  estado: EstadoOT;
+  responsable: string;
+  prioridad: PrioridadOT;
+  pos_x: number;
+  pos_y: number;
+  plano_ref_url: string;
+  comentarios: string;
+  campos: Record<string, unknown>;
+  created_by: string | null;
+  updated_by: string | null;
+  created_at: string;
+  updated_at: string;
+  conflict_flag: boolean;
+}
