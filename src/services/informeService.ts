@@ -249,8 +249,11 @@ function extraerFechaFin(
   o: Record<string, unknown>,
   updatedAt?: string | null,
 ): string {
-  const fmt = (v: string) =>
-    new Date(v).toLocaleDateString('es-PY', { day: '2-digit', month: 'short', year: 'numeric' })
+  const fmt = (v: string) => {
+    const parts = v.split('T')[0].split('-').map(Number)
+    const d = new Date(parts[0], parts[1] - 1, parts[2])
+    return d.toLocaleDateString('es-PY', { day: '2-digit', month: 'short', year: 'numeric' })
+  }
 
   const top = o['fecha_fin_trabajos']
   if (top && typeof top === 'string' && top.trim()) {
