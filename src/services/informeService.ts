@@ -151,7 +151,7 @@ function htmlFotoRow(otCode: string, fotos: Record<string, string[]>, categorias
       <div style="font-size:7pt;font-weight:700;color:#6B7280;text-transform:uppercase;margin-bottom:5px">${cat}</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">`
     imgs.forEach(url => {
-      html += `<img src="${url}" style="width:400px;height:288px;object-fit:cover;border-radius:4px;border:1px solid #D1D5DB" loading="lazy"/>`
+      html += `<img src="${url}" style="width:340px;height:245px;object-fit:cover;border-radius:4px;border:1px solid #D1D5DB" loading="lazy"/>`
     })
     html += `</div></div>`
   })
@@ -248,7 +248,7 @@ function extraerFechaFin(
   campos: Record<string, unknown>,
   updatedAt?: string | null,
 ): string {
-  const candidatos = ['fecha_fin', 'fecha_fin_trabajos', 'fecha_finalizacion', 'fecha_cierre']
+  const candidatos = ['fecha_fin_trabajos', 'fecha_fin', 'fecha_finalizacion', 'fecha_cierre']
   for (const key of candidatos) {
     const val = campos[key]
     if (val && typeof val === 'string' && val.trim()) {
@@ -464,7 +464,12 @@ export async function generarInformeHTML(config: InformeConfig): Promise<string>
 <div class="sec-title">Detalle de órdenes de trabajo</div>
 ${seccionesHtml}
 
+<div style="margin-top:40px"></div>
 <table class="footer-tbl"><tr>${firmantesCeldas}</tr></table>
+
+<div style="margin-top:24px;border-top:1px solid #E5E7EB;padding-top:8px;text-align:center;font-size:7pt;color:#9CA3AF">
+  Documento confidencial — Facility Services / Grupo Díaz Villaverde · Generado por Plan-OTs · ${fechaHoy()}
+</div>
 
 </body></html>`
 }
