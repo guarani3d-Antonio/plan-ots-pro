@@ -111,99 +111,6 @@ function donutSVG(
     </div>`
 }
 
-// ─── Evolución temporal (barras horizontales) ─────────────────────────────────
-
-function evolucionHTML(
-  ordenes: { estado: string; updated_at?: string | null; created_at?: string | null }[],
-  granularidad: 'dias' | 'semanas' | 'meses',
-): string {
-  // Usamos created_at para creación y updated_at para cierre
-  // Contamos OTs cerradas POR PERÍODO (no acumuladas) para que se vean datos reales
-  const ahora = new Date()
-  const n     = granularidad === 'dias' ? 14 : granularidad === 'semanas' ? 8 : 6
-
-  const puntos: { label: string; cerradas: number; total: number }[] = []
-
-  for (let i = n - 1; i >= 0; i--) {
-    const inicio = new Date(ahora)
-    const fin    = new Date(ahora)
-
-    if (granularidad === 'dias') {
-      inicio.setDate(ahora.getDate() - i - 1)
-      fin.setDate(ahora.getDate() - i)
-      inicio.setHours(0, 0, 0, 0)
-      fin.setHours(23, 59, 59, 999)
-    } else if (granularidad === 'semanas') {
-      inicio.setDate(ahora.getDate() - (i + 1) * 7)
-      fin.setDate(ahora.getDate() - i * 7)
-      inicio.setHours(0, 0, 0, 0)
-      fin.setHours(23, 59, 59, 999)
-    } else {
-      inicio.setMonth(ahora.getMonth() - i - 1)
-      fin.setMonth(ahora.getMonth() - i)
-      inicio.setDate(1); inicio.setHours(0, 0, 0, 0)
-      fin.setDate(0);    fin.setHours(23, 59, 59, 999)
-    }
-
-    // OTs actualizadas en este período
-    const enPeriodo = ordenes.filter(o => {
-      const fecha = o.updated_at ? new Date(o.updated_at) : null
-      return fecha && fecha >= inicio && fecha <= fin
-    })
-    const cerradasPeriodo = enPeriodo.filter(o => o.estado === 'Cerrada').length
-
-    let label: string
-    if (granularidad === 'dias') {
-      label = fin.toLocaleDateString('es-PY', { day: '2-digit', month: 'short' })
-    } else if (granularidad === 'semanas') {
-      label = `${inicio.toLocaleDateString('es-PY', { day: '2-digit', month: 'short' })}`
-    } else {
-      label = fin.toLocaleDateString('es-PY', { month: 'short', year: '2-digit' })
-    }
-
-    puntos.push({ label, cerradas: cerradasPeriodo, total: enPeriodo.length })
-  }
-
-  const maxVal = Math.max(...puntos.map(p => p.total), 1)
-
-  if (puntos.every(p => p.total === 0)) {
-    return `<p style="font-size:8pt;color:#9CA3AF;text-align:center;padding:16px 0">
-      Sin actividad en el período seleccionado — los datos se registran según fecha de actualización de cada OT.
-    </p>`
-  }
-
-  const bars = puntos.map(p => {
-    const pctTotal   = Math.round((p.total / maxVal) * 100)
-    const pctCerr    = p.total > 0 ? Math.round((p.cerradas / p.total) * 100) : 0
-    return `
-      <table style="width:100%;border-collapse:collapse;margin-bottom:6px"><tr>
-        <td style="font-size:7pt;color:#6B7280;width:72px;white-space:nowrap;text-align:right;padding-right:8px">${p.label}</td>
-        <td style="vertical-align:middle">
-          <div style="background:#E5E7EB;border-radius:4px;height:16px;width:100%">
-            <div style="display:flex;height:16px;border-radius:4px;overflow:hidden;width:${pctTotal}%">
-              <div style="background:#15803D;width:${pctCerr}%;min-width:${p.cerradas > 0 ? 2 : 0}px"></div>
-              <div style="background:#3B82F6;width:${100 - pctCerr}%;min-width:${p.total - p.cerradas > 0 ? 2 : 0}px"></div>
-            </div>
-          </div>
-        </td>
-        <td style="font-size:7pt;color:#374151;width:56px;text-align:right;padding-left:8px;white-space:nowrap">
-          ${p.total > 0 ? `${p.cerradas}/${p.total}` : ''}
-        </td>
-      </tr></table>`
-  }).join('')
-
-  return `
-    ${bars}
-    <div style="display:flex;gap:14px;margin-top:8px;justify-content:flex-end">
-      <span style="font-size:7pt;color:#6B7280;display:flex;align-items:center;gap:4px">
-        <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#15803D"></span> Cerradas
-      </span>
-      <span style="font-size:7pt;color:#6B7280;display:flex;align-items:center;gap:4px">
-        <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#3B82F6"></span> Otras actualizadas
-      </span>
-    </div>`
-}
-
 // ─── Fotos desde Supabase ─────────────────────────────────────────────────────
 
 async function fotosPorOrden(
@@ -227,6 +134,7 @@ async function fotosPorOrden(
   return result
 }
 
+// ── FIX: fotos el doble de grandes (200×144 px en vez de 100×72) ─────────────
 function htmlFotoRow(otCode: string, fotos: Record<string, string[]>, categorias: string[]): string {
   const tieneAlgo = categorias.some(c => fotos[c]?.length > 0)
   if (!tieneAlgo) {
@@ -235,15 +143,15 @@ function htmlFotoRow(otCode: string, fotos: Record<string, string[]>, categorias
     </td></tr>`
   }
   let html = `<tr class="photo-row"><td colspan="7">
-    <div style="display:flex;gap:12px;flex-wrap:wrap;padding:6px 8px">`
+    <div style="display:flex;gap:16px;flex-wrap:wrap;padding:8px 10px">`
   categorias.forEach(cat => {
     const imgs = fotos[cat]
     if (!imgs?.length) return
     html += `<div>
-      <div style="font-size:7pt;font-weight:700;color:#6B7280;text-transform:uppercase;margin-bottom:3px">${cat}</div>
-      <div style="display:flex;gap:5px;flex-wrap:wrap">`
+      <div style="font-size:7pt;font-weight:700;color:#6B7280;text-transform:uppercase;margin-bottom:5px">${cat}</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">`
     imgs.forEach(url => {
-      html += `<img src="${url}" style="width:100px;height:72px;object-fit:cover;border-radius:4px;border:1px solid #D1D5DB" loading="lazy"/>`
+      html += `<img src="${url}" style="width:200px;height:144px;object-fit:cover;border-radius:4px;border:1px solid #D1D5DB" loading="lazy"/>`
     })
     html += `</div></div>`
   })
@@ -297,7 +205,7 @@ table.dt thead th{padding:8px 9px;text-align:left;font-size:7.5pt;font-weight:60
 table.dt tbody tr:nth-child(even){background:#F8FAFC}
 table.dt tbody tr:nth-child(odd){background:#fff}
 table.dt tbody td{padding:6px 9px;border:1px solid #D1D5DB;vertical-align:top;line-height:1.35}
-tr.photo-row td{background:#F9FAFB;border:1px dashed #D1D5DB;padding:6px 8px}
+tr.photo-row td{background:#F9FAFB;border:1px dashed #D1D5DB;padding:8px 10px}
 .photo-inner{color:#9CA3AF;font-size:8pt;font-style:italic}
 .badge{display:inline-block;padding:2px 7px;border-radius:12px;font-size:7pt;font-weight:700;white-space:nowrap}
 .b-proceso{background:#EFF6FF;color:#1E40AF;border:1px solid #93C5FD}
@@ -323,22 +231,56 @@ async function obtenerOrdenes(proyectoId: string) {
   try {
     const { data, error } = await supabase
       .from('ordenes')
-      .select('id, ot, estado, rubro, responsable, ubicacion, comentarios, prioridad, campos, created_at, updated_at, proyecto_id')
+      .select('id, ot, estado, rubro, responsable, ubicacion, comentarios, prioridad, porcentaje_avance, campos, created_at, updated_at, proyecto_id')
       .eq('proyecto_id', proyectoId)
       .order('ot', { ascending: true })
     if (error) throw error
     return data ?? []
   } catch {
-    // Fallback a Dexie si no hay conexión
     const local = await db.ordenes.where('proyecto_id').equals(proyectoId).toArray()
     return local
   }
 }
 
+// ─── Helper: extraer fecha de finalización desde campos JSONB ─────────────────
+// Intenta múltiples claves posibles; fallback a updated_at
+function extraerFechaFin(
+  campos: Record<string, unknown>,
+  updatedAt?: string | null,
+): string {
+  const candidatos = ['fecha_fin', 'fecha_fin_trabajos', 'fecha_finalizacion', 'fecha_cierre']
+  for (const key of candidatos) {
+    const val = campos[key]
+    if (val && typeof val === 'string' && val.trim()) {
+      try {
+        return new Date(val).toLocaleDateString('es-PY', { day: '2-digit', month: 'short', year: 'numeric' })
+      } catch { /* ignorar fecha inválida */ }
+    }
+  }
+  if (updatedAt) {
+    return new Date(updatedAt).toLocaleDateString('es-PY', { day: '2-digit', month: 'short', year: 'numeric' })
+  }
+  return '—'
+}
+
+// ─── Helper: extraer % avance desde campos JSONB ──────────────────────────────
+// Intenta campoAvanceId primero, luego claves estándar conocidas
+function extraerAvance(o: Record<string, unknown>, campoAvanceId?: string): number {
+  // porcentaje_avance es columna top-level, no está en campos
+  const val = Number(o['porcentaje_avance'] ?? NaN)
+  if (!isNaN(val) && val >= 0) return Math.min(100, Math.max(0, val))
+  // fallback: si hay campoAvanceId buscar en campos
+  if (campoAvanceId) {
+    const campos = (o['campos'] ?? {}) as Record<string, unknown>
+    const v2 = Number(campos[campoAvanceId] ?? NaN)
+    if (!isNaN(v2) && v2 >= 0) return Math.min(100, Math.max(0, v2))
+  }
+  return -1
+}
+
 // ─── Generador principal ──────────────────────────────────────────────────────
 
 export async function generarInformeHTML(config: InformeConfig): Promise<string> {
-  // FIX: usa Supabase como fuente primaria para tener updated_at correcto
   const todasOrdenes = await obtenerOrdenes(config.proyectoId)
   const total        = todasOrdenes.length
 
@@ -361,18 +303,8 @@ export async function generarInformeHTML(config: InformeConfig): Promise<string>
     porRubro[r] = (porRubro[r] ?? 0) + 1
   })
   const rubroItems = Object.entries(porRubro)
-    .sort((a, b) => b[1] - a[1]).slice(0, 6)
+    .sort((a, b) => b[1] - a[1]).slice(0, 8)
     .map(([label, count]) => ({ label, count, color: '#185FA5' }))
-
-  // Por responsable
-  const porResp: Record<string, number> = {}
-  todasOrdenes.forEach(o => {
-    const r = o.responsable || 'Sin asignar'
-    porResp[r] = (porResp[r] ?? 0) + 1
-  })
-  const respItems = Object.entries(porResp)
-    .sort((a, b) => b[1] - a[1]).slice(0, 5)
-    .map(([label, count]) => ({ label, count, color: '#1D9E75' }))
 
   // Logo
   const logoHtml = config.logoB64
@@ -419,26 +351,32 @@ export async function generarInformeHTML(config: InformeConfig): Promise<string>
 
     let filas = ''
     for (const o of lista) {
-      const campos   = (o.campos ?? {}) as Record<string, unknown>
-      const avVal    = config.campoAvanceId ? Number(campos[config.campoAvanceId] ?? -1) : -1
-      const avPct    = Math.min(100, Math.max(0, avVal))
+      const campos = (o.campos ?? {}) as Record<string, unknown>
+
+      // ── FIX: descripción toma comentarios (con fallback a campos.descripcion)
+      const descripcion = (o.comentarios as string)
+        ?? (campos['descripcion'] as string)
+        ?? '—'
+
+      // ── FIX: fecha = fecha de finalización (desde campos), fallback a updated_at
+      const fecha = extraerFechaFin(campos, o.updated_at as string | null)
+
+      // ── FIX: avance visible siempre (sin necesidad de campoAvanceId)
+      const avVal    = extraerAvance(o as unknown as Record<string, unknown>, config.campoAvanceId)
+      const avPct    = avVal
       const barColor = avPct >= 80 ? '#15803D' : avPct >= 40 ? '#D97706' : '#DC2626'
       const barHtml  = avVal >= 0
         ? `<div class="pb-bg"><div class="pb-fill" style="width:${avPct}%;background:${barColor}"></div></div>
            <span class="pb-pct">${avPct}%</span>`
         : '<span style="font-size:7pt;color:#9CA3AF">—</span>'
 
-      const fecha = o.created_at
-        ? new Date(o.created_at).toLocaleDateString('es-PY', { day: '2-digit', month: 'short', year: 'numeric' })
-        : '—'
-
       filas += `<tr>
         <td><span class="ot-code">${o.ot ?? '—'}</span><br><span class="ot-loc">${o.ubicacion ?? ''}</span></td>
         <td>${o.rubro ?? '—'}</td>
-        <td style="max-width:160px">${o.comentarios ?? '—'}</td>
+        <td style="max-width:200px">${descripcion}</td>
         <td>${badgeEstado(o.estado ?? '')}</td>
-        <td>${o.responsable ?? '—'}</td>
-        <td>${fecha}</td>
+        <td>${o.responsable || '—'}</td>
+        <td style="white-space:nowrap">${fecha}</td>
         <td style="min-width:90px">${barHtml}</td>
       </tr>`
 
@@ -455,7 +393,7 @@ export async function generarInformeHTML(config: InformeConfig): Promise<string>
       <table class="dt">
         <thead><tr>
           <th>OT / Ubicación</th><th>Rubro</th><th>Descripción</th>
-          <th>Estado</th><th>Responsable</th><th>Fecha</th><th>Avance</th>
+          <th>Estado</th><th>Responsable</th><th>Fecha fin</th><th>Avance</th>
         </tr></thead>
         <tbody>${filas}</tbody>
       </table>`
@@ -509,30 +447,19 @@ export async function generarInformeHTML(config: InformeConfig): Promise<string>
 
 <div class="sec-title">Distribución</div>
 <table class="charts-wrap"><tr>
-  <td width="30%">
+  <td width="38%">
     <div class="chart-box">
       <div class="chart-title">Por estado</div>
       ${donutSVG(segEstado, total, 'cerradas', avancePct + '%')}
     </div>
   </td>
-  <td width="35%">
+  <td width="62%">
     <div class="chart-box">
       <div class="chart-title">Por rubro</div>
       ${barraCSS(rubroItems, total)}
     </div>
   </td>
-  <td width="35%">
-    <div class="chart-box">
-      <div class="chart-title">Por responsable</div>
-      ${barraCSS(respItems, total)}
-    </div>
-  </td>
 </tr></table>
-
-<div class="sec-title">Evolución — actividad por período</div>
-<div style="border:1px solid #E5E7EB;border-radius:8px;padding:16px;background:#FAFAFA;margin-bottom:20px">
-  ${evolucionHTML(todasOrdenes, config.evolucionGranularidad)}
-</div>
 
 <div class="sec-title">Detalle de órdenes de trabajo</div>
 ${seccionesHtml}

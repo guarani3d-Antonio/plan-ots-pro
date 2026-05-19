@@ -126,19 +126,6 @@ export function SelectorProyectos({ onOpenDashboard, onAbrirProyecto }: Selector
     }
   }
 
-  // ¿La URL apunta a un archivo de imagen rasterizada (no PDF)?
-  function esImagen(url?: string | null): boolean {
-    if (!url) return false;
-    const lower = url.toLowerCase();
-    return lower.includes('.jpg')  || lower.includes('.jpeg') ||
-           lower.includes('.png')  || lower.includes('.webp') ||
-           lower.includes('.gif');
-  }
-
-  function esPDF(url?: string | null): boolean {
-    return !!url && url.toLowerCase().includes('.pdf');
-  }
-
   return (
     <div className={styles.page}>
 
