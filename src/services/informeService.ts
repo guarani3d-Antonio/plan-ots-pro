@@ -151,7 +151,7 @@ function htmlFotoRow(otCode: string, fotos: Record<string, string[]>, categorias
       <div style="font-size:7pt;font-weight:700;color:#6B7280;text-transform:uppercase;margin-bottom:5px">${cat}</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">`
     imgs.forEach(url => {
-      html += `<img src="${url}" style="width:200px;height:144px;object-fit:cover;border-radius:4px;border:1px solid #D1D5DB" loading="lazy"/>`
+      html += `<img src="${url}" style="width:400px;height:288px;object-fit:cover;border-radius:4px;border:1px solid #D1D5DB" loading="lazy"/>`
     })
     html += `</div></div>`
   })
@@ -375,7 +375,7 @@ export async function generarInformeHTML(config: InformeConfig): Promise<string>
         <td>${o.rubro ?? '—'}</td>
         <td style="max-width:200px">${descripcion}</td>
         <td>${badgeEstado(o.estado ?? '')}</td>
-        <td>${o.responsable || '—'}</td>
+        <td>${o.responsable || 'Facility Services'}</td>
         <td style="white-space:nowrap">${fecha}</td>
         <td style="min-width:90px">${barHtml}</td>
       </tr>`
