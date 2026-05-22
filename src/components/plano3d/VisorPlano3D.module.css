@@ -1,0 +1,164 @@
+/* VisorPlano3D.module.css — spike S25 */
+
+.root {
+  display: flex;
+  width: 100%;
+  height: calc(100vh - 52px); /* compensar topbar */
+  overflow: hidden;
+  background: var(--bg, #0D0F14);
+}
+
+/* ── Canvas ─────────────────────────────────────── */
+.canvasWrap {
+  flex: 1;
+  position: relative;
+  background: #161921;
+  overflow: hidden;
+}
+
+.canvasWrap canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* ── Loading overlay ────────────────────────────── */
+.loadOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background: #161921;
+  color: #9AA0B4;
+  font-size: 13px;
+  z-index: 20;
+}
+
+.loadSpinner {
+  width: 34px;
+  height: 34px;
+  border: 3px solid rgba(204, 122, 0, 0.18);
+  border-top-color: #CC7A00;
+  border-radius: 50%;
+  animation: spin 0.75s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.errorOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #161921;
+  color: #EF4444;
+  font-size: 13px;
+  z-index: 20;
+  padding: 32px;
+  text-align: center;
+}
+
+/* ── Panel detalle OT (dummy — S29 usa PanelOT real) ─ */
+.detailOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  pointer-events: none;
+  display: flex;
+  align-items: stretch;
+  justify-content: flex-end;
+}
+
+.detailPanel {
+  width: 380px;
+  background: #161921;
+  border-left: 1px solid #2A2F3E;
+  display: flex;
+  flex-direction: column;
+  pointer-events: all;
+  animation: slideIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.4);
+}
+
+@keyframes slideIn {
+  from { transform: translateX(100%); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+
+.detailHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 22px;
+  border-bottom: 1px solid #2A2F3E;
+  flex-shrink: 0;
+}
+
+.detailOtCode {
+  font-size: 15px;
+  font-weight: 700;
+  color: #F0E6D3;
+}
+
+.detailClose {
+  background: transparent;
+  border: none;
+  color: #5A6070;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  line-height: 1;
+  transition: color 0.15s, background 0.15s;
+}
+
+.detailClose:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: #F0E6D3;
+}
+
+.detailBody {
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  flex: 1;
+}
+
+.detailRow {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.detailLabel {
+  font-size: 10px;
+  color: #5A6070;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  width: 96px;
+  flex-shrink: 0;
+}
+
+.detailValue {
+  font-size: 13px;
+  font-weight: 600;
+  color: #F0E6D3;
+}
+
+.detailNote {
+  margin-top: 6px;
+  font-size: 11px;
+  color: #9AA0B4;
+  line-height: 1.6;
+  padding: 12px 14px;
+  background: rgba(90, 96, 112, 0.08);
+  border-radius: 7px;
+  border-left: 2px solid #CC7A00;
+}

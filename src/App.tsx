@@ -17,20 +17,21 @@ import Calendario     from './components/views/Calendario';
 import Contratistas   from './components/views/Contratistas';
 import Configuracion  from './components/views/Configuracion';
 import ModalImportPendiente, { type OTPendienteResumen } from './components/plano/ModalImportPendiente';
+// ── S25 SPIKE 3D — eliminar import cuando el spike concluya ──────────────────
+import VisorPlano3D from './components/plano3d/VisorPlano3D';
 
 const FADE_OUT_MS = 180;
 
-// Vistas que requieren un proyecto activo para tener sentido. El resto
-// maneja internamente el estado "sin proyecto" o no lo necesita.
 const VISTAS_CON_PROYECTO = new Set<Vista>(['grilla', 'plano']);
 
 export default function App() {
   const { user, initialize }          = useAuthStore();
   const proyectoActivo                = useProyectosStore(s => s.proyectoActivo);
   const setProyectoActivo             = useProyectosStore(s => s.setProyectoActivo);
-  const [vista, setVista]             = useState<Vista>('proyectos');
 
-  // ── Overlay de transición ──────────────────────────────────────
+  // ── S25 SPIKE: cambiar '3d-test' por 'proyectos' cuando el spike concluya ──
+  const [vista, setVista]             = useState<Vista>('3d-test' as Vista);
+
   const [coverVisible, setCoverVisible] = useState(false);
   const [coverFading, setCoverFading]   = useState(false);
   const timerRef                        = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -64,7 +65,6 @@ export default function App() {
     return cleanup;
   }, [user]);
 
-  // Cuando se abre un proyecto, default a vista 'plano'.
   useEffect(() => {
     if (proyectoActivo && !VISTAS_CON_PROYECTO.has(vista)) {
       setVista('plano');
@@ -75,14 +75,10 @@ export default function App() {
     if (timerRef.current) clearTimeout(timerRef.current);
   }, []);
 
-  // ── Guard de importación pendiente ─────────────────────────────
-  // Si hay OTs recién importadas que el usuario no terminó de ubicar +
-  // completar con fotos, interceptamos la navegación con un modal antes de
-  // dejarlo salir del plano (sidebar, salir de proyecto, toggle grilla).
-  const otsPendientesImport = useOrdenesStore(s => s.otsPendientesImport);
-  const ordenes              = useOrdenesStore(s => s.ordenes);
-  const completarOtImport    = useOrdenesStore(s => s.completarOtImport);
-  const eliminarOrdenStore   = useOrdenesStore(s => s.eliminarOrden);
+  const otsPendientesImport    = useOrdenesStore(s => s.otsPendientesImport);
+  const ordenes                = useOrdenesStore(s => s.ordenes);
+  const completarOtImport      = useOrdenesStore(s => s.completarOtImport);
+  const eliminarOrdenStore     = useOrdenesStore(s => s.eliminarOrden);
   const setOtsPendientesImport = useOrdenesStore(s => s.setOtsPendientesImport);
   const [accionPendiente, setAccionPendiente] = useState<(() => void) | null>(null);
 
@@ -94,8 +90,6 @@ export default function App() {
     return [item];
   });
 
-  // Envuelve cualquier acción de "salir del plano" — si hay pendientes, parquea
-  // la acción y abre el modal; si no, navega directo.
   const intentarNavegar = useCallback((action: () => void) => {
     if (useOrdenesStore.getState().otsPendientesImport.length > 0) {
       setAccionPendiente(() => action);
@@ -104,13 +98,9 @@ export default function App() {
     navigate(action);
   }, [navigate]);
 
-  const handleContinuarCargando = () => {
-    setAccionPendiente(null);
-  };
+  const handleContinuarCargando = () => { setAccionPendiente(null); };
 
   const handleCancelarImportacion = async () => {
-    // Borrar todas las pendientes (las que no aparecen en el store ya no se
-    // pueden borrar; las filtramos para evitar errores).
     const idsBorrar = useOrdenesStore.getState().otsPendientesImport;
     for (const id of idsBorrar) {
       try { await eliminarOrdenStore(id); } catch { completarOtImport(id); }
@@ -121,12 +111,10 @@ export default function App() {
     if (accion) navigate(accion);
   };
 
-  // ── Handlers globales ──────────────────────────────────────────
   const cambiarVista = useCallback((v: Vista) => {
     intentarNavegar(() => setVista(v));
   }, [intentarNavegar]);
 
-  // ── Render guards ──────────────────────────────────────────────
   if (!user) {
     return (
       <>
@@ -138,7 +126,6 @@ export default function App() {
 
   const requiereProyecto = VISTAS_CON_PROYECTO.has(vista) && !proyectoActivo;
 
-  // ── Contenido principal según vista ────────────────────────────
   const renderContenido = () => {
     if (requiereProyecto) {
       return (
@@ -176,12 +163,11 @@ export default function App() {
       case 'calendario':    return <Calendario />;
       case 'contratistas':  return <Contratistas />;
       case 'configuracion': return <Configuracion />;
+      // ── S25 SPIKE 3D ──────────────────────────────────────────────────────
+      case '3d-test' as Vista: return <VisorPlano3D />;
     }
   };
 
-  // ── Layout ─────────────────────────────────────────────────────
-  // Sidebar permanente a la izquierda. Cuando hay proyectoActivo, un topbar
-  // global muestra el nombre del proyecto + toggle Plano/Grilla + Salir.
   return (
     <>
       <div style={{
@@ -200,10 +186,6 @@ export default function App() {
           flexDirection: 'column',
           overflow: 'auto',
         }}>
-          {/* TopBar Plano/Grilla/Salir — sólo en las vistas project-scoped
-              (plano y grilla). En vistas globales (dashboard, gantt, calendario,
-              responsables, contratistas, configuracion, proyectos) no tiene
-              contexto, así que se oculta aunque haya proyecto activo. */}
           {proyectoActivo && (vista === 'plano' || vista === 'grilla') && (
             <ProyectoTopBar
               nombreProyecto={proyectoActivo.nombre}
@@ -222,8 +204,6 @@ export default function App() {
 
       {coverVisible && <OverlayFade fading={coverFading} />}
 
-      {/* Guard de importación incompleta — se monta cuando el usuario intenta
-          salir del plano con OTs pendientes de ubicar/completar. */}
       {accionPendiente && pendientesResumen.length > 0 && (
         <ModalImportPendiente
           pendientes={pendientesResumen}
@@ -235,11 +215,6 @@ export default function App() {
   );
 }
 
-// Topbar global contextual al proyecto activo. Se monta encima del contenido
-// principal en `<main>` y se oculta cuando no hay proyectoActivo. Los botones
-// Plano/Grilla son el toggle existente — reutilizan `cambiarVista()` (la misma
-// función que antes usaba el Sidebar para esas dos vistas), así que conservan
-// la transición con fade del navigate() y la lógica de carga de cada vista.
 function ProyectoTopBar({
   nombreProyecto, vista, onIrAPlano, onIrAGrilla, onSalir,
 }: {
@@ -250,15 +225,15 @@ function ProyectoTopBar({
   onSalir:     () => void;
 }) {
   const toggleBtn = (activo: boolean): CSSProperties => ({
-    background:  activo ? '#1E3A5F' : 'transparent',
-    color:       activo ? '#fff'    : '#475569',
-    border:      `1px solid ${activo ? '#1E3A5F' : '#E5E7EB'}`,
+    background:   activo ? '#1E3A5F' : 'transparent',
+    color:        activo ? '#fff'    : '#475569',
+    border:       `1px solid ${activo ? '#1E3A5F' : '#E5E7EB'}`,
     borderRadius: 8,
-    padding:     '6px 12px',
-    fontSize:    13,
-    fontWeight:  600,
-    cursor:      'pointer',
-    fontFamily:  'inherit',
+    padding:      '6px 12px',
+    fontSize:     13,
+    fontWeight:   600,
+    cursor:       'pointer',
+    fontFamily:   'inherit',
   });
   return (
     <div style={{
@@ -283,12 +258,9 @@ function ProyectoTopBar({
           textOverflow: 'ellipsis',
         }}
       >{nombreProyecto}</span>
-
       <button type="button" onClick={onIrAPlano}  style={toggleBtn(vista === 'plano')}>🗺 Plano</button>
       <button type="button" onClick={onIrAGrilla} style={toggleBtn(vista === 'grilla')}>≡ Grilla</button>
-
       <div style={{ width: 1, height: 24, background: '#E5E7EB', margin: '0 4px' }} />
-
       <button
         type="button"
         onClick={onSalir}
@@ -309,21 +281,17 @@ function ProyectoTopBar({
   );
 }
 
-// ───────────────────────────────────────────── Sub-componentes ──
-
 function OverlayFade({ fading }: { fading: boolean }) {
   return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        backgroundColor: 'var(--bg-app)',
-        zIndex: 99999,
-        opacity: fading ? 0 : 1,
-        transition: fading ? `opacity ${FADE_OUT_MS}ms ease` : 'none',
-        pointerEvents: 'none',
-      }}
-    />
+    <div style={{
+      position: 'fixed',
+      inset: 0,
+      backgroundColor: 'var(--bg-app)',
+      zIndex: 99999,
+      opacity: fading ? 0 : 1,
+      transition: fading ? `opacity ${FADE_OUT_MS}ms ease` : 'none',
+      pointerEvents: 'none',
+    }} />
   );
 }
 
@@ -379,4 +347,3 @@ function SinProyectoPlaceholder({
     </div>
   );
 }
-
