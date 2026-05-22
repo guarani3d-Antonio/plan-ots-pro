@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import styles from './ComparadorVersiones.module.css';
 import { supabase } from '../../db/supabase';
 
@@ -90,6 +90,8 @@ const CAMPOS_DIFF = [
 
 // ──────────────────────────────────────────────────── Helpers ──
 
+const pct = (v: number) => `${(v * 100).toFixed(3)}%`;
+
 const esPDF = (url: string) => url.toLowerCase().includes('.pdf');
 
 function calcularDiffs(a: OrdenTrabajo[], b: OrdenTrabajo[]): DiffEntry[] {
@@ -172,75 +174,6 @@ export const ComparadorVersiones: React.FC<Props> = ({
   const [pdfCanvasUrl, setPdfCanvasUrl] = useState<string | null>(null);
   const [loadingPdf, setLoadingPdf]     = useState(false);
   const contenedorRef = useRef<HTMLDivElement>(null);
-
-  // ── Rectángulo real de la imagen renderizada (px, relativo al wrapper) ──
-  // Los marcadores y las flechas se anclan a este rect, NO al contenedor,
-  // para que pos_x/pos_y (fracciones 0–1 del plano real) caigan exactas
-  // aunque la imagen quede con letterbox dentro del wrapper.
-  const imgRef = useRef<HTMLImageElement>(null);
-  const [imgRect, setImgRect] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
-
-  const medirImagen = useCallback(() => {
-    const img = imgRef.current;
-    const wrapper = contenedorRef.current;
-    if (!img || !wrapper || !img.naturalWidth || !img.naturalHeight) {
-      setImgRect(null);
-      return;
-    }
-
-    // BCR da coordenadas de viewport → las relativizamos al wrapper.
-    // Funciona con cualquier CSS (flex, absolute, etc.) y sin depender
-    // del offsetParent, que varía según la cadena de positioned ancestors.
-    const imgBCR  = img.getBoundingClientRect();
-    const wrapBCR = wrapper.getBoundingClientRect();
-
-    const elemW = imgBCR.width;
-    const elemH = imgBCR.height;
-    const natAspect  = img.naturalWidth / img.naturalHeight;
-    const elemAspect = elemW / elemH;
-
-    let left: number, top: number, width: number, height: number;
-
-    if (Math.abs(natAspect - elemAspect) < 0.01) {
-      // Sin letterbox apreciable — el elemento coincide con el contenido.
-      left   = imgBCR.left - wrapBCR.left;
-      top    = imgBCR.top  - wrapBCR.top;
-      width  = elemW;
-      height = elemH;
-    } else if (natAspect > elemAspect) {
-      // Imagen más ancha que el elemento → constrained by width,
-      // letterbox arriba y abajo (barras horizontales).
-      width  = elemW;
-      height = elemW / natAspect;
-      left   = imgBCR.left - wrapBCR.left;
-      top    = imgBCR.top  - wrapBCR.top + (elemH - height) / 2;
-    } else {
-      // Imagen más alta que el elemento → constrained by height,
-      // letterbox izquierda y derecha (barras verticales).
-      height = elemH;
-      width  = elemH * natAspect;
-      top    = imgBCR.top  - wrapBCR.top;
-      left   = imgBCR.left - wrapBCR.left + (elemW - width) / 2;
-    }
-
-    setImgRect({ left, top, width, height });
-  }, []);
-
-  // Re-medir al montar/cambiar plano y ante cualquier resize del contenedor.
-  useEffect(() => {
-    const id = requestAnimationFrame(medirImagen);
-    window.addEventListener('resize', medirImagen);
-    let ro: ResizeObserver | null = null;
-    if (contenedorRef.current && 'ResizeObserver' in window) {
-      ro = new ResizeObserver(() => medirImagen());
-      ro.observe(contenedorRef.current);
-    }
-    return () => {
-      cancelAnimationFrame(id);
-      window.removeEventListener('resize', medirImagen);
-      ro?.disconnect();
-    };
-  }, [medirImagen, pdfCanvasUrl, planoUrl, comparando]);
 
   // ── Fetch versions ──────────────────────────────────────────
 
@@ -350,29 +283,6 @@ export const ComparadorVersiones: React.FC<Props> = ({
 
   const diffsVisibles = diffs.filter(d => !selectedOT || d.orden_id === selectedOT);
   const planoEsPDF = esPDF(planoUrl);
-
-  // Posición de un marcador en px, anclada al rect real de la imagen.
-  // Fallback a % del wrapper si aún no se midió (primer frame).
-  const posMarcador = (x?: number, y?: number): React.CSSProperties =>
-    imgRect
-      ? {
-          left: `${imgRect.left + (x ?? 0) * imgRect.width}px`,
-          top:  `${imgRect.top  + (y ?? 0) * imgRect.height}px`,
-        }
-      : { left: `${(x ?? 0) * 100}%`, top: `${(y ?? 0) * 100}%` };
-
-  // El SVG de flechas se superpone EXACTAMENTE sobre la imagen (no el wrapper).
-  const svgStyle: React.CSSProperties | undefined = imgRect
-    ? {
-        position: 'absolute',
-        left: imgRect.left,
-        top: imgRect.top,
-        width: imgRect.width,
-        height: imgRect.height,
-        right: 'auto',
-        bottom: 'auto',
-      }
-    : undefined;
 
   // ── Render ──────────────────────────────────────────────────
 
@@ -504,12 +414,10 @@ export const ComparadorVersiones: React.FC<Props> = ({
               </div>
             ) : pdfCanvasUrl ? (
               <img
-                ref={imgRef}
                 src={pdfCanvasUrl}
                 className={styles.planoImg}
                 alt="Plano"
                 draggable={false}
-                onLoad={medirImagen}
               />
             ) : (
               <div className={styles.pdfError}>
@@ -518,19 +426,16 @@ export const ComparadorVersiones: React.FC<Props> = ({
             )
           ) : (
             <img
-              ref={imgRef}
               src={planoUrl}
               className={styles.planoImg}
               alt="Plano"
               draggable={false}
-              onLoad={medirImagen}
             />
           )}
 
           {comparando && arrows.length > 0 && (
             <svg
               className={styles.svgOverlay}
-              style={svgStyle}
               viewBox="0 0 100 100"
               preserveAspectRatio="none"
             >
@@ -564,7 +469,7 @@ export const ComparadorVersiones: React.FC<Props> = ({
             <div
               key={`A-${o.id}`}
               className={`${styles.marker} ${selectedOT === o.id ? styles.markerSelected : ''}`}
-              style={posMarcador(o.pos_x, o.pos_y)}
+              style={{ left: pct(o.pos_x ?? 0), top: pct(o.pos_y ?? 0) }}
               title={`[A] ${o.ot} — ${o.estado}`}
               onClick={() => setSelectedOT(prev => prev === o.id ? null : o.id)}
             >
@@ -583,7 +488,7 @@ export const ComparadorVersiones: React.FC<Props> = ({
             <div
               key={`B-${o.id}`}
               className={`${styles.marker} ${styles.markerB} ${selectedOT === o.id ? styles.markerSelected : ''}`}
-              style={posMarcador(o.pos_x, o.pos_y)}
+              style={{ left: pct(o.pos_x ?? 0), top: pct(o.pos_y ?? 0) }}
               title={`[B] ${o.ot} — ${o.estado}`}
               onClick={() => setSelectedOT(prev => prev === o.id ? null : o.id)}
             >
