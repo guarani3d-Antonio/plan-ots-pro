@@ -1,0 +1,98 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  pointer-events: none;
+}
+
+.dimFull {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 12, 20, 0.62);
+  pointer-events: auto;
+  animation: tourFade 0.2s ease-out;
+}
+
+.card {
+  pointer-events: auto;
+  background: #FFFFFF;
+  border: 1px solid #E5E7EB;
+  border-radius: 14px;
+  padding: 18px 20px 16px;
+  box-shadow: 0 16px 48px rgba(15, 23, 42, 0.28);
+  color: #334155;
+  animation: tourPop 0.2s ease-out;
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.progreso {
+  font-size: 12px;
+  font-weight: 700;
+  color: #2563EB;
+  letter-spacing: 0.04em;
+}
+.btnSaltar {
+  background: none;
+  border: none;
+  color: #94A3B8;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+.btnSaltar:hover { color: #475569; }
+
+.titulo {
+  margin: 0 0 8px;
+  font-size: 17px;
+  font-weight: 700;
+  color: #0F172A;
+}
+.texto {
+  margin: 0 0 18px;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: #475569;
+}
+
+.acciones {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+.btnSec {
+  background: #FFFFFF;
+  border: 1px solid #E5E7EB;
+  color: #475569;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+.btnSec:disabled { opacity: 0.45; cursor: default; }
+.btnSec:not(:disabled):hover { border-color: #94A3B8; background: #F8FAFC; }
+
+.btnPrim {
+  background: #2563EB;
+  border: none;
+  color: #FFFFFF;
+  border-radius: 8px;
+  padding: 8px 20px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+}
+.btnPrim:hover { background: #1D4ED8; }
+
+@keyframes tourFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes tourPop {
+  from { opacity: 0; transform: translateY(6px) scale(0.98); }
+  to   { opacity: 1; transform: none; }
+}

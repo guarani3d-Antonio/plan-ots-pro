@@ -37,6 +37,7 @@ import { ModalInformeOT, type TipoInforme as TipoInformeModal } from '../../comp
 import { crearComentario } from '../../services/comentariosService';
 import { useToast } from '../ui/Toast';
 import styles from './PanelOT.module.css';
+import TooltipAyuda from '../ayuda/TooltipAyuda';
 
 interface PanelOTProps {
   orden: OrdenLocal | null;
@@ -1087,7 +1088,14 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false }
                 <div className={styles.sectionTitle}>Clasificación</div>
 
                 <div className={styles.field}>
-                  <label className={styles.label}>Estado</label>
+                  <label className={styles.label}>
+                    Estado{' '}
+                    <TooltipAyuda
+                      titulo="Estado y fotos obligatorias"
+                      texto="Pendiente exige 1 foto ANTES · En proceso exige ANTES + DURANTE · Cerrada exige ANTES + DURANTE + DESPUÉS. El estado avanza solo al subir la foto requerida."
+                      posicion="top"
+                    />
+                  </label>
                   <div className={styles.estadoBtns}>
                     {(['Pendiente', 'En proceso', 'Cerrada', 'No aplica'] as const).map(e => (
                       <button
@@ -1103,7 +1111,14 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false }
                 </div>
 
                 <div className={styles.field}>
-                  <label className={styles.label}>Rubro Principal</label>
+                  <label className={styles.label}>
+                    Rubro Principal{' '}
+                    <TooltipAyuda
+                      titulo="Rubro principal"
+                      texto="Especialidad principal del trabajo. Define el ícono del marcador en el plano y agrupa la OT en los reportes."
+                      posicion="top"
+                    />
+                  </label>
                   <select
                     className={styles.select}
                     value={form.rubro ?? ''}
@@ -1117,7 +1132,14 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false }
                 </div>
 
                 <div className={styles.field}>
-                  <label className={styles.label}>Rubro Secundario</label>
+                  <label className={styles.label}>
+                    Rubro Secundario{' '}
+                    <TooltipAyuda
+                      titulo="Rubros secundarios"
+                      texto="Especialidades adicionales si el trabajo abarca más de un rubro. Podés seleccionar varios chips."
+                      posicion="top"
+                    />
+                  </label>
                   <div className={styles.chipsWrap}>
                     {RUBROS_LISTA
                       .filter(r => r !== form.rubro)
@@ -1336,6 +1358,14 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false }
             {/* ── TAB FOTOS ── (lógica subir/eliminar/visor preservada) */}
             {tab === 'fotos' && (
               <div className={styles.section}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12, fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>
+                  Fotos obligatorias según estado
+                  <TooltipAyuda
+                    titulo="Reglas de fotos"
+                    texto="No podés cerrar una OT sin sus fotos. Y no podés borrar la única foto que el estado actual exige — bajá primero el estado para liberarla."
+                    posicion="bottom"
+                  />
+                </div>
                 {errorFotos && <div className={styles.errorBox}>{errorFotos}</div>}
                 {bloqueFotos('ANTES',   0,                                       'ANTES',   validacion.antesRequerida,   validacion.antesOk,   fotosAntes)}
                 {bloqueFotos('DURANTE', fotosAntes.length,                       'DURANTE', validacion.duranteRequerida, validacion.duranteOk, fotosDurante)}

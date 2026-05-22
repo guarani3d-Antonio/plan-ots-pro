@@ -19,6 +19,7 @@ import Configuracion  from './components/views/Configuracion';
 import ModalImportPendiente, { type OTPendienteResumen } from './components/plano/ModalImportPendiente';
 import VisorPlano3D from './components/plano3d/VisorPlano3D';
 import PantallaAyuda from './components/ayuda/PantallaAyuda';
+import TourGuiado from './components/ayuda/TourGuiado';
 
 const FADE_OUT_MS = 180;
 
@@ -200,6 +201,7 @@ export default function App() {
         </main>
       </div>
 
+      <TourGuiado />
       {coverVisible && <OverlayFade fading={coverFading} />}
 
       {accionPendiente && pendientesResumen.length > 0 && (
