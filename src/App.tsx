@@ -17,7 +17,6 @@ import Calendario     from './components/views/Calendario';
 import Contratistas   from './components/views/Contratistas';
 import Configuracion  from './components/views/Configuracion';
 import ModalImportPendiente, { type OTPendienteResumen } from './components/plano/ModalImportPendiente';
-// ── S25 SPIKE 3D — eliminar import cuando el spike concluya ──────────────────
 import VisorPlano3D from './components/plano3d/VisorPlano3D';
 
 const FADE_OUT_MS = 180;
@@ -28,9 +27,7 @@ export default function App() {
   const { user, initialize }          = useAuthStore();
   const proyectoActivo                = useProyectosStore(s => s.proyectoActivo);
   const setProyectoActivo             = useProyectosStore(s => s.setProyectoActivo);
-
-  // ── S25 SPIKE: cambiar '3d-test' por 'proyectos' cuando el spike concluya ──
-  const [vista, setVista]             = useState<Vista>('3d-test' as Vista);
+  const [vista, setVista]             = useState<Vista>('proyectos');
 
   const [coverVisible, setCoverVisible] = useState(false);
   const [coverFading, setCoverFading]   = useState(false);
@@ -163,7 +160,6 @@ export default function App() {
       case 'calendario':    return <Calendario />;
       case 'contratistas':  return <Contratistas />;
       case 'configuracion': return <Configuracion />;
-      // ── S25 SPIKE 3D ──────────────────────────────────────────────────────
       case '3d-test' as Vista: return <VisorPlano3D />;
     }
   };
