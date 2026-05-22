@@ -18,6 +18,7 @@ import Contratistas   from './components/views/Contratistas';
 import Configuracion  from './components/views/Configuracion';
 import ModalImportPendiente, { type OTPendienteResumen } from './components/plano/ModalImportPendiente';
 import VisorPlano3D from './components/plano3d/VisorPlano3D';
+import PantallaAyuda from './components/ayuda/PantallaAyuda';
 
 const FADE_OUT_MS = 180;
 
@@ -160,6 +161,7 @@ export default function App() {
       case 'calendario':    return <Calendario />;
       case 'contratistas':  return <Contratistas />;
       case 'configuracion': return <Configuracion />;
+      case 'ayuda':         return <PantallaAyuda />;
       case '3d-test' as Vista: return <VisorPlano3D />;
     }
   };

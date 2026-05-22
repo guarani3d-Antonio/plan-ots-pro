@@ -11,7 +11,8 @@ export type Vista =
   | 'gantt'
   | 'calendario'
   | 'contratistas'
-  | 'configuracion';
+  | 'configuracion'
+  | 'ayuda';
 
 interface SidebarProps {
   vistaActiva: string;
@@ -38,6 +39,7 @@ const NAV_GLOBALES: NavItem[] = [
   { vista: 'calendario',   icon: '🗓', label: 'Calendario'   },
 ];
 
+const ITEM_AYUDA:  NavItem = { vista: 'ayuda',         icon: '❓', label: 'Ayuda'        };
 const ITEM_CONFIG: NavItem = { vista: 'configuracion', icon: '⚙️', label: 'Configuración' };
 
 const AVATAR_PALETTE = ['#1E40AF', '#15803D', '#C2410C', '#7C3AED', '#0E7490', '#BE123C', '#B45309'];
@@ -124,6 +126,7 @@ export function Sidebar({ vistaActiva, onCambiarVista }: SidebarProps) {
 
         <div className={styles.divider} />
 
+        {renderItem(ITEM_AYUDA)}
         {renderItem(ITEM_CONFIG)}
       </nav>
 
