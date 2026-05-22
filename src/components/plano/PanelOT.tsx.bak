@@ -6,11 +6,8 @@ import { supabase } from '../../db/supabase';
 import { useAuthStore } from '../../stores/authStore';
 import { useProyectosStore } from '../../stores/proyectosStore';
 import {
-  generarInforme,
   informeDisponible,
   type TipoInforme,
-  type OrdenParaInforme,
-  type FotoInforme,
 } from '../../services/reportService';
 import { validarFotosParaEstado } from '../../utils/validaciones';
 import {
@@ -35,10 +32,12 @@ import CampoRenderer from './CampoRenderer';
 import GestorCampos from './GestorCampos';
 import { ModalComentarioEstado } from './ModalComentarioEstado';
 import { HistorialComentarios } from './HistorialComentarios';
-import { ModalInformeOT } from '../../components/informes/ModalInformeOT';
+import { ModalFotoDetalle } from './ModalFotoDetalle';
+import { ModalInformeOT, type TipoInforme as TipoInformeModal } from '../../components/informes/ModalInformeOT';
 import { crearComentario } from '../../services/comentariosService';
 import { useToast } from '../ui/Toast';
 import styles from './PanelOT.module.css';
+import TooltipAyuda from '../ayuda/TooltipAyuda';
 
 interface PanelOTProps {
   orden: OrdenLocal | null;
@@ -160,42 +159,67 @@ function ordenToForm(orden: OrdenLocal | null): FormState {
   };
 }
 
-// Input inline para la descripción de cada foto. Mantiene su propio estado
-// (texto + flag "guardado") y dispara onSave tras persistir en Supabase,
-// para que el padre actualice su array local sin recargar.
-interface FotoCaptionProps {
-  fotoId: string;
-  initialValue: string | null | undefined;
-  onSave: (texto: string | null) => void;
+// Botones al pie de cada card de foto. Cada uno mantiene su propio hover
+// state porque el background:hover no se puede expresar inline en React.
+// Se renderizan side-by-side (flex 50%/50%) bajo la sección de descripción.
+function BtnEliminarFotoCard({ onClick }: { onClick: () => void }) {
+  const [hover, setHover] = useState(false);
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        width: '50%',
+        padding: '5px 8px',
+        background: hover ? 'rgba(239, 68, 68, 0.08)' : 'transparent',
+        color: '#EF4444',
+        border: 'none',
+        borderTop: '1px solid var(--border-default)',
+        borderRight: '1px solid var(--border-default)',
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '6px',
+        fontSize: '11px',
+        fontWeight: 600,
+        fontFamily: 'inherit',
+        transition: 'background 0.15s',
+      }}
+    >
+      🗑 Eliminar
+    </button>
+  );
 }
 
-function FotoCaption({ fotoId, initialValue, onSave }: FotoCaptionProps) {
-  const [texto, setTexto] = useState(initialValue ?? '');
-
-  const handleGuardar = async () => {
-    const valor = texto.trim() || null;
-    await supabase
-      .from('fotos')
-      .update({ descripcion: valor })
-      .eq('id', fotoId);
-    onSave(valor);
-  };
-
+function BtnEditarFotoCard({ onClick }: { onClick: () => void }) {
+  const [hover, setHover] = useState(false);
   return (
-    <textarea
-      value={texto}
-      onChange={e => setTexto(e.target.value)}
-      onBlur={handleGuardar}
-      placeholder="Detalle del estado inicial del equipo..."
-      maxLength={120}
-      rows={3}
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
       style={{
-        width: '100%', fontSize: '11px', padding: '6px 8px',
-        background: '#0F1117', border: '1px solid #2E3147',
-        borderRadius: '6px', color: '#CBD5E1', outline: 'none',
-        fontFamily: 'inherit', resize: 'none', lineHeight: '1.4',
+        width: '50%',
+        padding: '5px 8px',
+        background: hover ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
+        color: 'var(--text-secondary)',
+        border: 'none',
+        borderTop: '1px solid var(--border-default)',
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '6px',
+        fontSize: '11px',
+        fontWeight: 600,
+        fontFamily: 'inherit',
+        transition: 'background 0.15s',
       }}
-    />
+    >
+      ✏️ Editar
+    </button>
   );
 }
 
@@ -224,8 +248,10 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false }
   });
   const [confirmEliminar, setConfirmEliminar] = useState(false);
   const [guardando,       setGuardando]       = useState(false);
-  const [generandoInforme, setGenerandoInforme] = useState<TipoInforme | null>(null);
   const [modalCierre,     setModalCierre]     = useState(false);
+  // Tipo del informe a mostrar en ModalInformeOT cuando modalCierre === true.
+  // Los 5 botones del tab Informes setean este estado antes de abrir el modal.
+  const [tipoInforme,     setTipoInforme]     = useState<TipoInformeModal>('cierre');
 
   // ── Fotos (lógica NO TOCAR) ────────────────────────────────────────────────
   const [fotosAntes,   setFotosAntes]   = useState<FotoConId[]>([]);
@@ -233,6 +259,22 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false }
   const [fotosDespues, setFotosDespues] = useState<FotoConId[]>([]);
   const [subiendo,     setSubiendo]     = useState<CategoriaFoto | null>(null);
   const [errorFotos,   setErrorFotos]   = useState<string | null>(null);
+
+  // Estado de "subida en pantalla previa": apenas el usuario elige un archivo,
+  // queda parqueado acá y se abre <ModalFotoDetalle> para que ingrese
+  // descripción. El upload real recién corre cuando confirma en el modal.
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [pendingCategoria, setPendingCategoria] = useState<'ANTES' | 'DURANTE' | 'DESPUES'>('ANTES');
+
+  // Estado de edición de descripción para fotos ya subidas. Cuando el usuario
+  // hace clic en "✏️ Editar" en una card, se setea con los datos de esa foto
+  // y se monta <ModalFotoDetalle modo="edicion" />.
+  const [editandoFoto, setEditandoFoto] = useState<{
+    id: string;
+    url: string;
+    descripcion: string;
+    categoria: 'ANTES' | 'DURANTE' | 'DESPUES';
+  } | null>(null);
   const [visorAbierto, setVisorAbierto] = useState(false);
   const [visorIndex,   setVisorIndex]   = useState(0);
   const [visorFotos,   setVisorFotos]   = useState<FotoVisor[]>([]);
@@ -365,15 +407,53 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false }
     });
   }
 
-  // ── Subir foto (NO TOCAR la lógica) ────────────────────────────────────────
-  const handleSubirFoto = async (
+  // ── Flujo de subida de foto en 4 etapas ────────────────────────────────────
+  //
+  //   1. onArchivoSeleccionado    — input file → parquea el File y abre
+  //                                 ModalFotoDetalle (no sube nada todavía).
+  //   2. handleConfirmarFoto      — el usuario aceptó en el modal → limpia el
+  //                                 pending state y dispara procesarSubidaFoto.
+  //   3. handleCancelarFoto       — usuario canceló en el modal → descarta el
+  //                                 File pending.
+  //   4. procesarSubidaFoto       — ejecuta lo que antes hacía handleSubirFoto:
+  //                                 auto-transición de estado (comentario
+  //                                 obligatorio), upload real, persistencia
+  //                                 de la descripción.
+  //
+  // Importante: el modal de comentario obligatorio (ModalComentarioEstado)
+  // arranca DENTRO de procesarSubidaFoto, después de cerrar ModalFotoDetalle
+  // (porque lo cerramos al setear pendingFile=null antes de await el upload).
+
+  const onArchivoSeleccionado = (
     e: React.ChangeEvent<HTMLInputElement>,
-    categoria: CategoriaFoto
+    categoria: 'ANTES' | 'DURANTE' | 'DESPUES'
   ) => {
     const file = e.target.files?.[0];
+    e.target.value = ''; // reset para permitir re-seleccionar el mismo archivo
     if (!file) return;
-    e.target.value = '';
+    setPendingFile(file);
+    setPendingCategoria(categoria);
+  };
 
+  const handleCancelarFoto = () => {
+    setPendingFile(null);
+  };
+
+  const handleConfirmarFoto = (descripcion: string) => {
+    const file = pendingFile;
+    const categoria = pendingCategoria;
+    if (!file) return;
+    // Cerramos el modal antes de arrancar el flujo de upload + posibles
+    // modales adicionales (comentario obligatorio por auto-transición).
+    setPendingFile(null);
+    void procesarSubidaFoto(file, categoria, descripcion);
+  };
+
+  const procesarSubidaFoto = async (
+    file: File,
+    categoria: 'ANTES' | 'DURANTE' | 'DESPUES',
+    descripcion: string,
+  ) => {
     // Detectar PRIMERO si esta foto disparará auto-transición de estado.
     // Si la dispara, pedimos comentario obligatorio ANTES de subir nada:
     // cancelar el comentario aborta la subida completa (la foto no se guarda
@@ -396,9 +476,19 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false }
     setErrorFotos(null);
     try {
       const foto = await subirYRegistrarFoto(file, ordenFresca.id, ordenFresca.proyecto_id, categoria);
-      if (categoria === 'ANTES')   setFotosAntes(  prev => [...prev, foto]);
-      if (categoria === 'DURANTE') setFotosDurante(prev => [...prev, foto]);
-      if (categoria === 'DESPUES') setFotosDespues(prev => [...prev, foto]);
+
+      // Persistir la descripción capturada en ModalFotoDetalle (si la hay).
+      // El payload de la foto en estado local incluye la descripción para que
+      // el preview del Informe de Cierre la vea sin recargar.
+      const desc = descripcion.trim();
+      let fotoConDesc = foto;
+      if (desc) {
+        await supabase.from('fotos').update({ descripcion: desc }).eq('id', foto.id);
+        fotoConDesc = { ...foto, descripcion: desc };
+      }
+      if (categoria === 'ANTES')   setFotosAntes(  prev => [...prev, fotoConDesc]);
+      if (categoria === 'DURANTE') setFotosDurante(prev => [...prev, fotoConDesc]);
+      if (categoria === 'DESPUES') setFotosDespues(prev => [...prev, fotoConDesc]);
 
       // Persistir auto-transición + registrar comentario en el historial.
       // El marcador en el plano cambia de color por la actualización del store;
@@ -536,7 +626,13 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false }
         useOrdenesStore.getState().completarOtImport(ordenFresca.id);
       }
 
-      onCerrar();
+      // En el flujo normal el panel queda abierto: cerrar es exclusivo del
+      // botón X. En modoForzadoFotos el header no tiene X (sólo "Cancelar
+      // ubicación"), así que tras guardar sí necesitamos cerrar para que el
+      // flujo de importación CSV avance a la próxima OT pendiente.
+      if (modoForzadoFotos) {
+        onCerrar();
+      }
     } finally {
       setGuardando(false);
     }
@@ -579,51 +675,9 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false }
     ...fotosDespues.map(f => ({ id: f.id, file_url: f.url, categoria: 'DESPUES', file_type: null })),
   ];
 
-  // ── Generación de informes (reportService) ─────────────────────────────────
-  const handleGenerarInforme = (tipo: TipoInforme) => {
-    if (generandoInforme) return;
-    setGenerandoInforme(tipo);
-
-    const fotosInforme: FotoInforme[] = [
-      ...fotosAntes.map(f   => ({ url: f.url, categoria: 'ANTES'   as const, descripcion: f.nombre })),
-      ...fotosDurante.map(f => ({ url: f.url, categoria: 'DURANTE' as const, descripcion: f.nombre })),
-      ...fotosDespues.map(f => ({ url: f.url, categoria: 'DESPUES' as const, descripcion: f.nombre })),
-    ];
-
-    const ordenData: OrdenParaInforme = {
-      ot:                    form.ot ?? ordenFresca.ot,
-      descripcion:           form.descripcion,
-      estado:                estado,
-      rubro:                 form.rubro ?? ordenFresca.rubro,
-      rubro_secundario:      form.rubro_secundario,
-      responsable:           form.responsable ?? ordenFresca.responsable,
-      contratistas:          form.contratistas,
-      ubicacion:             form.ubicacion ?? ordenFresca.ubicacion,
-      obra:                  form.obra,
-      unidad_amenities:      form.unidad_amenities,
-      prioridad:             form.prioridad ?? ordenFresca.prioridad,
-      nivel_riesgo:          form.nivel_riesgo,
-      fecha_ingreso:         form.fecha_ingreso || ordenFresca.created_at,
-      fecha_inicio_trabajos: form.fecha_inicio_trabajos,
-      fecha_fin_trabajos:    form.fecha_fin_trabajos,
-      porcentaje_avance:     form.porcentaje_avance,
-      costo:                 form.costo,
-      en_garantia:           form.en_garantia,
-      asiste_facility:       form.asiste_facility,
-      reincidencia:          form.reincidencia,
-      potencialmente_conflictivo: form.potencialmente_conflictivo,
-      comentarios:           form.comentarios,
-      fotos:                 fotosInforme,
-    };
-
-    generarInforme(tipo, ordenData, {
-      nombre:  proyectoActivo?.nombre ?? '',
-      cliente: 'BBC Facility Services',
-    });
-
-    setTimeout(() => setGenerandoInforme(null), 800);
-  };
-
+  // ── Lista de informes disponibles en el tab "Informes" ────────────────────
+  // Los 5 abren ModalInformeOT (preview Stitch); handleGenerarInforme y el
+  // flujo viejo de window.open fueron removidos en esta iteración.
   const INFORMES_CONFIG: { tipo: TipoInforme; icono: string; nombre: string; codigo?: string; subtitulo: string }[] = [
     { tipo: 'ficha_visita',     icono: '📋', nombre: 'Ficha de Visita',       codigo: 'FOR-09-01', subtitulo: 'Registro inicial de OT' },
     { tipo: 'relevamiento',     icono: '🔍', nombre: 'Informe de Relevamiento',                    subtitulo: 'Diagnóstico técnico' },
@@ -666,77 +720,126 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false }
           </span>
         )}
       </div>
-      <div className={styles.fotosGrid} style={{ gap: '12px' }}>
-        {fotos.map((foto, i) => (
-          <div key={foto.id} style={{
-            width: '160px',
-            background: '#1A1D27',
-            border: '1px solid #2E3147',
-            borderRadius: '10px',
-            overflow: 'hidden',
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
+        gap: '10px',
+      }}>
+        {fotos.map((foto, i) => {
+          const badgeColor =
+            categoria === 'ANTES'   ? 'rgba(220, 50, 50, 0.9)' :
+            categoria === 'DURANTE' ? 'rgba(37, 99, 235, 0.9)' :
+            categoria === 'DESPUES' ? 'rgba(22, 163, 74, 0.9)' :
+            'rgba(100, 116, 139, 0.9)';
+          const badgeLabel =
+            categoria === 'DESPUES' ? 'DESPUÉS' : categoria;
+          const desc = (foto.descripcion ?? '').trim();
+          return (
+            <div key={foto.id} style={{
+              width: 'auto',
+              background: 'var(--bg-surface)',
+              border: '1px solid var(--border-default)',
+              borderRadius: '8px',
+              overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column',
+            }}>
+              {/* Foto + badge */}
+              <div style={{ position: 'relative', width: '100%', aspectRatio: '4 / 3' }}>
+                <img
+                  src={foto.url}
+                  alt={foto.nombre}
+                  onClick={() => abrirVisor(todasLasFotosParaVisor, indexOffset + i)}
+                  style={{
+                    width: '100%', height: '100%', objectFit: 'cover',
+                    display: 'block', cursor: 'pointer',
+                  }}
+                />
+                <span style={{
+                  position: 'absolute', top: '8px', left: '8px',
+                  background: badgeColor, color: '#FFFFFF',
+                  fontSize: '9px', fontWeight: 700,
+                  padding: '2px 6px', borderRadius: '4px',
+                  letterSpacing: '0.04em',
+                }}>
+                  {badgeLabel}
+                </span>
+              </div>
+
+              {/* Descripción (read-only, clamp 2 líneas) */}
+              <div style={{ padding: '6px 8px 4px', display: 'flex', flexDirection: 'column', gap: '2px', flex: 1 }}>
+                <span style={{
+                  fontSize: '9px',
+                  color: 'var(--text-secondary)',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  fontWeight: 600,
+                }}>
+                  Descripción
+                </span>
+                <span style={{
+                  fontSize: '11px',
+                  color: desc ? 'var(--text-primary)' : 'var(--text-secondary)',
+                  fontStyle: desc ? 'normal' : 'italic',
+                  minHeight: '28px',
+                  lineHeight: 1.4,
+                  wordBreak: 'break-word',
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden',
+                }}>
+                  {desc || 'Sin descripción'}
+                </span>
+              </div>
+
+              {/* Eliminar + Editar (50/50) */}
+              <div style={{ display: 'flex', gap: 0 }}>
+                <BtnEliminarFotoCard
+                  onClick={() => handleEliminarFoto(foto, categoria)}
+                />
+                <BtnEditarFotoCard
+                  onClick={() => setEditandoFoto({
+                    id: foto.id,
+                    url: foto.url,
+                    descripcion: foto.descripcion ?? '',
+                    categoria: categoria as 'ANTES' | 'DURANTE' | 'DESPUES',
+                  })}
+                />
+              </div>
+            </div>
+          );
+        })}
+
+        {/* Card "Agregar foto" — empty state / botón siempre presente */}
+        <label
+          title={`Agregar foto ${label}`}
+          style={{
+            width: 'auto',
+            minHeight: '160px',
+            border: '2px dashed #444',
+            borderRadius: '8px',
             display: 'flex',
             flexDirection: 'column',
-            flexShrink: 0,
-          }}>
-            {/* Imagen */}
-            <div style={{ position: 'relative', width: '100%', aspectRatio: '4/3' }}>
-              <img
-                src={foto.url}
-                alt={foto.nombre}
-                onClick={() => abrirVisor(todasLasFotosParaVisor, indexOffset + i)}
-                style={{
-                  width: '100%', height: '100%', objectFit: 'cover',
-                  display: 'block', cursor: 'zoom-in',
-                }}
-              />
-            </div>
-
-            {/* Descripción */}
-            <div style={{ padding: '10px', display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>
-              <span style={{
-                fontSize: '10px', fontWeight: 700, color: '#64748B',
-                textTransform: 'uppercase', letterSpacing: '0.06em',
-              }}>
-                Descripción
-              </span>
-              <FotoCaption
-                fotoId={foto.id}
-                initialValue={foto.descripcion}
-                onSave={(valor) => {
-                  const actualizarFoto = (prev: FotoConId[]) =>
-                    prev.map(f => f.id === foto.id ? { ...f, descripcion: valor } : f);
-                  if (categoria === 'ANTES')   setFotosAntes(actualizarFoto);
-                  if (categoria === 'DURANTE') setFotosDurante(actualizarFoto);
-                  if (categoria === 'DESPUES') setFotosDespues(actualizarFoto);
-                }}
-              />
-            </div>
-
-            {/* Botón eliminar */}
-            <div style={{ padding: '0 10px 10px 10px' }}>
-              <button
-                onClick={() => handleEliminarFoto(foto, categoria)}
-                style={{
-                  width: '100%', padding: '7px', fontSize: '12px', fontWeight: 600,
-                  background: 'transparent', border: '1px solid rgba(220,38,38,0.3)',
-                  borderRadius: '6px', color: '#EF4444', cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                }}
-              >
-                🗑 Eliminar
-              </button>
-            </div>
-          </div>
-        ))}
-        <label className={styles.addFotoBtn} title={`Agregar foto ${label}`}>
-          <span className={styles.addFotoPlus}>+</span>
-          {subiendo === categoria ? 'Subiendo…' : 'Agregar'}
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            cursor: subiendo ? 'not-allowed' : 'pointer',
+            background: 'transparent',
+            color: 'var(--text-secondary)',
+            opacity: subiendo ? 0.5 : 1,
+          }}
+        >
+          <span style={{ fontSize: '24px', lineHeight: 1 }}>📷</span>
+          <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+            {subiendo === categoria ? 'Subiendo…' : 'Agregar foto'}
+          </span>
           <input
             type="file"
             accept="image/*"
             style={{ display: 'none' }}
             disabled={!!subiendo}
-            onChange={e => handleSubirFoto(e, categoria)}
+            onChange={e => onArchivoSeleccionado(e, categoria as 'ANTES' | 'DURANTE' | 'DESPUES')}
           />
         </label>
       </div>
@@ -985,7 +1088,14 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false }
                 <div className={styles.sectionTitle}>Clasificación</div>
 
                 <div className={styles.field}>
-                  <label className={styles.label}>Estado</label>
+                  <label className={styles.label}>
+                    Estado{' '}
+                    <TooltipAyuda
+                      titulo="Estado y fotos obligatorias"
+                      texto="Pendiente exige 1 foto ANTES · En proceso exige ANTES + DURANTE · Cerrada exige ANTES + DURANTE + DESPUÉS. El estado avanza solo al subir la foto requerida."
+                      posicion="top"
+                    />
+                  </label>
                   <div className={styles.estadoBtns}>
                     {(['Pendiente', 'En proceso', 'Cerrada', 'No aplica'] as const).map(e => (
                       <button
@@ -1001,7 +1111,14 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false }
                 </div>
 
                 <div className={styles.field}>
-                  <label className={styles.label}>Rubro Principal</label>
+                  <label className={styles.label}>
+                    Rubro Principal{' '}
+                    <TooltipAyuda
+                      titulo="Rubro principal"
+                      texto="Especialidad principal del trabajo. Define el ícono del marcador en el plano y agrupa la OT en los reportes."
+                      posicion="top"
+                    />
+                  </label>
                   <select
                     className={styles.select}
                     value={form.rubro ?? ''}
@@ -1015,7 +1132,14 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false }
                 </div>
 
                 <div className={styles.field}>
-                  <label className={styles.label}>Rubro Secundario</label>
+                  <label className={styles.label}>
+                    Rubro Secundario{' '}
+                    <TooltipAyuda
+                      titulo="Rubros secundarios"
+                      texto="Especialidades adicionales si el trabajo abarca más de un rubro. Podés seleccionar varios chips."
+                      posicion="top"
+                    />
+                  </label>
                   <div className={styles.chipsWrap}>
                     {RUBROS_LISTA
                       .filter(r => r !== form.rubro)
@@ -1234,6 +1358,14 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false }
             {/* ── TAB FOTOS ── (lógica subir/eliminar/visor preservada) */}
             {tab === 'fotos' && (
               <div className={styles.section}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12, fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>
+                  Fotos obligatorias según estado
+                  <TooltipAyuda
+                    titulo="Reglas de fotos"
+                    texto="No podés cerrar una OT sin sus fotos. Y no podés borrar la única foto que el estado actual exige — bajá primero el estado para liberarla."
+                    posicion="bottom"
+                  />
+                </div>
                 {errorFotos && <div className={styles.errorBox}>{errorFotos}</div>}
                 {bloqueFotos('ANTES',   0,                                       'ANTES',   validacion.antesRequerida,   validacion.antesOk,   fotosAntes)}
                 {bloqueFotos('DURANTE', fotosAntes.length,                       'DURANTE', validacion.duranteRequerida, validacion.duranteOk, fotosDurante)}
@@ -1251,7 +1383,6 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false }
 
                 {INFORMES_CONFIG.map(({ tipo, icono, nombre, codigo, subtitulo }) => {
                   const disponible = informeDisponible(tipo, estado);
-                  const cargando   = generandoInforme === tipo;
                   return (
                     <div key={tipo} className={styles.informeCard}>
                       <div className={styles.informeHeader}>
@@ -1270,13 +1401,19 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false }
                       <button
                         className={styles.btnGenerar}
                         onClick={() => {
-                          if (tipo === 'cierre') setModalCierre(true);
-                          else handleGenerarInforme(tipo);
+                          // Mapear el tipo de INFORMES_CONFIG (reportService) al
+                          // TipoInforme que espera ModalInformeOT.
+                          const tipoModal: TipoInformeModal =
+                            tipo === 'ficha_visita'     ? 'ficha'
+                            : tipo === 'acta_conformidad' ? 'acta'
+                            : tipo; // 'cierre' | 'relevamiento' | 'avance' coinciden
+                          setTipoInforme(tipoModal);
+                          setModalCierre(true);
                         }}
-                        disabled={!disponible || cargando}
+                        disabled={!disponible}
                         type="button"
                       >
-                        {cargando ? '⏳ Generando...' : '🖨️ Generar'}
+                        🖨️ Generar
                       </button>
                     </div>
                   );
@@ -1402,6 +1539,55 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false }
         onCancelar={modalComentario.onCancelar ?? (() => {})}
       />
 
+      {/* Pantalla previa al upload: preview de la foto recién seleccionada +
+          captura de descripción. Al confirmar dispara procesarSubidaFoto. */}
+      {pendingFile && (
+        <ModalFotoDetalle
+          file={pendingFile}
+          categoria={pendingCategoria}
+          onGuardar={handleConfirmarFoto}
+          onCancelar={handleCancelarFoto}
+          onEditarImagen={() => {
+            // TODO: integrar con VisorFotos existente para anotar la imagen
+            // antes del upload. Por ahora, solo se aceptan ediciones post-subida.
+          }}
+        />
+      )}
+
+      {/* Edición de descripción para fotos ya subidas. */}
+      {editandoFoto && (
+        <ModalFotoDetalle
+          modo="edicion"
+          fotoUrl={editandoFoto.url}
+          descripcionInicial={editandoFoto.descripcion}
+          categoria={editandoFoto.categoria}
+          onGuardar={async (desc) => {
+            console.log('[Editar foto] id:', editandoFoto?.id, 'desc:', desc);
+
+            const { data, error } = await supabase
+              .from('fotos')
+              .update({ descripcion: desc })
+              .eq('id', editandoFoto!.id)
+              .select();
+
+            console.log('[Editar foto] resultado Supabase:', { data, error });
+
+            if (error) {
+              console.error('[Editar foto] ERROR:', error.message, error.details, error.hint);
+            } else {
+              const actualizar = (arr: any[]) =>
+                arr.map(f => f.id === editandoFoto!.id ? { ...f, descripcion: desc } : f);
+              setFotosAntes(actualizar(fotosAntes));
+              setFotosDurante(actualizar(fotosDurante));
+              setFotosDespues(actualizar(fotosDespues));
+            }
+            setEditandoFoto(null);
+          }}
+          onCancelar={() => setEditandoFoto(null)}
+          onEditarImagen={() => { /* no aplica en modo edicion */ }}
+        />
+      )}
+
       {/* Modal de Informe de Cierre — preview + export del informe formal */}
       {modalCierre && (
         <ModalInformeOT
@@ -1409,6 +1595,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false }
           onClose={() => setModalCierre(false)}
           orden={ordenFresca}
           proyectoNombre={proyectoActivo?.nombre ?? ''}
+          tipo={tipoInforme}
         />
       )}
     </>

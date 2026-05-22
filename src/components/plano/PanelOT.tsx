@@ -38,6 +38,7 @@ import { crearComentario } from '../../services/comentariosService';
 import { useToast } from '../ui/Toast';
 import styles from './PanelOT.module.css';
 import TooltipAyuda from '../ayuda/TooltipAyuda';
+import MultiSelectRubro from './MultiSelectRubro';
 
 interface PanelOTProps {
   orden: OrdenLocal | null;
@@ -1140,27 +1141,12 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false }
                       posicion="top"
                     />
                   </label>
-                  <div className={styles.chipsWrap}>
-                    {RUBROS_LISTA
-                      .filter(r => r !== form.rubro)
-                      .map(r => {
-                        const sel = (form.rubro_secundario ?? []).includes(r);
-                        return (
-                          <span
-                            key={r}
-                            className={`${styles.chip} ${sel ? styles.selected : ''}`}
-                            onClick={() => {
-                              const arr = form.rubro_secundario ?? [];
-                              set('rubro_secundario', sel
-                                ? arr.filter(x => x !== r)
-                                : [...arr, r]);
-                            }}
-                          >
-                            {r}
-                          </span>
-                        );
-                      })}
-                  </div>
+                  <MultiSelectRubro
+                    opciones={RUBROS_LISTA.filter(r => r !== form.rubro)}
+                    seleccionados={form.rubro_secundario ?? []}
+                    onChange={vals => set('rubro_secundario', vals)}
+                    emojiMap={emojiRubro}
+                  />
                 </div>
 
                 <div className={styles.field}>
