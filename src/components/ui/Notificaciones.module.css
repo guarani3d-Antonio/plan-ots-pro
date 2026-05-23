@@ -1,0 +1,272 @@
+/* ─── Wrapper ─────────────────────────────────────────────────────────────── */
+.wrapper {
+  position: relative;
+  width: 100%;
+}
+
+/* ─── Botón campanita ────────────────────────────────────────────────────── */
+.bellBtn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-text-secondary, #64748b);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  text-align: left;
+  position: relative;
+}
+
+.bellBtn:hover {
+  background: var(--color-bg-hover, #f1f5f9);
+  color: var(--color-text-primary, #0f172a);
+}
+
+.bellBtnActive {
+  background: var(--color-bg-hover, #f1f5f9);
+  color: var(--color-text-primary, #0f172a);
+}
+
+.bellIcon {
+  font-size: 16px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.bellLabel {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ─── Badge numérico ─────────────────────────────────────────────────────── */
+.badge {
+  position: absolute;
+  top: 4px;
+  right: 8px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  pointer-events: none;
+}
+
+/* Badge en modo collapsed: sobre el ícono */
+.bellBtn:not(.bellBtnActive) .badge {
+  top: 2px;
+  right: 6px;
+}
+
+/* ─── Panel dropdown ─────────────────────────────────────────────────────── */
+.panel {
+  position: fixed;
+  left: 240px;   /* sidebar expandido */
+  bottom: 80px;  /* sobre el avatar */
+  width: 320px;
+  max-height: 480px;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg-surface, #ffffff);
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06);
+  z-index: 9999;
+  overflow: hidden;
+  animation: panelIn 0.15s ease-out;
+}
+
+.panelCollapsed {
+  left: 72px;  /* sidebar colapsado */
+}
+
+@keyframes panelIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── Header del panel ───────────────────────────────────────────────────── */
+.panelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid var(--color-border, #e2e8f0);
+  flex-shrink: 0;
+}
+
+.panelTitle {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-text-primary, #0f172a);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.markAllBtn {
+  font-size: 11px;
+  font-weight: 500;
+  color: #2563eb;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: background 0.12s;
+}
+
+.markAllBtn:hover {
+  background: #eff6ff;
+}
+
+/* ─── Body (lista con scroll) ────────────────────────────────────────────── */
+.panelBody {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px 0;
+}
+
+/* ─── Estado vacío ───────────────────────────────────────────────────────── */
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 40px 24px;
+  text-align: center;
+}
+
+.emptyIcon {
+  font-size: 32px;
+  opacity: 0.3;
+}
+
+.emptyTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-secondary, #64748b);
+}
+
+.emptyHint {
+  font-size: 11px;
+  color: var(--color-text-tertiary, #94a3b8);
+  line-height: 1.5;
+}
+
+/* ─── Item de notificación ───────────────────────────────────────────────── */
+.notifItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 16px;
+  transition: background 0.12s;
+  cursor: default;
+}
+
+.notifItem:hover {
+  background: var(--color-bg-hover, #f8fafc);
+}
+
+.notifLeida {
+  opacity: 0.55;
+}
+
+.notifLeida .notifDot {
+  background: transparent;
+  border: 1.5px solid #cbd5e1;
+}
+
+.notifDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #2563eb;
+  flex-shrink: 0;
+  margin-top: 5px;
+}
+
+.notifContent {
+  flex: 1;
+  min-width: 0;
+}
+
+.notifTop {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 3px;
+}
+
+.notifOt {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-text-primary, #0f172a);
+}
+
+.notifTime {
+  font-size: 10px;
+  color: var(--color-text-tertiary, #94a3b8);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.notifBody {
+  font-size: 11px;
+  color: var(--color-text-secondary, #64748b);
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.notifCampo {
+  font-weight: 600;
+  color: var(--color-text-primary, #0f172a);
+}
+
+.notifAnterior {
+  color: #64748b;
+  font-style: italic;
+}
+
+.notifArrow {
+  color: #2563eb;
+  font-weight: 600;
+}
+
+.notifNuevo {
+  font-weight: 600;
+  color: #16a34a;
+}
+
+/* ─── Footer ─────────────────────────────────────────────────────────────── */
+.panelFooter {
+  border-top: 1px solid var(--color-border, #e2e8f0);
+  padding: 8px 16px;
+  flex-shrink: 0;
+}
+
+.clearBtn {
+  font-size: 11px;
+  color: #94a3b8;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 0;
+  transition: color 0.12s;
+}
+
+.clearBtn:hover {
+  color: #ef4444;
+}

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import styles from './Sidebar.module.css';
 import { useAuthStore } from '../../stores/authStore';
+import { Notificaciones } from '../ui/Notificaciones';
 
 export type Vista =
   | 'dashboard'
@@ -68,7 +69,6 @@ export function Sidebar({ vistaActiva, onCambiarVista, hidden }: SidebarProps) {
 
   const userName = user?.email?.split('@')[0] ?? 'Usuario';
 
-  // Fullscreen: no renderizar el sidebar
   if (hidden) return null;
 
   const renderItem = (it: NavItem) => {
@@ -134,11 +134,15 @@ export function Sidebar({ vistaActiva, onCambiarVista, hidden }: SidebarProps) {
         {renderItem(ITEM_CONFIG)}
       </nav>
 
-      {/* ─── Bottom: avatar ─── */}
+      {/* ─── Bottom: notificaciones + avatar ─── */}
       <div className={styles.bottom}>
+        <Notificaciones collapsed={collapsed} />
         <div className={styles.userBox}>
-          <div className={styles.userAvatar} style={{ background: colorFromName(userName) }}
-               title={collapsed ? `${userName} · Operador` : undefined}>
+          <div
+            className={styles.userAvatar}
+            style={{ background: colorFromName(userName) }}
+            title={collapsed ? `${userName} · Operador` : undefined}
+          >
             {inicial(userName)}
           </div>
           {!collapsed && (
@@ -149,6 +153,7 @@ export function Sidebar({ vistaActiva, onCambiarVista, hidden }: SidebarProps) {
           )}
         </div>
       </div>
+
     </aside>
   );
 }
