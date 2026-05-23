@@ -1,20 +1,16 @@
 // src/components/views/Dashboard.tsx
-// Dashboard con KPIs en tiempo real + exportación CSV / HTML / PDF + widgets configurables
+// Dashboard con KPIs en tiempo real + exportación CSV / HTML / PDF
+// Lógica de datos: intacta. Agregado: toolbar de exports + colapso de sección.
 
-import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useOrdenesStore } from '../../stores/ordenesStore';
 import { useProyectosStore } from '../../stores/proyectosStore';
 import { useAuthStore } from '../../stores/authStore';
 import { ESTADO_COLOR } from '../../constants/estados';
-import {
-  getWidgetConfig, saveWidgetConfig, DEFAULT_WIDGETS,
-  type WidgetConfig, type WidgetId,
-} from '../../services/dashboardConfigService';
-import { ModalConfigWidgets } from '../dashboard/ModalConfigWidgets';
 
 const ESTADOS = ['Pendiente', 'En proceso', 'Cerrada', 'No aplica'] as const;
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Helpers ───────────────────────────────────────────────────────────────────
 
 function saludo() {
   const h = new Date().getHours();
@@ -40,32 +36,22 @@ function fechaCorta(iso?: string | null): string {
   });
 }
 
-// ─── Componente principal ─────────────────────────────────────────────────────
+// ─── Componente principal ──────────────────────────────────────────────────────
 
 export default function Dashboard() {
-  const ordenes               = useOrdenesStore(s => s.ordenes);
+  const ordenes              = useOrdenesStore(s => s.ordenes);
   const cargarTodasLasOrdenes = useOrdenesStore(s => s.cargarTodasLasOrdenes);
-  const proyectos             = useProyectosStore(s => s.proyectos);
-  const cargarProyectos       = useProyectosStore(s => s.cargarProyectos);
-  const user                  = useAuthStore(s => s.user);
+  const proyectos            = useProyectosStore(s => s.proyectos);
+  const cargarProyectos      = useProyectosStore(s => s.cargarProyectos);
+  const user                 = useAuthStore(s => s.user);
 
   const [filtroProyecto, setFiltroProyecto] = useState<string>('');
   const [colapsado, setColapsado]           = useState(false);
-  const [widgetConfig, setWidgetConfig]     = useState<WidgetConfig[]>(DEFAULT_WIDGETS);
-  const [showWidgetPanel, setShowWidgetPanel] = useState(false);
-  const configBtnWrapperRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     cargarProyectos();
     cargarTodasLasOrdenes();
   }, [cargarProyectos, cargarTodasLasOrdenes]);
-
-  // Cargar config de widgets al montar
-  useEffect(() => {
-    if (user?.id) {
-      getWidgetConfig(user.id).then(setWidgetConfig);
-    }
-  }, [user?.id]);
 
   const userName = user?.email?.split('@')[0] ?? 'Usuario';
 
@@ -73,7 +59,7 @@ export default function Dashboard() {
     ? (proyectos.find(p => p.id === filtroProyecto)?.nombre ?? 'Proyecto')
     : 'Todos los proyectos';
 
-  // ── Datos filtrados ────────────────────────────────────────────────────────
+  // ── Datos filtrados ──────────────────────────────────────────────────────────
 
   const ordenesFiltradas = useMemo(
     () => filtroProyecto ? ordenes.filter(o => o.proyecto_id === filtroProyecto) : ordenes,
@@ -124,43 +110,34 @@ export default function Dashboard() {
   const maxRubro = porRubro[0]?.[1] ?? 1;
   const { total, avancePromedio, riesgo, costoTotal, modificadasUltSem } = kpi;
 
-  // ── Widget helpers ─────────────────────────────────────────────────────────
-
-  const isVisible = (id: WidgetId) =>
-    widgetConfig.find(w => w.id === id)?.visible ?? true;
-
-  const sortedWidgetIds = [...widgetConfig]
-    .sort((a, b) => a.orden - b.orden)
-    .map(w => w.id);
-
-  const handleSaveWidgetConfig = useCallback(async (newConfig: WidgetConfig[]) => {
-    setWidgetConfig(newConfig);
-    if (user?.id) await saveWidgetConfig(user.id, newConfig);
-  }, [user?.id]);
-
-  // ── Export CSV ─────────────────────────────────────────────────────────────
+  // ── Export CSV ───────────────────────────────────────────────────────────────
 
   const handleExportCSV = useCallback(() => {
     const headers = ['OT', 'Estado', 'Rubro', 'Prioridad', 'Responsable', 'Costo (Gs.)', 'Avance %', 'Nivel Riesgo', 'Última Modificación'];
     const rows = ordenesFiltradas.map(o => [
-      o.ot, o.estado, o.rubro ?? '', o.prioridad ?? '', o.responsable ?? '',
+      o.ot,
+      o.estado,
+      o.rubro ?? '',
+      o.prioridad ?? '',
+      o.responsable ?? '',
       o.costo != null ? String(o.costo) : '',
       o.porcentaje_avance != null ? String(o.porcentaje_avance) : '0',
-      o.nivel_riesgo ?? '', fechaCorta(o.updated_at ?? o.created_at),
+      o.nivel_riesgo ?? '',
+      fechaCorta(o.updated_at ?? o.created_at),
     ]);
     const csv = [headers, ...rows]
       .map(row => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))
       .join('\n');
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
     a.href = url;
     a.download = `dashboard_${proyectoLabel.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }, [ordenesFiltradas, proyectoLabel]);
 
-  // ── Export HTML ────────────────────────────────────────────────────────────
+  // ── Export HTML ──────────────────────────────────────────────────────────────
 
   const handleExportHTML = useCallback(() => {
     const fechaHoy = new Date().toLocaleDateString('es-PY', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -194,7 +171,8 @@ footer{margin-top:28px;font-size:10px;color:#CBD5E1;text-align:center;padding-to
 </head>
 <body>
 <h1>Plan-OTs · Dashboard de Indicadores</h1>
-<div class="sub">${proyectoLabel} · ${fechaHoy} · BBC Facility Services · Guaraní 3D</div>
+<div class="sub">${proyectoLabel} &nbsp;·&nbsp; ${fechaHoy} &nbsp;·&nbsp; BBC Facility Services · Guaraní 3D</div>
+
 <div class="stitle">KPIs Principales</div>
 <div class="row">
   <div class="card"><div class="lbl">Total OTs</div><div class="val">${total}</div></div>
@@ -202,12 +180,14 @@ footer{margin-top:28px;font-size:10px;color:#CBD5E1;text-align:center;padding-to
   <div class="card"><div class="lbl">OTs en Riesgo</div><div class="val ${riesgo > 0 ? 'red' : ''}">${riesgo}</div></div>
   <div class="card"><div class="lbl">Costo Total</div><div class="val" style="font-size:18px">${formatGs(costoTotal)}</div></div>
 </div>
+
 <div class="stitle">Por Estado</div>
 <div class="row">
 ${estadoRows.map(({ estado, count }) =>
   `<div class="card"><div class="lbl">${estado}</div><div class="val">${count}</div></div>`
 ).join('\n')}
 </div>
+
 <div class="stitle">Por Rubro</div>
 ${porRubro.map(([rubro, count]) => {
   const pct = total ? Math.round(count / total * 100) : 0;
@@ -218,6 +198,7 @@ ${porRubro.map(([rubro, count]) => {
   <span style="color:#94A3B8;min-width:32px;text-align:right">${pct}%</span>
 </div>`;
 }).join('')}
+
 <div class="stitle">Últimas OTs Modificadas</div>
 <table>
 <thead><tr><th>OT</th><th>Estado</th><th>Responsable</th><th>Última Mod.</th></tr></thead>
@@ -235,15 +216,15 @@ ${ultimas.map(o => `<tr>
 </html>`;
 
     const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
     a.href = url;
     a.download = `dashboard_${proyectoLabel.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.html`;
     a.click();
     URL.revokeObjectURL(url);
   }, [ordenesFiltradas, porRubro, porEstado, sinEstado, kpi, proyectoLabel, maxRubro, ultimas]);
 
-  // ── Export PDF ─────────────────────────────────────────────────────────────
+  // ── Export PDF ───────────────────────────────────────────────────────────────
 
   const handleExportPDF = useCallback(() => {
     const fechaHoy = new Date().toLocaleDateString('es-PY', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -291,6 +272,7 @@ ${ultimas.map(o => `<tr>
         <div style="font-family:Arial,sans-serif;font-size:7pt;color:#94A3B8">${sub}</div>
       </div>`;
 
+    // Página 1: KPIs + Por Estado + Por Rubro
     const body1 = `
       ${secTitle('KPIs Principales')}
       <div style="display:flex;gap:8px;margin-bottom:6mm">
@@ -299,6 +281,7 @@ ${ultimas.map(o => `<tr>
         ${kpiCard('OTs en Riesgo', String(riesgo), riesgo > 0 ? 'requieren atención' : 'sin alertas', riesgo > 0 ? '#EF4444' : '#16A34A')}
         ${kpiCard('Costo Total', formatGs(costoTotal), 'acumulado del proyecto')}
       </div>
+
       ${secTitle('Por Estado')}
       <div style="display:flex;gap:8px;margin-bottom:6mm">
         ${estadoRows.map(({ estado, count }) =>
@@ -311,6 +294,7 @@ ${ultimas.map(o => `<tr>
           </div>`
         ).join('')}
       </div>
+
       ${secTitle('Por Rubro')}
       <div style="display:flex;flex-direction:column;gap:5px">
         ${porRubro.slice(0, 18).map(([rubro, count]) => {
@@ -326,6 +310,7 @@ ${ultimas.map(o => `<tr>
         }).join('')}
       </div>`;
 
+    // Página 2: Últimas OTs
     const body2 = `
       ${secTitle('Últimas OTs Modificadas')}
       <table style="width:100%;border-collapse:collapse;font-size:8.5pt">
@@ -351,8 +336,10 @@ ${ultimas.map(o => `<tr>
       </table>`;
 
     const allHtml = page(body1, 1) + page(body2, 2);
+
     const pw = window.open('', '_blank', 'width=900,height=700,scrollbars=yes');
     if (!pw) { alert('Habilitá ventanas emergentes para generar el PDF.'); return; }
+
     pw.document.open();
     pw.document.write(`<!DOCTYPE html>
 <html lang="es"><head>
@@ -373,110 +360,7 @@ body{background:#888;font-family:Arial,sans-serif}
     }, 600);
   }, [ordenesFiltradas, porRubro, porEstado, sinEstado, kpi, proyectoLabel, maxRubro, ultimas]);
 
-  // ── Render de widgets por orden ────────────────────────────────────────────
-
-  const renderWidget = (id: WidgetId) => {
-    switch (id) {
-      case 'kpis':
-        return (
-          <div key="kpis" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, marginBottom: 14 }}>
-            <KPICard label="Total OTs" valor={total} subtitle={modificadasUltSem > 0 ? `${modificadasUltSem} actualizadas última semana` : 'Sin cambios esta semana'} />
-            <KPICard label="Avance general" valor={`${avancePromedio}%`} color={avancePromedio >= 80 ? '#15803D' : '#2563EB'} bar={avancePromedio} />
-            <KPICard label="OTs en riesgo" valor={riesgo} color={riesgo > 0 ? '#DC2626' : '#15803D'} badge={riesgo > 0 ? { text: 'Crítico', color: '#DC2626' } : { text: 'OK', color: '#15803D' }} />
-            <KPICard label="Costo total" valor={formatGs(costoTotal)} fontSize={20} />
-          </div>
-        );
-
-      case 'por_estado':
-        return (
-          <Seccion key="por_estado" titulo="Por Estado">
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8 }}>
-              {ESTADOS.map(e => (
-                <div key={e} style={smallCard}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{ width: 9, height: 9, borderRadius: '50%', background: ESTADO_COLOR[e] }} />
-                    <span style={{ fontSize: 11, color: '#6B7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.4 }}>{e}</span>
-                  </div>
-                  <div style={{ fontSize: 24, fontWeight: 800, color: '#0F172A', marginTop: 4 }}>{porEstado[e] ?? 0}</div>
-                </div>
-              ))}
-              <div style={smallCard}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#CBD5E1' }} />
-                  <span style={{ fontSize: 11, color: '#6B7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.4 }}>Sin estado</span>
-                </div>
-                <div style={{ fontSize: 24, fontWeight: 800, color: '#0F172A', marginTop: 4 }}>{sinEstado}</div>
-              </div>
-            </div>
-          </Seccion>
-        );
-
-      case 'por_rubro':
-        return (
-          <Seccion key="por_rubro" titulo="Por Rubro">
-            {porRubro.length === 0 ? (
-              <div style={{ fontSize: 13, color: '#94A3B8', padding: 12, textAlign: 'center' }}>Sin rubros</div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {porRubro.map(([rubro, count]) => {
-                  const pct = Math.round((count / total) * 100);
-                  const barPct = (count / maxRubro) * 100;
-                  return (
-                    <div key={rubro} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <span style={{ fontSize: 12, color: '#374151', fontWeight: 600, minWidth: 150, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{rubro}</span>
-                      <div style={{ flex: 1, height: 10, background: '#F1F5F9', borderRadius: 999, overflow: 'hidden' }}>
-                        <div style={{ width: `${barPct}%`, height: '100%', background: 'linear-gradient(90deg, #2462C9, #1E3A5F)', borderRadius: 999 }} />
-                      </div>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: '#0F172A', minWidth: 36, textAlign: 'right' }}>{count}</span>
-                      <span style={{ fontSize: 11, color: '#94A3B8', minWidth: 36, textAlign: 'right' }}>{pct}%</span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </Seccion>
-        );
-
-      case 'ultimas_ots':
-        return (
-          <Seccion key="ultimas_ots" titulo="Últimas OTs modificadas">
-            {ultimas.length === 0 ? (
-              <div style={{ fontSize: 13, color: '#94A3B8', padding: 12, textAlign: 'center' }}>Sin OTs todavía</div>
-            ) : (
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-                <thead>
-                  <tr>
-                    {['OT', 'Estado', 'Responsable', 'Última mod.'].map(h => (
-                      <th key={h} style={{ textAlign: 'left', padding: '8px 6px', fontSize: 10, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: 0.4, borderBottom: '1px solid #E5E7EB' }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {ultimas.map(o => (
-                    <tr key={o.id} style={{ borderBottom: '1px solid #F3F4F6' }}>
-                      <td style={{ padding: '10px 6px', fontFamily: 'monospace', fontWeight: 700, color: '#0F172A' }}>{o.ot}</td>
-                      <td style={{ padding: '10px 6px' }}>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: ESTADO_COLOR[o.estado], fontWeight: 600 }}>
-                          <span style={{ width: 8, height: 8, borderRadius: '50%', background: ESTADO_COLOR[o.estado] }} />
-                          {o.estado}
-                        </span>
-                      </td>
-                      <td style={{ padding: '10px 6px', color: '#475569' }}>{o.responsable || '—'}</td>
-                      <td style={{ padding: '10px 6px', color: '#94A3B8' }}>{fechaCorta(o.updated_at ?? o.created_at)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </Seccion>
-        );
-
-      default:
-        return null;
-    }
-  };
-
-  // ── Render principal ───────────────────────────────────────────────────────
+  // ── Render ───────────────────────────────────────────────────────────────────
 
   return (
     <div style={{ padding: 28, background: '#F9FAFB', minHeight: '100%', overflowY: 'auto' }}>
@@ -493,33 +377,11 @@ body{background:#888;font-family:Arial,sans-serif}
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          {/* Export toolbar */}
           <div style={{ display: 'flex', gap: 6 }}>
             <button type="button" onClick={handleExportCSV} style={btnSecundario}>CSV</button>
             <button type="button" onClick={handleExportHTML} style={btnSecundario}>HTML</button>
             <button type="button" onClick={handleExportPDF} style={btnPrimario}>🖨 PDF</button>
-            {/* Botón configurar widgets */}
-            <div ref={configBtnWrapperRef} style={{ position: 'relative' }}>
-              <button
-                type="button"
-                onClick={() => setShowWidgetPanel(v => !v)}
-                style={{
-                  ...btnSecundario,
-                  background: showWidgetPanel ? '#EFF6FF' : '#fff',
-                  borderColor: showWidgetPanel ? '#2563EB' : '#E5E7EB',
-                  color: showWidgetPanel ? '#2563EB' : '#475569',
-                }}
-                title="Configurar widgets"
-              >
-                ⚙ Widgets
-              </button>
-              {showWidgetPanel && (
-                <ModalConfigWidgets
-                  widgets={widgetConfig}
-                  onSave={handleSaveWidgetConfig}
-                  onClose={() => setShowWidgetPanel(false)}
-                />
-              )}
-            </div>
           </div>
           <FiltroProyecto value={filtroProyecto} onChange={setFiltroProyecto} proyectos={proyectos} />
         </div>
@@ -535,14 +397,126 @@ body{background:#888;font-family:Arial,sans-serif}
         </button>
       </div>
 
-      {/* Widgets en orden configurado */}
-      {!colapsado && sortedWidgetIds.map(id => isVisible(id) ? renderWidget(id) : null)}
+      {!colapsado && (
+        <>
+          {/* KPI Cards */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, marginBottom: 14 }}>
+            <KPICard
+              label="Total OTs"
+              valor={total}
+              subtitle={modificadasUltSem > 0 ? `${modificadasUltSem} actualizadas última semana` : 'Sin cambios esta semana'}
+            />
+            <KPICard
+              label="Avance general"
+              valor={`${avancePromedio}%`}
+              color={avancePromedio >= 80 ? '#15803D' : '#2563EB'}
+              bar={avancePromedio}
+            />
+            <KPICard
+              label="OTs en riesgo"
+              valor={riesgo}
+              color={riesgo > 0 ? '#DC2626' : '#15803D'}
+              badge={riesgo > 0 ? { text: 'Crítico', color: '#DC2626' } : { text: 'OK', color: '#15803D' }}
+            />
+            <KPICard
+              label="Costo total"
+              valor={formatGs(costoTotal)}
+              fontSize={20}
+            />
+          </div>
 
+          {/* Por Estado */}
+          <Seccion titulo="Por Estado">
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8 }}>
+              {ESTADOS.map(e => (
+                <div key={e} style={smallCard}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ width: 9, height: 9, borderRadius: '50%', background: ESTADO_COLOR[e] }} />
+                    <span style={{ fontSize: 11, color: '#6B7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.4 }}>{e}</span>
+                  </div>
+                  <div style={{ fontSize: 24, fontWeight: 800, color: '#0F172A', marginTop: 4 }}>
+                    {porEstado[e] ?? 0}
+                  </div>
+                </div>
+              ))}
+              <div style={smallCard}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#CBD5E1' }} />
+                  <span style={{ fontSize: 11, color: '#6B7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.4 }}>Sin estado</span>
+                </div>
+                <div style={{ fontSize: 24, fontWeight: 800, color: '#0F172A', marginTop: 4 }}>{sinEstado}</div>
+              </div>
+            </div>
+          </Seccion>
+
+          {/* Por Rubro */}
+          <Seccion titulo="Por Rubro">
+            {porRubro.length === 0 ? (
+              <div style={{ fontSize: 13, color: '#94A3B8', padding: 12, textAlign: 'center' }}>Sin rubros</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {porRubro.map(([rubro, count]) => {
+                  const pct = Math.round((count / total) * 100);
+                  const barPct = (count / maxRubro) * 100;
+                  return (
+                    <div key={rubro} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span style={{ fontSize: 12, color: '#374151', fontWeight: 600, minWidth: 150, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {rubro}
+                      </span>
+                      <div style={{ flex: 1, height: 10, background: '#F1F5F9', borderRadius: 999, overflow: 'hidden' }}>
+                        <div style={{ width: `${barPct}%`, height: '100%', background: 'linear-gradient(90deg, #2462C9, #1E3A5F)', borderRadius: 999 }} />
+                      </div>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: '#0F172A', minWidth: 36, textAlign: 'right' }}>{count}</span>
+                      <span style={{ fontSize: 11, color: '#94A3B8', minWidth: 36, textAlign: 'right' }}>{pct}%</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </Seccion>
+
+          {/* Últimas OTs */}
+          <Seccion titulo="Últimas OTs modificadas">
+            {ultimas.length === 0 ? (
+              <div style={{ fontSize: 13, color: '#94A3B8', padding: 12, textAlign: 'center' }}>Sin OTs todavía</div>
+            ) : (
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                <thead>
+                  <tr>
+                    {['OT', 'Estado', 'Responsable', 'Última mod.'].map(h => (
+                      <th key={h} style={{ textAlign: 'left', padding: '8px 6px', fontSize: 10, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: 0.4, borderBottom: '1px solid #E5E7EB' }}>
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {ultimas.map(o => (
+                    <tr key={o.id} style={{ borderBottom: '1px solid #F3F4F6' }}>
+                      <td style={{ padding: '10px 6px', fontFamily: 'monospace', fontWeight: 700, color: '#0F172A' }}>{o.ot}</td>
+                      <td style={{ padding: '10px 6px' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: ESTADO_COLOR[o.estado], fontWeight: 600 }}>
+                          <span style={{ width: 8, height: 8, borderRadius: '50%', background: ESTADO_COLOR[o.estado] }} />
+                          {o.estado}
+                        </span>
+                      </td>
+                      <td style={{ padding: '10px 6px', color: '#475569' }}>{o.responsable || '—'}</td>
+                      <td style={{ padding: '10px 6px', color: '#94A3B8' }}>
+                        {fechaCorta(o.updated_at ?? o.created_at)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </Seccion>
+        </>
+      )}
     </div>
   );
 }
 
-// ─── Estilos inline compartidos ───────────────────────────────────────────────
+// ─── Estilos inline compartidos ────────────────────────────────────────────────
 
 const btnSecundario: React.CSSProperties = {
   height: 32, padding: '0 14px',
@@ -575,7 +549,7 @@ const smallCard: React.CSSProperties = {
   padding: '12px 14px',
 };
 
-// ─── Sub-componentes ──────────────────────────────────────────────────────────
+// ─── Sub-componentes ───────────────────────────────────────────────────────────
 
 export function FiltroProyecto({
   value, onChange, proyectos,
@@ -616,12 +590,19 @@ function Seccion({ titulo, children }: { titulo: string; children: React.ReactNo
 function KPICard({
   label, valor, subtitle, color = '#0F172A', bar, badge, fontSize = 30,
 }: {
-  label: string; valor: string | number; subtitle?: string;
-  color?: string; bar?: number; badge?: { text: string; color: string }; fontSize?: number;
+  label: string;
+  valor: string | number;
+  subtitle?: string;
+  color?: string;
+  bar?: number;
+  badge?: { text: string; color: string };
+  fontSize?: number;
 }) {
   return (
     <div style={{ background: '#fff', border: '1px solid #E5E7EB', borderRadius: 12, padding: '16px 18px', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
-      <div style={{ fontSize: 11, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 6 }}>{label}</div>
+      <div style={{ fontSize: 11, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 6 }}>
+        {label}
+      </div>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
         <div style={{ fontSize, fontWeight: 800, color, lineHeight: 1 }}>{valor}</div>
         {badge && (
