@@ -230,8 +230,8 @@ export const ModalDetalleOT: React.FC<Props> = ({
               {orden.rubro_secundario && orden.rubro_secundario.length > 0
                 ? <div className={styles.chipsRow}>
                     {orden.rubro_secundario.map(r => (
-                      <span key={r} className={styles.chip}>{r}</span>
-                    ))}
+  <span key={r} className={styles.chip}>{emojiRubro(r)} {r}</span>
+))}
                   </div>
                 : <Dash />}
             </Campo>

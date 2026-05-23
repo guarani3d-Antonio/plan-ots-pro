@@ -14,13 +14,30 @@ export function parsearGuaranies(texto: string): number {
 }
 
 export const EMOJIS_RUBRO: Record<string, string> = {
+  // ── Ya existían ──
   'Impermeabilización': '💧',
-  'Eléctrica': '⚡',
-  'Plomería': '🔧',
+  'Eléctrica':          '⚡',
+  'Plomería':           '🔧',
   'Aire Acondicionado': '❄️',
-  'Vidrios': '🪟',
-  'Herrería': '🚪',
-  'Pintura': '🎨',
+  'Vidrios':            '🪟',
+  'Herrería':           '🚪',
+  'Pintura':            '🎨',
+  // ── Imagen 1 ──
+  'Albañilería':        '🧱',
+  'Carpintería':        '🪚',
+  'Jardinería':         '🌿',
+  'Limpieza':           '🧹',
+  'Seguridad':          '🔒',
+  'Ascensores':         '🛗',
+  'Gas':                '🔥',
+  'Red contra incendio':'🚒',
+  // ── Imagen 2 ──
+  'Aislación':          '🧊',
+  'PCI':                '🧯',
+  'Climatización':      '🌡️',
+  'Sanitarios':         '🚿',
+  'Estructura':         '🏗️',
+  'Revestimientos':     '🪵',
 }
 
 export function emojiRubro(rubro?: string | null): string {
