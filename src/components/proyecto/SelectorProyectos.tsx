@@ -31,7 +31,7 @@ const COLOR_EN_PROCESO = '#3B82F6';
 const COLOR_CERRADA    = '#22C55E';
 const COLOR_NO_APLICA  = '#6B7280';
 
-export function SelectorProyectos({ onOpenDashboard, onAbrirProyecto }: SelectorProyectosProps) {
+export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
   const {
     proyectos, loading, error,
     cargarProyectos, setProyectoActivo,
@@ -39,7 +39,7 @@ export function SelectorProyectos({ onOpenDashboard, onAbrirProyecto }: Selector
   } = useProyectosStore();
 
   const abrirProyecto = onAbrirProyecto ?? setProyectoActivo;
-  const { signOut, user } = useAuthStore();
+  const { user } = useAuthStore();
 
   const [modalAbierto,   setModalAbierto]   = useState(false);
   const [menuAbierto,    setMenuAbierto]    = useState<string | null>(null);
@@ -135,27 +135,9 @@ export function SelectorProyectos({ onOpenDashboard, onAbrirProyecto }: Selector
           <div className={styles.brandIcon}>P</div>
           <span className={styles.brandName}>Plan-<span>OTs</span></span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div className={styles.userInfo} style={{ cursor: 'default' }}>
-            <div className={styles.avatar}>{iniciales}</div>
-            <span className={styles.userName}>{nombreUsuario}</span>
-          </div>
-          {onOpenDashboard && (
-            <button
-              onClick={onOpenDashboard}
-              style={topbarBtnStyle}
-              title="Dashboard ejecutivo"
-            >
-              📊 Dashboard
-            </button>
-          )}
-          <button
-            onClick={() => signOut()}
-            style={topbarBtnStyle}
-            title="Cerrar sesión"
-          >
-            Salir
-          </button>
+        <div className={styles.userInfo} style={{ cursor: 'default' }}>
+          <div className={styles.avatar}>{iniciales}</div>
+          <span className={styles.userName}>{nombreUsuario}</span>
         </div>
       </nav>
 
@@ -384,19 +366,6 @@ export function SelectorProyectos({ onOpenDashboard, onAbrirProyecto }: Selector
 
 // ─── Estilos inline compartidos por dropdowns y modal de confirmación ─────────
 // Vienen acá porque el CSS module se mantiene exactamente como el spec lo pide.
-
-// Botón ghost del topbar (Dashboard, Salir).
-const topbarBtnStyle: React.CSSProperties = {
-  background: 'none',
-  border: '1px solid #E2E8F0',
-  borderRadius: '8px',
-  padding: '6px 12px',
-  fontSize: '13px',
-  color: '#64748B',
-  cursor: 'pointer',
-  fontFamily: 'inherit',
-  whiteSpace: 'nowrap',
-};
 
 const dropdownItemStyle: React.CSSProperties = {
   display: 'block',
