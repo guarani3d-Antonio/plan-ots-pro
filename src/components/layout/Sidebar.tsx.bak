@@ -17,7 +17,6 @@ export type Vista =
 interface SidebarProps {
   vistaActiva: string;
   onCambiarVista: (vista: Vista) => void;
-  hidden?: boolean;
 }
 
 const LS_COLLAPSED_KEY = 'sidebar_collapsed';
@@ -54,7 +53,7 @@ function colorFromName(n: string): string {
 
 const inicial = (n: string) => n ? n.trim().charAt(0).toUpperCase() : '?';
 
-export function Sidebar({ vistaActiva, onCambiarVista, hidden }: SidebarProps) {
+export function Sidebar({ vistaActiva, onCambiarVista }: SidebarProps) {
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     try { return localStorage.getItem(LS_COLLAPSED_KEY) === '1'; }
     catch { return false; }
@@ -67,9 +66,6 @@ export function Sidebar({ vistaActiva, onCambiarVista, hidden }: SidebarProps) {
   }, [collapsed]);
 
   const userName = user?.email?.split('@')[0] ?? 'Usuario';
-
-  // Fullscreen: no renderizar el sidebar
-  if (hidden) return null;
 
   const renderItem = (it: NavItem) => {
     const activo = vistaActiva === it.vista;

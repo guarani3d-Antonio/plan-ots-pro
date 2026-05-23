@@ -30,7 +30,6 @@ export default function App() {
   const proyectoActivo                = useProyectosStore(s => s.proyectoActivo);
   const setProyectoActivo             = useProyectosStore(s => s.setProyectoActivo);
   const [vista, setVista]             = useState<Vista>('proyectos');
-  const [fullscreen, setFullscreen]   = useState(false);
 
   const [coverVisible, setCoverVisible] = useState(false);
   const [coverFading, setCoverFading]   = useState(false);
@@ -70,11 +69,6 @@ export default function App() {
       setVista('plano');
     }
   }, [proyectoActivo?.id]);
-
-  // Seguridad: si salimos de la vista plano, nunca dejar el Sidebar oculto.
-  useEffect(() => {
-    if (vista !== 'plano' && fullscreen) setFullscreen(false);
-  }, [vista, fullscreen]);
 
   useEffect(() => () => {
     if (timerRef.current) clearTimeout(timerRef.current);
@@ -162,14 +156,7 @@ export default function App() {
             onSwitchToPlano={() => cambiarVista('plano')}
           />
         );
-      case 'plano':
-        return (
-          <VistaPlano
-            onSwitchToGrilla={() => cambiarVista('grilla')}
-            fullscreen={fullscreen}
-            onToggleFullscreen={() => setFullscreen(f => !f)}
-          />
-        );
+      case 'plano':         return <VistaPlano onSwitchToGrilla={() => cambiarVista('grilla')} />;
       case 'responsables':  return <Responsables />;
       case 'gantt':         return <Gantt />;
       case 'calendario':    return <Calendario />;
@@ -189,7 +176,7 @@ export default function App() {
         width: '100%',
         overflow: 'hidden',
       }}>
-        <Sidebar vistaActiva={vista} onCambiarVista={cambiarVista} hidden={fullscreen} />
+        <Sidebar vistaActiva={vista} onCambiarVista={cambiarVista} />
 
         <main style={{
           flex: 1,
@@ -198,7 +185,7 @@ export default function App() {
           flexDirection: 'column',
           overflow: 'auto',
         }}>
-          {!fullscreen && proyectoActivo && (vista === 'plano' || vista === 'grilla') && (
+          {proyectoActivo && (vista === 'plano' || vista === 'grilla') && (
             <ProyectoTopBar
               nombreProyecto={proyectoActivo.nombre}
               vista={vista}
