@@ -812,7 +812,7 @@ function formatearFechaCorta(fecha: string | null | undefined): string {
 // - Si hay más de 4 fotos: se parte en grupos de 4 y entre ellos se inserta
 //   un <div> separador con break-after:page (fuerza nueva página en print).
 function generarGridFotos(
-  fotos: { file_url: string; descripcion?: string | null; descripcion_observacion?: string | null }[],
+  fotos: { file_url: string; descripcion?: string | null }[],
 ): string {
   const gridStyle = 'display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;';
 
@@ -825,7 +825,7 @@ function generarGridFotos(
   }
 
   const PHOTOS_PER_PAGE = 4;
-  const chunks: { file_url: string; descripcion?: string | null; descripcion_observacion?: string | null }[][] = [];
+  const chunks: { file_url: string; descripcion?: string | null }[][] = [];
   for (let i = 0; i < fotos.length; i += PHOTOS_PER_PAGE) {
     chunks.push(fotos.slice(i, i + PHOTOS_PER_PAGE));
   }
@@ -835,7 +835,6 @@ function generarGridFotos(
     const itemsHtml = chunk.map((f, j) => {
       const idx = start + j;
       const desc = (f.descripcion ?? '').trim();
-      const obs  = (f.descripcion_observacion ?? '').trim();
       const descripcionHtml = desc
         ? escapeHtml(desc)
         : '<span style="color:#bbb">Sin descripción registrada</span>';
@@ -850,7 +849,6 @@ function generarGridFotos(
           <span style="font-size: 10px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 2px;">Descripción técnica</span>
           <span style="font-size: 11px; color: #333; font-style: italic; line-height: 1.4;">${descripcionHtml}</span>
         </div>
-        ${obs ? `<div style="margin-top:4px;padding:5px 10px;background:#fff8f0;border-left:3px solid #CC7A00;border-radius:0 4px 4px 0"><span style="font-size:10px;font-weight:600;color:#CC7A00;text-transform:uppercase;display:block;margin-bottom:2px">Observación del Editor</span><span style="font-size:11px;color:#333;font-style:italic">${escapeHtml(obs)}</span></div>` : ''}
       </div>`;
     }).join('\n');
 
@@ -1129,8 +1127,8 @@ export function generarInformeCierre(
   orden: OrdenLocal & { proyecto_nombre?: string },
   proyectoNombre: string,
   observaciones: string,
-  fotosAntes: { file_url: string; descripcion?: string | null; descripcion_observacion?: string | null }[],
-  fotosDespues: { file_url: string; descripcion?: string | null; descripcion_observacion?: string | null }[]
+  fotosAntes: { file_url: string; descripcion?: string | null }[],
+  fotosDespues: { file_url: string; descripcion?: string | null }[]
 ): string {
 
   const reincidenteTexto = orden.reincidencia ? 'SÍ' : 'NO';
@@ -1526,7 +1524,7 @@ ${_bloqueFirmas(['Responsable Plan-OTs', 'Representante BBC'])}
 export function generarInformeRelevamiento(
   orden: OrdenLocal,
   comentarioInicial: string,
-  fotosAntes: { file_url: string; descripcion?: string | null; descripcion_observacion?: string | null }[],
+  fotosAntes: { file_url: string; descripcion?: string | null }[],
 ): string {
   const bloquesAlcance = ['Trabajos requeridos', 'Materiales estimados', 'Tiempo estimado'].map(titulo => `<div style="background: #fffbf5; border-top: 3px solid #CC7A00; padding: 12px; border-radius: 4px;">
     <h4 style="font-size: 11px; font-weight: 700; color: #CC7A00; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">${escapeHtml(titulo)}</h4>
@@ -1566,8 +1564,8 @@ ${_bloqueFirmas(['Responsable Plan-OTs', 'Representante BBC'])}
 export function generarInformeAvance(
   orden: OrdenLocal,
   comentarioAvance: string,
-  fotosAntes: { file_url: string; descripcion?: string | null; descripcion_observacion?: string | null }[],
-  fotosDurante: { file_url: string; descripcion?: string | null; descripcion_observacion?: string | null }[],
+  fotosAntes: { file_url: string; descripcion?: string | null }[],
+  fotosDurante: { file_url: string; descripcion?: string | null }[],
 ): string {
   const porcentaje = Math.max(0, Math.min(100, orden.porcentaje_avance ?? 0));
   const diasEnEjecucion = orden.fecha_inicio_trabajos

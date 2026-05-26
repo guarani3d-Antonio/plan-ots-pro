@@ -18,6 +18,10 @@
 //   (sin recargar). Cero parpadeo, latencia inmediata.
 // - Cambio de opciones (incluirFotos), carga inicial, cambio de OT/tipo → regen
 //   completa del HTML y reload del iframe via srcDoc.
+//
+// S33: FotoMin incluye descripcion_observacion (campo del EditorFoto).
+//      Los tres mapeos de fotos ahora pasan ese campo al generador de informes.
+
 import { useEffect, useRef, useState } from 'react';
 import type { OrdenLocal } from '../../types/orden';
 import {
@@ -42,7 +46,12 @@ interface Props {
   tipo: TipoInforme;
 }
 
-type FotoMin = { file_url: string; descripcion?: string | null };
+// S33: incluye descripcion_observacion para que aparezca en los informes
+type FotoMin = {
+  file_url: string;
+  descripcion?: string | null;
+  descripcion_observacion?: string | null;
+};
 
 interface TipoCfg {
   titulo: string;
@@ -135,20 +144,11 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
   const [fotosDespues, setFotosDespues] = useState<FotoMin[]>([]);
   const [fotosDurante, setFotosDurante] = useState<FotoMin[]>([]);
 
-  // `firstRender` controla si el primer build del preview es inmediato o
-  // pasa por el debounce. Tras el load inicial queremos ver el HTML ya;
-  // toda edición posterior pasa por DEBOUNCE_MS.
   const firstRenderRef = useRef(true);
-
-  // El toggle "Incluir fotos" debe regenerar el preview de inmediato (sin
-  // esperar el debounce). Comparamos contra el valor previo dentro del effect
-  // y forzamos delay=0 cuando cambia.
   const prevIncluirFotosRef = useRef(incluirFotos);
-
-  // Acceso directo al iframe para parchar el DOM al tipear, sin reload.
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  // Reset de flags al cambiar de OT o tipo (cuando el modal se reabre).
+  // Reset de flags al cambiar de OT o tipo
   useEffect(() => {
     firstRenderRef.current = true;
     setHtmlPreview('');
@@ -158,12 +158,9 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
     setFotosDurante([]);
   }, [orden.id, tipo]);
 
-  // Construye el HTML actual según `tipo`. Función pura — todos los datos
-  // vienen de state/props. Se llama desde el effect de regen, desde
-  // handleActualizarAhora, y desde los handlers de export.
   const construirHtml = (textoActual: string): string => {
-    const fa = incluirFotos ? fotosAntes : [];
-    const fd = incluirFotos ? fotosDespues : [];
+    const fa  = incluirFotos ? fotosAntes   : [];
+    const fd  = incluirFotos ? fotosDespues : [];
     const fdu = incluirFotos ? fotosDurante : [];
     switch (tipo) {
       case 'cierre':
@@ -179,13 +176,12 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
     }
   };
 
-  // Carga inicial: comentario (según tipo) + fotos (si las requiere el tipo).
+  // Carga inicial: comentario + fotos
   useEffect(() => {
     if (!isOpen) return;
     let cancelado = false;
     setCargandoComentario(true);
 
-    // Fuente del comentario pre-llenado
     let promComentario: Promise<string>;
     switch (tipo) {
       case 'cierre':
@@ -204,7 +200,6 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
         break;
     }
 
-    // Fotos sólo si las necesita el tipo
     const promFotos = necesitaFotos
       ? cargarFotosDeOrden(orden.id)
       : Promise.resolve([] as Awaited<ReturnType<typeof cargarFotosDeOrden>>);
@@ -213,25 +208,39 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
       .then(([com, fotos]) => {
         if (cancelado) return;
         setObservaciones(com);
+
+        // S33: mapeo incluye descripcion_observacion además de descripcion
         if (cfg.necesitaFotosAntes) {
           setFotosAntes(
             fotos
               .filter(f => f.categoria === 'ANTES')
-              .map(f => ({ file_url: f.url, descripcion: f.descripcion ?? null })),
+              .map(f => ({
+                file_url: f.url,
+                descripcion: f.descripcion ?? null,
+                descripcion_observacion: (f as any).descripcion_observacion ?? null,
+              })),
           );
         }
         if (cfg.necesitaFotosDespues) {
           setFotosDespues(
             fotos
               .filter(f => f.categoria === 'DESPUES')
-              .map(f => ({ file_url: f.url, descripcion: f.descripcion ?? null })),
+              .map(f => ({
+                file_url: f.url,
+                descripcion: f.descripcion ?? null,
+                descripcion_observacion: (f as any).descripcion_observacion ?? null,
+              })),
           );
         }
         if (cfg.necesitaFotosDurante) {
           setFotosDurante(
             fotos
               .filter(f => f.categoria === 'DURANTE')
-              .map(f => ({ file_url: f.url, descripcion: f.descripcion ?? null })),
+              .map(f => ({
+                file_url: f.url,
+                descripcion: f.descripcion ?? null,
+                descripcion_observacion: (f as any).descripcion_observacion ?? null,
+              })),
           );
         }
         setCargandoComentario(false);
@@ -245,9 +254,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
     };
   }, [isOpen, orden.id, tipo, necesitaFotos, cfg.necesitaFotosAntes, cfg.necesitaFotosDespues, cfg.necesitaFotosDurante, orden.comentarios]);
 
-  // Regeneración del preview ante cambios que requieren rebuild completo.
-  // Las ediciones del textarea NO disparan este effect — se patchea el DOM
-  // del iframe directamente desde onChange para evitar el parpadeo del reload.
+  // Regeneración del preview ante cambios que requieren rebuild completo
   useEffect(() => {
     if (!isOpen || cargandoComentario) return;
     const incluirFotosCambio = prevIncluirFotosRef.current !== incluirFotos;
@@ -262,8 +269,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
     return () => {
       window.clearTimeout(t);
     };
-    // `observaciones` queda fuera de las deps a propósito: las edita el usuario
-    // tipeando y la actualización va por DOM patch (ver onChange del textarea).
+    // `observaciones` fuera de deps a propósito — se parchea el DOM directamente
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     isOpen,
@@ -309,8 +315,6 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
     w.document.open();
     w.document.write(html);
     w.document.close();
-    // Damos tiempo a las fotos (URLs públicas de Storage) a cargar antes de
-    // abrir el diálogo de impresión. Si no, el PDF sale sin imágenes.
     w.onload = () => {
       w.document.title = cfg.tituloDoc;
       setTimeout(() => w.print(), 250);
@@ -386,10 +390,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
                         const nuevoTexto = e.target.value.slice(0, MAX_OBSERVACIONES);
                         setObservaciones(nuevoTexto);
 
-                        // Patch directo del DOM del iframe — sin reload.
-                        // Para Cierre el id es "antecedentes-texto"; para los
-                        // otros informes (Ficha / Relevamiento / Avance) usan
-                        // _bloqueNaranjaIzquierdo con id "bloque-texto-naranja".
+                        // Patch directo del DOM del iframe — sin reload
                         const doc = iframeRef.current?.contentDocument;
                         const el =
                           doc?.getElementById('antecedentes-texto') ??
@@ -400,7 +401,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
                           return;
                         }
 
-                        // Fallback: iframe aún no cargado — regen completa.
+                        // Fallback: iframe aún no cargado — regen completa
                         setHtmlPreview(construirHtml(nuevoTexto));
                       }}
                       rows={7}
