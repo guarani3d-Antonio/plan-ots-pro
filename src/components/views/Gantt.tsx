@@ -228,8 +228,8 @@ export default function Gantt() {
     }
     let min = Infinity, max = -Infinity;
     for (const o of otConFechas) {
-      const ti = new Date(o.fecha_inicio_trabajos!).getTime();
-      const tf = new Date(o.fecha_fin_trabajos!).getTime();
+      const ti = new Date(o.fecha_inicio_trabajos! + 'T00:00:00').getTime();
+      const tf = new Date(o.fecha_fin_trabajos! + 'T00:00:00').getTime();
       if (ti < min) min = ti;
       if (tf > max) max = tf;
     }
@@ -739,10 +739,16 @@ export default function Gantt() {
             }}>
               {otConFechasFiltradas.map((o) => {
                 const retrasada = esRetrasada(o);
-                const ti = new Date(o.fecha_inicio_trabajos!);
-                const tf = new Date(o.fecha_fin_trabajos!);
-                const leftPx = diffDays(ti, columnas[0].inicio) * pxPorDia;
-                const widthPx = Math.max(20, (diffDays(tf, ti) + 1) * pxPorDia);
+                const ti = new Date(o.fecha_inicio_trabajos! + 'T00:00:00');
+                const tf = new Date(o.fecha_fin_trabajos! + 'T00:00:00');
+                const horaInicio = (o.campos?.hora_inicio_trabajos as string | undefined) ?? '00:00';
+                const horaFin    = (o.campos?.hora_fin_trabajos    as string | undefined) ?? '23:59';
+                const [hi, mi] = horaInicio.split(':').map(Number);
+                const fraccionInicio = (hi * 60 + mi) / 1440;
+                const [hf, mf] = horaFin.split(':').map(Number);
+                const fraccionFin = (hf * 60 + mf) / 1440;
+                const leftPx = diffDays(ti, columnas[0].inicio) * pxPorDia + fraccionInicio * pxPorDia;
+                const widthPx = Math.max(20, (diffDays(tf, ti) * pxPorDia) + (fraccionFin * pxPorDia) - (fraccionInicio * pxPorDia));
                 const estilo = obtenerEstiloBarra(o, retrasada);
                 const pct = o.porcentaje_avance ?? 0;
                 return (

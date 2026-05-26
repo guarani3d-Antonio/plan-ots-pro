@@ -1,5 +1,5 @@
 // src/components/plano/PanelOT.tsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import type { OrdenLocal, EstadoOT, PrioridadOT } from '../../types/orden';
 import { useOrdenesStore, rowToOrden } from '../../stores/ordenesStore';
 import { supabase } from '../../db/supabase';
@@ -254,6 +254,23 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false }
       console.error('[PanelOT] Error cargando campos:', err);
     });
   }, [ordenProp?.id]);
+
+  // ── Horas de trabajos (se guardan en campos.hora_inicio/fin_trabajos) ──
+  const horaActualDefault = useMemo(
+    () => new Date().toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit', hour12: false }),
+    [ordenFresca?.id],
+  );
+  useEffect(() => {
+    if (!ordenFresca) return;
+    setValoresCampos(prev => {
+      if (prev.hora_inicio_trabajos != null && prev.hora_fin_trabajos != null) return prev;
+      return {
+        ...prev,
+        hora_inicio_trabajos: prev.hora_inicio_trabajos ?? horaActualDefault,
+        hora_fin_trabajos:    prev.hora_fin_trabajos    ?? horaActualDefault,
+      };
+    });
+  }, [ordenFresca?.id, valoresCampos, horaActualDefault]);
 
   if (!ordenFresca) return null;
 
@@ -741,14 +758,20 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false }
                 {estado !== 'No aplica' && (
                   <div className={styles.field}>
                     <label className={styles.label}>Fecha inicio trabajos</label>
-                    <input className={styles.input} type="date" value={toDateInput(form.fecha_inicio_trabajos)} onChange={e => set('fecha_inicio_trabajos', e.target.value)} />
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <input className={styles.input} style={{ flex: 1 }} type="date" value={toDateInput(form.fecha_inicio_trabajos)} onChange={e => set('fecha_inicio_trabajos', e.target.value)} />
+                      <input className={styles.input} style={{ flex: '0 0 110px' }} type="time" value={(valoresCampos.hora_inicio_trabajos as string | undefined) ?? horaActualDefault} onChange={e => setValorCampo('hora_inicio_trabajos', e.target.value)} />
+                    </div>
                   </div>
                 )}
 
                 {estado !== 'No aplica' && (
                   <div className={styles.field}>
                     <label className={styles.label}>Fecha fin trabajos</label>
-                    <input className={styles.input} type="date" value={toDateInput(form.fecha_fin_trabajos)} onChange={e => set('fecha_fin_trabajos', e.target.value)} />
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <input className={styles.input} style={{ flex: 1 }} type="date" value={toDateInput(form.fecha_fin_trabajos)} onChange={e => set('fecha_fin_trabajos', e.target.value)} />
+                      <input className={styles.input} style={{ flex: '0 0 110px' }} type="time" value={(valoresCampos.hora_fin_trabajos as string | undefined) ?? horaActualDefault} onChange={e => setValorCampo('hora_fin_trabajos', e.target.value)} />
+                    </div>
                   </div>
                 )}
 
