@@ -4,14 +4,11 @@
 
 import { supabase } from '../db/supabase';
 
-// ─── Tipos exportados ────────────────────────────────────────────────────────
+// ─── Tipos ────────────────────────────────────────────────────────────────────
 
 export type TipoAnotacion = 'lapiz' | 'flecha' | 'circulo' | 'texto';
 
-export interface PuntoAnotacion {
-  x: number;
-  y: number;
-}
+export interface PuntoAnotacion { x: number; y: number; }
 
 export interface AnotacionGuardada {
   id: string;
@@ -27,12 +24,8 @@ export interface EdicionFoto {
   descripcion_observacion: string;
 }
 
-// ─── API ─────────────────────────────────────────────────────────────────────
+// ─── Cargar ───────────────────────────────────────────────────────────────────
 
-/**
- * Carga las anotaciones y descripción guardadas para una foto.
- * Retorna valores vacíos si no hay datos (primera vez que se abre).
- */
 export async function cargarEdicionFoto(fotoId: string): Promise<EdicionFoto> {
   const { data, error } = await supabase
     .from('fotos')
@@ -41,7 +34,6 @@ export async function cargarEdicionFoto(fotoId: string): Promise<EdicionFoto> {
     .single();
 
   if (error) {
-    // La foto existe pero las columnas pueden ser null (primera vez)
     console.warn('cargarEdicionFoto:', error.message);
     return { anotaciones: [], descripcion_observacion: '' };
   }
@@ -52,13 +44,11 @@ export async function cargarEdicionFoto(fotoId: string): Promise<EdicionFoto> {
   };
 }
 
-/**
- * Persiste las anotaciones vectoriales y la descripción de observación.
- * No modifica ningún otro campo de la foto.
- */
+// ─── Guardar solo metadatos (sin imagen nueva) ────────────────────────────────
+
 export async function guardarEdicionFoto(
   fotoId: string,
-  edicion: EdicionFoto
+  edicion: EdicionFoto,
 ): Promise<void> {
   const { error } = await supabase
     .from('fotos')
@@ -69,4 +59,44 @@ export async function guardarEdicionFoto(
     .eq('id', fotoId);
 
   if (error) throw new Error(`guardarEdicionFoto: ${error.message}`);
+}
+
+// ─── Subir imagen anotada (burn-in) + actualizar registro ─────────────────────
+
+export async function subirImagenAnotada(
+  fotoId: string,
+  ordenId: string,
+  proyectoId: string,
+  blob: Blob,
+  anotaciones: AnotacionGuardada[],
+  descripcion: string,
+): Promise<string> {
+  // 1. Upload al bucket 'fotos'
+  const fileName = `anotada_${fotoId}_${Date.now()}.jpg`;
+  const path     = `${proyectoId}/${ordenId}/${fileName}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from('fotos')
+    .upload(path, blob, { contentType: 'image/jpeg', upsert: false });
+
+  if (uploadError) throw new Error(`Upload: ${uploadError.message}`);
+
+  // 2. Obtener URL pública
+  const { data: { publicUrl } } = supabase.storage
+    .from('fotos')
+    .getPublicUrl(path);
+
+  // 3. Actualizar registro en tabla fotos
+  const { error: dbError } = await supabase
+    .from('fotos')
+    .update({
+      file_url: publicUrl,
+      anotaciones,
+      descripcion_observacion: descripcion,
+    })
+    .eq('id', fotoId);
+
+  if (dbError) throw new Error(`DB: ${dbError.message}`);
+
+  return publicUrl;
 }

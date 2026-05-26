@@ -464,9 +464,9 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false }
 
   // ── S32-A: array de fotos como FotoMinima para EditorFoto ─────────────────
   const todasLasFotosParaEditor: FotoMinima[] = [
-    ...fotosAntes.map(f   => ({ id: f.id, orden_id: ordenFresca.id, categoria: 'ANTES'   as const, file_url: f.url })),
-    ...fotosDurante.map(f => ({ id: f.id, orden_id: ordenFresca.id, categoria: 'DURANTE' as const, file_url: f.url })),
-    ...fotosDespues.map(f => ({ id: f.id, orden_id: ordenFresca.id, categoria: 'DESPUES' as const, file_url: f.url })),
+    ...fotosAntes.map(f   => ({ id: f.id, orden_id: ordenFresca.id, proyecto_id: ordenFresca.proyecto_id, categoria: 'ANTES'   as const, file_url: f.url })),
+    ...fotosDurante.map(f => ({ id: f.id, orden_id: ordenFresca.id, proyecto_id: ordenFresca.proyecto_id, categoria: 'DURANTE' as const, file_url: f.url })),
+    ...fotosDespues.map(f => ({ id: f.id, orden_id: ordenFresca.id, proyecto_id: ordenFresca.proyecto_id, categoria: 'DESPUES' as const, file_url: f.url })),
   ];
 
   const INFORMES_CONFIG: { tipo: TipoInforme; icono: string; nombre: string; codigo?: string; subtitulo: string }[] = [
@@ -500,7 +500,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false }
             return (
               <div key={foto.id} style={{ width: 'auto', background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: '8px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                 <div style={{ position: 'relative', width: '100%', aspectRatio: '4 / 3' }}>
-                  <img src={foto.url} alt={foto.nombre} onClick={() => abrirVisor(todasLasFotosParaVisor, indexOffset + i)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', cursor: 'pointer' }} />
+                  <img src={foto.url} alt={foto.nombre} onClick={() => setFotoEditando({ id: foto.id, orden_id: ordenFresca.id, proyecto_id: ordenFresca.proyecto_id, categoria: foto.categoria as 'ANTES' | 'DURANTE' | 'DESPUES' | 'ADJUNTO', file_url: foto.url })} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', cursor: 'pointer' }} />
                   <span style={{ position: 'absolute', top: '8px', left: '8px', background: badgeColor, color: '#FFFFFF', fontSize: '9px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', letterSpacing: '0.04em' }}>{badgeLabel}</span>
                 </div>
                 <div style={{ padding: '6px 8px 4px', display: 'flex', flexDirection: 'column', gap: '2px', flex: 1 }}>
@@ -510,7 +510,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false }
                 <div style={{ display: 'flex', gap: 0 }}>
                   <BtnEliminarFotoCard onClick={() => handleEliminarFoto(foto, categoria)} />
                   {/* S32-A: abre EditorFoto en lugar de ModalFotoDetalle */}
-                  <BtnEditarFotoCard onClick={() => setFotoEditando({ id: foto.id, orden_id: ordenFresca.id, categoria: foto.categoria as 'ANTES' | 'DURANTE' | 'DESPUES' | 'ADJUNTO', file_url: foto.url })} />
+                  <BtnEditarFotoCard onClick={() => setFotoEditando({ id: foto.id, orden_id: ordenFresca.id, proyecto_id: ordenFresca.proyecto_id, categoria: foto.categoria as 'ANTES' | 'DURANTE' | 'DESPUES' | 'ADJUNTO', file_url: foto.url })} />
                 </div>
               </div>
             );
