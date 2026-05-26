@@ -198,13 +198,17 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false }
     id: string; url: string; descripcion: string; categoria: 'ANTES' | 'DURANTE' | 'DESPUES';
   } | null>(null);
   const [visorAbierto, setVisorAbierto] = useState(false);
-  const [visorIndex] = useState(0);
-  const [visorFotos] = useState<FotoVisor[]>([]);
+  const [visorIndex,   setVisorIndex]   = useState(0);
+  const [visorFotos,   setVisorFotos]   = useState<FotoVisor[]>([]);
 
   // ── S32-A: estado para EditorFoto ─────────────────────────────────────────
   const [fotoEditando, setFotoEditando] = useState<FotoMinima | null>(null);
 
-
+  const abrirVisor = (todasLasFotos: FotoVisor[], indiceInicial: number) => {
+    setVisorFotos(todasLasFotos);
+    setVisorIndex(indiceInicial);
+    setVisorAbierto(true);
+  };
 
   // ── Campos personalizados ──────────────────────────────────────────────────
   const [camposDefinicion, setCamposDefinicion] = useState<CampoDefinicion[]>([]);
@@ -452,7 +456,11 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false }
     ? (ordenFresca.created_by === user?.id ? (user?.email ?? ordenFresca.created_by) : ordenFresca.created_by)
     : (user?.email ?? '');
 
-
+  const todasLasFotosParaVisor: FotoVisor[] = [
+    ...fotosAntes.map(f   => ({ id: f.id, file_url: f.url, categoria: 'ANTES',   file_type: null })),
+    ...fotosDurante.map(f => ({ id: f.id, file_url: f.url, categoria: 'DURANTE', file_type: null })),
+    ...fotosDespues.map(f => ({ id: f.id, file_url: f.url, categoria: 'DESPUES', file_type: null })),
+  ];
 
   // ── S32-A: array de fotos como FotoMinima para EditorFoto ─────────────────
   const todasLasFotosParaEditor: FotoMinima[] = [
@@ -470,7 +478,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false }
   ];
 
   const bloqueFotos = (
-    categoria: CategoriaFoto, label: string,
+    categoria: CategoriaFoto, indexOffset: number, label: string,
     requerida: boolean, ok: boolean, fotos: FotoConId[]
   ) => {
     const alerta = requerida && !ok;
@@ -485,7 +493,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false }
           {cumplida && <span className={`${styles.fotoEstadoBadge} ${styles.fotoEstadoOk}`}>✓ OK</span>}
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '10px' }}>
-          {fotos.map((foto) => {
+          {fotos.map((foto, i) => {
             const badgeColor = categoria === 'ANTES' ? 'rgba(220,50,50,0.9)' : categoria === 'DURANTE' ? 'rgba(37,99,235,0.9)' : categoria === 'DESPUES' ? 'rgba(22,163,74,0.9)' : 'rgba(100,116,139,0.9)';
             const badgeLabel = categoria === 'DESPUES' ? 'DESPUÉS' : categoria;
             const desc = (foto.descripcion ?? '').trim();
@@ -807,9 +815,9 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false }
                   <TooltipAyuda titulo="Reglas de fotos" texto="No podés cerrar una OT sin sus fotos. Y no podés borrar la única foto que el estado actual exige — bajá primero el estado para liberarla." posicion="bottom" />
                 </div>
                 {errorFotos && <div className={styles.errorBox}>{errorFotos}</div>}
-                {bloqueFotos('ANTES',   'ANTES',   validacion.antesRequerida,   validacion.antesOk,   fotosAntes)}
-                {bloqueFotos('DURANTE', 'DURANTE', validacion.duranteRequerida, validacion.duranteOk, fotosDurante)}
-                {bloqueFotos('DESPUES', 'DESPUÉS', validacion.despuesRequerida, validacion.despuesOk, fotosDespues)}
+                {bloqueFotos('ANTES',   0,                                       'ANTES',   validacion.antesRequerida,   validacion.antesOk,   fotosAntes)}
+                {bloqueFotos('DURANTE', fotosAntes.length,                       'DURANTE', validacion.duranteRequerida, validacion.duranteOk, fotosDurante)}
+                {bloqueFotos('DESPUES', fotosAntes.length + fotosDurante.length, 'DESPUÉS', validacion.despuesRequerida, validacion.despuesOk, fotosDespues)}
               </div>
             )}
 
