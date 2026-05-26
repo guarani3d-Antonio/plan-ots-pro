@@ -40,8 +40,6 @@ import styles from './PanelOT.module.css';
 import TooltipAyuda from '../ayuda/TooltipAyuda';
 import MultiSelectRubro from './MultiSelectRubro';
 import PanelComentarios from './PanelComentarios';
-// ── S32-A: Editor de Evidencia Fotográfica ────────────────────────────────────
-import EditorFoto, { type FotoMinima } from './EditorFoto';
 
 interface PanelOTProps {
   orden: OrdenLocal | null;
@@ -66,7 +64,7 @@ const RUBROS_SINONIMOS: Record<string, string> = {
 };
 
 const stripAccents = (s: string) =>
-  s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+  s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 
 function matchEnum<T extends string>(
   raw: string | null | undefined,
@@ -124,6 +122,7 @@ const COLOR_PRIORIDAD: Record<PrioridadOT, string> = {
   'Baja':  '#64748B',
 };
 
+// Estados que usan fecha_fin_trabajos como límite del cálculo de días abierto
 const ESTADOS_CON_FECHA_FIN = new Set<EstadoOT>(['Cerrada', 'No aplica']);
 
 type FotoConId = FotoSubida & { id: string };
@@ -186,7 +185,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false }
   const [modalCierre,     setModalCierre]     = useState(false);
   const [tipoInforme,     setTipoInforme]     = useState<TipoInformeModal>('cierre');
 
-  // ── Fotos ─────────────────────────────────────────────────────────────────
+  // ── Fotos ────────────────────────────────────────────────────────────────
   const [fotosAntes,   setFotosAntes]   = useState<FotoConId[]>([]);
   const [fotosDurante, setFotosDurante] = useState<FotoConId[]>([]);
   const [fotosDespues, setFotosDespues] = useState<FotoConId[]>([]);
@@ -201,21 +200,18 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false }
   const [visorIndex,   setVisorIndex]   = useState(0);
   const [visorFotos,   setVisorFotos]   = useState<FotoVisor[]>([]);
 
-  // ── S32-A: estado para EditorFoto ─────────────────────────────────────────
-  const [fotoEditando, setFotoEditando] = useState<FotoMinima | null>(null);
-
   const abrirVisor = (todasLasFotos: FotoVisor[], indiceInicial: number) => {
     setVisorFotos(todasLasFotos);
     setVisorIndex(indiceInicial);
     setVisorAbierto(true);
   };
 
-  // ── Campos personalizados ──────────────────────────────────────────────────
+  // ── Campos personalizados ────────────────────────────────────────────────
   const [camposDefinicion, setCamposDefinicion] = useState<CampoDefinicion[]>([]);
   const [valoresCampos,    setValoresCampos]    = useState<Record<string, unknown>>({});
   const [mostrarGestor,    setMostrarGestor]    = useState(false);
 
-  // ── Comentarios ────────────────────────────────────────────────────────────
+  // ── Comentarios ──────────────────────────────────────────────────────────
   const [modalComentario, setModalComentario] = useState<{
     abierto: boolean; estadoAnterior: string; estadoNuevo: string;
     esPorFoto: boolean;
@@ -259,7 +255,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false }
     });
   }, [ordenProp?.id]);
 
-  // ── Horas de trabajos (campos JSONB) ──────────────────────────────────────
+  // ── Horas de trabajos (se guardan en campos.hora_inicio/fin_trabajos) ──
   const horaActualDefault = useMemo(
     () => new Date().toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit', hour12: false }),
     [ordenFresca?.id],
@@ -378,6 +374,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false }
     const v = validarFotosParaEstado(fotosAntes, fotosDurante, fotosDespues, estado);
     if (!v.valido) { mostrar(v.errores.join(' · '), 'error'); setTab('fotos'); return; }
 
+    // Safety net: si es "No aplica" y no tiene fecha_fin, auto-completar con hoy
     const fechaFinFinal = (estado === 'No aplica' && !form.fecha_fin_trabajos)
       ? new Date().toISOString().slice(0, 10)
       : form.fecha_fin_trabajos;
@@ -447,6 +444,9 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false }
     setValoresCampos(prev => ({ ...prev, [campoId]: valor }));
   };
 
+  // ── Días abierto:
+  // Cerrada / No aplica → fecha_fin_trabajos − fecha_ingreso
+  // Pendiente / En proceso → hoy − fecha_ingreso
   const diasAb = diasAbierto(
     form.fecha_ingreso || ordenFresca.created_at,
     ESTADOS_CON_FECHA_FIN.has(estado) ? form.fecha_fin_trabajos : undefined,
@@ -460,13 +460,6 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false }
     ...fotosAntes.map(f   => ({ id: f.id, file_url: f.url, categoria: 'ANTES',   file_type: null })),
     ...fotosDurante.map(f => ({ id: f.id, file_url: f.url, categoria: 'DURANTE', file_type: null })),
     ...fotosDespues.map(f => ({ id: f.id, file_url: f.url, categoria: 'DESPUES', file_type: null })),
-  ];
-
-  // ── S32-A: array de fotos como FotoMinima para EditorFoto ─────────────────
-  const todasLasFotosParaEditor: FotoMinima[] = [
-    ...fotosAntes.map(f   => ({ id: f.id, orden_id: ordenFresca.id, categoria: 'ANTES'   as const, file_url: f.url })),
-    ...fotosDurante.map(f => ({ id: f.id, orden_id: ordenFresca.id, categoria: 'DURANTE' as const, file_url: f.url })),
-    ...fotosDespues.map(f => ({ id: f.id, orden_id: ordenFresca.id, categoria: 'DESPUES' as const, file_url: f.url })),
   ];
 
   const INFORMES_CONFIG: { tipo: TipoInforme; icono: string; nombre: string; codigo?: string; subtitulo: string }[] = [
@@ -509,8 +502,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false }
                 </div>
                 <div style={{ display: 'flex', gap: 0 }}>
                   <BtnEliminarFotoCard onClick={() => handleEliminarFoto(foto, categoria)} />
-                  {/* S32-A: abre EditorFoto en lugar de ModalFotoDetalle */}
-                  <BtnEditarFotoCard onClick={() => setFotoEditando({ id: foto.id, orden_id: ordenFresca.id, categoria: foto.categoria as 'ANTES' | 'DURANTE' | 'DESPUES' | 'ADJUNTO', file_url: foto.url })} />
+                  <BtnEditarFotoCard onClick={() => setEditandoFoto({ id: foto.id, url: foto.url, descripcion: foto.descripcion ?? '', categoria: categoria as 'ANTES' | 'DURANTE' | 'DESPUES' })} />
                 </div>
               </div>
             );
@@ -566,6 +558,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false }
       estado_anterior: estadoAnterior, estado_nuevo: nuevoEstado, comentario,
     });
 
+    // Auto-capturar la fecha de decisión "No aplica" = hoy
     const extraFields: Partial<OrdenLocal> = {};
     if (nuevoEstado === 'No aplica') {
       const hoy = new Date().toISOString().slice(0, 10);
@@ -600,7 +593,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false }
           {/* HEADER */}
           <div className={styles.header}>
             <div className={styles.headerTitle}>
-              <span style={{ color: colorEstado(estado), fontSize: '1.1em', lineHeight: 1 }}>◉</span>
+              <span style={{ color: colorEstado(estado), fontSize: '1.1em', lineHeight: 1 }}>●</span>
               {' '}{form.ot || 'Nueva OT'}
               {(form.rubro || form.descripcion) ? ` — ${form.rubro ?? form.descripcion ?? ''}` : ''}
             </div>
@@ -630,6 +623,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false }
             {/* ── TAB DATOS ── */}
             {tab === 'datos' && <>
 
+              {/* IDENTIFICACIÓN */}
               <div className={styles.section}>
                 <div className={styles.sectionTitle}>Identificación</div>
 
@@ -669,6 +663,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false }
                 </div>
               </div>
 
+              {/* CLASIFICACIÓN */}
               <div className={styles.section}>
                 <div className={styles.sectionTitle}>Clasificación</div>
 
@@ -730,6 +725,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false }
                 {toggleRow('asiste_facility',            'Asiste Facility Services')}
               </div>
 
+              {/* EJECUCIÓN */}
               <div className={styles.section}>
                 <div className={styles.sectionTitle}>Ejecución</div>
 
@@ -758,6 +754,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false }
                   </div>
                 </div>
 
+                {/* Fecha inicio y fin — ocultos para "No aplica" (no tiene sentido si el trabajo no se hará) */}
                 {estado !== 'No aplica' && (
                   <div className={styles.field}>
                     <label className={styles.label}>Fecha inicio trabajos</label>
@@ -914,24 +911,6 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false }
 
       {modalCierre && (
         <ModalInformeOT isOpen={modalCierre} onClose={() => setModalCierre(false)} orden={ordenFresca} proyectoNombre={proyectoActivo?.nombre ?? ''} tipo={tipoInforme} />
-      )}
-
-      {/* ── S32-A: Editor de Evidencia Fotográfica ───────────────────────── */}
-      {fotoEditando && (
-        <EditorFoto
-          foto={fotoEditando}
-          ordenCodigo={form.ot ?? ordenFresca.ot ?? ordenFresca.id}
-          todasLasFotos={todasLasFotosParaEditor}
-          onClose={() => setFotoEditando(null)}
-          onGuardado={() => {
-            // Recargar fotos para reflejar descripcion_observacion actualizada
-            cargarFotosDeOrden(ordenFresca.id).then(fotos => {
-              setFotosAntes(fotos.filter(f => f.categoria === 'ANTES'));
-              setFotosDurante(fotos.filter(f => f.categoria === 'DURANTE'));
-              setFotosDespues(fotos.filter(f => f.categoria === 'DESPUES'));
-            });
-          }}
-        />
       )}
     </>
   );
