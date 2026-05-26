@@ -39,6 +39,7 @@ import { useToast } from '../ui/Toast';
 import styles from './PanelOT.module.css';
 import TooltipAyuda from '../ayuda/TooltipAyuda';
 import MultiSelectRubro from './MultiSelectRubro';
+import PanelComentarios from './PanelComentarios';
 
 interface PanelOTProps {
   orden: OrdenLocal | null;
@@ -569,6 +570,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false }
   return (
     <>
       <div className={styles.backdrop} onClick={modoForzadoFotos ? undefined : onCerrar}>
+        <div style={{ display: 'flex', flexDirection: 'row' }} onClick={e => e.stopPropagation()}>
         <div className={styles.panel} onClick={e => e.stopPropagation()}>
 
           {/* HEADER */}
@@ -851,6 +853,8 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false }
           {mostrarGestor && (
             <GestorCampos proyectoId={ordenFresca.proyecto_id} onClose={() => { setMostrarGestor(false); getCamposDeProyecto(ordenFresca.proyecto_id).then(setCamposDefinicion); }} />
           )}
+        </div>
+        <PanelComentarios ordenId={ordenFresca.id} proyectoId={ordenFresca.proyecto_id} />
         </div>
       </div>
 
