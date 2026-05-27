@@ -1,4 +1,4 @@
-.page {
+﻿.page {
   height: 100vh;
   overflow: hidden;
   background: #EEF2F7;
@@ -202,7 +202,7 @@
   aspect-ratio: 16 / 9;
   /* Fondo oscuro para que el thumb del plano (PNG con fondo blanco) y
      la drop-shadow contrasten bien. */
-  background: linear-gradient(135deg, #1E293B 0%, #0F172A 100%);
+  background: linear-gradient(135deg, #2D3F55 0%, #1E2D40 100%);
   overflow: hidden;
   /* Flex centered para que el <img> con maxWidth/maxHeight:90% quede
      centrado horizontal y vertical en la portada. */
@@ -230,7 +230,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #1E3A5F 0%, #0B1929 100%);
+  background: linear-gradient(135deg, #2D3F55 0%, #1E2D40 100%);
   gap: 8px;
 }
 

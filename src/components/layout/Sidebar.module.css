@@ -1,11 +1,11 @@
-/* Sidebar.module.css — Tema oscuro navy · colapsable 220 ⇄ 56 */
+﻿/* Sidebar.module.css — Tema oscuro navy · colapsable 220 ⇄ 56 */
 
 .sidebar {
   position: relative;
   width: 220px;
   flex-shrink: 0;
   height: 100%;
-  background: #0B1929;
+  background: #3B599B;
   color: rgba(255, 255, 255, 0.75);
   display: flex;
   flex-direction: column;
@@ -27,7 +27,7 @@
   border-radius: 50%;
   background: #2462C9;
   color: #fff;
-  border: 2px solid #0B1929;
+  border: 2px solid #3B599B;
   cursor: pointer;
   font-size: 10px;
   font-weight: 700;
