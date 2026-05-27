@@ -1,4 +1,3 @@
-/* Overlay que oscurece el plano */
 .backdrop {
   position: fixed;
   inset: 0;
@@ -8,7 +7,6 @@
   justify-content: flex-end;
 }
 
-/* Panel deslizante derecho */
 .panel {
   width: 440px;
   max-width: 100vw;
@@ -25,64 +23,66 @@
   to   { transform: translateX(0) }
 }
 
-/* Header */
 .header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 24px 16px;
+  padding: 10px 16px 8px;
   border-bottom: 1px solid #F1F5F9;
   flex-shrink: 0;
 }
 
 .headerTitle {
-  font-size: 18px;
+  font-size: 14px;
   font-weight: 700;
   color: #0F172A;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 7px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .statusDot {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   flex-shrink: 0;
 }
 
 .closeBtn {
-  width: 32px;
-  height: 32px;
+  width: 26px;
+  height: 26px;
   border: none;
   background: #F1F5F9;
-  border-radius: 8px;
+  border-radius: 6px;
   cursor: pointer;
-  font-size: 16px;
+  font-size: 13px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: #64748B;
+  flex-shrink: 0;
   transition: background 150ms;
 }
 
 .closeBtn:hover { background: #E2E8F0; }
 
-/* Tabs */
 .tabs {
   display: flex;
   border-bottom: 1px solid #E2E8F0;
   flex-shrink: 0;
-  padding: 0 24px;
+  padding: 0 16px;
 }
 
 .tab {
   flex: 1;
-  padding: 12px 0;
+  padding: 7px 0;
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 500;
   color: #94A3B8;
   cursor: pointer;
@@ -96,38 +96,35 @@
   font-weight: 600;
 }
 
-/* Cuerpo scrolleable */
 .body {
   flex: 1;
   overflow-y: auto;
-  padding: 24px;
+  padding: 8px 14px;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 6px;
 }
 
-/* Secciones dentro del body */
 .section {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 6px;
 }
 
 .sectionTitle {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: #94A3B8;
-  padding-bottom: 6px;
+  padding-bottom: 4px;
   border-bottom: 1px solid #F1F5F9;
 }
 
-/* Campos */
-.field { display: flex; flex-direction: column; gap: 5px; }
+.field { display: flex; flex-direction: column; gap: 3px; }
 
 .label {
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 500;
   color: #374151;
 }
@@ -135,9 +132,9 @@
 .input, .textarea, .select {
   width: 100%;
   border: 1.5px solid #E2E8F0;
-  border-radius: 8px;
-  padding: 9px 12px;
-  font-size: 14px;
+  border-radius: 7px;
+  padding: 6px 10px;
+  font-size: 13px;
   color: #0F172A;
   background: white;
   outline: none;
@@ -148,7 +145,7 @@
 
 .input:focus, .textarea:focus, .select:focus {
   border-color: #2563EB;
-  box-shadow: 0 0 0 3px rgba(37,99,235,0.08);
+  box-shadow: 0 0 0 2px rgba(37,99,235,0.08);
 }
 
 .input:read-only {
@@ -157,21 +154,20 @@
   cursor: default;
 }
 
-.textarea { resize: vertical; min-height: 80px; }
+.textarea { resize: vertical; min-height: 64px; }
 
-/* Estado — botones estilo Stitch */
 .estadoBtns {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  gap: 6px;
 }
 
 .estadoBtn {
-  padding: 9px;
+  padding: 6px;
   border: 1.5px solid #E2E8F0;
-  border-radius: 8px;
+  border-radius: 7px;
   background: white;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
   color: #64748B;
   cursor: pointer;
@@ -184,16 +180,15 @@
   font-weight: 600;
 }
 
-/* Slider de avance */
 .sliderWrap {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .slider {
   flex: 1;
-  height: 6px;
+  height: 5px;
   border-radius: 99px;
   outline: none;
   cursor: pointer;
@@ -202,28 +197,27 @@
 }
 
 .sliderValue {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   color: #0F172A;
-  min-width: 36px;
+  min-width: 32px;
   text-align: right;
 }
 
-/* Toggle switch */
 .toggleRow {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 0;
+  padding: 4px 0;
   border-bottom: 1px solid #F8FAFC;
 }
 
-.toggleLabel { font-size: 13px; color: #374151; }
+.toggleLabel { font-size: 12px; color: #374151; }
 
 .toggleSwitch {
-  width: 42px;
-  height: 24px;
-  border-radius: 12px;
+  width: 36px;
+  height: 20px;
+  border-radius: 10px;
   background: #D1D5DB;
   position: relative;
   cursor: pointer;
@@ -236,8 +230,8 @@
 .toggleSwitch.on { background: #2563EB; }
 
 .toggleThumb {
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
   background: white;
   position: absolute;
@@ -247,31 +241,30 @@
   box-shadow: 0 1px 3px rgba(0,0,0,0.25);
 }
 
-.toggleSwitch.on .toggleThumb { left: 20px; }
+.toggleSwitch.on .toggleThumb { left: 18px; }
 
-/* Chips (contratistas, rubro secundario) */
 .chipsWrap {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  padding: 8px;
+  gap: 5px;
+  padding: 6px;
   border: 1.5px solid #E2E8F0;
-  border-radius: 8px;
-  min-height: 42px;
+  border-radius: 7px;
+  min-height: 36px;
   cursor: text;
 }
 
 .chip {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   background: #EFF6FF;
   color: #1D4ED8;
   border: 1px solid #BFDBFE;
   border-radius: 99px;
-  padding: 0 14px;
-  height: 32px;
-  font-size: 12px;
+  padding: 0 10px;
+  height: 24px;
+  font-size: 11px;
   font-weight: 500;
   cursor: pointer;
   user-select: none;
@@ -281,35 +274,29 @@
 
 .chip.selected { background: #2563EB; color: white; border-color: #2563EB; }
 
-/* ── Contratistas: input + Agregar + dropdown de sugerencias ── */
 .contratistaInputWrap {
   position: relative;
   display: flex;
-  gap: 6px;
+  gap: 5px;
 }
 .contratistaInputWrap .input,
-.contratistaInputWrap input {
-  flex: 1;
-}
+.contratistaInputWrap input { flex: 1; }
 
 .contratistaAddBtn {
   flex-shrink: 0;
-  height: 36px;
-  padding: 0 14px;
+  height: 30px;
+  padding: 0 12px;
   background: #2563EB;
   color: #fff;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   border: none;
-  border-radius: 8px;
+  border-radius: 7px;
   cursor: pointer;
   transition: background 0.15s, opacity 0.15s;
 }
 .contratistaAddBtn:hover:not(:disabled) { background: #1D4ED8; }
-.contratistaAddBtn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
+.contratistaAddBtn:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .contratistaDropdown {
   position: absolute;
@@ -317,13 +304,13 @@
   left: 0;
   right: 0;
   z-index: 20;
-  max-height: 200px;
+  max-height: 180px;
   overflow-y: auto;
   background: #fff;
   border: 1px solid #E2E8F0;
-  border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
-  padding: 4px;
+  border-radius: 7px;
+  box-shadow: 0 8px 24px rgba(15,23,42,0.12);
+  padding: 3px;
   display: flex;
   flex-direction: column;
   gap: 1px;
@@ -337,65 +324,46 @@
   color: #1E293B;
   font-size: 12px;
   font-weight: 500;
-  padding: 8px 10px;
-  border-radius: 6px;
+  padding: 6px 10px;
+  border-radius: 5px;
   cursor: pointer;
   transition: background 0.1s, color 0.1s;
   font-family: inherit;
 }
-.contratistaDropdownItem:hover {
-  background: #EFF6FF;
-  color: #1D4ED8;
-}
+.contratistaDropdownItem:hover { background: #EFF6FF; color: #1D4ED8; }
 
-.chipRemove {
-  cursor: pointer;
-  font-size: 13px;
-  line-height: 1;
-  opacity: 0.7;
-}
-
+.chipRemove { cursor: pointer; font-size: 12px; line-height: 1; opacity: 0.7; }
 .chipRemove:hover { opacity: 1; }
 
 .chipInput {
   border: none;
   outline: none;
-  font-size: 13px;
+  font-size: 12px;
   color: #0F172A;
-  min-width: 100px;
+  min-width: 80px;
   background: transparent;
   padding: 2px 0;
 }
 
-/* Nivel de riesgo */
-.riesgoSelect { width: 100%; }
-
-/* Fotos (Tab Fotos) */
+/* ── Fotos ── */
 .fotoSeccion {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 12px;
-  border-radius: 10px;
+  gap: 5px;
+  padding: 5px;
+  border-radius: 8px;
   border: 1.5px solid transparent;
   transition: border-color 0.15s, background 0.15s;
 }
 
-.fotoSeccionAlerta {
-  border-color: #FCA5A5;
-  background: #FEF5F5;
-}
-
-.fotoSeccionOk {
-  border-color: #86EFAC;
-  background: #F7FEF9;
-}
+.fotoSeccionAlerta { border-color: #FCA5A5; background: #FEF5F5; }
+.fotoSeccionOk     { border-color: #86EFAC; background: #F7FEF9; }
 
 .fotoEstadoBadge {
   margin-left: auto;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
-  padding: 2px 8px;
+  padding: 2px 6px;
   border-radius: 999px;
   letter-spacing: 0.3px;
   text-transform: uppercase;
@@ -403,168 +371,98 @@
   white-space: nowrap;
 }
 
-.fotoEstadoAlerta {
-  background: #FEF2F2;
-  color: #991B1B;
-  border-color: #FCA5A5;
-}
-
-.fotoEstadoOk {
-  background: #DCFCE7;
-  color: #166534;
-  border-color: #86EFAC;
-}
+.fotoEstadoAlerta { background: #FEF2F2; color: #991B1B; border-color: #FCA5A5; }
+.fotoEstadoOk     { background: #DCFCE7; color: #166534; border-color: #86EFAC; }
 
 .fotoTitulo {
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 700;
   color: #374151;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
 }
 
 .required { color: #EF4444; }
 
-.fotosGrid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
+.fotosGrid { display: flex; flex-wrap: wrap; gap: 6px; }
 
 .fotoThumb {
-  width: 90px;
-  height: 90px;
-  border-radius: 8px;
+  width: 80px;
+  height: 80px;
+  border-radius: 7px;
   object-fit: cover;
   border: 1px solid #E2E8F0;
 }
 
 .addFotoBtn {
-  width: 90px;
-  height: 90px;
+  width: 80px;
+  height: 80px;
   border: 2px dashed #2563EB;
-  border-radius: 8px;
+  border-radius: 7px;
   background: #EFF6FF;
   cursor: pointer;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 3px;
   color: #2563EB;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
   transition: background 150ms;
 }
-
 .addFotoBtn:hover { background: #DBEAFE; }
+.addFotoPlus { font-size: 20px; line-height: 1; }
 
-.addFotoPlus { font-size: 24px; line-height: 1; }
-
-/* Documentos */
-.docRow {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 0;
-  border-bottom: 1px solid #F1F5F9;
-}
-
-.docIcon { font-size: 18px; flex-shrink: 0; }
-
-.docName {
-  flex: 1;
-  font-size: 13px;
-  color: #374151;
-  font-weight: 500;
-}
-
-.docSelect {
-  width: 120px;
-  font-size: 12px;
-  padding: 5px 8px;
-  border: 1px solid #D1D5DB;
-  border-radius: 6px;
-  color: #374151;
-}
-
-.generateBtn {
-  padding: 5px 12px;
-  background: white;
-  border: 1px solid #D1D5DB;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 500;
-  color: #374151;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all 150ms;
-}
-
-.generateBtn:hover {
-  background: #F0F9FF;
-  border-color: #2563EB;
-  color: #2563EB;
-}
-
-/* ── Informes (reportService cards) ─────────────────────────────────── */
+/* ── Informes ── */
 .informeCard {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 14px;
+  gap: 8px;
+  padding: 10px;
   background: #fff;
   border: 1px solid #E2E8F0;
-  border-radius: 12px;
-  margin-bottom: 10px;
+  border-radius: 10px;
+  margin-bottom: 6px;
   transition: border-color 150ms, box-shadow 150ms;
 }
 .informeCard:hover {
   border-color: #CBD5E1;
-  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.05);
+  box-shadow: 0 2px 6px rgba(15,23,42,0.05);
 }
 
-.informeHeader {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-}
-
-.informeIcono {
-  font-size: 22px;
-  line-height: 1.1;
-  flex-shrink: 0;
-}
+.informeHeader { display: flex; align-items: flex-start; gap: 8px; }
+.informeIcono  { font-size: 18px; line-height: 1.1; flex-shrink: 0; }
 
 .informeNombre {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   color: #0F172A;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   flex-wrap: wrap;
 }
 
 .informeCodigo {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 600;
   letter-spacing: 0.5px;
   color: #475569;
   background: #F1F5F9;
   border: 1px solid #E2E8F0;
   border-radius: 4px;
-  padding: 1px 6px;
+  padding: 1px 5px;
   text-transform: uppercase;
 }
 
 .informeEstado {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
-  padding: 3px 8px;
+  padding: 2px 6px;
   border-radius: 999px;
   text-transform: uppercase;
   letter-spacing: 0.4px;
@@ -572,94 +470,77 @@
   flex-shrink: 0;
   border: 1px solid transparent;
 }
-.informeOk {
-  color: #166534;
-  background: #DCFCE7;
-  border-color: #86EFAC;
-}
-.informeNo {
-  color: #64748B;
-  background: #F1F5F9;
-  border-color: #E2E8F0;
-}
+.informeOk { color: #166534; background: #DCFCE7; border-color: #86EFAC; }
+.informeNo { color: #64748B; background: #F1F5F9; border-color: #E2E8F0; }
 
 .btnGenerar {
   width: 100%;
-  height: 36px;
+  height: 30px;
   background: linear-gradient(135deg, #2462C9 0%, #1A3A7A 100%);
   border: none;
-  border-radius: 8px;
+  border-radius: 7px;
   color: #fff;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.2px;
   cursor: pointer;
   transition: opacity 150ms, transform 150ms, box-shadow 150ms;
-  box-shadow: 0 2px 6px rgba(36, 98, 201, 0.22);
+  box-shadow: 0 2px 6px rgba(36,98,201,0.22);
 }
 .btnGenerar:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 4px 10px rgba(36, 98, 201, 0.32);
+  box-shadow: 0 4px 10px rgba(36,98,201,0.32);
 }
-.btnGenerar:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-  box-shadow: none;
-  transform: none;
-}
+.btnGenerar:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; transform: none; }
 
 .informeNota {
-  margin-top: 14px;
-  padding: 10px 12px;
+  margin-top: 8px;
+  padding: 8px 10px;
   background: #FFFBEB;
   border: 1px solid #FDE68A;
-  border-radius: 8px;
-  font-size: 11px;
+  border-radius: 7px;
+  font-size: 10px;
   color: #92400E;
   line-height: 1.45;
 }
 
-/* Posición en el plano */
 .posicion {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 12px;
+  gap: 5px;
+  font-size: 11px;
   color: #94A3B8;
-  padding: 4px 0;
+  padding: 2px 0;
 }
 
-/* Footer fijo */
+/* ── Footer compacto ── */
 .footer {
-  padding: 16px 24px;
+  padding: 10px 16px;
   border-top: 1px solid #F1F5F9;
   display: flex;
-  gap: 10px;
+  gap: 8px;
   flex-shrink: 0;
 }
 
 .deleteBtn {
-  padding: 12px 20px;
+  padding: 7px 14px;
   background: white;
   border: 1.5px solid #E2E8F0;
-  border-radius: 10px;
-  font-size: 14px;
+  border-radius: 8px;
+  font-size: 12px;
   color: #64748B;
   cursor: pointer;
   font-weight: 500;
   transition: all 150ms;
 }
-
 .deleteBtn:hover { border-color: #EF4444; color: #EF4444; }
 
-/* Botón "Cancelar ubicación" del modo forzado-fotos — rojo outline, paralelo
-   al deleteBtn pero comunica "deshacer la ubicación" en lugar de "borrar la OT". */
 .cancelUbicacionBtn {
-  padding: 12px 20px;
+  padding: 7px 14px;
   background: white;
   border: 1.5px solid #EF4444;
-  border-radius: 10px;
-  font-size: 14px;
+  border-radius: 8px;
+  font-size: 12px;
   color: #EF4444;
   cursor: pointer;
   font-weight: 600;
@@ -670,28 +551,24 @@
 
 .saveBtn {
   flex: 1;
-  padding: 12px;
+  padding: 7px;
   background: #2563EB;
   color: white;
   border: none;
-  border-radius: 10px;
-  font-size: 15px;
+  border-radius: 8px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   transition: background 150ms;
 }
-
 .saveBtn:hover { background: #1D4ED8; }
 .saveBtn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-/* Wrapper para el tab Campos personalizados — sobrescribe las CSS custom
-   properties de CampoRenderer.module.css que vienen con tema oscuro.
-   Así sus inputs/selects heredan el tema claro del Panel. */
+/* ── Campos personalizados ── */
 .camposWrap {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-
+  gap: 10px;
   --color-input:      white;
   --color-text:       #0F172A;
   --color-text-muted: #64748B;
@@ -707,41 +584,32 @@
   --error:            #DC2626;
 }
 
-/* Botón "Gestionar campos" (dentro del tab campos) */
 .gestorBtn {
   align-self: flex-start;
-  padding: 8px 14px;
+  padding: 6px 12px;
   background: #F1F5F9;
   border: 1px solid #E2E8F0;
-  border-radius: 8px;
-  font-size: 13px;
+  border-radius: 7px;
+  font-size: 12px;
   color: #374151;
   font-weight: 500;
   cursor: pointer;
   transition: all 150ms;
 }
-.gestorBtn:hover {
-  background: #E2E8F0;
-  color: #0F172A;
-}
+.gestorBtn:hover { background: #E2E8F0; color: #0F172A; }
 
-/* Botón eliminar foto (overlay sobre el thumb) */
-.fotoThumbWrap {
-  position: relative;
-  width: 90px;
-  height: 90px;
-}
+.fotoThumbWrap { position: relative; width: 80px; height: 80px; }
 
 .fotoBtnEliminar {
   position: absolute;
-  top: 4px;
-  right: 4px;
-  width: 20px;
-  height: 20px;
+  top: 3px;
+  right: 3px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
-  background: rgba(15, 23, 42, 0.72);
+  background: rgba(15,23,42,0.72);
   color: white;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
   border: none;
   cursor: pointer;
@@ -751,16 +619,13 @@
   opacity: 0;
   transition: opacity 150ms;
 }
-.fotoThumbWrap:hover .fotoBtnEliminar {
-  opacity: 1;
-}
+.fotoThumbWrap:hover .fotoBtnEliminar { opacity: 1; }
 
-/* Mensaje de error de validación de fotos */
 .errorBox {
-  padding: 10px 12px;
+  padding: 8px 10px;
   background: #FEF2F2;
   border: 1px solid #FECACA;
-  border-radius: 8px;
-  font-size: 13px;
+  border-radius: 7px;
+  font-size: 12px;
   color: #DC2626;
 }
