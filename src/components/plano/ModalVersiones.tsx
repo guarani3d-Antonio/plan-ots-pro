@@ -32,6 +32,7 @@ export function ModalVersiones({
   const [nombre, setNombre]             = useState('');
   const [guardando, setGuardando]       = useState(false);
   const [eliminando, setEliminando]     = useState<string | null>(null);
+  const [pendingRestaur, setPendingRestaur] = useState<Version | null>(null);
 
   const cargar = useCallback(async (showLoading = true) => {
     if (showLoading) setCargando(true);
@@ -174,7 +175,7 @@ export function ModalVersiones({
                   <div className={styles.cardBtns}>
                     <button
                       className={styles.btnRestaurar}
-                      onClick={() => onRestaurar(v)}
+                      onClick={() => setPendingRestaur(v)}
                       type="button"
                     >
                       Restaurar
@@ -204,6 +205,29 @@ export function ModalVersiones({
           )}
         </div>
 
+
+        {/* ─── Confirmación restaurar ─── */}
+        {pendingRestaur && (
+          <div className={styles.confirmOverlay}>
+            <div className={styles.confirmBox}>
+              <div className={styles.confirmIcon}>⚠️</div>
+              <div className={styles.confirmTitle}>Confirmar restauración</div>
+              <div className={styles.confirmMsg}>
+                ¿Restaurar al estado de <strong>"{pendingRestaur.nombre}"</strong>?
+                <br /><br />
+                Se guardará un backup automático del estado actual antes de restaurar.
+              </div>
+              <div className={styles.confirmBtns}>
+                <button className={styles.btnCancelar} type="button"
+                  onClick={() => setPendingRestaur(null)}>Cancelar</button>
+                <button className={styles.btnConfirmarRed} type="button"
+                  onClick={() => { onRestaurar(pendingRestaur as import('../../services/versionesService').Version); setPendingRestaur(null); }}>
+                  ✓ Confirmar restauración
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

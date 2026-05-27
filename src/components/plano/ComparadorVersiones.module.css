@@ -499,3 +499,15 @@
   font-size: 13px;
   padding: 4px 8px;
 }
+
+/* Tip de comparación */
+.tipMsg {
+  font-size: 11px;
+  color: #92400E;
+  background: #FFFBEB;
+  border: 1px solid #FDE68A;
+  border-radius: 6px;
+  padding: 7px 10px;
+  margin-bottom: 6px;
+  line-height: 1.5;
+}

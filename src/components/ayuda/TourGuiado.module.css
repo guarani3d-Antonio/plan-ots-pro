@@ -33,7 +33,7 @@
 .progreso {
   font-size: 12px;
   font-weight: 700;
-  color: #2563EB;
+  color: #3B599B;
   letter-spacing: 0.04em;
 }
 .btnSaltar {
@@ -79,7 +79,7 @@
 .btnSec:not(:disabled):hover { border-color: #94A3B8; background: #F8FAFC; }
 
 .btnPrim {
-  background: #2563EB;
+  background: #3B599B;
   border: none;
   color: #FFFFFF;
   border-radius: 8px;
@@ -89,7 +89,7 @@
   cursor: pointer;
   font-family: inherit;
 }
-.btnPrim:hover { background: #1D4ED8; }
+.btnPrim:hover { background: #2E4A82; }
 
 @keyframes tourFade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes tourPop {

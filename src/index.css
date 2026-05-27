@@ -41,7 +41,7 @@
   --border-subtle:  #EEF0F4;
   --border-default: #E2E6ED;
   --border-strong:  #CBD0D9;
-  --border-focus:   #2462C9;
+  --border-focus:   #3B599B;
   --border-danger:  #FCA5A5;
 
   /* ── Text ── */
@@ -50,15 +50,15 @@
   --text-tertiary:  #94A3B8;   /* placeholders, disabled labels       */
   --text-disabled:  #CBD5E1;
   --text-inverse:   #FFFFFF;
-  --text-link:      #2462C9;
+  --text-link:      #3B599B;
 
   /* ── Brand Blue ── */
-  --accent:           #2462C9;
-  --accent-hover:     #1A51B0;
-  --accent-active:    #153F8F;
-  --accent-subtle:    #EBF2FF;
-  --accent-mid:       #BFDBFE;
-  --accent-glow:      rgba(36, 98, 201, 0.18);
+  --accent:           #3B599B;
+  --accent-hover:     #2E4A82;
+  --accent-active:    #243B6B;
+  --accent-subtle:    #EEF1F8;
+  --accent-mid:       #B8C5E0;
+  --accent-glow:      rgba(59, 89, 155, 0.18);
 
   /* ── Estado colors — fuente de verdad visual ── */
   --estado-pendiente:        #DC2626;
@@ -66,9 +66,9 @@
   --estado-pendiente-border: #FCA5A5;
   --estado-pendiente-text:   #991B1B;
 
-  --estado-enproceso:        #2462C9;
-  --estado-enproceso-bg:     #EBF2FF;
-  --estado-enproceso-border: #BFDBFE;
+  --estado-enproceso:        #3B599B;
+  --estado-enproceso-bg:     #EEF1F8;
+  --estado-enproceso-border: #B8C5E0;
   --estado-enproceso-text:   #1A3A7A;
 
   --estado-cerrada:          #16A34A;

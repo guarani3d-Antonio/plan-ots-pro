@@ -425,10 +425,13 @@ export const ComparadorVersiones: React.FC<Props> = ({
               </div>
             )}
 
-            <div className={styles.versionBlock}>
+            <div className={styles.tipMsg}>
+            💡 Recomendación: seleccioná la versión más antigua como Versión A y la más nueva como Versión B para ver los cambios correctamente.
+          </div>
+          <div className={styles.versionBlock}>
               <label className={styles.versionPill}>
                 <span className={`${styles.versionDot} ${styles.versionDotA}`} />
-                Versión A · anterior
+                Versión A
               </label>
               <select
                 className={styles.versionSelect}
@@ -446,7 +449,7 @@ export const ComparadorVersiones: React.FC<Props> = ({
             <div className={styles.versionBlock}>
               <label className={styles.versionPill}>
                 <span className={styles.versionDot} />
-                Versión B · actual
+                Versión B
               </label>
               <select
                 className={styles.versionSelect}
@@ -480,7 +483,7 @@ export const ComparadorVersiones: React.FC<Props> = ({
                     onChange={e => setShowLayerA(e.target.checked)}
                   />
                   <span className={`${styles.capaDot} ${styles.capaDotA}`} />
-                  <span className={styles.capaLabel}>Ver. A (anterior)</span>
+                  <span className={styles.capaLabel}>Ver. A</span>
                 </label>
                 <label className={styles.capaRow}>
                   <input
@@ -490,7 +493,7 @@ export const ComparadorVersiones: React.FC<Props> = ({
                     onChange={e => setShowLayerB(e.target.checked)}
                   />
                   <span className={styles.capaDot} />
-                  <span className={styles.capaLabel}>Ver. B (actual)</span>
+                  <span className={styles.capaLabel}>Ver. B</span>
                 </label>
               </div>
             )}

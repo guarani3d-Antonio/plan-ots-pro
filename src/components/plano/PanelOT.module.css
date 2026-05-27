@@ -91,8 +91,8 @@
 }
 
 .tab.active {
-  color: #2563EB;
-  border-bottom-color: #2563EB;
+  color: #3B599B;
+  border-bottom-color: #3B599B;
   font-weight: 600;
 }
 
@@ -144,7 +144,7 @@
 }
 
 .input:focus, .textarea:focus, .select:focus {
-  border-color: #2563EB;
+  border-color: #3B599B;
   box-shadow: 0 0 0 2px rgba(37,99,235,0.08);
 }
 
@@ -227,7 +227,7 @@
   padding: 0;
 }
 
-.toggleSwitch.on { background: #2563EB; }
+.toggleSwitch.on { background: #3B599B; }
 
 .toggleThumb {
   width: 16px;
@@ -259,7 +259,7 @@
   align-items: center;
   gap: 3px;
   background: #EFF6FF;
-  color: #1D4ED8;
+  color: #2E4A82;
   border: 1px solid #BFDBFE;
   border-radius: 99px;
   padding: 0 10px;
@@ -272,7 +272,7 @@
   white-space: nowrap;
 }
 
-.chip.selected { background: #2563EB; color: white; border-color: #2563EB; }
+.chip.selected { background: #3B599B; color: white; border-color: #3B599B; }
 
 .contratistaInputWrap {
   position: relative;
@@ -286,7 +286,7 @@
   flex-shrink: 0;
   height: 30px;
   padding: 0 12px;
-  background: #2563EB;
+  background: #3B599B;
   color: #fff;
   font-size: 11px;
   font-weight: 700;
@@ -295,7 +295,7 @@
   cursor: pointer;
   transition: background 0.15s, opacity 0.15s;
 }
-.contratistaAddBtn:hover:not(:disabled) { background: #1D4ED8; }
+.contratistaAddBtn:hover:not(:disabled) { background: #2E4A82; }
 .contratistaAddBtn:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .contratistaDropdown {
@@ -330,7 +330,7 @@
   transition: background 0.1s, color 0.1s;
   font-family: inherit;
 }
-.contratistaDropdownItem:hover { background: #EFF6FF; color: #1D4ED8; }
+.contratistaDropdownItem:hover { background: #EFF6FF; color: #2E4A82; }
 
 .chipRemove { cursor: pointer; font-size: 12px; line-height: 1; opacity: 0.7; }
 .chipRemove:hover { opacity: 1; }
@@ -400,7 +400,7 @@
 .addFotoBtn {
   width: 80px;
   height: 80px;
-  border: 2px dashed #2563EB;
+  border: 2px dashed #3B599B;
   border-radius: 7px;
   background: #EFF6FF;
   cursor: pointer;
@@ -409,7 +409,7 @@
   align-items: center;
   justify-content: center;
   gap: 3px;
-  color: #2563EB;
+  color: #3B599B;
   font-size: 10px;
   font-weight: 600;
   transition: background 150ms;
@@ -552,7 +552,7 @@
 .saveBtn {
   flex: 1;
   padding: 7px;
-  background: #2563EB;
+  background: #3B599B;
   color: white;
   border: none;
   border-radius: 8px;
@@ -561,7 +561,7 @@
   cursor: pointer;
   transition: background 150ms;
 }
-.saveBtn:hover { background: #1D4ED8; }
+.saveBtn:hover { background: #2E4A82; }
 .saveBtn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* ── Campos personalizados ── */
@@ -573,14 +573,14 @@
   --color-text:       #0F172A;
   --color-text-muted: #64748B;
   --color-border:     #E2E8F0;
-  --color-primary:    #2563EB;
+  --color-primary:    #3B599B;
   --text-primary:     #0F172A;
   --text-muted:       #64748B;
   --surface-2:        #F1F5F9;
   --surface-3:        #E2E8F0;
   --border:           #E2E8F0;
-  --accent:           #2563EB;
-  --accent-hover:     #1D4ED8;
+  --accent:           #3B599B;
+  --accent-hover:     #2E4A82;
   --error:            #DC2626;
 }
 

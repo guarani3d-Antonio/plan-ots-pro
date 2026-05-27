@@ -423,7 +423,7 @@
 /* ── Save button ─────────────────────────────────────────────────────────── */
 
 .saveBtn {
-  background: #2563eb;
+  background: #3B599B;
   border: none;
   color: #fff;
   border-radius: 7px;
@@ -437,7 +437,7 @@
 }
 
 .saveBtn:hover:not(:disabled) {
-  background: #1d4ed8;
+  background: #2E4A82;
 }
 
 .saveBtn:disabled {

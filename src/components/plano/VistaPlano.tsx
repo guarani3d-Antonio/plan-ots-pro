@@ -313,11 +313,6 @@ export default function VistaPlano({ fullscreen = false, onToggleFullscreen }: V
   // ── Restaurar versión ──────────────────────────────────────────────────────
   async function handleRestaurar(v: Version) {
     if (!proyecto) return;
-    const confirmar = window.confirm(
-      `¿Restaurar el proyecto al estado de "${v.nombre}"?\n\nSe guardará un backup del estado actual antes de restaurar.`
-    );
-    if (!confirmar) return;
-
     // 1. Backup del estado actual
     const fecha = new Date().toLocaleDateString('es-PY', {
       day: '2-digit', month: '2-digit', year: 'numeric',

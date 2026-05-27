@@ -31,7 +31,7 @@
   cursor: pointer;
   padding: 0 0 12px;
 }
-.btnVolver:hover { color: #2563EB; }
+.btnVolver:hover { color: #3B599B; }
 
 .railTitulo {
   margin: 0;
@@ -74,7 +74,7 @@
 .railItemActivo {
   background: #EFF6FF;
   color: #1E3A5F;
-  box-shadow: inset 3px 0 0 #2563EB;
+  box-shadow: inset 3px 0 0 #3B599B;
   font-weight: 600;
 }
 
@@ -157,7 +157,7 @@
   width: 26px;
   height: 26px;
   border-radius: 50%;
-  background: #2563EB;
+  background: #3B599B;
   color: #FFFFFF;
   font-size: 13px;
   font-weight: 700;
@@ -180,5 +180,5 @@
   padding: 8px 10px;
   border-radius: 6px;
   background: #EFF6FF;
-  border-left: 2px solid #2563EB;
+  border-left: 2px solid #3B599B;
 }

@@ -118,7 +118,7 @@
 .markAllBtn {
   font-size: 11px;
   font-weight: 500;
-  color: #2563eb;
+  color: #3B599B;
   background: none;
   border: none;
   cursor: pointer;
@@ -192,7 +192,7 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #2563eb;
+  background: #3B599B;
   flex-shrink: 0;
   margin-top: 5px;
 }
@@ -241,7 +241,7 @@
 }
 
 .notifArrow {
-  color: #2563eb;
+  color: #3B599B;
   font-weight: 600;
 }
 

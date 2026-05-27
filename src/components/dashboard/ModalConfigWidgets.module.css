@@ -96,8 +96,8 @@
 }
 
 .toggleOn {
-  background: #2563eb;
-  border-color: #2563eb;
+  background: #3B599B;
+  border-color: #3B599B;
   color: #fff;
 }
 
@@ -160,7 +160,7 @@
   height: 32px;
   border: none;
   border-radius: 7px;
-  background: #2563eb;
+  background: #3B599B;
   color: #fff;
   font-size: 12px;
   font-weight: 700;
@@ -170,5 +170,5 @@
 }
 
 .btnSave:hover {
-  background: #1d4ed8;
+  background: #2E4A82;
 }

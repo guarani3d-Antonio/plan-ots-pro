@@ -40,7 +40,7 @@
 .logoIcon {
   width: 44px;
   height: 44px;
-  background: #2563EB;
+  background: #3B599B;
   border-radius: 10px;
   display: flex;
   align-items: center;
@@ -89,7 +89,7 @@
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  background: #2563EB;
+  background: #3B599B;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -144,8 +144,8 @@
 }
 
 .tab.active {
-  color: #2563EB;
-  border-bottom-color: #2563EB;
+  color: #3B599B;
+  border-bottom-color: #3B599B;
 }
 
 /* Campos */
@@ -180,7 +180,7 @@
 }
 
 .input:focus {
-  border-color: #2563EB;
+  border-color: #3B599B;
   box-shadow: 0 0 0 3px rgba(37,99,235,0.12);
 }
 
@@ -212,12 +212,12 @@
   text-decoration: none;
 }
 
-.forgotLink:hover { color: #2563EB; }
+.forgotLink:hover { color: #3B599B; }
 
 .submitBtn {
   width: 100%;
   height: 48px;
-  background: #2563EB;
+  background: #3B599B;
   color: white;
   border: none;
   border-radius: 8px;
@@ -228,7 +228,7 @@
   transition: background 150ms;
 }
 
-.submitBtn:hover { background: #1D4ED8; }
+.submitBtn:hover { background: #2E4A82; }
 .submitBtn:disabled { opacity: 0.6; cursor: not-allowed; }
 
 .divider {

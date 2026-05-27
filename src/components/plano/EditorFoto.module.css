@@ -64,7 +64,7 @@
 .topbarSub {
   font-size: 11px;
   font-weight: 600;
-  color: #2563EB;
+  color: #3B599B;
   font-family: 'JetBrains Mono', 'Courier New', monospace;
 }
 
@@ -93,7 +93,7 @@
 .btnGuardar {
   height: 34px;
   padding: 0 16px;
-  background: #2563EB;
+  background: #3B599B;
   border: none;
   border-radius: 7px;
   color: #fff;
@@ -154,7 +154,7 @@
 }
 .toolBtn.toolActive {
   background: #EFF6FF;
-  color: #2563EB;
+  color: #3B599B;
   border-color: #BFDBFE;
 }
 .toolBtn:disabled {
@@ -283,7 +283,7 @@
   z-index: 20;
   background: rgba(255,255,255,0.98);
   color: #111;
-  border: 2px solid #2563EB;
+  border: 2px solid #3B599B;
   border-radius: 5px;
   padding: 4px 10px;
   font-size: 13px;
@@ -355,7 +355,7 @@
   font-weight: 700;
   padding: 1px 7px;
   background: #EFF6FF;
-  color: #2563EB;
+  color: #3B599B;
   border-radius: 10px;
 }
 
@@ -395,7 +395,7 @@
 }
 .fieldTextarea:focus {
   outline: none;
-  border-color: #2563EB;
+  border-color: #3B599B;
   background: #FFFFFF;
 }
 .fieldTextarea::placeholder { color: #D1D5DB; }
@@ -517,7 +517,7 @@
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: #2563EB;
+  background: #3B599B;
   cursor: pointer;
   transition: transform 0.12s;
   box-shadow: 0 1px 4px rgba(37,99,235,0.4);
