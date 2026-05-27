@@ -10,6 +10,9 @@ import ToolPanel from './ToolPanel';
 import { useRealtimeOrdenes } from '../../hooks/useRealtimeOrdenes';
 import { useAccionesProyecto } from '../../hooks/useAccionesProyecto';
 import InformePanel from '../informes/InformePanel';
+import { ModalVersiones } from './ModalVersiones';
+import type { Version } from '../../services/versionesService';
+import { guardarVersion, restaurarVersion, listarVersiones } from '../../services/versionesService';
 import styles from './VistaPlano.module.css';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc =
@@ -31,6 +34,12 @@ export default function VistaPlano({ fullscreen = false, onToggleFullscreen }: V
   const crearOrdenEnPosicion = useOrdenesStore((s) => s.crearOrdenEnPosicion);
   const actualizarOrden      = useOrdenesStore((s) => s.actualizarOrden);
   useRealtimeOrdenes(proyecto?.id ?? null);
+
+  // Pre-carga versiones en background — modal abre instantáneo
+  useEffect(() => {
+    if (!proyecto?.id) return;
+    void listarVersiones(proyecto.id).then(v => setVersionesCached(v));
+  }, [proyecto?.id]);
 
   // ── Fullscreen: ESC para salir ──
   useEffect(() => {
@@ -60,7 +69,9 @@ export default function VistaPlano({ fullscreen = false, onToggleFullscreen }: V
   const [errorPlano, setErrorPlano]         = useState<string | null>(null);
   const [ordenSeleccionada, setOrdenSeleccionada] = useState<OrdenLocal | null>(null);
   const [modoForzadoFotos, setModoForzadoFotos] = useState(false);
-  const [mostrarInforme, setMostrarInforme] = useState(false);
+  const [mostrarInforme, setMostrarInforme]           = useState(false);
+  const [modalVersionesAbierto, setModalVersionesAbierto] = useState(false);
+  const [versionesCached, setVersionesCached]           = useState<import('../../services/versionesService').Version[]>([]);
 
   // ── Filtros visuales ──
   const [filtrosEstado, setFiltrosEstado] = useState<Set<string>>(
@@ -299,6 +310,45 @@ export default function VistaPlano({ fullscreen = false, onToggleFullscreen }: V
 
   if (!proyecto) return null;
 
+  // ── Restaurar versión ──────────────────────────────────────────────────────
+  async function handleRestaurar(v: Version) {
+    if (!proyecto) return;
+    const confirmar = window.confirm(
+      `¿Restaurar el proyecto al estado de "${v.nombre}"?\n\nSe guardará un backup del estado actual antes de restaurar.`
+    );
+    if (!confirmar) return;
+
+    // 1. Backup del estado actual
+    const fecha = new Date().toLocaleDateString('es-PY', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+    });
+    const snap = ordenes.map(o => ({
+      id:          o.id          ?? '',
+      ot:          o.ot          ?? '',
+      ubicacion:   o.ubicacion   ?? '',
+      rubro:       o.rubro       ?? '',
+      estado:      o.estado,
+      responsable: o.responsable ?? '',
+      prioridad:   o.prioridad   ?? 'Media',
+      pos_x:       o.pos_x       ?? 0,
+      pos_y:       o.pos_y       ?? 0,
+      comentarios: o.comentarios ?? '',
+      campos:      o.campos      ?? {},
+    }));
+    await guardarVersion(proyecto.id, `Backup pre-restauración — ${fecha}`, null, snap);
+
+    // 2. Aplicar snapshot en Supabase
+    const ok = await restaurarVersion(v, proyecto.id);
+
+    if (ok) {
+      // 3. Recargar ordenes desde Supabase
+      await cargarOrdenes(proyecto.id);
+      setModalVersionesAbierto(false);
+    } else {
+      window.alert('Error al restaurar. Por favor intentá de nuevo.');
+    }
+  }
+
   const ordenActualizada = ordenSeleccionada
     ? ordenes.find(o => o.id === ordenSeleccionada.id) ?? null
     : null;
@@ -322,7 +372,7 @@ export default function VistaPlano({ fullscreen = false, onToggleFullscreen }: V
             </button>
             <button
               className={styles.btnVolver}
-              onClick={acciones.abrirGuardarVersion}
+              onClick={() => setModalVersionesAbierto(true)}
               title="Guardar snapshot de versión"
               disabled={ordenes.length === 0}
             >
@@ -543,6 +593,16 @@ export default function VistaPlano({ fullscreen = false, onToggleFullscreen }: V
       />
 
       {/* Panel de informe */}
+      {modalVersionesAbierto && proyecto && (
+        <ModalVersiones
+          proyectoId={proyecto.id}
+          ordenes={ordenes}
+          versionesInicial={versionesCached}
+          onCerrar={() => setModalVersionesAbierto(false)}
+          onComparar={() => { setModalVersionesAbierto(false); acciones.abrirComparador(); }}
+          onRestaurar={(v) => void handleRestaurar(v)}
+        />
+      )}
       {mostrarInforme && (
         <InformePanel onClose={() => setMostrarInforme(false)} />
       )}
