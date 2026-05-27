@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+﻿import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
 import { useProyectosStore } from '../../stores/proyectosStore';
 import { useOrdenesStore } from '../../stores/ordenesStore';
@@ -380,7 +380,7 @@ export default function VistaPlano({ fullscreen = false, onToggleFullscreen }: V
             </button>
             <button
               className={styles.btnVolver}
-              onClick={acciones.abrirComparador}
+              onClick={() => acciones.abrirComparador()}
               title="Comparar versiones"
             >
               🔀 Comparar
@@ -599,7 +599,7 @@ export default function VistaPlano({ fullscreen = false, onToggleFullscreen }: V
           ordenes={ordenes}
           versionesInicial={versionesCached}
           onCerrar={() => setModalVersionesAbierto(false)}
-          onComparar={() => { setModalVersionesAbierto(false); acciones.abrirComparador(); }}
+          onComparar={(versionId) => { setModalVersionesAbierto(false); acciones.abrirComparador(versionId); }}
           onRestaurar={(v) => void handleRestaurar(v)}
         />
       )}

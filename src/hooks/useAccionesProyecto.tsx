@@ -49,7 +49,7 @@ export interface AccionesProyecto {
   abrirImportarCSV:    () => void;
   abrirGuardarVersion: () => void;
   abrirHistorial:      () => Promise<void>;
-  abrirComparador:     () => void;
+  abrirComparador: (versionId?: string) => void;
 }
 
 export interface UseAccionesProyectoReturn {
@@ -134,6 +134,7 @@ export function useAccionesProyecto(
 
   // ── Comparador ────────────────────────────────────────────────────────────
   const [comparadorAbierto, setComparadorAbierto] = useState(false);
+  const [versionPreselId, setVersionPreselId]     = useState<string | null>(null);
 
   // Toast — reemplaza los alert() de cada acción (export, import, version, etc.)
   const { mostrar, ToastComponent } = useToast();
@@ -449,7 +450,10 @@ export function useAccionesProyecto(
   };
 
   // ── Comparador ────────────────────────────────────────────────────────────
-  const abrirComparador = () => setComparadorAbierto(true);
+  const abrirComparador = (versionId?: string) => {
+    setVersionPreselId(versionId ?? null);
+    setComparadorAbierto(true);
+  };
 
   // ── JSX de modales ────────────────────────────────────────────────────────
   const modales = (
@@ -554,7 +558,8 @@ export function useAccionesProyecto(
           proyectoId={proyecto.id}
           planoUrl={proyecto.plano_url}
           proyectoNombre={proyecto.nombre}
-          onCerrar={() => setComparadorAbierto(false)}
+          versionPreselId={versionPreselId ?? undefined}
+          onCerrar={() => { setComparadorAbierto(false); setVersionPreselId(null); }}
         />
       )}
 

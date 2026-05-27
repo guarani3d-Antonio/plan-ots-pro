@@ -13,7 +13,7 @@ interface Props {
   proyectoId: string;
   ordenes: OrdenLocal[];
   onCerrar: () => void;
-  onComparar: () => void;
+  onComparar: (versionId: string) => void;
   onRestaurar: (v: Version) => void;
   versionesInicial?: Version[];   // pre-cargadas desde VistaPlano — apertura instantánea
 }
@@ -181,7 +181,7 @@ export function ModalVersiones({
                     </button>
                     <button
                       className={styles.btnComparar}
-                      onClick={() => { onComparar(); onCerrar(); }}
+                      onClick={() => { onComparar(v.id); onCerrar(); }}
                       type="button"
                     >
                       Comparar

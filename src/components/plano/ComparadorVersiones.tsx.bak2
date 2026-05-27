@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import styles from './ComparadorVersiones.module.css';
 import { supabase } from '../../db/supabase';
 
@@ -72,7 +72,6 @@ interface Props {
   planoUrl: string;
   proyectoNombre: string;
   onCerrar: () => void;
-  versionPreselId?: string;
 }
 
 // ──────────────────────────────────────────────────── Constants ──
@@ -158,7 +157,6 @@ export const ComparadorVersiones: React.FC<Props> = ({
   planoUrl,
   proyectoNombre,
   onCerrar,
-  versionPreselId,
 }) => {
   const [versiones, setVersiones]       = useState<Version[]>([]);
   const [idA, setIdA]                   = useState('');
@@ -256,11 +254,7 @@ export const ComparadorVersiones: React.FC<Props> = ({
 
       if (!error && data && data.length > 0) {
         setVersiones(data as Version[]);
-        if (versionPreselId) {
-          setIdA(versionPreselId);
-          const otra = data.find(v => v.id !== versionPreselId);
-          setIdB(otra ? otra.id : data[0].id);
-        } else if (data.length >= 2) {
+        if (data.length >= 2) {
           setIdB(data[0].id);
           setIdA(data[1].id);
         } else {
@@ -435,9 +429,9 @@ export const ComparadorVersiones: React.FC<Props> = ({
                 value={idA}
                 onChange={e => setIdA(e.target.value)}
               >
-                {versiones.map((v, idx) => (
+                {versiones.map(v => (
                   <option key={v.id} value={v.id}>
-                    v{versiones.length - idx} · {v.nombre} · {new Date(v.created_at).toLocaleDateString('es-PY')}
+                    {v.nombre} · {new Date(v.created_at).toLocaleDateString('es-PY')}
                   </option>
                 ))}
               </select>
@@ -453,9 +447,9 @@ export const ComparadorVersiones: React.FC<Props> = ({
                 value={idB}
                 onChange={e => setIdB(e.target.value)}
               >
-                {versiones.map((v, idx) => (
+                {versiones.map(v => (
                   <option key={v.id} value={v.id}>
-                    v{versiones.length - idx} · {v.nombre} · {new Date(v.created_at).toLocaleDateString('es-PY')}
+                    {v.nombre} · {new Date(v.created_at).toLocaleDateString('es-PY')}
                   </option>
                 ))}
               </select>
