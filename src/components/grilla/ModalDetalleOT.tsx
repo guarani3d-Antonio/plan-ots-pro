@@ -12,7 +12,7 @@ import {
   type CategoriaFoto,
 } from '../../services/fotosService';
 
-// ─────────────────────────────────────────────────────── Types ──
+// ─────────────────────────────────────────────────────────────────── Types ──
 
 type EstadoOT    = 'Pendiente' | 'En proceso' | 'Cerrada' | 'No aplica';
 type PrioridadOT = 'Alta' | 'Media' | 'Baja';
@@ -61,7 +61,7 @@ interface Props {
   onEditar?: () => void;
 }
 
-// ───────────────────────────────────────────────────── Helpers ──
+// ─────────────────────────────────────────────────────────────────── Helpers ──
 
 const COLOR_RIESGO: Record<string, string> = {
   Bajo:    '#16A34A',
@@ -70,13 +70,37 @@ const COLOR_RIESGO: Record<string, string> = {
   Extremo: '#DC2626',
 };
 
+/**
+ * Formatea fecha ISO a DD/MM/YYYY.
+ * Fuerza parseo local (T00:00:00) para evitar el desfase UTC→Paraguay (UTC-4).
+ */
 const formatFecha = (iso?: string): string => {
   if (!iso) return '—';
-  const d = new Date(iso);
+  // Si es solo fecha (YYYY-MM-DD), agregar T00:00:00 para parsear en hora local
+  const normalized = iso.length === 10 ? iso + 'T00:00:00' : iso;
+  const d = new Date(normalized);
   if (isNaN(d.getTime())) return '—';
   return d.toLocaleDateString('es-PY', {
     day: '2-digit', month: '2-digit', year: 'numeric',
   });
+};
+
+/**
+ * Muestra fecha + hora si hay hora disponible.
+ * Ejemplo: "14/05/2026 · 08:30"
+ */
+const FechaConHora: React.FC<{ fecha?: string; hora?: string }> = ({ fecha, hora }) => {
+  if (!fecha) return <span className={styles.dash}>—</span>;
+  return (
+    <span>
+      {formatFecha(fecha)}
+      {hora && (
+        <span style={{ color: 'var(--text-secondary)', marginLeft: 6, fontSize: '0.92em' }}>
+          · {hora}
+        </span>
+      )}
+    </span>
+  );
 };
 
 const Dash: React.FC = () => <span className={styles.dash}>—</span>;
@@ -127,7 +151,7 @@ const Seccion: React.FC<{ titulo: string; children: React.ReactNode }> = ({
 
 type FotoConId = FotoSubida & { id: string };
 
-// ─────────────────────────────────────────────── Componente ──
+// ─────────────────────────────────────────────────────────────────── Componente ──
 
 export const ModalDetalleOT: React.FC<Props> = ({
   orden, onClose, onEditar,
@@ -155,6 +179,10 @@ export const ModalDetalleOT: React.FC<Props> = ({
     orden.fecha_ingreso || orden.created_at,
     orden.estado === 'Cerrada' ? orden.fecha_fin_trabajos : undefined,
   );
+
+  // Horas desde campos JSONB
+  const horaInicio = orden.campos?.hora_inicio_trabajos as string | undefined;
+  const horaFin    = orden.campos?.hora_fin_trabajos    as string | undefined;
 
   const handleOverlayClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget) onClose();
@@ -199,7 +227,7 @@ export const ModalDetalleOT: React.FC<Props> = ({
         {/* ─ Body ─ */}
         <div className={styles.body}>
 
-          {/* ────── Sección 1 — Identificación ────── */}
+          {/* ────── Sección 1 – Identificación ────── */}
           <Seccion titulo="📋 Identificación">
             <Campo label="Código OT"><strong>{orden.ot}</strong></Campo>
             <Campo label="Fecha de ingreso">{formatFecha(orden.fecha_ingreso || orden.created_at)}</Campo>
@@ -213,7 +241,7 @@ export const ModalDetalleOT: React.FC<Props> = ({
             </Campo>
           </Seccion>
 
-          {/* ────── Sección 2 — Clasificación ────── */}
+          {/* ────── Sección 2 – Clasificación ────── */}
           <Seccion titulo="🔧 Clasificación">
             <Campo label="Estado">
               <span className={styles.estadoPill} style={{ background: colorEst }}>
@@ -230,8 +258,8 @@ export const ModalDetalleOT: React.FC<Props> = ({
               {orden.rubro_secundario && orden.rubro_secundario.length > 0
                 ? <div className={styles.chipsRow}>
                     {orden.rubro_secundario.map(r => (
-  <span key={r} className={styles.chip}>{emojiRubro(r)} {r}</span>
-))}
+                      <span key={r} className={styles.chip}>{emojiRubro(r)} {r}</span>
+                    ))}
                   </div>
                 : <Dash />}
             </Campo>
@@ -242,13 +270,13 @@ export const ModalDetalleOT: React.FC<Props> = ({
                   </strong>
                 : <Dash />}
             </Campo>
-            <Campo label="En garantía"><SiNoChip valor={orden.en_garantia} /></Campo>
+            <Campo label="En Garantía"><SiNoChip valor={orden.en_garantia} /></Campo>
             <Campo label="Asiste Facility"><SiNoChip valor={orden.asiste_facility} /></Campo>
             <Campo label="Reincidencia"><SiNoChip valor={orden.reincidencia} /></Campo>
             <Campo label="Potenc. conflictivo"><SiNoChip valor={orden.potencialmente_conflictivo} /></Campo>
           </Seccion>
 
-          {/* ────── Sección 3 — Ejecución ────── */}
+          {/* ────── Sección 3 – Ejecución ────── */}
           <Seccion titulo="🏗️ Ejecución">
             <Campo label="Responsable">{orden.responsable || <Dash />}</Campo>
             <Campo label="Contratistas">
@@ -260,8 +288,12 @@ export const ModalDetalleOT: React.FC<Props> = ({
                   </div>
                 : <Dash />}
             </Campo>
-            <Campo label="Fecha inicio">{formatFecha(orden.fecha_inicio_trabajos)}</Campo>
-            <Campo label="Fecha fin">{formatFecha(orden.fecha_fin_trabajos)}</Campo>
+            <Campo label="Fecha inicio">
+              <FechaConHora fecha={orden.fecha_inicio_trabajos} hora={horaInicio} />
+            </Campo>
+            <Campo label="Fecha fin">
+              <FechaConHora fecha={orden.fecha_fin_trabajos} hora={horaFin} />
+            </Campo>
             <Campo label="% Avance" full>
               <div className={styles.avanceWrap}>
                 <div className={styles.avanceBar}>
@@ -287,7 +319,7 @@ export const ModalDetalleOT: React.FC<Props> = ({
             </Campo>
           </Seccion>
 
-          {/* ────── Sección 4 — Documentos ────── */}
+          {/* ────── Sección 4 – Documentos ────── */}
           <Seccion titulo="📄 Documentos">
             <Campo label="Acta de conformidad"><InformeChip valor={orden.acta_conformidad} /></Campo>
             <Campo label="Informe relevamiento"><InformeChip valor={orden.informe_relevamiento} /></Campo>
@@ -295,7 +327,7 @@ export const ModalDetalleOT: React.FC<Props> = ({
             <Campo label="Informe cierre"><InformeChip valor={orden.informe_cierre} /></Campo>
           </Seccion>
 
-          {/* ────── Sección 5 — Fotos ────── */}
+          {/* ────── Sección 5 – Fotos ────── */}
           {hayFotos && (
             <section className={styles.seccion}>
               <h3 className={styles.seccionTitulo}>📷 Fotos</h3>
@@ -340,6 +372,7 @@ export const ModalDetalleOT: React.FC<Props> = ({
               )}
             </section>
           )}
+
         </div>
       </div>
     </div>
