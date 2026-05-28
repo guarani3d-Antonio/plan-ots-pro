@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+﻿import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
 import { useProyectosStore } from '../../stores/proyectosStore';
 import { useOrdenesStore } from '../../stores/ordenesStore';
@@ -10,6 +10,9 @@ import ToolPanel from './ToolPanel';
 import { useRealtimeOrdenes } from '../../hooks/useRealtimeOrdenes';
 import { useAccionesProyecto } from '../../hooks/useAccionesProyecto';
 import InformePanel from '../informes/InformePanel';
+import { ModalVersiones } from './ModalVersiones';
+import type { Version } from '../../services/versionesService';
+import { guardarVersion, restaurarVersion, listarVersiones } from '../../services/versionesService';
 import styles from './VistaPlano.module.css';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc =
@@ -18,12 +21,13 @@ pdfjsLib.GlobalWorkerOptions.workerSrc =
 const MIN_SCALE = 0.05;
 const MAX_SCALE = 12;
 
-// ── Prop nueva para toggle de vista ──────────────────────
 interface VistaPlanoProps {
   onSwitchToGrilla?: () => void;
+  fullscreen?: boolean;
+  onToggleFullscreen?: () => void;
 }
 
-export default function VistaPlano({}: VistaPlanoProps) {
+export default function VistaPlano({ fullscreen = false, onToggleFullscreen }: VistaPlanoProps) {
   const proyecto = useProyectosStore(s => s.proyectoActivo);
   const ordenes              = useOrdenesStore((s) => s.ordenes);
   const cargarOrdenes        = useOrdenesStore((s) => s.cargarOrdenes);
@@ -31,8 +35,22 @@ export default function VistaPlano({}: VistaPlanoProps) {
   const actualizarOrden      = useOrdenesStore((s) => s.actualizarOrden);
   useRealtimeOrdenes(proyecto?.id ?? null);
 
-  // Acciones compartidas por PanelResumen y ToolPanel — el hook maneja estado
-  // (cargando, modales de import/version/historial/comparador) en un solo lugar.
+  // Pre-carga versiones en background — modal abre instantáneo
+  useEffect(() => {
+    if (!proyecto?.id) return;
+    void listarVersiones(proyecto.id).then(v => setVersionesCached(v));
+  }, [proyecto?.id]);
+
+  // ── Fullscreen: ESC para salir ──
+  useEffect(() => {
+    if (!fullscreen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onToggleFullscreen?.();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [fullscreen, onToggleFullscreen]);
+
   const {
     acciones,
     cargando: cargandoAcciones,
@@ -50,16 +68,12 @@ export default function VistaPlano({}: VistaPlanoProps) {
   const [planoDims, setPlanoDims]           = useState({ w: 0, h: 0 });
   const [errorPlano, setErrorPlano]         = useState<string | null>(null);
   const [ordenSeleccionada, setOrdenSeleccionada] = useState<OrdenLocal | null>(null);
-  // Activo sólo cuando una OT recién ubicada (pos_x era null) abre el PanelOT.
-  // Hace que el panel arranque en el tab Fotos y obligue a completar fotos antes
-  // de poder guardar; "Cancelar ubicación" desubica la OT y la vuelve al ToolPanel.
   const [modoForzadoFotos, setModoForzadoFotos] = useState(false);
-  const [mostrarInforme, setMostrarInforme] = useState(false);
+  const [mostrarInforme, setMostrarInforme]           = useState(false);
+  const [modalVersionesAbierto, setModalVersionesAbierto] = useState(false);
+  const [versionesCached, setVersionesCached]           = useState<import('../../services/versionesService').Version[]>([]);
 
-  // ── Filtros visuales (afectan markers en el plano Y lista en PanelResumen) ──
-  // Estado: explícito, todos arrancan seleccionados.
-  // Rubro: empty Set = "todos pasan" (auto-poblado cuando aparecen rubros).
-  // Prioridad: explícito, todos arrancan seleccionados.
+  // ── Filtros visuales ──
   const [filtrosEstado, setFiltrosEstado] = useState<Set<string>>(
     () => new Set(['Pendiente', 'En proceso', 'Cerrada', 'No aplica']),
   );
@@ -90,17 +104,12 @@ export default function VistaPlano({}: VistaPlanoProps) {
     });
   }, []);
 
-  // Auto-poblar filtrosRubro cuando aparecen rubros nuevos en las OTs.
   const rubrosUnicos = useMemo(() => {
     const s = new Set<string>();
     for (const o of ordenes) if (o.rubro) s.add(o.rubro);
     return [...s].sort();
   }, [ordenes]);
 
-  // Key que captura los VALORES (no sólo el length) de rubrosUnicos. Sin esto,
-  // editar el rubro de una OT existente (mismo count, valor distinto) no
-  // dispara el effect → el nuevo rubro queda fuera del Set y la OT desaparece
-  // del plano hasta recargar.
   const rubrosKey = useMemo(() => rubrosUnicos.join(','), [rubrosUnicos]);
 
   useEffect(() => {
@@ -117,8 +126,6 @@ export default function VistaPlano({}: VistaPlanoProps) {
     });
   }, [rubrosKey]);
 
-  // Filtrado compartido — alimenta los marcadores del plano y la lista del panel.
-  // Rubro vacío = pasa todo (consistente con el spec del usuario).
   const ordenesFiltradas = useMemo(() => ordenes.filter(o => {
     const estadoOk    = filtrosEstado.size === 0 || filtrosEstado.has(o.estado ?? '');
     const rubroOk     = filtrosRubro.size === 0 || !o.rubro || filtrosRubro.has(o.rubro);
@@ -231,10 +238,6 @@ export default function VistaPlano({}: VistaPlanoProps) {
   const onPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     didDragRef.current = false;
     const t = e.target as HTMLElement;
-    // No iniciar pan si el pointerdown ocurre sobre un marcador o sobre un
-    // control de UI (zoom buttons, etc.). Sin esto, setPointerCapture redirige
-    // todos los eventos posteriores al .planArea y los botones nunca reciben
-    // el click → bug del zoom no funcional.
     if (t.closest('[data-marcador]') || t.closest('[data-no-pan]')) return;
     panRef.current = { active: true, sx: e.clientX, sy: e.clientY, ox: txRef.current, oy: tyRef.current };
     (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
@@ -259,9 +262,6 @@ export default function VistaPlano({}: VistaPlanoProps) {
   // ── Click → crear OT ─────────────────────────────────────
   const onPlanClick = useCallback(async (e: React.MouseEvent<HTMLDivElement>) => {
     if (didDragRef.current) return;
-    // Si el click proviene de un marcador o de cualquier UI marcado con
-    // data-no-pan (zoom controls, etc.), no crear OT — esa interacción la
-    // maneja el onClick del propio elemento.
     const t = e.target as HTMLElement;
     if (t.closest('[data-marcador]') || t.closest('[data-no-pan]')) return;
     if (!planoListo || !planoDims.w || !proyecto) return;
@@ -279,44 +279,23 @@ export default function VistaPlano({}: VistaPlanoProps) {
   }, []);
 
   // ── Drag & Drop ──────────────────────────────────────────
-  // OTs sin ubicar (pos_x null/undefined) — alimentan el ToolPanel izquierdo.
-  // El tipo OrdenLocal.pos_x es `number`, pero runtime puede venir null
-  // para OTs recién importadas vía CSV.
   const ordenessinUbicar = ordenes.filter(
     o => o.pos_x === null || o.pos_x === undefined || (o as any).pos_x === null
   );
 
-  // Acepta dos tipos de drop:
-  //   text/ot-move → drag de un Marcador existente sobre el plano (mover)
-  //   text/ot-id   → drag de una card del ToolPanel (ubicar OT nueva)
-  //
-  // CRÍTICO: las coordenadas se calculan contra el .planWrap (mismo contenedor
-  // donde los marcadores tienen left/top: pos_*100%), NO contra el wrapper
-  // externo del onDrop. El .planWrap tiene `transform: translate + scale` por
-  // el pan/zoom; getBoundingClientRect() devuelve la caja visual post-transform,
-  // así (clientX - rect.left) / rect.width da el ratio correcto dentro del plano
-  // sin tener que compensar tx/ty/sc manualmente.
   const handleDropOT = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
-
     const contenedor = planWrapRef.current;
     if (!contenedor) return;
-
     const rect = contenedor.getBoundingClientRect();
     const pos_x = Math.max(0.01, Math.min(0.99, (e.clientX - rect.left) / rect.width));
     const pos_y = Math.max(0.01, Math.min(0.99, (e.clientY - rect.top)  / rect.height));
-
-    // Mover OT existente
     const moveId = e.dataTransfer.getData('text/ot-move');
     if (moveId) {
       actualizarOrden(moveId, { pos_x, pos_y });
       return;
     }
-
-    // Ubicar OT sin ubicar (desde ToolPanel) — es la PRIMERA ubicación de esta
-    // OT. Después de persistir las coords, abrimos el PanelOT en modo forzado
-    // para empujar al usuario a completar fotos antes de cerrar.
     const placeId = e.dataTransfer.getData('text/ot-id');
     if (placeId) {
       actualizarOrden(placeId, { pos_x, pos_y });
@@ -331,6 +310,40 @@ export default function VistaPlano({}: VistaPlanoProps) {
 
   if (!proyecto) return null;
 
+  // ── Restaurar versión ──────────────────────────────────────────────────────
+  async function handleRestaurar(v: Version) {
+    if (!proyecto) return;
+    // 1. Backup del estado actual
+    const fecha = new Date().toLocaleDateString('es-PY', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+    });
+    const snap = ordenes.map(o => ({
+      id:          o.id          ?? '',
+      ot:          o.ot          ?? '',
+      ubicacion:   o.ubicacion   ?? '',
+      rubro:       o.rubro       ?? '',
+      estado:      o.estado,
+      responsable: o.responsable ?? '',
+      prioridad:   o.prioridad   ?? 'Media',
+      pos_x:       o.pos_x       ?? 0,
+      pos_y:       o.pos_y       ?? 0,
+      comentarios: o.comentarios ?? '',
+      campos:      o.campos      ?? {},
+    }));
+    await guardarVersion(proyecto.id, `Backup pre-restauración — ${fecha}`, null, snap);
+
+    // 2. Aplicar snapshot en Supabase
+    const ok = await restaurarVersion(v, proyecto.id);
+
+    if (ok) {
+      // 3. Recargar ordenes desde Supabase
+      await cargarOrdenes(proyecto.id);
+      setModalVersionesAbierto(false);
+    } else {
+      window.alert('Error al restaurar. Por favor intentá de nuevo.');
+    }
+  }
+
   const ordenActualizada = ordenSeleccionada
     ? ordenes.find(o => o.id === ordenSeleccionada.id) ?? null
     : null;
@@ -338,97 +351,131 @@ export default function VistaPlano({}: VistaPlanoProps) {
   return (
     <div className={styles.vistaPlano}>
 
-      {/* ── Top Bar (acciones internas) ──
-          El TopBar global (← Proyectos, nombre proyecto, toggle Plano/Grilla,
-          Salir) vive en App.tsx. Acá quedan solo las acciones específicas
-          de la vista Plano: badge de count + acciones de proyecto + Informe + Config. */}
-      <div className={styles.topBar}>
-        <span className={styles.statBadge}>{ordenes.length} OTs</span>
+      {/* ── Top Bar: se oculta en fullscreen ── */}
+      {!fullscreen && (
+        <div className={styles.topBar}>
+          <span className={styles.statBadge}>{ordenes.length} OTs</span>
 
-        <div className={styles.topGroup}>
-          <button
-            className={styles.btnVolver}
-            onClick={acciones.abrirImportarCSV}
-            title="Importar OTs desde CSV"
-            disabled={!!cargandoAcciones}
-          >
-            📥 Importar
-          </button>
-          <button
-            className={styles.btnVolver}
-            onClick={acciones.abrirGuardarVersion}
-            title="Guardar snapshot de versión"
-            disabled={ordenes.length === 0}
-          >
-            💾 Versión
-          </button>
-          <button
-            className={styles.btnVolver}
-            onClick={acciones.abrirComparador}
-            title="Comparar versiones"
-          >
-            🔀 Comparar
-          </button>
+          <div className={styles.topGroup}>
+            <button
+              className={styles.btnVolver}
+              onClick={acciones.abrirImportarCSV}
+              title="Importar OTs desde CSV"
+              disabled={!!cargandoAcciones}
+            >
+              📥 Importar
+            </button>
+            <button
+              className={styles.btnVolver}
+              onClick={() => setModalVersionesAbierto(true)}
+              title="Guardar snapshot de versión"
+              disabled={ordenes.length === 0}
+            >
+              💾 Versión
+            </button>
+            <button
+              className={styles.btnVolver}
+              onClick={() => acciones.abrirComparador()}
+              title="Comparar versiones"
+            >
+              🔀 Comparar
+            </button>
+          </div>
+
+          <div style={{ flex: 1 }} />
+
+          <div className={styles.topGroup}>
+            <button
+              className={styles.btnVolver}
+              onClick={acciones.exportarCSV}
+              title="Exportar CSV"
+              disabled={!!cargandoAcciones || ordenes.length === 0}
+            >
+              ↑ CSV
+            </button>
+            <button
+              className={styles.btnInforme}
+              onClick={() => setMostrarInforme(true)}
+              title="Generar informe del proyecto"
+            >
+              📄 Informe
+            </button>
+            <button
+              className={styles.btnIcon}
+              onClick={() => console.log('config')}
+              title="Configuración"
+            >
+              ⚙
+            </button>
+            <button
+              className={styles.btnIcon}
+              onClick={() => onToggleFullscreen?.()}
+              title="Pantalla completa"
+            >
+              ⛶
+            </button>
+          </div>
         </div>
+      )}
 
-        <div style={{ flex: 1 }} />
-
-        <div className={styles.topGroup}>
-          <button
-            className={styles.btnVolver}
-            onClick={acciones.exportarCSV}
-            title="Exportar CSV"
-            disabled={!!cargandoAcciones || ordenes.length === 0}
-          >
-            ↑ CSV
-          </button>
-          <button
-            className={styles.btnInforme}
-            onClick={() => setMostrarInforme(true)}
-            title="Generar informe del proyecto"
-          >
-            📄 Informe
-          </button>
-          <button
-            className={styles.btnIcon}
-            onClick={() => console.log('config')}
-            title="Configuración"
-          >
-            ⚙
-          </button>
-        </div>
-      </div>
+      {/* ── Botón flotante para salir de fullscreen (tablet en obra) ── */}
+      {fullscreen && (
+        <button
+          type="button"
+          onClick={() => onToggleFullscreen?.()}
+          title="Salir de pantalla completa (ESC)"
+          style={{
+            position: 'fixed',
+            top: 12,
+            right: 12,
+            zIndex: 9000,
+            width: 40,
+            height: 40,
+            borderRadius: 10,
+            border: '1px solid #E5E7EB',
+            background: 'rgba(255,255,255,0.92)',
+            color: '#0F172A',
+            fontSize: 18,
+            cursor: 'pointer',
+            boxShadow: '0 2px 8px rgba(15,23,42,0.15)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          ✕
+        </button>
+      )}
 
       {/* Layout principal */}
       <div className={styles.main}>
 
-        {/* Panel IZQUIERDO — Resumen del proyecto + filtros + lista de OTs.
-            Recibe los filtros desde VistaPlano (single source of truth) para
-            que checkboxes y markers permanezcan sincronizados. */}
-        <PanelResumen
-          ordenes={ordenes}
-          ordenesFiltradas={ordenesFiltradas}
-          rubrosUnicos={rubrosUnicos}
-          filtrosEstado={filtrosEstado}
-          filtrosRubro={filtrosRubro}
-          filtrosPrioridad={filtrosPrioridad}
-          onToggleEstado={toggleEstado}
-          onToggleRubro={toggleRubro}
-          onTogglePrioridad={togglePrioridad}
-          ordenSeleccionadaId={ordenSeleccionada?.id}
-          onSeleccionar={handleSeleccionar}
-          proyecto={proyecto}
-          acciones={acciones}
-          cargando={cargandoAcciones}
-        />
+        {/* Panel IZQUIERDO: se oculta en fullscreen */}
+        {!fullscreen && (
+          <PanelResumen
+            ordenes={ordenes}
+            ordenesFiltradas={ordenesFiltradas}
+            rubrosUnicos={rubrosUnicos}
+            filtrosEstado={filtrosEstado}
+            filtrosRubro={filtrosRubro}
+            filtrosPrioridad={filtrosPrioridad}
+            onToggleEstado={toggleEstado}
+            onToggleRubro={toggleRubro}
+            onTogglePrioridad={togglePrioridad}
+            ordenSeleccionadaId={ordenSeleccionada?.id}
+            onSeleccionar={handleSeleccionar}
+            proyecto={proyecto}
+            acciones={acciones}
+            cargando={cargandoAcciones}
+          />
+        )}
 
-        {/* Panel auxiliar — OTs sin ubicar (drag&drop al plano).
-            Devuelve null si no hay OTs sin ubicar; queda invisible. */}
-        <ToolPanel ordenessinUbicar={ordenessinUbicar} />
+        {/* ToolPanel: se oculta en fullscreen */}
+        {!fullscreen && (
+          <ToolPanel ordenessinUbicar={ordenessinUbicar} />
+        )}
 
-        {/* Wrapper del área del plano — captura el drop de OTs desde el ToolPanel.
-            flex column para que el .planArea interno se estire vertical (flex:1)
-            y horizontalmente (align-items:stretch por default). */}
+        {/* Wrapper del área del plano */}
         <div
           style={{
             flex: 1,
@@ -503,8 +550,7 @@ export default function VistaPlano({}: VistaPlanoProps) {
             ))}
           </div>
 
-          {/* Zoom controls — esquina inferior derecha del .planArea.
-              data-no-pan evita que .planArea capture los pointer events. */}
+          {/* Zoom controls */}
           <div className={styles.zoomCtrl} data-no-pan>
             <button
               className={styles.zbtn}
@@ -542,12 +588,21 @@ export default function VistaPlano({}: VistaPlanoProps) {
       />
 
       {/* Panel de informe */}
+      {modalVersionesAbierto && proyecto && (
+        <ModalVersiones
+          proyectoId={proyecto.id}
+          ordenes={ordenes}
+          versionesInicial={versionesCached}
+          onCerrar={() => setModalVersionesAbierto(false)}
+          onComparar={(versionId) => { setModalVersionesAbierto(false); acciones.abrirComparador(versionId); }}
+          onRestaurar={(v) => void handleRestaurar(v)}
+        />
+      )}
       {mostrarInforme && (
         <InformePanel onClose={() => setMostrarInforme(false)} />
       )}
 
-      {/* Modales del hook useAccionesProyecto:
-          import CSV, guardar versión, historial, comparador, input file oculto. */}
+      {/* Modales del hook useAccionesProyecto */}
       {modalesAcciones}
 
     </div>

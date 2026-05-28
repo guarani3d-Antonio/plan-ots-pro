@@ -69,6 +69,7 @@ export default function VistaPlano({ fullscreen = false, onToggleFullscreen }: V
   const [errorPlano, setErrorPlano]         = useState<string | null>(null);
   const [ordenSeleccionada, setOrdenSeleccionada] = useState<OrdenLocal | null>(null);
   const [modoForzadoFotos, setModoForzadoFotos] = useState(false);
+  const [esNuevaOT, setEsNuevaOT] = useState(false);
   const [mostrarInforme, setMostrarInforme]           = useState(false);
   const [modalVersionesAbierto, setModalVersionesAbierto] = useState(false);
   const [versionesCached, setVersionesCached]           = useState<import('../../services/versionesService').Version[]>([]);
@@ -272,10 +273,12 @@ export default function VistaPlano({ fullscreen = false, onToggleFullscreen }: V
     if (posX < 0 || posX > 1 || posY < 0 || posY > 1) return;
     const nueva = await crearOrdenEnPosicion(proyecto.id, posX, posY);
     setOrdenSeleccionada(nueva);
+    setEsNuevaOT(true);
   }, [planoListo, planoDims, proyecto, crearOrdenEnPosicion]);
 
   const handleSeleccionar = useCallback((orden: OrdenLocal) => {
     setOrdenSeleccionada(orden);
+    setEsNuevaOT(false);
   }, []);
 
   // ── Drag & Drop ──────────────────────────────────────────
@@ -581,9 +584,11 @@ export default function VistaPlano({ fullscreen = false, onToggleFullscreen }: V
       <PanelOT
         orden={ordenActualizada}
         modoForzadoFotos={modoForzadoFotos}
+        esNueva={esNuevaOT}
         onCerrar={() => {
           setOrdenSeleccionada(null);
           setModoForzadoFotos(false);
+          setEsNuevaOT(false);
         }}
       />
 

@@ -48,7 +48,6 @@ interface PanelOTProps {
   orden: OrdenLocal | null;
   onCerrar: () => void;
   modoForzadoFotos?: boolean;
-  esNueva?: boolean;
 }
 
 type Tab = 'datos' | 'fotos' | 'informes' | 'campos';
@@ -163,7 +162,7 @@ function BtnEditarFotoCard({ onClick }: { onClick: () => void }) {
   );
 }
 
-export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, esNueva = false }: PanelOTProps) {
+export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false }: PanelOTProps) {
   const { actualizarOrden, eliminarOrden, moverOrden } = useOrdenesStore();
   const { user } = useAuthStore();
   const proyectoActivo = useProyectosStore(s => s.proyectoActivo);
@@ -188,23 +187,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
   const [modalCierre,     setModalCierre]     = useState(false);
   const [tipoInforme,     setTipoInforme]     = useState<TipoInformeModal>('cierre');
 
-  // ── Rol del usuario en el proyecto ──────────────────────
-  const [esSupervisor, setEsSupervisor] = useState(false);
-
-  useEffect(() => {
-    if (!user?.id || !proyectoActivo?.id) return;
-    supabase
-      .from('proyecto_miembros')
-      .select('rol')
-      .eq('proyecto_id', proyectoActivo.id)
-      .eq('user_id', user.id)
-      .single()
-      .then(({ data }) => {
-        setEsSupervisor(data?.rol === 'supervisor');
-      });
-  }, [user?.id, proyectoActivo?.id]);
-
-  // ── Fotos ────────────────────────────────────────────────
+  // ── Fotos ─────────────────────────────────────────────────────────────────
   const [fotosAntes,   setFotosAntes]   = useState<FotoConId[]>([]);
   const [fotosDurante, setFotosDurante] = useState<FotoConId[]>([]);
   const [fotosDespues, setFotosDespues] = useState<FotoConId[]>([]);
@@ -443,12 +426,6 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
 
   const handleEliminar = () => {
     if (!confirmEliminar) { setConfirmEliminar(true); return; }
-    eliminarOrden(ordenFresca.id);
-    onCerrar();
-  };
-
-  const handleCancelarNueva = () => {
-    if (!ordenFresca) { onCerrar(); return; }
     eliminarOrden(ordenFresca.id);
     onCerrar();
   };
@@ -833,13 +810,9 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
           <div className={styles.footer}>
             {modoForzadoFotos ? (
               <button className={styles.cancelUbicacionBtn} onClick={handleCancelarUbicacion} disabled={guardando} type="button">Cancelar ubicación</button>
-            ) : esNueva ? (
-              <button className={styles.cancelUbicacionBtn} onClick={handleCancelarNueva} type="button">Cancelar</button>
-            ) : esSupervisor ? (
-              <button className={styles.deleteBtn} onClick={handleEliminar} type="button">
-                {confirmEliminar ? '¿Confirmar?' : 'Borrar'}
-              </button>
-            ) : null}
+            ) : (
+              <button className={styles.deleteBtn} onClick={handleEliminar}>{confirmEliminar ? '¿Confirmar?' : 'Eliminar'}</button>
+            )}
             <button className={styles.saveBtn} onClick={handleGuardar} disabled={guardando || (modoForzadoFotos && !validacion.valido)}>
               {guardando ? 'Guardando...' : 'Guardar cambios'}
             </button>
