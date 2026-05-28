@@ -3,7 +3,7 @@ import { supabase } from '../../db/supabase';
 import { useProyectosStore } from '../../stores/proyectosStore';
 import styles from './Notificaciones.module.css';
 
-// ─── Tipos ───────────────────────────────────────────────────────────────────
+// ─── Tipos ────────────────────────────────────────────────────────────────────
 
 interface Notificacion {
   id: string;
@@ -20,32 +20,66 @@ interface NotificacionesProps {
   collapsed: boolean;
 }
 
-// ─── Constantes ──────────────────────────────────────────────────────────────
+// ─── Constantes ───────────────────────────────────────────────────────────────
 
 const MAX_NOTIFS = 30;
 
 const CAMPOS_WATCH = ['estado', 'responsable', 'prioridad', 'rubro'] as const;
 
 const CAMPO_LABELS: Record<string, string> = {
-  estado:       'Estado',
-  responsable:  'Responsable',
-  prioridad:    'Prioridad',
-  rubro:        'Rubro',
+  estado:      'Estado',
+  responsable: 'Responsable',
+  prioridad:   'Prioridad',
+  rubro:       'Rubro',
 };
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// Estados válidos — cualquier cambio entre estos SÍ notifica
+const ESTADOS_VALIDOS = new Set(['Pendiente', 'En proceso', 'Cerrada', 'No aplica']);
+
+// Icono por estado para el display
+const ESTADO_ICONO: Record<string, string> = {
+  'Pendiente':   '🟡',
+  'En proceso':  '🔵',
+  'Cerrada':     '🟢',
+  'No aplica':   '⚫',
+};
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/**
+ * Determina si un cambio de campo merece notificación.
+ * Reglas:
+ * - Si valorAnterior es '—' (null) → es evento de creación → NO notificar
+ * - Para estado: solo entre estados válidos y valores distintos
+ * - Para otros campos: cualquier cambio donde anterior no sea null
+ */
+function esCambioRelevante(campo: string, anterior: string, nuevo: string): boolean {
+  // Caso creación: valor anterior era null — nunca notificar
+  if (anterior === '—' || anterior === '' || anterior === 'null' || anterior === 'undefined') {
+    return false;
+  }
+  // Sin cambio real
+  if (anterior === nuevo) return false;
+
+  if (campo === 'estado') {
+    // Solo notificar si AMBOS son estados reales del sistema
+    return ESTADOS_VALIDOS.has(anterior) && ESTADOS_VALIDOS.has(nuevo);
+  }
+
+  // Para responsable, prioridad, rubro: cualquier cambio con valor anterior real
+  return true;
+}
 
 function detectarCambio(
   oldRec: Record<string, unknown>,
   newRec: Record<string, unknown>,
 ): { campo: string; anterior: string; nuevo: string } | null {
   for (const campo of CAMPOS_WATCH) {
-    if (oldRec[campo] !== newRec[campo]) {
-      return {
-        campo,
-        anterior: String(oldRec[campo] ?? '—'),
-        nuevo:    String(newRec[campo] ?? '—'),
-      };
+    const anterior = String(oldRec[campo] ?? '—');
+    const nuevo    = String(newRec[campo] ?? '—');
+
+    if (anterior !== nuevo && esCambioRelevante(campo, anterior, nuevo)) {
+      return { campo, anterior, nuevo };
     }
   }
   return null;
@@ -59,21 +93,28 @@ function timeAgo(date: Date): string {
   return date.toLocaleDateString('es-PY', { day: '2-digit', month: '2-digit' });
 }
 
-// ─── Componente ──────────────────────────────────────────────────────────────
+function renderValor(campo: string, valor: string): string {
+  if (campo === 'estado') {
+    const icono = ESTADO_ICONO[valor] ?? '';
+    return icono ? `${icono} ${valor}` : valor;
+  }
+  return valor;
+}
+
+// ─── Componente ───────────────────────────────────────────────────────────────
 
 export function Notificaciones({ collapsed }: NotificacionesProps) {
-  const [notifs, setNotifs]   = useState<Notificacion[]>([]);
-  const [open, setOpen]       = useState(false);
-  const panelRef              = useRef<HTMLDivElement>(null);
-  const btnRef                = useRef<HTMLButtonElement>(null);
-  const channelRef            = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const [notifs, setNotifs] = useState<Notificacion[]>([]);
+  const [open, setOpen]     = useState(false);
+  const panelRef            = useRef<HTMLDivElement>(null);
+  const btnRef              = useRef<HTMLButtonElement>(null);
+  const channelRef          = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   const proyectoActivo = useProyectosStore(s => s.proyectoActivo);
   const unreadCount    = notifs.filter(n => !n.leida).length;
 
   // ── Suscripción Realtime ──────────────────────────────────────────────────
   useEffect(() => {
-    // Limpiar canal anterior
     if (channelRef.current) {
       supabase.removeChannel(channelRef.current);
       channelRef.current = null;
@@ -96,7 +137,7 @@ export function Notificaciones({ collapsed }: NotificacionesProps) {
           const newRec = (payload.new ?? {}) as Record<string, unknown>;
 
           const cambio = detectarCambio(oldRec, newRec);
-          if (!cambio) return; // nada relevante cambió
+          if (!cambio) return;
 
           const notif: Notificacion = {
             id:            `${Date.now()}-${Math.random().toString(36).slice(2)}`,
@@ -115,23 +156,18 @@ export function Notificaciones({ collapsed }: NotificacionesProps) {
       .subscribe();
 
     channelRef.current = channel;
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, [proyectoActivo?.id]);
 
   // ── Cerrar panel al hacer clic fuera ─────────────────────────────────────
   useEffect(() => {
     if (!open) return;
-
     const handler = (e: MouseEvent) => {
       const target = e.target as Node;
       const outsidePanel = panelRef.current && !panelRef.current.contains(target);
       const outsideBtn   = btnRef.current   && !btnRef.current.contains(target);
       if (outsidePanel && outsideBtn) setOpen(false);
     };
-
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [open]);
@@ -156,9 +192,7 @@ export function Notificaciones({ collapsed }: NotificacionesProps) {
         type="button"
         className={`${styles.bellBtn} ${open ? styles.bellBtnActive : ''}`}
         onClick={() => setOpen(o => !o)}
-        title={collapsed
-          ? `Notificaciones${unreadCount ? ` (${unreadCount})` : ''}`
-          : undefined}
+        title={collapsed ? `Notificaciones${unreadCount ? ` (${unreadCount})` : ''}` : undefined}
         aria-label="Notificaciones"
       >
         <span className={styles.bellIcon}>🔔</span>
@@ -184,11 +218,7 @@ export function Notificaciones({ collapsed }: NotificacionesProps) {
           <div className={styles.panelHeader}>
             <span className={styles.panelTitle}>Notificaciones</span>
             {unreadCount > 0 && (
-              <button
-                type="button"
-                className={styles.markAllBtn}
-                onClick={markAllRead}
-              >
+              <button type="button" className={styles.markAllBtn} onClick={markAllRead}>
                 Marcar leídas
               </button>
             )}
@@ -201,7 +231,7 @@ export function Notificaciones({ collapsed }: NotificacionesProps) {
                 <span className={styles.emptyIcon}>🔔</span>
                 <span className={styles.emptyTitle}>Sin notificaciones</span>
                 <span className={styles.emptyHint}>
-                  Los cambios en OTs del proyecto activo aparecen aquí en tiempo real
+                  Los cambios de estado, responsable, prioridad y rubro en OTs activas aparecen aquí en tiempo real
                 </span>
               </div>
             ) : (
@@ -221,9 +251,13 @@ export function Notificaciones({ collapsed }: NotificacionesProps) {
                         {CAMPO_LABELS[n.campo] ?? n.campo}
                       </span>
                       {' cambió: '}
-                      <span className={styles.notifAnterior}>{n.valorAnterior}</span>
+                      <span className={styles.notifAnterior}>
+                        {renderValor(n.campo, n.valorAnterior)}
+                      </span>
                       <span className={styles.notifArrow}> → </span>
-                      <span className={styles.notifNuevo}>{n.valorNuevo}</span>
+                      <span className={styles.notifNuevo}>
+                        {renderValor(n.campo, n.valorNuevo)}
+                      </span>
                     </div>
                   </div>
                 </div>
