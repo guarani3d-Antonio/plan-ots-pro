@@ -11,8 +11,9 @@ import {
   subirImagenAnotada,
 } from '../../services/editorFotoService';
 import type { AnotacionGuardada } from '../../services/editorFotoService';
+import { supabase } from '../../db/supabase';
 
-// ─── Tipos ────────────────────────────────────────────────────────────────────
+// ─── Tipos ───────────────────────────────────────────────────────────────────
 
 type TipoHerramienta = 'cursor' | 'lapiz' | 'flecha' | 'circulo' | 'texto';
 type TipoAnotacion   = 'lapiz' | 'flecha' | 'circulo' | 'texto';
@@ -45,7 +46,7 @@ interface EditorFotoProps {
   onGuardado?: () => void;
 }
 
-// ─── Constantes ───────────────────────────────────────────────────────────────
+// ─── Constantes ──────────────────────────────────────────────────────────────
 
 const COLORES = [
   { valor: '#E53E3E', nombre: 'Rojo' },
@@ -150,7 +151,7 @@ function drawAnotacion(ctx: CanvasRenderingContext2D, ann: Anotacion) {
   ctx.restore();
 }
 
-// ─── Componente ───────────────────────────────────────────────────────────────
+// ─── Componente ──────────────────────────────────────────────────────────────
 
 export default function EditorFoto({ foto, ordenCodigo, todasLasFotos, onClose, onGuardado }: EditorFotoProps) {
   const [indice, setIndice] = useState(() => Math.max(0, todasLasFotos.findIndex(f => f.id === foto.id)));
@@ -169,7 +170,7 @@ export default function EditorFoto({ foto, ordenCodigo, todasLasFotos, onClose, 
   const [cargando,     setCargando]     = useState(false);
   const [textoPos,     setTextoPos]     = useState<Punto | null>(null);
   const [textoValor,   setTextoValor]   = useState('');
-  const [zoomBadge,    setZoomBadge]    = useState(100); // solo para el badge
+  const [zoomBadge,    setZoomBadge]    = useState(100);
 
   // Refs
   const imgRef          = useRef<HTMLImageElement>(null);
@@ -177,11 +178,10 @@ export default function EditorFoto({ foto, ordenCodigo, todasLasFotos, onClose, 
   const ctxRef          = useRef<CanvasRenderingContext2D | null>(null);
   const textoRef        = useRef<HTMLInputElement>(null);
   const photoAreaRef    = useRef<HTMLDivElement>(null);
-  const photoWrapperRef = useRef<HTMLDivElement>(null);  // zoom directo al DOM
-  const zoomRef         = useRef(1);                     // zoom sin re-render
+  const photoWrapperRef = useRef<HTMLDivElement>(null);
+  const zoomRef         = useRef(1);
   const dibujandoRef    = useRef(false);
   const annEnCursoRef   = useRef<Anotacion | null>(null);
-  // Refs de estado para acceso en closures de efectos
   const anotacionesRef  = useRef<Anotacion[]>([]);
   const brilloRef       = useRef(0);
   const contrasteRef    = useRef(0);
@@ -190,7 +190,7 @@ export default function EditorFoto({ foto, ordenCodigo, todasLasFotos, onClose, 
   useEffect(() => { brilloRef.current = brillo; }, [brillo]);
   useEffect(() => { contrasteRef.current = contraste; }, [contraste]);
 
-  // ── Aplicar zoom directo al DOM (sin re-render React) ────────────────────
+  // ── Zoom directo al DOM ──────────────────────────────────────────────────
   const applyZoom = useCallback((value: number) => {
     const clamped = +Math.min(5, Math.max(0.3, value)).toFixed(2);
     zoomRef.current = clamped;
@@ -200,7 +200,7 @@ export default function EditorFoto({ foto, ordenCodigo, todasLasFotos, onClose, 
     setZoomBadge(Math.round(clamped * 100));
   }, []);
 
-  // ── Scroll = zoom instantáneo (passive:false para e.preventDefault) ───────
+  // ── Scroll = zoom ────────────────────────────────────────────────────────
   useEffect(() => {
     const el = photoAreaRef.current;
     if (!el) return;
@@ -213,7 +213,7 @@ export default function EditorFoto({ foto, ordenCodigo, todasLasFotos, onClose, 
     return () => el.removeEventListener('wheel', onWheel);
   }, [applyZoom]);
 
-  // ── Setup canvas (offsetWidth ignora CSS transform) ───────────────────────
+  // ── Setup canvas ─────────────────────────────────────────────────────────
   const setupCanvas = useCallback(() => {
     const img = imgRef.current;
     const canvas = canvasRef.current;
@@ -232,7 +232,7 @@ export default function EditorFoto({ foto, ordenCodigo, todasLasFotos, onClose, 
     ctxRef.current = ctx;
   }, []);
 
-  // ── Dibujar ───────────────────────────────────────────────────────────────
+  // ── Dibujar ──────────────────────────────────────────────────────────────
   const dibujarTodo = useCallback((anns: Anotacion[]) => {
     const ctx = ctxRef.current;
     const canvas = canvasRef.current;
@@ -242,17 +242,22 @@ export default function EditorFoto({ foto, ordenCodigo, todasLasFotos, onClose, 
     anns.forEach(a => drawAnotacion(ctx, a));
   }, []);
 
-  // ── Cargar al cambiar foto ────────────────────────────────────────────────
+  // ── Cargar al cambiar foto — lee fotos.descripcion ───────────────────────
   useEffect(() => {
     setAnotaciones([]); setHistorial([]); setFuturo([]);
     setDescripcion(''); setBrillo(0); setContraste(0);
     applyZoom(1);
     setCargando(true);
-    cargarEdicionFoto(fotoActual.id)
-      .then(edicion => {
+
+    Promise.all([
+      cargarEdicionFoto(fotoActual.id),
+      supabase.from('fotos').select('descripcion').eq('id', fotoActual.id).single(),
+    ])
+      .then(([edicion, { data: fotoData }]) => {
         const anns = (edicion.anotaciones ?? []) as unknown as Anotacion[];
         setAnotaciones(anns);
-        setDescripcion(edicion.descripcion_observacion ?? '');
+        // Usa fotos.descripcion como fuente única de verdad
+        setDescripcion(fotoData?.descripcion ?? '');
       })
       .catch(console.error)
       .finally(() => setCargando(false));
@@ -260,19 +265,18 @@ export default function EditorFoto({ foto, ordenCodigo, todasLasFotos, onClose, 
 
   useEffect(() => { dibujarTodo(anotaciones); }, [anotaciones, dibujarTodo]);
 
-  // ── Coordenadas ajustadas por zoom (usa zoomRef para no depender de estado) 
   function getCoords(e: React.MouseEvent): Punto {
     const canvas = canvasRef.current!;
     const rect   = canvas.getBoundingClientRect();
     const cssW   = canvas.offsetWidth;
-    const scale  = cssW / rect.width; // = 1/zoom actual
+    const scale  = cssW / rect.width;
     return {
       x: (e.clientX - rect.left) * scale,
       y: (e.clientY - rect.top)  * scale,
     };
   }
 
-  // ── Mouse handlers ────────────────────────────────────────────────────────
+  // ── Mouse handlers ───────────────────────────────────────────────────────
   function handleMouseDown(e: React.MouseEvent) {
     if (herramienta === 'cursor') return;
     if (herramienta === 'texto') {
@@ -343,7 +347,7 @@ export default function EditorFoto({ foto, ordenCodigo, todasLasFotos, onClose, 
     });
   }, [anotaciones]);
 
-  // ── Keyboard ──────────────────────────────────────────────────────────────
+  // ── Keyboard ─────────────────────────────────────────────────────────────
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (textoPos) return;
@@ -388,7 +392,6 @@ export default function EditorFoto({ foto, ordenCodigo, todasLasFotos, onClose, 
     const sx = nW / dW;
     const sy = nH / dH;
 
-    // Fetch como blob para evitar CORS taint en canvas
     const response = await fetch(fotoActual.file_url);
     if (!response.ok) throw new Error('No se pudo descargar la imagen original');
     const imageBlob = await response.blob();
@@ -402,7 +405,6 @@ export default function EditorFoto({ foto, ordenCodigo, todasLasFotos, onClose, 
     await new Promise<void>((resolve, reject) => {
       const img = new Image();
       img.onload = () => {
-        // Dibujar imagen original con filtros
         const b = brilloRef.current;
         const c = contrasteRef.current;
         const filter = [
@@ -412,13 +414,10 @@ export default function EditorFoto({ foto, ordenCodigo, todasLasFotos, onClose, 
         ctx.filter = filter || 'none';
         ctx.drawImage(img, 0, 0, nW, nH);
         ctx.filter = 'none';
-
-        // Escalar para anotaciones (coordenadas en display pixels → natural pixels)
         ctx.save();
         ctx.scale(sx, sy);
         anotacionesRef.current.filter(a => a.visible).forEach(a => drawAnotacion(ctx, a));
         ctx.restore();
-
         URL.revokeObjectURL(blobUrl);
         resolve();
       };
@@ -431,7 +430,7 @@ export default function EditorFoto({ foto, ordenCodigo, todasLasFotos, onClose, 
     });
   }
 
-  // ── Guardar ───────────────────────────────────────────────────────────────
+  // ── Guardar — siempre actualiza fotos.descripcion ────────────────────────
   async function handleGuardar() {
     setGuardando(true);
     try {
@@ -449,16 +448,18 @@ export default function EditorFoto({ foto, ordenCodigo, todasLasFotos, onClose, 
           anotaciones as unknown as AnotacionGuardada[],
           descripcion,
         );
-        setToast('✓ Imagen anotada guardada');
       } else {
-        // Solo guardar descripción / anotaciones vacías
-        await guardarEdicionFoto(fotoActual.id, {
-          anotaciones: [],
-          descripcion_observacion: descripcion,
-        });
-        setToast('✓ Guardado correctamente');
+        // Solo anotaciones vacías
+        await guardarEdicionFoto(fotoActual.id, { anotaciones: [], descripcion_observacion: descripcion });
       }
 
+      // ── Siempre actualizar fotos.descripcion (fuente única de verdad) ──
+      await supabase
+        .from('fotos')
+        .update({ descripcion: descripcion.trim() })
+        .eq('id', fotoActual.id);
+
+      setToast('✓ Guardado correctamente');
       setTimeout(() => setToast(null), 2500);
       onGuardado?.();
     } catch (err) {
@@ -533,7 +534,6 @@ export default function EditorFoto({ foto, ordenCodigo, todasLasFotos, onClose, 
           <button className={`${styles.navBtn} ${styles.navPrev}`} onClick={() => navegar(-1)} disabled={indice === 0} title="Foto anterior">‹</button>
 
           <div className={styles.photoWrapperOuter}>
-            {/* ref directo al DOM — zoom sin re-render */}
             <div
               ref={photoWrapperRef}
               className={styles.photoWrapper}
@@ -595,7 +595,7 @@ export default function EditorFoto({ foto, ordenCodigo, todasLasFotos, onClose, 
         {/* ── PANEL DERECHO ── */}
         <div className={styles.rightPanel}>
           <div className={styles.panelSection}>
-            <div className={styles.sectionTitle}>ⓘ Detalles de Evidencia</div>
+            <div className={styles.sectionTitle}>ℹ Detalles de Evidencia</div>
             <label className={styles.fieldLabel}>Categoría (Fase)</label>
             <select className={styles.fieldSelect} value={fotoActual.categoria} disabled>
               {Object.entries(CATEGORIA_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
@@ -603,8 +603,17 @@ export default function EditorFoto({ foto, ordenCodigo, todasLasFotos, onClose, 
           </div>
 
           <div className={styles.panelSection}>
-            <label className={styles.fieldLabel}>Descripción de la Observación</label>
-            <textarea className={styles.fieldTextarea} value={descripcion} onChange={e => setDescripcion(e.target.value)} placeholder="Describí lo observado en esta foto…" />
+            <label className={styles.fieldLabel}>Descripción (aparece en informes)</label>
+            <textarea
+              className={styles.fieldTextarea}
+              value={descripcion}
+              onChange={e => setDescripcion(e.target.value)}
+              placeholder="Describí el estado de la tarea, materiales observados, condiciones del área…"
+              maxLength={1500}
+            />
+            <div style={{ textAlign: 'right', fontSize: 10, color: 'var(--text-secondary)', marginTop: 2 }}>
+              {descripcion.length} / 1500
+            </div>
           </div>
 
           <div className={styles.panelSection}>
