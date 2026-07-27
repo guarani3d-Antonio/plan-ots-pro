@@ -68,15 +68,10 @@ body.modo-tablet main {
   -webkit-overflow-scrolling: touch;
 }
 
-/* El botón compartido `.btn` de index.css sí puede subir a área táctil sin
-   riesgo: es el botón de acción estándar, nunca un ícono denso. */
-body.modo-tablet .btn {
-  min-height: var(--tablet-touch);
-  padding-inline: var(--sp-5);
-}
-
 /* ── Utilitarias para las fases siguientes ────────────────────────────────────
-   Se declaran acá para que F3–F6 no tengan que repetir el bloque.            */
+   Se declaran acá para que F3–F6 no tengan que repetir el bloque. Todavía no
+   las usa nadie: se aplican explícitamente en cada fase, sobre los CSS Modules
+   de cada componente.                                                        */
 
 /* Área táctil de 48px sin agrandar el punto visible (pines, íconos chicos). */
 body.modo-tablet .tablet-hit-48 {
@@ -186,21 +181,26 @@ body.modo-tablet.tema-vidrio::before {
     linear-gradient(180deg, rgba(6, 10, 18, 0.60), rgba(6, 10, 18, 0.87));
 }
 
-/* ── Paneles de vidrio ───────────────────────────────────────────────────────
-   Se aplica a las clases compartidas de index.css. Los CSS Modules de cada
-   componente se adaptan en su fase correspondiente. */
-body.modo-tablet.tema-vidrio .card {
+/* ── Utilitarias de vidrio para las fases siguientes ──────────────────────────
+   NO hay reglas apuntando a `.card`, `.btn-primary`, `.field-input` ni al resto
+   de las clases compartidas de index.css: se verificó que NINGÚN componente las
+   usa (0 `className` literales, 0 `:global`, 0 `composes`, 37 archivos con CSS
+   Modules). Escribir contra ellas sería escribir al vacío.
+
+   El vidrio de cada panel se aplica en la fase que toca esa vista, sobre su
+   propio CSS Module. Estas utilitarias existen para que esas fases no repitan
+   el bloque. Ver docs/tablet/S37-T_PENDIENTES_DISPOSITIVO.md (P-2).           */
+
+/* Superficie de vidrio. Aplicar junto a la clase del módulo correspondiente. */
+body.modo-tablet.tema-vidrio .vidrio-panel {
   background: var(--bg-surface);
-  border-color: var(--border-default);
+  border: 1px solid var(--border-default);
   backdrop-filter: blur(var(--vidrio-blur));
   -webkit-backdrop-filter: blur(var(--vidrio-blur));
-}
-
-/* Filo superior de luz — el detalle que hace que el panel lea como vidrio. */
-body.modo-tablet.tema-vidrio .card {
   position: relative;
 }
-body.modo-tablet.tema-vidrio .card::after {
+/* Filo superior de luz — el detalle que hace que el panel lea como vidrio. */
+body.modo-tablet.tema-vidrio .vidrio-panel::after {
   content: '';
   position: absolute;
   inset: 0 0 auto 0;
@@ -209,30 +209,14 @@ body.modo-tablet.tema-vidrio .card::after {
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.22), transparent);
 }
 
-/* ── Acentos ─────────────────────────────────────────────────────────────────
-   Lima solo en la acción primaria y en indicadores positivos. */
-body.modo-tablet.tema-vidrio .btn-primary {
+/* Acción primaria en lima. Solo la acción primaria. */
+body.modo-tablet.tema-vidrio .vidrio-primario {
   background: var(--vidrio-lima);
   color: #0A0E06;
   box-shadow: 0 0 22px rgba(0, 255, 0, 0.22);
 }
-body.modo-tablet.tema-vidrio .btn-primary:hover {
-  background: var(--vidrio-lima);
-  filter: brightness(1.08);
-  box-shadow: 0 0 28px rgba(0, 255, 0, 0.32);
-}
-body.modo-tablet.tema-vidrio .btn-secondary,
-body.modo-tablet.tema-vidrio .field-input {
-  background: var(--bg-subtle);
-  border-color: var(--border-default);
-  color: var(--text-primary);
-}
-body.modo-tablet.tema-vidrio .field-input:focus {
-  border-color: var(--vidrio-lima);
-  box-shadow: 0 0 0 3px rgba(0, 255, 0, 0.13);
-}
 
-/* Magenta reservado a lo crítico. Utilitaria para las fases siguientes. */
+/* Magenta reservado a lo crítico. */
 body.modo-tablet.tema-vidrio .vidrio-critico {
   color: var(--vidrio-magenta);
   background: rgba(255, 0, 255, 0.15);
@@ -256,9 +240,12 @@ body.modo-tablet.tema-vidrio {
 /* ── Tipografía del vidrio ───────────────────────────────────────────────────
    Números grandes en peso liviano, labels chicos en mayúsculas con
    letterspacing amplio — es lo que da la lectura de panel de control. */
-body.modo-tablet.tema-vidrio .section-heading {
+body.modo-tablet.tema-vidrio .vidrio-label {
   font-size: 10px;
+  font-weight: 600;
   letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
 }
 body.modo-tablet.tema-vidrio .vidrio-cifra {
   font-weight: 300;

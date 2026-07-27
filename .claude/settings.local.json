@@ -15,7 +15,8 @@
       "Bash(npm outdated *)",
       "Bash(npm audit *)",
       "PowerShell(npx tsc -p tsconfig.app.json --noEmit; Write-Output \"EXITCODE=$LASTEXITCODE\")",
-      "PowerShell(git add *)"
+      "PowerShell(git add *)",
+      "Bash(git commit *)"
     ]
   }
 }
