@@ -92,6 +92,180 @@ body.modo-tablet .tablet-safe-bottom {
   padding-bottom: calc(var(--sp-3) + var(--tablet-safe-b));
 }
 
+/* ════════════════════════════════════════════════════════════════════════════
+   TEMA VIDRIO — S37-T F2
+   ════════════════════════════════════════════════════════════════════════════
+
+   CAMPO no aparece en este archivo, y eso es a propósito: Campo ES el tema
+   actual de la app. "Campo" significa exactamente "no aplicar `tema-vidrio`".
+   Por eso este sprint no modifica ni una variable de index.css.
+
+   VIDRIO se implementa re-declarando los tokens globales dentro de
+   `body.modo-tablet.tema-vidrio`. Todo componente que consuma `var(--bg-surface)`,
+   `var(--text-primary)`, etc. se adapta solo.
+
+   LÍMITE CONOCIDO: los componentes con estilos inline en hex (Dashboard,
+   Configuración, VistaGrilla, Gantt) no leen tokens y por ahora se van a ver
+   claros sobre el fondo oscuro. Se corrigen en las fases que tocan cada vista
+   (F5 Dashboard, F5B Plano/Gantt). Esta fase entrega el cimiento del tema.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+body.modo-tablet.tema-vidrio {
+  /* ── Superficies translúcidas ── */
+  --bg-app:      transparent;                  /* deja ver la foto de obra */
+  --bg-surface:  rgba(255, 255, 255, 0.045);
+  --bg-subtle:   rgba(255, 255, 255, 0.075);
+  --bg-hover:    rgba(255, 255, 255, 0.10);
+  --bg-active:   rgba(255, 255, 255, 0.14);
+  --bg-overlay:  rgba(6, 10, 18, 0.62);
+
+  /* ── Hairlines ── */
+  --border-subtle:  rgba(255, 255, 255, 0.08);
+  --border-default: rgba(255, 255, 255, 0.11);
+  --border-strong:  rgba(255, 255, 255, 0.18);
+
+  /* ── Texto sobre vidrio ── */
+  --text-primary:   #F2F6FA;
+  --text-secondary: rgba(242, 246, 250, 0.66);
+  --text-tertiary:  rgba(242, 246, 250, 0.40);
+  --text-disabled:  rgba(242, 246, 250, 0.26);
+  --text-link:      #7FE3FF;
+
+  /* ── Acentos propios del vidrio ──
+     Lima: SOLO acentos (botón primario, indicadores positivos).
+     Magenta: SOLO críticos (OT atrasadas, faltantes obligatorios). */
+  --vidrio-lima:      #00FF00;
+  --vidrio-lima-dim:  #00CC00;
+  --vidrio-magenta:   #FF00FF;
+  --vidrio-blur:      22px;
+
+  /* El acento de marca se aclara para que siga siendo legible sobre oscuro,
+     manteniendo el matiz azul de #3B599B. */
+  --accent:        #7B9BE8;
+  --accent-hover:  #96B0F0;
+  --accent-subtle: rgba(123, 155, 232, 0.16);
+  --accent-glow:   rgba(123, 155, 232, 0.30);
+
+  /* Sombras: sobre vidrio las sombras claras no se ven; se profundizan. */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, .35);
+  --shadow-md: 0 6px 20px rgba(0, 0, 0, .40);
+  --shadow-lg: 0 18px 50px rgba(0, 0, 0, .48);
+  --shadow-xl: 0 34px 90px rgba(0, 0, 0, .55);
+}
+
+/* ── Fondo de obra ───────────────────────────────────────────────────────────
+   Dos capas de background-image: si la foto no carga (404, archivo faltante),
+   el degradado oscuro de abajo igual pinta y la app nunca queda rota.
+
+   NOTA: el archivo real es `obra_bg.jpg.png` — PNG de 2,65 MB con doble
+   extensión. La especificación pedía JPEG de 400–900 KB. Cuando Inge lo
+   reemplace, cambiar solo esta línea. */
+body.modo-tablet.tema-vidrio {
+  background-color: #070B12;
+  background-image:
+    url('/obra_bg.jpg.png'),
+    linear-gradient(160deg, #0B1220 0%, #070B12 100%);
+  background-size: cover, cover;
+  background-position: center 38%, center;
+  background-repeat: no-repeat, no-repeat;
+  background-attachment: fixed, fixed;
+}
+
+/* Scrim en dos capas sobre la foto: radiales de color + degradado vertical que
+   apaga la parte baja para que el contenido siempre tenga contraste.
+   z-index -1 lo deja detrás del contenido de #root pero delante del fondo. */
+body.modo-tablet.tema-vidrio::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(120% 80% at 78% 6%,  rgba(0, 255, 0, 0.055), transparent 55%),
+    radial-gradient(90% 70% at 6% 94%,   rgba(59, 89, 155, 0.15), transparent 60%),
+    linear-gradient(180deg, rgba(6, 10, 18, 0.60), rgba(6, 10, 18, 0.87));
+}
+
+/* ── Paneles de vidrio ───────────────────────────────────────────────────────
+   Se aplica a las clases compartidas de index.css. Los CSS Modules de cada
+   componente se adaptan en su fase correspondiente. */
+body.modo-tablet.tema-vidrio .card {
+  background: var(--bg-surface);
+  border-color: var(--border-default);
+  backdrop-filter: blur(var(--vidrio-blur));
+  -webkit-backdrop-filter: blur(var(--vidrio-blur));
+}
+
+/* Filo superior de luz — el detalle que hace que el panel lea como vidrio. */
+body.modo-tablet.tema-vidrio .card {
+  position: relative;
+}
+body.modo-tablet.tema-vidrio .card::after {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.22), transparent);
+}
+
+/* ── Acentos ─────────────────────────────────────────────────────────────────
+   Lima solo en la acción primaria y en indicadores positivos. */
+body.modo-tablet.tema-vidrio .btn-primary {
+  background: var(--vidrio-lima);
+  color: #0A0E06;
+  box-shadow: 0 0 22px rgba(0, 255, 0, 0.22);
+}
+body.modo-tablet.tema-vidrio .btn-primary:hover {
+  background: var(--vidrio-lima);
+  filter: brightness(1.08);
+  box-shadow: 0 0 28px rgba(0, 255, 0, 0.32);
+}
+body.modo-tablet.tema-vidrio .btn-secondary,
+body.modo-tablet.tema-vidrio .field-input {
+  background: var(--bg-subtle);
+  border-color: var(--border-default);
+  color: var(--text-primary);
+}
+body.modo-tablet.tema-vidrio .field-input:focus {
+  border-color: var(--vidrio-lima);
+  box-shadow: 0 0 0 3px rgba(0, 255, 0, 0.13);
+}
+
+/* Magenta reservado a lo crítico. Utilitaria para las fases siguientes. */
+body.modo-tablet.tema-vidrio .vidrio-critico {
+  color: var(--vidrio-magenta);
+  background: rgba(255, 0, 255, 0.15);
+}
+
+/* ── Estados: MISMO matiz, con glow ──────────────────────────────────────────
+   Regla de oro #6: los colores de estado son memoria muscular del usuario y no
+   cambian de matiz. Sobre vidrio solo ganan brillo para no apagarse contra el
+   fondo oscuro. Los hex siguen siendo los de index.css. */
+body.modo-tablet.tema-vidrio {
+  --estado-pendiente-bg:    rgba(220, 38, 38, 0.16);
+  --estado-pendiente-text:  #FF8A8A;
+  --estado-enproceso-bg:    rgba(123, 155, 232, 0.18);
+  --estado-enproceso-text:  #A9C0F5;
+  --estado-cerrada-bg:      rgba(22, 163, 74, 0.18);
+  --estado-cerrada-text:    #6EE7A0;
+  --estado-noaplica-bg:     rgba(255, 255, 255, 0.07);
+  --estado-noaplica-text:   rgba(242, 246, 250, 0.55);
+}
+
+/* ── Tipografía del vidrio ───────────────────────────────────────────────────
+   Números grandes en peso liviano, labels chicos en mayúsculas con
+   letterspacing amplio — es lo que da la lectura de panel de control. */
+body.modo-tablet.tema-vidrio .section-heading {
+  font-size: 10px;
+  letter-spacing: 0.16em;
+}
+body.modo-tablet.tema-vidrio .vidrio-cifra {
+  font-weight: 300;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
 /* ── Reducción de movimiento ─────────────────────────────────────────────────
    Respeta la preferencia del sistema, igual que el mockup.                   */
 @media (prefers-reduced-motion: reduce) {

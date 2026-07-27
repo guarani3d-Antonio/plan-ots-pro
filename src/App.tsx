@@ -17,6 +17,7 @@ import Calendario     from './components/views/Calendario';
 import Contratistas   from './components/views/Contratistas';
 import Configuracion  from './components/views/Configuracion';
 import { useModoTablet } from './hooks/useModoTablet';
+import { useTemaTablet } from './hooks/useTemaTablet';
 import ModalImportPendiente, { type OTPendienteResumen } from './components/plano/ModalImportPendiente';
 import VisorPlano3D from './components/plano3d/VisorPlano3D';
 import PantallaAyuda from './components/ayuda/PantallaAyuda';
@@ -63,6 +64,7 @@ export default function App() {
   // cada arranque de la app y no solo después del login: el usuario que vuelve
   // con sesión guardada también entra ya en el modo correcto.
   const { modoTablet, orientacion } = useModoTablet();
+  const { tema, setTema }           = useTemaTablet();
 
   useEffect(() => {
     const b = document.body;
@@ -71,7 +73,10 @@ export default function App() {
     b.classList.toggle('modo-tablet', modoTablet);
     b.classList.toggle('orient-h',    orientacion === 'h');
     b.classList.toggle('orient-v',    orientacion === 'v');
-  }, [modoTablet, orientacion]);
+    // El vidrio solo existe dentro del modo tablet: si el modo está apagado la
+    // clase nunca se aplica, pase lo que pase en localStorage.
+    b.classList.toggle('tema-vidrio', modoTablet && tema === 'vidrio');
+  }, [modoTablet, orientacion, tema]);
 
   useEffect(() => { initialize(); }, []);
 
@@ -205,7 +210,14 @@ export default function App() {
         width: '100%',
         overflow: 'hidden',
       }}>
-        <Sidebar vistaActiva={vista} onCambiarVista={cambiarVista} hidden={fullscreen} modoTablet={modoTablet} />
+        <Sidebar
+          vistaActiva={vista}
+          onCambiarVista={cambiarVista}
+          hidden={fullscreen}
+          modoTablet={modoTablet}
+          tema={tema}
+          onCambiarTema={setTema}
+        />
 
         <main style={{
           flex: 1,

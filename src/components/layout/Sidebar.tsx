@@ -3,6 +3,7 @@ import styles from './Sidebar.module.css';
 import { useAuthStore } from '../../stores/authStore';
 import { Notificaciones } from '../ui/Notificaciones';
 import { usePantallaCompleta } from '../../hooks/usePantallaCompleta';
+import type { TemaTablet } from '../../hooks/useTemaTablet';
 
 export type Vista =
   | 'dashboard'
@@ -23,6 +24,9 @@ interface SidebarProps {
   /** S37-T · Solo en tablet se ofrece el botón de pantalla completa: en
    *  notebook el F11 del sistema ya cumple esa función. */
   modoTablet?: boolean;
+  /** S37-T F2 · Tema tablet. 'campo' es el tema actual de la app tal cual. */
+  tema?: TemaTablet;
+  onCambiarTema?: (t: TemaTablet) => void;
 }
 
 const LS_COLLAPSED_KEY = 'sidebar_collapsed';
@@ -59,7 +63,10 @@ function colorFromName(n: string): string {
 
 const inicial = (n: string) => n ? n.trim().charAt(0).toUpperCase() : '?';
 
-export function Sidebar({ vistaActiva, onCambiarVista, hidden, modoTablet = false }: SidebarProps) {
+export function Sidebar({
+  vistaActiva, onCambiarVista, hidden,
+  modoTablet = false, tema = 'campo', onCambiarTema,
+}: SidebarProps) {
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     try { return localStorage.getItem(LS_COLLAPSED_KEY) === '1'; }
     catch { return false; }
@@ -142,8 +149,30 @@ export function Sidebar({ vistaActiva, onCambiarVista, hidden, modoTablet = fals
         {renderItem(ITEM_CONFIG)}
       </nav>
 
-      {/* ─── Bottom: pantalla completa + notificaciones + avatar ─── */}
+      {/* ─── Bottom: tema + pantalla completa + notificaciones + avatar ─── */}
       <div className={styles.bottom}>
+        {modoTablet && onCambiarTema && (
+          <div className={styles.temaToggle} role="group" aria-label="Tema de la interfaz">
+            <button
+              type="button"
+              className={`${styles.temaBtn} ${tema === 'vidrio' ? styles.temaBtnActivo : ''}`}
+              onClick={() => onCambiarTema('vidrio')}
+              aria-pressed={tema === 'vidrio'}
+              title="Tema Vidrio — superficie translúcida sobre foto de obra"
+            >
+              {collapsed ? '◧' : 'Vidrio'}
+            </button>
+            <button
+              type="button"
+              className={`${styles.temaBtn} ${tema === 'campo' ? styles.temaBtnActivo : ''}`}
+              onClick={() => onCambiarTema('campo')}
+              aria-pressed={tema === 'campo'}
+              title="Tema Campo — el tema actual de la app, máxima legibilidad al sol"
+            >
+              {collapsed ? '☀' : 'Campo'}
+            </button>
+          </div>
+        )}
         {modoTablet && fsSoportada && (
           <button
             type="button"
