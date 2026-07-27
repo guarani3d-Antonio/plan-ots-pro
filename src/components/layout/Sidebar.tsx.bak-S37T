@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import styles from './Sidebar.module.css';
 import { useAuthStore } from '../../stores/authStore';
 import { Notificaciones } from '../ui/Notificaciones';
-import { usePantallaCompleta } from '../../hooks/usePantallaCompleta';
 
 export type Vista =
   | 'dashboard'
@@ -20,9 +19,6 @@ interface SidebarProps {
   vistaActiva: string;
   onCambiarVista: (vista: Vista) => void;
   hidden?: boolean;
-  /** S37-T · Solo en tablet se ofrece el botón de pantalla completa: en
-   *  notebook el F11 del sistema ya cumple esa función. */
-  modoTablet?: boolean;
 }
 
 const LS_COLLAPSED_KEY = 'sidebar_collapsed';
@@ -59,16 +55,12 @@ function colorFromName(n: string): string {
 
 const inicial = (n: string) => n ? n.trim().charAt(0).toUpperCase() : '?';
 
-export function Sidebar({ vistaActiva, onCambiarVista, hidden, modoTablet = false }: SidebarProps) {
+export function Sidebar({ vistaActiva, onCambiarVista, hidden }: SidebarProps) {
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     try { return localStorage.getItem(LS_COLLAPSED_KEY) === '1'; }
     catch { return false; }
   });
   const user = useAuthStore(s => s.user);
-  // S37-T · Pantalla completa real (Fullscreen API). Exclusiva de modo tablet:
-  // en notebook el F11 del sistema ya cumple esa función y duplicarla solo
-  // ensuciaría una UI que debe quedar intacta.
-  const { activa: pantallaCompleta, alternar: alternarPantallaCompleta, soportada: fsSoportada } = usePantallaCompleta();
 
   useEffect(() => {
     try { localStorage.setItem(LS_COLLAPSED_KEY, collapsed ? '1' : '0'); }
@@ -142,25 +134,8 @@ export function Sidebar({ vistaActiva, onCambiarVista, hidden, modoTablet = fals
         {renderItem(ITEM_CONFIG)}
       </nav>
 
-      {/* ─── Bottom: pantalla completa + notificaciones + avatar ─── */}
+      {/* ─── Bottom: notificaciones + avatar ─── */}
       <div className={styles.bottom}>
-        {modoTablet && fsSoportada && (
-          <button
-            type="button"
-            className={styles.navItem}
-            onClick={alternarPantallaCompleta}
-            title={pantallaCompleta ? 'Salir de pantalla completa' : 'Pantalla completa'}
-            aria-label={pantallaCompleta ? 'Salir de pantalla completa' : 'Pantalla completa'}
-            aria-pressed={pantallaCompleta}
-          >
-            <span className={styles.navIcon}>{pantallaCompleta ? '⇲' : '⛶'}</span>
-            {!collapsed && (
-              <span className={styles.navLabel}>
-                {pantallaCompleta ? 'Salir de pantalla completa' : 'Pantalla completa'}
-              </span>
-            )}
-          </button>
-        )}
         <Notificaciones collapsed={collapsed} />
         <div className={styles.userBox}>
           <div

@@ -16,7 +16,6 @@ import Gantt          from './components/views/Gantt';
 import Calendario     from './components/views/Calendario';
 import Contratistas   from './components/views/Contratistas';
 import Configuracion  from './components/views/Configuracion';
-import { useModoTablet } from './hooks/useModoTablet';
 import ModalImportPendiente, { type OTPendienteResumen } from './components/plano/ModalImportPendiente';
 import VisorPlano3D from './components/plano3d/VisorPlano3D';
 import PantallaAyuda from './components/ayuda/PantallaAyuda';
@@ -57,21 +56,6 @@ export default function App() {
       });
     });
   }, []);
-
-  // ── S37-T · Modo tablet ────────────────────────────────────────────────────
-  // El hook se llama antes de cualquier return condicional, así que corre en
-  // cada arranque de la app y no solo después del login: el usuario que vuelve
-  // con sesión guardada también entra ya en el modo correcto.
-  const { modoTablet, orientacion } = useModoTablet();
-
-  useEffect(() => {
-    const b = document.body;
-    // toggle (no add/remove en cleanup) para que rotar no produzca un frame sin
-    // clases — eso causaría un parpadeo del layout en cada giro.
-    b.classList.toggle('modo-tablet', modoTablet);
-    b.classList.toggle('orient-h',    orientacion === 'h');
-    b.classList.toggle('orient-v',    orientacion === 'v');
-  }, [modoTablet, orientacion]);
 
   useEffect(() => { initialize(); }, []);
 
@@ -205,7 +189,7 @@ export default function App() {
         width: '100%',
         overflow: 'hidden',
       }}>
-        <Sidebar vistaActiva={vista} onCambiarVista={cambiarVista} hidden={fullscreen} modoTablet={modoTablet} />
+        <Sidebar vistaActiva={vista} onCambiarVista={cambiarVista} hidden={fullscreen} />
 
         <main style={{
           flex: 1,

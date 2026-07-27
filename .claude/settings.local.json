@@ -13,7 +13,9 @@
       "PowerShell(npx tsc -b 2>&1 | Select-Object -First 40; \"EXIT: $LASTEXITCODE\")",
       "Bash(echo \"---TSC DONE \\(exit $?\\)---\")",
       "Bash(npm outdated *)",
-      "Bash(npm audit *)"
+      "Bash(npm audit *)",
+      "PowerShell(npx tsc -p tsconfig.app.json --noEmit; Write-Output \"EXITCODE=$LASTEXITCODE\")",
+      "PowerShell(git add *)"
     ]
   }
 }

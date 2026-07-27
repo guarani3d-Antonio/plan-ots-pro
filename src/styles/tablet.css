@@ -1,0 +1,105 @@
+/* ============================================================================
+   Plan-OTs · tablet.css — Sprint S37-T
+   ============================================================================
+
+   REGLA DE AISLAMIENTO (no negociable):
+   toda regla de este archivo empieza con `body.modo-tablet`. Sin esa clase en
+   el <body>, este archivo no debe alterar ni un pixel de la versión notebook.
+   Si alguna vez hace falta una regla global, NO va acá: va en index.css y se
+   discute aparte.
+
+   Clases que aplica App.tsx sobre <body>:
+     .modo-tablet        modo tablet activo (auto o forzado por localStorage)
+     .orient-h           horizontal — viewport CSS de la Tab S7 FE ≈ 1280×800
+     .orient-v           vertical   — viewport CSS de la Tab S7 FE ≈  800×1280
+
+   Ambas orientaciones son de primera clase: ninguna es "modo degradado".
+   ============================================================================ */
+
+/* ── Tokens base del modo tablet ─────────────────────────────────────────────
+   La app ya tiene un sistema de tokens en index.css. En vez de tocar
+   componentes, acá se re-declaran los tokens con los valores de tablet: todo
+   componente que consuma `var(--text-*)` escala solo.
+
+   Los componentes con estilos inline en px (Dashboard, Configuración, algunas
+   vistas) no responden a esto — se ajustan en la fase que toca cada vista. */
+body.modo-tablet {
+  /* Tipografía: +1px sobre la escala actual */
+  --text-xs:   12px;   /* era 11 */
+  --text-sm:   13px;   /* era 12 */
+  --text-base: 14px;   /* era 13 */
+  --text-md:   15px;   /* era 14 */
+  --text-lg:   16px;   /* era 15 */
+  --text-xl:   19px;   /* era 18 */
+  --text-2xl:  23px;   /* era 22 */
+  --text-3xl:  29px;   /* era 28 */
+
+  /* Área táctil mínima. Se aplica por componente en cada fase, no de forma
+     global: un `min-height: 48px` sobre todo <button> reventaría las filas
+     densas de la grilla y los menús de acciones. */
+  --tablet-touch: 48px;
+
+  /* Área segura inferior: en vertical la barra de navegación de Android se
+     come espacio real y no puede tapar el botón Guardar. */
+  --tablet-safe-b: env(safe-area-inset-bottom, 0px);
+
+  /* Curva y duración compartidas por las animaciones del sprint. */
+  --tablet-ease: cubic-bezier(.22, 1, .36, 1);
+  --tablet-dur:  300ms;
+}
+
+/* ── Comportamiento táctil ─────────────────────────────────────────────────── */
+
+/* Nada de selección de texto accidental al tocar controles. Se limita a
+   elementos de control: el texto de contenido sigue siendo seleccionable. */
+body.modo-tablet button,
+body.modo-tablet [role='tab'],
+body.modo-tablet [role='button'],
+body.modo-tablet label {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Scroll con inercia en todo contenedor desplazable. */
+body.modo-tablet [class*='scroll'],
+body.modo-tablet [style*='overflow'],
+body.modo-tablet main {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* El botón compartido `.btn` de index.css sí puede subir a área táctil sin
+   riesgo: es el botón de acción estándar, nunca un ícono denso. */
+body.modo-tablet .btn {
+  min-height: var(--tablet-touch);
+  padding-inline: var(--sp-5);
+}
+
+/* ── Utilitarias para las fases siguientes ────────────────────────────────────
+   Se declaran acá para que F3–F6 no tengan que repetir el bloque.            */
+
+/* Área táctil de 48px sin agrandar el punto visible (pines, íconos chicos). */
+body.modo-tablet .tablet-hit-48 {
+  min-width: var(--tablet-touch);
+  min-height: var(--tablet-touch);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Respeta la barra de navegación de Android. */
+body.modo-tablet .tablet-safe-bottom {
+  padding-bottom: calc(var(--sp-3) + var(--tablet-safe-b));
+}
+
+/* ── Reducción de movimiento ─────────────────────────────────────────────────
+   Respeta la preferencia del sistema, igual que el mockup.                   */
+@media (prefers-reduced-motion: reduce) {
+  body.modo-tablet *,
+  body.modo-tablet *::before,
+  body.modo-tablet *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
