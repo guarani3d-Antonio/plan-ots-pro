@@ -53,4 +53,16 @@ export default defineConfig({
       },
     }),
   ],
+  server: {
+    // Escuchar en todas las interfaces, no solo en loopback. Habilita tanto el
+    // túnel como el acceso directo por LAN desde la tablet (http://<ip>:5173),
+    // que es más rápido y no depende de que el túnel siga vivo.
+    host: true,
+    // Vite bloquea por default los hosts desconocidos como defensa contra DNS
+    // rebinding. El punto inicial es la sintaxis oficial para "este dominio y
+    // cualquier subdominio": localtunnel genera un subdominio nuevo en cada
+    // reinicio, así que fijar uno solo no sirve.
+    // Solo afecta al servidor de desarrollo — no toca el build de producción.
+    allowedHosts: ['.loca.lt'],
+  },
 });
