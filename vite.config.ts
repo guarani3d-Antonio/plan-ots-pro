@@ -14,6 +14,8 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,png,svg,woff2,ico}'],
         // Don't precache pdf.worker (too large, loaded on demand)
         globIgnores: ['**/pdf.worker*'],
+        maximumFileSizeToCacheInBytes: 3 * 1024 * 1024, // 3 MiB — cubre el
+        // bundle actual (2.17MB) y el fondo obra_bg (2.78MB) hasta que se optimicen
         runtimeCaching: [
           {
             // Supabase Storage: planos y fotos → cache-first (archivos no cambian una vez subidos)

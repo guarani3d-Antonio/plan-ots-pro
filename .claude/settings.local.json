@@ -16,7 +16,8 @@
       "Bash(npm audit *)",
       "PowerShell(npx tsc -p tsconfig.app.json --noEmit; Write-Output \"EXITCODE=$LASTEXITCODE\")",
       "PowerShell(git add *)",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "PowerShell($p = @\\(\"$env:ProgramFiles\\\\GitHub CLI\\\\gh.exe\",\"${env:ProgramFiles\\(x86\\)}\\\\GitHub CLI\\\\gh.exe\",\"$env:LOCALAPPDATA\\\\GitHubCLI\\\\gh.exe\",\"$env:LOCALAPPDATA\\\\Programs\\\\GitHub CLI\\\\gh.exe\"\\); foreach \\($x in $p\\) { if \\(Test-Path $x\\) { \"ENCONTRADO: $x\" } else { \"no: $x\" } }; echo \"---winget---\"; if \\(Get-Command winget -ErrorAction SilentlyContinue\\) { \"winget disponible\" } else { \"winget no disponible\" })"
     ]
   }
 }
