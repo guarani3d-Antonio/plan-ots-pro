@@ -152,13 +152,16 @@ body.modo-tablet.tema-vidrio {
    Dos capas de background-image: si la foto no carga (404, archivo faltante),
    el degradado oscuro de abajo igual pinta y la app nunca queda rota.
 
-   NOTA: el archivo real es `obra_bg.jpg.png` — PNG de 2,65 MB con doble
-   extensión. La especificación pedía JPEG de 400–900 KB. Cuando Inge lo
-   reemplace, cambiar solo esta línea. */
+   El fondo es `obra_bg.jpg` — JPEG optimizado de ~345 KB (1672×941, q80,
+   progresivo). Reemplaza al viejo `obra_bg.jpg.png`, un PNG de 2,78 MB con
+   doble extensión que por sí solo era más de la mitad del precache del
+   service worker. La extensión .jpg queda fuera de los globPatterns de
+   Workbox (ver vite.config.ts), así que ya no se precachea: se descarga
+   on-demand y offline pinta el degradado de respaldo. */
 body.modo-tablet.tema-vidrio {
   background-color: #070B12;
   background-image:
-    url('/obra_bg.jpg.png'),
+    url('/obra_bg.jpg'),
     linear-gradient(160deg, #0B1220 0%, #070B12 100%);
   background-size: cover, cover;
   background-position: center 38%, center;
