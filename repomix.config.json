@@ -1,0 +1,28 @@
+﻿{
+  "output": {
+    "filePath": "repomix-output.xml",
+    "style": "xml",
+    "fileSummary": true,
+    "directoryStructure": true,
+    "removeComments": false,
+    "removeEmptyLines": false,
+    "showLineNumbers": false
+  },
+  "include": [],
+  "ignore": {
+    "useGitignore": true,
+    "useDefaultPatterns": true,
+    "customPatterns": [
+      "**/*.bak*",
+      "docs/mockups/**",
+      "dist/**",
+      "dist-ssr/**",
+      "*.env*",
+      "*.local",
+      "**/*.otproj"
+    ]
+  },
+  "security": {
+    "enableSecurityCheck": true
+  }
+}
