@@ -13,7 +13,12 @@ export const AuthForm: React.FC = () => {
   const [error, setError]       = useState('');
   const [loading, setLoading]   = useState(false);
 
-  const { signIn, signUp } = useAuthStore();
+  // Selectores por slice: el store no lanza excepciones, guarda el motivo del
+  // fallo en `error` (authStore.ts:34). Sin leerlo acá, un login rechazado se
+  // veía como "no pasa nada": el catch de handleSubmit nunca se dispara.
+  const signIn     = useAuthStore(s => s.signIn);
+  const signUp     = useAuthStore(s => s.signUp);
+  const errorStore = useAuthStore(s => s.error);
   const { mostrar, ToastComponent } = useToast();
 
   const cambiarModo = (m: Modo) => {
@@ -102,7 +107,13 @@ export const AuthForm: React.FC = () => {
             </button>
           </div>
 
+          {/* Error local: validaciones de formulario previas al submit. */}
           {error && <div className={styles.error}>{error}</div>}
+          {/* Error del store: lo que devuelve Supabase Auth. Se omite si repite
+              el texto del local para no mostrar el mismo mensaje dos veces. */}
+          {errorStore && errorStore !== error && (
+            <div className={styles.error}>{errorStore}</div>
+          )}
 
           {/* Campo email */}
           <div className={styles.field}>
