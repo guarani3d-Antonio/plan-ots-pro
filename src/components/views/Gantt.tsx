@@ -41,9 +41,6 @@ function startOfWeek(d: Date): Date {
 function startOfMonth(d: Date): Date {
   const x = startOfDay(d); x.setDate(1); return x;
 }
-function endOfMonth(d: Date): Date {
-  const x = startOfMonth(d); x.setMonth(x.getMonth() + 1); x.setDate(0); return x;
-}
 function addDays(d: Date, n: number): Date {
   const x = new Date(d); x.setDate(x.getDate() + n); return x;
 }
@@ -161,9 +158,10 @@ export default function Gantt() {
 
   const [escala, setEscala]                 = useState<'dia' | 'semana' | 'mes'>('semana');
   const [zoomFactor, setZoomFactor]         = useState(1);
-  const [mesActual, setMesActual]           = useState(() => startOfMonth(new Date()));
+  const [centroFecha, setCentroFecha]       = useState(() => startOfDay(new Date()));
   const [filtroProyecto, setFiltroProyecto] = useState('');
   const [modalOrden, setModalOrden]         = useState<OrdenLocal | null>(null);
+  const [anchoContenedor, setAnchoContenedor] = useState(0);
 
   // Filtros adicionales (mismo set que VistaGrilla.tsx)
   const [filtroBuscar, setFiltroBuscar]         = useState('');
@@ -221,24 +219,42 @@ export default function Gantt() {
   const otConFechasFiltradas = useMemo(() => aplicarFiltros(otConFechas), [aplicarFiltros, otConFechas]);
   const otSinFechasFiltradas = useMemo(() => aplicarFiltros(otSinFechas), [aplicarFiltros, otSinFechas]);
 
-  // ── Rango de fechas del Gantt ──
-  const { fechaMin, fechaMax } = useMemo(() => {
-    if (otConFechas.length === 0) {
-      return { fechaMin: startOfMonth(mesActual), fechaMax: endOfMonth(mesActual) };
-    }
-    let min = Infinity, max = -Infinity;
-    for (const o of otConFechas) {
-      const ti = new Date(o.fecha_inicio_trabajos! + 'T00:00:00').getTime();
-      const tf = new Date(o.fecha_fin_trabajos! + 'T00:00:00').getTime();
-      if (ti < min) min = ti;
-      if (tf > max) max = tf;
-    }
-    return { fechaMin: new Date(min), fechaMax: new Date(max) };
-  }, [otConFechas, mesActual]);
+  // ── Ancho real del contenedor del timeline ──
+  // Depende de otConFechasFiltradas.length porque el timeline se monta de forma
+  // condicional: en el primer render aún no hay OTs y timelineRef.current es null.
+  useEffect(() => {
+    const el = timelineRef.current;
+    if (!el) return;
+    setAnchoContenedor(el.clientWidth);
+    const ro = new ResizeObserver(() => setAnchoContenedor(el.clientWidth));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [otConFechasFiltradas.length]);
 
-  // ── Anchos derivados (zoom × base) ──
-  const anchoPorColumna = ANCHO_BASE[escala] * zoomFactor;
-  const pxPorDia        = anchoPorColumna / DIAS_POR_COLUMNA[escala];
+  // ── Anchos derivados: las columnas llenan exactamente el ancho disponible ──
+  const anchoBase = ANCHO_BASE[escala] * zoomFactor;
+  const nColumnas = anchoContenedor > 0
+    ? Math.max(1, Math.floor(anchoContenedor / anchoBase))
+    : 1;
+  const anchoPorColumna = anchoContenedor > 0
+    ? anchoContenedor / nColumnas
+    : anchoBase;
+  const pxPorDia = anchoPorColumna / DIAS_POR_COLUMNA[escala];
+
+  // ── Rango = ventana de nColumnas centrada en centroFecha (no depende de los datos) ──
+  const { fechaMin, fechaMax } = useMemo(() => {
+    const half = Math.floor(nColumnas / 2);
+    if (escala === 'dia') {
+      const inicio = addDays(startOfDay(centroFecha), -half);
+      return { fechaMin: inicio, fechaMax: addDays(inicio, nColumnas - 1) };
+    }
+    if (escala === 'semana') {
+      const inicio = addDays(startOfWeek(centroFecha), -half * 7);
+      return { fechaMin: inicio, fechaMax: addDays(inicio, (nColumnas - 1) * 7) };
+    }
+    const inicio = addMonths(startOfMonth(centroFecha), -half);
+    return { fechaMin: inicio, fechaMax: addMonths(inicio, nColumnas - 1) };
+  }, [escala, centroFecha, nColumnas]);
 
   // ── Columnas del header del timeline ──
   const columnas = useMemo(
@@ -257,18 +273,11 @@ export default function Gantt() {
     return diffDays(hoy, tlInicio) * pxPorDia;
   }, [columnas, pxPorDia]);
 
-  // ── Scroll del timeline al cambiar mesActual ──
-  useEffect(() => {
-    if (!timelineRef.current || columnas.length === 0) return;
-    const offsetDias = diffDays(mesActual, columnas[0].inicio);
-    if (offsetDias < 0) return;
-    const left = offsetDias * pxPorDia;
-    timelineRef.current.scrollTo({ left, behavior: 'smooth' });
-  }, [mesActual, columnas, pxPorDia]);
-
   // ── Handlers ──
-  const mesAnterior  = () => setMesActual(prev => addMonths(prev, -1));
-  const mesSiguiente = () => setMesActual(prev => addMonths(prev, 1));
+  const irAtras    = () => setCentroFecha(prev =>
+    escala === 'mes' ? addMonths(prev, -1) : addDays(prev, escala === 'semana' ? -7 : -1));
+  const irAdelante = () => setCentroFecha(prev =>
+    escala === 'mes' ? addMonths(prev, 1)  : addDays(prev, escala === 'semana' ? 7 : 1));
   const zoomIn       = () => setZoomFactor(z => Math.min(3, z * 1.3));
   const zoomOut      = () => setZoomFactor(z => Math.max(0.3, z / 1.3));
 
@@ -389,7 +398,7 @@ export default function Gantt() {
     background: '#F9F9FE',
     height: '100%',
   };
-  const mesLabel = mesActual.toLocaleDateString('es-PY', { month: 'long', year: 'numeric' });
+  const mesLabel = centroFecha.toLocaleDateString('es-PY', { month: 'long', year: 'numeric' });
 
   return (
     <div style={containerStyle}>
@@ -409,7 +418,7 @@ export default function Gantt() {
           {/* Navegación de mes */}
           <button
             type="button"
-            onClick={mesAnterior}
+            onClick={irAtras}
             title="Mes anterior"
             style={{
               width: 24, height: 24, border: '1px solid #E2E2E7', borderRadius: 5,
@@ -424,7 +433,7 @@ export default function Gantt() {
           }}>📅 {mesLabel}</span>
           <button
             type="button"
-            onClick={mesSiguiente}
+            onClick={irAdelante}
             title="Mes siguiente"
             style={{
               width: 24, height: 24, border: '1px solid #E2E2E7', borderRadius: 5,
@@ -741,6 +750,22 @@ export default function Gantt() {
                 const retrasada = esRetrasada(o);
                 const ti = new Date(o.fecha_inicio_trabajos! + 'T00:00:00');
                 const tf = new Date(o.fecha_fin_trabajos! + 'T00:00:00');
+
+                // OT completamente fuera de la ventana visible: se renderiza la fila
+                // vacía (mantiene la alineación con el panel izquierdo) pero sin barra,
+                // que si no quedaría posicionada fuera del ancho del contenedor.
+                const tlInicio = columnas[0].inicio.getTime();
+                const tlFin    = columnas[columnas.length - 1].fin.getTime();
+                const fueraDeVentana = tf.getTime() < tlInicio || ti.getTime() >= tlFin;
+                if (fueraDeVentana) {
+                  return (
+                    <div key={o.id} style={{
+                      height: ROW_HEIGHT, position: 'relative',
+                      borderBottom: '1px solid #E2E2E7',
+                    }}/>
+                  );
+                }
+
                 const horaInicio = (o.campos?.hora_inicio_trabajos as string | undefined) ?? '00:00';
                 const horaFin    = (o.campos?.hora_fin_trabajos    as string | undefined) ?? '23:59';
                 const [hi, mi] = horaInicio.split(':').map(Number);
@@ -749,6 +774,14 @@ export default function Gantt() {
                 const fraccionFin = (hf * 60 + mf) / 1440;
                 const leftPx = diffDays(ti, columnas[0].inicio) * pxPorDia + fraccionInicio * pxPorDia;
                 const widthPx = Math.max(20, (diffDays(tf, ti) * pxPorDia) + (fraccionFin * pxPorDia) - (fraccionInicio * pxPorDia));
+
+                // Recorte a los límites de la ventana: una OT parcialmente visible
+                // no debe extender su barra más allá del ancho del contenedor.
+                const anchoTotal = columnas.length * anchoPorColumna;
+                const leftClamp  = Math.max(0, leftPx);
+                const rightClamp = Math.min(anchoTotal, leftPx + widthPx);
+                const widthClamp = Math.max(2, rightClamp - leftClamp);
+
                 const estilo = obtenerEstiloBarra(o, retrasada);
                 const pct = o.porcentaje_avance ?? 0;
                 return (
@@ -761,7 +794,7 @@ export default function Gantt() {
                       title={`${o.ot} · ${o.fecha_inicio_trabajos} → ${o.fecha_fin_trabajos}`}
                       style={{
                         position: 'absolute',
-                        left: leftPx, width: widthPx,
+                        left: leftClamp, width: widthClamp,
                         height: 32, top: 20,
                         borderRadius: 6,
                         background: estilo.bg,
