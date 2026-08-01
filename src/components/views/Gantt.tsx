@@ -30,6 +30,9 @@ const DIAS_POR_COLUMNA: Record<'dia' | 'semana' | 'mes', number> = {
 const PASO_ESCALA: Record<'dia' | 'semana' | 'mes', string> = {
   dia: 'Día', semana: 'Semana', mes: 'Mes',
 };
+// Espera antes de recentrar por búsqueda. Solo afecta al centrado: el filtrado de
+// la lista es inmediato en cada tecla.
+const DEBOUNCE_CENTRADO_MS = 300;
 
 // ─── Helpers de fecha ───────────────────────────────────────────────────────
 function startOfDay(d: Date): Date {
@@ -224,6 +227,49 @@ export default function Gantt() {
   const otConFechasFiltradas = useMemo(() => aplicarFiltros(otConFechas), [aplicarFiltros, otConFechas]);
   const otSinFechasFiltradas = useMemo(() => aplicarFiltros(otSinFechas), [aplicarFiltros, otSinFechas]);
 
+  // ── La búsqueda centra la OT encontrada ──
+  // Se dispara SOLO al cambiar el texto de búsqueda: `filtroBuscar` es la única
+  // dependencia. Por eso, si el usuario navega con ‹ › teniendo una búsqueda activa,
+  // este efecto no vuelve a correr.
+  // El centrado va con debounce para que escribir "007" no recentre tres veces
+  // (con "0", "00" y "007"), donde "0" matchea casi todas las OTs y salta a una
+  // arbitraria. Las flechas cancelan el centrado pendiente — ver irAtras/irAdelante.
+  const busquedaPrevia = useRef(filtroBuscar);
+  const timerCentrado  = useRef<number | null>(null);
+
+  const cancelarCentradoPendiente = () => {
+    if (timerCentrado.current !== null) {
+      clearTimeout(timerCentrado.current);
+      timerCentrado.current = null;
+    }
+  };
+
+  useEffect(() => {
+    if (busquedaPrevia.current === filtroBuscar) return; // montaje: no es un cambio
+    busquedaPrevia.current = filtroBuscar;
+
+    // Búsqueda vacía: el centro se queda donde esté, venga de navegación manual o de
+    // un centrado previo. Mover la ventana al borrar texto no es alcance de A2.
+    if (!filtroBuscar.trim()) return;
+
+    timerCentrado.current = window.setTimeout(() => {
+      timerCentrado.current = null;
+      // Primera coincidencia = la fila de más arriba del panel izquierdo, que es la
+      // que el usuario ve. Si la búsqueda solo matchea OTs sin fechas, no hay dónde
+      // centrar y el centro se deja como está.
+      const primera = otConFechasFiltradas[0];
+      if (primera?.fecha_inicio_trabajos) {
+        setCentroFecha(new Date(primera.fecha_inicio_trabajos + 'T00:00:00'));
+      }
+    }, DEBOUNCE_CENTRADO_MS);
+
+    return cancelarCentradoPendiente;
+    // otConFechasFiltradas se lee a propósito fuera de las dependencias: incluirla
+    // reejecutaría el centrado ante cualquier cambio de datos o de otro filtro, y le
+    // ganaría a las flechas.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtroBuscar]);
+
   // ── Ancho real del contenedor del timeline ──
   // Depende de otConFechasFiltradas.length porque el timeline se monta de forma
   // condicional: en el primer render aún no hay OTs y timelineRef.current es null.
@@ -279,10 +325,18 @@ export default function Gantt() {
   }, [columnas, pxPorDia]);
 
   // ── Handlers ──
-  const irAtras    = () => setCentroFecha(prev =>
-    escala === 'mes' ? addMonths(prev, -1) : addDays(prev, escala === 'semana' ? -7 : -1));
-  const irAdelante = () => setCentroFecha(prev =>
-    escala === 'mes' ? addMonths(prev, 1)  : addDays(prev, escala === 'semana' ? 7 : 1));
+  // Navegar cancela cualquier centrado pendiente: las flechas ganan siempre, incluso
+  // dentro de la ventana de debounce.
+  const irAtras    = () => {
+    cancelarCentradoPendiente();
+    setCentroFecha(prev =>
+      escala === 'mes' ? addMonths(prev, -1) : addDays(prev, escala === 'semana' ? -7 : -1));
+  };
+  const irAdelante = () => {
+    cancelarCentradoPendiente();
+    setCentroFecha(prev =>
+      escala === 'mes' ? addMonths(prev, 1)  : addDays(prev, escala === 'semana' ? 7 : 1));
+  };
   const zoomIn       = () => setZoomFactor(z => Math.min(3, z * 1.3));
   const zoomOut      = () => setZoomFactor(z => Math.max(0.3, z / 1.3));
 
