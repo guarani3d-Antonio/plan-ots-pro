@@ -473,6 +473,9 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
 
         {/* FOOTER */}
         <div className={styles.footer}>
+          <span className={styles.avisoImpresion}>
+            Se abrirá el diálogo de impresión de Android. Para volver, usá el botón atrás.
+          </span>
           <button type="button" className={styles.btnCancelar} onClick={onClose}>
             Cancelar
           </button>

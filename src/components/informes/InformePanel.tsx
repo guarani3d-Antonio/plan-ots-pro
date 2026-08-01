@@ -262,6 +262,9 @@ export default function InformePanel({ onClose }: Props) {
                   <button className={styles.btnSecundario} onClick={descargar}>Descargar HTML</button>
                   <button className={styles.btnGenerar} onClick={imprimirPDF}>Imprimir / PDF</button>
                 </div>
+                <p className={styles.avisoImpresion}>
+                  Se abrirá el diálogo de impresión de Android. Para volver, usá el botón atrás.
+                </p>
                 <iframe ref={iframeRef} className={styles.iframe}
                   srcDoc={htmlGenerado} title="Vista previa del informe" />
               </>

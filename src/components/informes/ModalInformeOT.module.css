@@ -357,6 +357,23 @@
   flex-shrink: 0;
 }
 
+.avisoImpresion {
+  margin-right: auto;
+  align-self: center;
+  max-width: 320px;
+  font-size: var(--text-xs);
+  line-height: 1.4;
+  color: var(--text-primary);
+  font-weight: var(--w-medium);
+}
+
+.avisoImpresion::before {
+  content: 'ℹ';
+  margin-right: var(--sp-2);
+  color: var(--accent);
+  font-weight: var(--w-bold);
+}
+
 .btnCancelar {
   background: #FFFFFF;
   border: 1.5px solid #E5E7EB;

@@ -365,6 +365,26 @@ select.input {
   flex-shrink: 0;
 }
 
+.avisoImpresion {
+  margin: 0;
+  padding: var(--sp-2) var(--sp-5);
+  font-size: var(--text-xs);
+  line-height: 1.4;
+  color: var(--text-primary);
+  font-weight: var(--w-medium);
+  background: var(--accent-subtle);
+  border-left: 3px solid var(--accent);
+  border-bottom: 1px solid var(--border-default);
+  flex-shrink: 0;
+}
+
+.avisoImpresion::before {
+  content: 'ℹ';
+  margin-right: var(--sp-2);
+  color: var(--accent);
+  font-weight: var(--w-bold);
+}
+
 .previewLabel {
   font-size: var(--text-xs);
   font-weight: var(--w-semi);
