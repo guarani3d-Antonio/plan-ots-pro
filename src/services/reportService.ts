@@ -5,6 +5,13 @@
 
 import type { OrdenLocal } from '../types/orden';
 
+// ⚠️ CÓDIGO MUERTO — ninguna de las funciones de este bloque (hasta ~línea 776) tiene
+// imports fuera de este archivo (verificado por grep en B1). NO están escapadas contra
+// XSS: `arrayVal` (96) y `val` (86) no escapan, y hay interpolaciones crudas en 141,
+// 313, 314, 320, 328, 330. Si alguna vez se recablea alguna de estas funciones, hay que
+// escaparlas ANTES de usarlas. La familia viva (desde ~778) sí está escapada.
+// Candidatas a borrado en D3.
+
 // ──────────────────────────────────────────────────────────── Tipos ──
 
 export type TipoInforme =
@@ -841,7 +848,7 @@ function generarGridFotos(
         : '<span style="color:#bbb">Sin descripción registrada</span>';
       return `<div class="no-break" style="break-inside: avoid; page-break-inside: avoid;">
         <div style="border: 1px solid #ddd; border-radius: 4px; overflow: hidden;">
-          <img src="${f.file_url}" alt="Foto ${idx + 1}" loading="lazy" onerror="this.style.display='none'; this.nextElementSibling && (this.nextElementSibling.style.display='flex')" style="width:100%; aspect-ratio:4/3; object-fit:cover; border-radius:4px; display:block;" />
+          <img src="${escapeHtml(f.file_url)}" alt="Foto ${idx + 1}" loading="lazy" onerror="this.style.display='none'; this.nextElementSibling && (this.nextElementSibling.style.display='flex')" style="width:100%; aspect-ratio:4/3; object-fit:cover; border-radius:4px; display:block;" />
           <div style="display:none; width:100%; aspect-ratio:4/3; background:#f0f0f0; border-radius:4px; align-items:center; justify-content:center; color:#999; font-size:11px;">
             Imagen no disponible
           </div>
@@ -878,7 +885,7 @@ function _estadoBadgeCfg(estado: string): {
     case 'No aplica':
       return { texto: 'NO APLICA', bg: '#f1f5f9', text: '#475569', border: '#475569', icon: 'block' };
     default:
-      return { texto: estado.toUpperCase(), bg: '#f1f5f9', text: '#475569', border: '#475569', icon: 'info' };
+      return { texto: escapeHtml(estado.toUpperCase()), bg: '#f1f5f9', text: '#475569', border: '#475569', icon: 'info' };
   }
 }
 
@@ -1318,7 +1325,7 @@ tailwind.config = {
       <span class="material-symbols-outlined text-[16px]" style="font-variation-settings:'FILL' 1;">check_circle</span>
       ESTADO: CERRADO
     </div>
-    <div class="text-body-sm font-mono-technical text-on-surface-variant">ID DE ORDEN: ${otLabel}</div>
+    <div class="text-body-sm font-mono-technical text-on-surface-variant">ID DE ORDEN: ${escapeHtml(otLabel)}</div>
   </div>
 </header>
 <div class="mb-8">
@@ -1332,16 +1339,16 @@ tailwind.config = {
     <h3 class="font-section-header text-[10px] text-primary uppercase tracking-widest">Datos del Cliente</h3>
   </div>
   <div class="flex flex-col gap-1"><span class="text-[10px] font-bold text-outline uppercase tracking-wider">Obra</span>
-    <span class="text-body-md text-on-surface">${proyectoNombre}</span></div>
+    <span class="text-body-md text-on-surface">${escapeHtml(proyectoNombre)}</span></div>
   <div class="flex flex-col gap-1"><span class="text-[10px] font-bold text-outline uppercase tracking-wider">Unidad o Sector</span>
-    <span class="text-body-md text-on-surface">${orden.ubicacion || 'No especificado'}</span></div>
+    <span class="text-body-md text-on-surface">${escapeHtml(orden.ubicacion || 'No especificado')}</span></div>
   <div class="flex flex-col gap-1"><span class="text-[10px] font-bold text-outline uppercase tracking-wider">Nombre y Apellido</span>
-    <span class="text-body-md text-on-surface">${orden.responsable || 'No asignado'}</span></div>
+    <span class="text-body-md text-on-surface">${escapeHtml(orden.responsable || 'No asignado')}</span></div>
 </section>
 <section class="grid grid-cols-3 gap-6 bg-surface-container-low p-6 rounded-xl border border-outline-variant mb-8 no-break">
   <div class="flex flex-col gap-1.5">
     <span class="text-[10px] font-bold text-outline uppercase tracking-wider">Rubro del Proyecto</span>
-    <span class="text-body-md font-bold text-primary">${orden.rubro || 'No especificado'}</span>
+    <span class="text-body-md font-bold text-primary">${escapeHtml(orden.rubro || 'No especificado')}</span>
   </div>
   <div class="flex flex-col gap-1.5">
     <span class="text-[10px] font-bold text-outline uppercase tracking-wider">Fecha de Inicio</span>
@@ -1362,7 +1369,7 @@ tailwind.config = {
     <h3 class="font-section-header text-xs text-primary uppercase tracking-widest">Antecedentes y Diagnóstico</h3>
   </div>
   <p id="antecedentes-texto" class="text-body-md text-on-surface-variant text-justify leading-relaxed">
-    ${observaciones || 'Sin observaciones registradas.'}
+    ${escapeHtml(observaciones || 'Sin observaciones registradas.')}
   </p>
 </section>
 <div style="break-before: page; page-break-before: always;">
