@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import styles from './MultiSelectRubro.module.css';
 
 interface MultiSelectRubroProps {
@@ -20,7 +20,35 @@ export default function MultiSelectRubro({
   emojiMap,
 }: MultiSelectRubroProps) {
   const [abierto, setAbierto] = useState(false);
+  const [coords, setCoords] = useState<{ top: number; left: number; width: number } | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
+
+  // El dropdown es `position: fixed` para escapar del `overflow-y: auto` de .body
+  // en PanelOT, que recortaba el panel. Al perder el anclaje del flujo, su
+  // posición se recalcula desde el rect del trigger al abrir y en cada
+  // scroll/resize mientras está abierto. useLayoutEffect (no useEffect) para que
+  // el primer posicionamiento ocurra antes del paint y no haya frame de parpadeo.
+  //
+  // ADVERTENCIA: este fixed depende de que ningún ancestro (.backdrop/.panel/.body/.section
+  // en PanelOT) cree containing block para position:fixed. Si el rollout del tema Vidrio
+  // (ver tablet.css:198, .vidrio-panel con backdrop-filter) le agrega la clase vidrio-panel
+  // a .panel de PanelOT, este dropdown se ancla a .panel en vez del viewport y el bug de
+  // recorte vuelve — solo en modo Vidrio. Revisar este archivo si eso pasa.
+  useLayoutEffect(() => {
+    if (!abierto) return;
+    const actualizar = () => {
+      const r = wrapRef.current?.getBoundingClientRect();
+      if (r) setCoords({ top: r.bottom + 4, left: r.left, width: r.width });
+    };
+    actualizar();
+    // capture: true — el scroll ocurre en .body de PanelOT, no en window.
+    window.addEventListener('scroll', actualizar, true);
+    window.addEventListener('resize', actualizar);
+    return () => {
+      window.removeEventListener('scroll', actualizar, true);
+      window.removeEventListener('resize', actualizar);
+    };
+  }, [abierto]);
 
   useEffect(() => {
     if (!abierto) return;
@@ -75,7 +103,10 @@ export default function MultiSelectRubro({
 
       {/* Dropdown */}
       {abierto && (
-        <div className={styles.dropdown}>
+        <div
+          className={styles.dropdown}
+          style={coords ? { top: coords.top, left: coords.left, width: coords.width } : undefined}
+        >
           {opciones.length === 0 ? (
             <div className={styles.vacio}>Sin opciones disponibles</div>
           ) : (

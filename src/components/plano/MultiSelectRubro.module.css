@@ -48,10 +48,10 @@
 
 /* ── Dropdown ── */
 .dropdown {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  right: 0;
+  /* fixed, no absolute: escapa del `overflow-y: auto` de .body en PanelOT, que
+     recortaba el panel. top/left/width los inyecta el componente desde el rect
+     del trigger — ver el comentario del hook en MultiSelectRubro.tsx. */
+  position: fixed;
   z-index: 9999;
   background: var(--bg-surface, #fff);
   border: 1px solid var(--border-default, #E5E7EB);
