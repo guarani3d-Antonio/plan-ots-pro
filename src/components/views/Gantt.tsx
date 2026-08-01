@@ -32,7 +32,7 @@ const PASO_ESCALA: Record<'dia' | 'semana' | 'mes', string> = {
 };
 // Espera antes de recentrar por búsqueda. Solo afecta al centrado: el filtrado de
 // la lista es inmediato en cada tecla.
-const DEBOUNCE_CENTRADO_MS = 300;
+const DEBOUNCE_CENTRADO_MS = 400;
 
 // ─── Helpers de fecha ───────────────────────────────────────────────────────
 function startOfDay(d: Date): Date {
