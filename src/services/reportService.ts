@@ -1002,13 +1002,18 @@ const _FOOTER_INFORME = `<footer class="page-footer">
   </div>
 </footer>`;
 
-// Logos BBC + Distrito Perseverancia (usados en el header de cada informe).
+// Logo de BBC (emisor del informe), usado en el header de cada informe.
+//
+// El logo del cliente se retiró en B1: estaba hardcodeado y salía en los informes de
+// TODOS los proyectos, atribuyendo mal el cliente (reproducido en campo con Kalo/OT-009).
+// Solución definitiva (roadmap, no B1): cargar un logo al CREAR el proyecto, junto a
+// nombre/cliente/plano, y leerlo desde el proyecto acá. Requiere columna en `proyectos`
+// — no existe hoy: la interfaz Proyecto (proyectosStore.ts:6-18) no tiene logo_url.
+// NO agregar UI de logo a ModalInformeOT: el dato debe venir del proyecto.
 const _LOGOS_HTML_INFORME = `<div class="flex items-center gap-4">
   <div class="flex items-center gap-3 flex-shrink-0">
     <img alt="BBC Constructora Logo" class="h-10 w-auto object-contain max-w-[120px]"
       src="https://lh3.googleusercontent.com/aida-public/AB6AXuAZllvvhAPx9rtylzcyTEmxbZTrzv3wTxLXEuqT6hVfNKy4hOmUGXk2BxjKAKwmOO931f6sKQztPbubOSybhYusjtZEXiaa0Ggq9j70wSvZgy9HGL_8uqWfTveeotdC4TG8SExGrwqZTPWp5XRASM3dMUlb1Go4UbuZqySEN7SM0K8TG5gDtayNQPVlxGqRmDcYwu9oCXYM9ysIZWYO15_9r2RveasOdSFWzL9R_IYWpamGjGRXgSqpo4rjNdWVLcSlXKqCbWaqnoI4"/>
-    <img alt="Distrito Perseverancia Logo" class="h-10 w-auto object-contain max-w-[120px]"
-      src="https://lh3.googleusercontent.com/aida-public/AB6AXuAFkerwolK64aKW_a51j0pteVniJJkatdEAiaQsitpuIOV4xPoqdWA40rcNxcmte95skOftJRL6dNixQhVtSH7j1SSvjoi2AF6XdSLqHqIO48FPsK69Jd5vVKLLI0PWmj8fMg5gwMBEclxZhkNlu-BTV768AuNZkR_NVQjlN5ijdnRZzzs6KxyB3XIAUiYnDbUjPP1zdq1VNHkPLFCkurGyDpf5FMv577CaxqlxzWm6sw3li3x_zasLbUVPD9D5HTaK4Sn9HcyquG-d"/>
   </div>
 </div>`;
 
@@ -1306,8 +1311,6 @@ tailwind.config = {
     <div class="flex items-center gap-3 flex-shrink-0">
       <img alt="BBC Constructora Logo" class="h-10 w-auto object-contain max-w-[120px]"
         src="https://lh3.googleusercontent.com/aida-public/AB6AXuAZllvvhAPx9rtylzcyTEmxbZTrzv3wTxLXEuqT6hVfNKy4hOmUGXk2BxjKAKwmOO931f6sKQztPbubOSybhYusjtZEXiaa0Ggq9j70wSvZgy9HGL_8uqWfTveeotdC4TG8SExGrwqZTPWp5XRASM3dMUlb1Go4UbuZqySEN7SM0K8TG5gDtayNQPVlxGqRmDcYwu9oCXYM9ysIZWYO15_9r2RveasOdSFWzL9R_IYWpamGjGRXgSqpo4rjNdWVLcSlXKqCbWaqnoI4"/>
-      <img alt="Distrito Perseverancia Logo" class="h-10 w-auto object-contain max-w-[120px]"
-        src="https://lh3.googleusercontent.com/aida-public/AB6AXuAFkerwolK64aKW_a51j0pteVniJJkatdEAiaQsitpuIOV4xPoqdWA40rcNxcmte95skOftJRL6dNixQhVtSH7j1SSvjoi2AF6XdSLqHqIO48FPsK69Jd5vVKLLI0PWmj8fMg5gwMBEclxZhkNlu-BTV768AuNZkR_NVQjlN5ijdnRZzzs6KxyB3XIAUiYnDbUjPP1zdq1VNHkPLFCkurGyDpf5FMv577CaxqlxzWm6sw3li3x_zasLbUVPD9D5HTaK4Sn9HcyquG-d"/>
     </div>
   </div>
   <div class="text-right">
