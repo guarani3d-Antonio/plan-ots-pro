@@ -25,6 +25,11 @@ const ANCHO_BASE: Record<'dia' | 'semana' | 'mes', number> = {
 const DIAS_POR_COLUMNA: Record<'dia' | 'semana' | 'mes', number> = {
   dia: 1, semana: 7, mes: 30,
 };
+// Sustantivo del paso de navegación de las flechas ‹ ›. Se indexa con la MISMA
+// variable `escala` que leen irAtras/irAdelante — no es un mapeo paralelo.
+const PASO_ESCALA: Record<'dia' | 'semana' | 'mes', string> = {
+  dia: 'Día', semana: 'Semana', mes: 'Mes',
+};
 
 // ─── Helpers de fecha ───────────────────────────────────────────────────────
 function startOfDay(d: Date): Date {
@@ -419,7 +424,7 @@ export default function Gantt() {
           <button
             type="button"
             onClick={irAtras}
-            title="Mes anterior"
+            title={`${PASO_ESCALA[escala]} anterior`}
             style={{
               width: 24, height: 24, border: '1px solid #E2E2E7', borderRadius: 5,
               background: 'white', cursor: 'pointer', fontSize: 12,
@@ -434,7 +439,7 @@ export default function Gantt() {
           <button
             type="button"
             onClick={irAdelante}
-            title="Mes siguiente"
+            title={`${PASO_ESCALA[escala]} siguiente`}
             style={{
               width: 24, height: 24, border: '1px solid #E2E2E7', borderRadius: 5,
               background: 'white', cursor: 'pointer', fontSize: 12,
