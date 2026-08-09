@@ -9,7 +9,7 @@ import React, {
   useState,
   useCallback,
 } from 'react';
-import { subirYRegistrarFoto, type CategoriaFoto } from '../../services/fotosService';
+import { subirOEncolarFoto, type CategoriaFoto } from '../../services/fotosService';
 import styles from './VisorFotos.module.css';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -422,13 +422,22 @@ const VisorFotos: React.FC<VisorFotosProps> = ({
       );
 
       // Upload as a NEW foto in the same category (original is not overwritten)
-      await subirYRegistrarFoto(
-  file,
-  ordenId,
-  proyectoId,
-  fotoActual.categoria as CategoriaFoto
-);
-      showStatus('✓ Imagen con anotaciones guardada', 'ok');
+      const resultado = await subirOEncolarFoto(
+        file,
+        ordenId,
+        proyectoId,
+        fotoActual.categoria as CategoriaFoto
+      );
+      // Este componente no renderiza el retorno — la lista la refresca
+      // onFotoGuardada. Si quedó pendiente, el objectURL que creó el servicio no
+      // lo usa nadie: liberarlo acá (regla: quien renderiza, revoca).
+      if (resultado.pendiente) URL.revokeObjectURL(resultado.url);
+      showStatus(
+        resultado.pendiente
+          ? '✓ Guardada — se subirá al recuperar la conexión'
+          : '✓ Imagen con anotaciones guardada',
+        'ok'
+      );
       setAnnotations([]);
       onFotoGuardada?.();
     } catch (err) {
