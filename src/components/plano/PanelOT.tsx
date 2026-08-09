@@ -1,5 +1,5 @@
 // src/components/plano/PanelOT.tsx
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import type { CSSProperties } from 'react';
 import type { OrdenLocal, EstadoOT, PrioridadOT } from '../../types/orden';
 import { useOrdenesStore, rowToOrden } from '../../stores/ordenesStore';
@@ -19,12 +19,17 @@ import {
 } from '../../utils/calculos';
 import VisorFotos, { type FotoVisor } from './VisorFotos';
 import {
-  subirYRegistrarFoto,
+  subirOEncolarFoto,
   cargarFotosDeOrden,
+  cargarFotosPendientesDeOrden,
   eliminarFoto,
-  type FotoSubida,
   type CategoriaFoto,
+  type FotoResultado,
 } from '../../services/fotosService';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { procesarSyncQueue } from '../../sync/SyncManager';
+import { db } from '../../db/dexie';
+import type { FotoPendiente } from '../../db/dexie';
 import {
   getCamposDeProyecto,
   type CampoDefinicion,
@@ -129,7 +134,37 @@ const COLOR_PRIORIDAD: Record<PrioridadOT, string> = {
 
 const ESTADOS_CON_FECHA_FIN = new Set<EstadoOT>(['Cerrada', 'No aplica']);
 
-type FotoConId = FotoSubida & { id: string };
+// El title nativo no se ve en Android (deuda #2 del Bloque A). Acá cumple para
+// notebook; la señal real en tablet va a ser el badge de la Fase 4.
+const TOOLTIP_FOTO_PENDIENTE = 'Disponible cuando la foto se sincronice';
+
+// Ahora incluye las fotos pendientes de subir: `pendiente` y `fotoPendienteId`
+// son el discriminante. Ver FotoResultado en fotosService.
+type FotoConId = FotoResultado;
+
+// C-2 — Estado de la lectura de fotos de la OT.
+// 'listo' significa "la lista de abajo es completa y se puede validar contra ella".
+// Mientras no lo sea, la UI no tiene derecho a afirmar que falta una foto.
+type EstadoCargaFotos = 'cargando' | 'listo' | 'sin_conexion';
+
+// Techo para declarar 'sin_conexion' cuando la lectura remota no resuelve NI
+// rechaza. Red de seguridad redundante, a propósito: durante C-2 pareció que el
+// .catch de recargarFotos no corría, pero era un bundle mezclado por HMR (Vite no
+// aplica de forma confiable los cambios en .ts de servicios). Con el dev server
+// reiniciado el .catch funciona. El timeout se conserva para el caso que el catch
+// NO cubre: una promesa que no settlea nunca — ahí, sin esto, el panel quedaría en
+// 'cargando' para siempre y los badges no dirían nada.
+// 8 s: por encima del peor caso razonable de la consulta en 3G de obra, por
+// debajo de lo que el técnico aguanta mirando el panel.
+const TIMEOUT_SIN_CONEXION_MS = 8000;
+
+// Cuántas categorías de foto exige un estado. Sirve para distinguir "subir de
+// estado" de bajarlo o moverse en lateral, sin hardcodear un orden: las reglas
+// siguen viviendo sólo en validarFotosParaEstado.
+function exigenciaFotos(e: EstadoOT): number {
+  const r = validarFotosParaEstado([], [], [], e);
+  return [r.antesRequerida, r.duranteRequerida, r.despuesRequerida].filter(Boolean).length;
+}
 type FormState = Partial<OrdenLocal>;
 
 function ordenToForm(orden: OrdenLocal | null): FormState {
@@ -148,17 +183,28 @@ function BtnEliminarFotoCard({ onClick }: { onClick: () => void }) {
   const [hover, setHover] = useState(false);
   return (
     <button onClick={onClick} onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
-      style={{ width: '50%', padding: '3px 6px', background: hover ? 'rgba(239, 68, 68, 0.08)' : 'transparent', color: '#EF4444', border: 'none', borderTop: '1px solid var(--border-default)', borderRight: '1px solid var(--border-default)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', fontSize: '10px', fontWeight: 600, fontFamily: 'inherit', transition: 'background 0.15s' }}>
+      style={{ flex: 1, minWidth: 0, padding: '3px 6px', background: hover ? 'rgba(239, 68, 68, 0.08)' : 'transparent', color: '#EF4444', border: 'none', borderTop: '1px solid var(--border-default)', borderRight: '1px solid var(--border-default)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', fontSize: '10px', fontWeight: 600, fontFamily: 'inherit', transition: 'background 0.15s' }}>
       🗑 Eliminar
     </button>
   );
 }
 
-function BtnEditarFotoCard({ onClick }: { onClick: () => void }) {
+// F4 — Tercer botón de la tarjeta, sólo para fotos en estadoSync 'ERROR'. El
+// color sale de .btnReintentarCard y no inline como sus dos hermanos: la regla de
+// cero hex en el componente pesa más que la simetría con código anterior.
+function BtnReintentarFotoCard({ onClick, title }: { onClick: () => void; title?: string }) {
+  return (
+    <button onClick={onClick} title={title} className={styles.btnReintentarCard}>
+      ↻ Reintentar
+    </button>
+  );
+}
+
+function BtnEditarFotoCard({ onClick, disabled = false, title }: { onClick: () => void; disabled?: boolean; title?: string }) {
   const [hover, setHover] = useState(false);
   return (
-    <button onClick={onClick} onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
-      style={{ width: '50%', padding: '3px 6px', background: hover ? 'rgba(255, 255, 255, 0.05)' : 'transparent', color: 'var(--text-secondary)', border: 'none', borderTop: '1px solid var(--border-default)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', fontSize: '10px', fontWeight: 600, fontFamily: 'inherit', transition: 'background 0.15s' }}>
+    <button onClick={onClick} disabled={disabled} title={title} onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
+      style={{ flex: 1, minWidth: 0, padding: '3px 6px', background: hover && !disabled ? 'rgba(255, 255, 255, 0.05)' : 'transparent', color: 'var(--text-secondary)', border: 'none', borderTop: '1px solid var(--border-default)', cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.45 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', fontSize: '10px', fontWeight: 600, fontFamily: 'inherit', transition: 'background 0.15s' }}>
       ✏️ Editar
     </button>
   );
@@ -211,7 +257,11 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
   const [fotosDespues, setFotosDespues] = useState<FotoConId[]>([]);
   const [subiendo,     setSubiendo]     = useState<CategoriaFoto | null>(null);
   const [errorFotos,   setErrorFotos]   = useState<string | null>(null);
-  const [modalDescIA,  setModalDescIA]  = useState<{ fotoId: string; fotoUrl: string } | null>(null);
+  // C-2 — Se deriva del ÉXITO, no del error: sólo la resolución de la lectura
+  // remota habilita 'listo'. Un rechazo adelanta 'sin_conexion'; si no llega ni
+  // uno ni otro, lo cubre TIMEOUT_SIN_CONEXION_MS.
+  const [estadoCarga,  setEstadoCarga]  = useState<EstadoCargaFotos>('cargando');
+  const [modalDescIA,  setModalDescIA]  = useState<{ fotoId: string; fotoUrl: string; fotoPendienteId?: number } | null>(null);
   const [sugerenciaIA, setSugerenciaIA] = useState('');
   const [cargandoIA,   setCargandoIA]   = useState(false);
   const [editandoFoto, setEditandoFoto] = useState<{
@@ -222,6 +272,142 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
   const [visorFotos] = useState<FotoVisor[]>([]);
 
   const [fotoEditando, setFotoEditando] = useState<FotoMinima | null>(null);
+
+  // Ledger de los objectURL creados para fotos pendientes. Regla: quien
+  // renderiza, revoca. Sin esto cada Blob queda retenido en memoria hasta
+  // recargar la app — con el tope de 10 MB por foto, una jornada de campo
+  // termina en pestaña matada por el sistema.
+  const objectUrls = useRef<Set<string>>(new Set());
+
+  const revocarObjectUrls = () => {
+    objectUrls.current.forEach(u => URL.revokeObjectURL(u));
+    objectUrls.current.clear();
+  };
+
+  // OT cuya carga es la vigente. Una respuesta que vuelve con otro id es de una
+  // OT que el técnico ya abandonó: se descarta en vez de pisar las listas nuevas.
+  const cargaVigente = useRef<string | null>(null);
+  const timeoutCarga = useRef<number | null>(null);
+
+  const limpiarTimeoutCarga = () => {
+    if (timeoutCarga.current !== null) {
+      clearTimeout(timeoutCarga.current);
+      timeoutCarga.current = null;
+    }
+  };
+
+  // Recarga las tres listas fusionando Supabase + lo pendiente en Dexie.
+  // Las pendientes van al final de cada categoría: son las más nuevas.
+  const recargarFotos = async (ordenId: string) => {
+    cargaVigente.current = ordenId;
+    setEstadoCarga('cargando');
+
+    // El timeout arranca ANTES del await: es la única red de contención si la
+    // promesa remota no settlea nunca.
+    limpiarTimeoutCarga();
+    timeoutCarga.current = window.setTimeout(() => {
+      timeoutCarga.current = null;
+      if (cargaVigente.current !== ordenId) return;
+      // Sólo degrada desde 'cargando'. Si ya resolvió, no lo pisa.
+      setEstadoCarga(prev => (prev === 'cargando' ? 'sin_conexion' : prev));
+    }, TIMEOUT_SIN_CONEXION_MS);
+
+    // Secuencial y con catch propio a propósito: si la carga remota falla
+    // (offline), las pendientes tienen que renderizarse igual. Con Promise.all
+    // un rechazo de la remota se llevaría puesta también la lectura de Dexie.
+    let remotaResolvio = false;
+    const remotas = await cargarFotosDeOrden(ordenId)
+      .then(r => { remotaResolvio = true; return r; })
+      .catch(err => {
+        console.error('[PanelOT] Error cargando fotos:', err);
+        return [] as FotoConId[];
+      });
+    // La local también con catch: sin él, un fallo de Dexie rechaza toda esta
+    // función y la llamada de arriba es `void` — rechazo sin manejador.
+    const pendientes = await cargarFotosPendientesDeOrden(ordenId).catch(err => {
+      console.error('[PanelOT] Error leyendo fotos pendientes:', err);
+      return [] as FotoConId[];
+    });
+
+    if (cargaVigente.current !== ordenId) {
+      // Respuesta vieja. cargarFotosPendientesDeOrden ya creó un objectURL por
+      // foto y nadie los va a renderizar: se revocan acá o quedan colgados —
+      // el ledger es de la OT vigente y no debe recibirlos.
+      pendientes.forEach(f => URL.revokeObjectURL(f.url));
+      return;
+    }
+
+    limpiarTimeoutCarga();
+    pendientes.forEach(f => objectUrls.current.add(f.url));
+    const todas = [...remotas, ...pendientes];
+    setFotosAntes(  todas.filter(f => f.categoria === 'ANTES'));
+    setFotosDurante(todas.filter(f => f.categoria === 'DURANTE'));
+    setFotosDespues(todas.filter(f => f.categoria === 'DESPUES'));
+    // Derivado del éxito: 'listo' sólo si la remota resolvió. Es la condición
+    // que habilita a la UI a afirmar que falta una foto.
+    setEstadoCarga(remotaResolvio ? 'listo' : 'sin_conexion');
+  };
+
+  // F4 — Conteo reactivo de las fotos sin sincronizar de ESTA OT. Va por
+  // useLiveQuery y no por una lectura puntual porque quien cambia estos registros
+  // es el SyncManager, que corre fuera de React: con lectura directa el badge
+  // seguiría diciendo "⏳2" mucho después de que la foto ya subió.
+  // El resultado viaja SELLADO con el ordenId que lo produjo. Al cambiar de OT hay
+  // una ventana hasta que resuelve la query nueva, y qué devuelve el hook en esa
+  // ventana es un detalle interno de la librería: el sello lo vuelve irrelevante.
+  const syncFotos = useLiveQuery(
+    async () => {
+      const id = ordenProp?.id;
+      if (!id) return { ordenId: null as string | null, regs: [] as FotoPendiente[] };
+      const regs = await db.fotosPendientes.where('orden_id').equals(id).toArray();
+      return { ordenId: id, regs: regs.filter(r => r.estadoSync !== 'COMPLETADO') };
+    },
+    [ordenProp?.id],
+  );
+
+  const regsSync = syncFotos && syncFotos.ordenId === ordenProp?.id ? syncFotos.regs : [];
+  const nPendientes = regsSync.filter(r => r.estadoSync === 'PENDIENTE' || r.estadoSync === 'SUBIENDO').length;
+  const nConError   = regsSync.filter(r => r.estadoSync === 'ERROR').length;
+  // La tarjeta necesita estadoSync y ultimo_error, que fotoProvisional no expone y
+  // fotosService está prohibido: se leen del registro de Dexie por su id.
+  const regPorPendienteId = new Map(regsSync.map(r => [r.id as number, r]));
+
+  // F4 — Reintento manual de una foto en ERROR. El barrido del SyncManager no la
+  // toca a propósito: 'ERROR' significa "esperando decisión humana". Esta ES la
+  // decisión humana.
+  const handleReintentarFoto = async (fotoPendienteId: number) => {
+    try {
+      await db.fotosPendientes.update(fotoPendienteId, {
+        estadoSync:     'PENDIENTE',
+        intentos:       0,
+        // undefined borra la propiedad en Dexie. El error viejo no debe sobrevivir
+        // al reintento o el tooltip mostraría un motivo que ya no aplica.
+        ultimo_error:   undefined,
+        subiendo_desde: undefined,
+      });
+      // Defensivo: al llegar a ERROR su item ya se borró de la cola, pero si por
+      // cualquier vía quedó uno, no se duplica.
+      const yaEncolada = await db.syncQueue.where('tipo').equals('UPLOAD_FOTO')
+        .filter(i => (i.payload as { fotoPendienteId?: number })?.fotoPendienteId === fotoPendienteId)
+        .count();
+      if (yaEncolada === 0) {
+        await db.syncQueue.add({
+          tipo:       'UPLOAD_FOTO',
+          payload:    { fotoPendienteId },
+          created_at: new Date().toISOString(),
+          intentos:   0,
+        });
+      }
+      if (navigator.onLine) {
+        mostrar('Reintentando subida…', 'info');
+        void procesarSyncQueue();   // sin esperar al próximo evento 'online'
+      } else {
+        mostrar('Sin conexión — se subirá al recuperar la señal.', 'info');
+      }
+    } catch (err) {
+      setErrorFotos(err instanceof Error ? err.message : 'No se pudo reintentar la subida');
+    }
+  };
 
   const [camposDefinicion, setCamposDefinicion] = useState<CampoDefinicion[]>([]);
   const [valoresCampos,    setValoresCampos]    = useState<Record<string, unknown>>({});
@@ -260,14 +446,34 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
     setErrorFotos(null);
     setInputContratista('');
     setDropdownContratistasOpen(false);
-    cargarFotosDeOrden(ordenProp.id).then(fotos => {
-      setFotosAntes(  fotos.filter(f => f.categoria === 'ANTES'));
-      setFotosDurante(fotos.filter(f => f.categoria === 'DURANTE'));
-      setFotosDespues(fotos.filter(f => f.categoria === 'DESPUES'));
-    }).catch(err => { console.error('[PanelOT] Error cargando fotos:', err); });
+    // Las tres listas se vacían ANTES de pedir las nuevas. Sin esto sobreviven
+    // las de la OT anterior mientras recargarFotos espera sus dos await, y el
+    // cleanup de abajo ya revocó sus objectURL: React sigue renderizando
+    // <img src="blob:…"> muerto y Chrome tira ERR_FILE_NOT_FOUND. Confirmado en
+    // el Test A de C-2 (initiator react-dom, blobs con 200 conviviendo con los
+    // fallados).
+    setFotosAntes([]);
+    setFotosDurante([]);
+    setFotosDespues([]);
+    // El modal de descripción guarda la fotoUrl de una foto pendiente, que es un
+    // objectURL: el cleanup lo revoca al salir de la OT. Si el modal sobrevive al
+    // salto queda mostrando un blob muerto y su Guardar escribe la descripción en
+    // el registro de la OT anterior mientras el map recorre las listas de la
+    // nueva — no falla, no se ve.
+    setModalDescIA(null);
+    setSugerenciaIA('');
+    setCargandoIA(false);
+    void recargarFotos(ordenProp.id);
     getCamposDeProyecto(ordenProp.proyecto_id).then(setCamposDefinicion).catch(err => {
       console.error('[PanelOT] Error cargando campos:', err);
     });
+    // Revoca al desmontar Y al cambiar de OT: sin la segunda mitad, saltar de
+    // OT en OT filtra los blobs de todas las anteriores.
+    return () => {
+      // El timeout se cancela acá o dispararía sobre una OT que ya no está.
+      limpiarTimeoutCarga();
+      revocarObjectUrls();
+    };
   }, [ordenProp?.id]);
 
   const horaActualDefault = useMemo(
@@ -290,6 +496,10 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
 
   const estado = (form.estado ?? 'Pendiente') as EstadoOT;
   const validacion = validarFotosParaEstado(fotosAntes, fotosDurante, fotosDespues, estado);
+  // "La lista de fotos NO es de fiar": cubre tanto la carga en curso como la
+  // lectura remota que no llegó. Mientras sea true, la ausencia de una foto no
+  // prueba nada — puede estar en el servidor sin que la hayamos podido leer.
+  const fotosNoCargadas = estadoCarga !== 'listo';
 
   const set = (campo: string, valor: unknown) =>
     setForm(f => ({ ...f, [campo]: valor }));
@@ -327,17 +537,26 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
     setSubiendo(categoria);
     setErrorFotos(null);
     try {
-      const foto = await subirYRegistrarFoto(file, ordenFresca.id, ordenFresca.proyecto_id, categoria);
+      const foto = await subirOEncolarFoto(file, ordenFresca.id, ordenFresca.proyecto_id, categoria);
+      if (foto.pendiente) objectUrls.current.add(foto.url);
       if (categoria === 'ANTES')   setFotosAntes(  prev => [...prev, foto]);
       if (categoria === 'DURANTE') setFotosDurante(prev => [...prev, foto]);
       if (categoria === 'DESPUES') setFotosDespues(prev => [...prev, foto]);
-      setModalDescIA({ fotoId: foto.id, fotoUrl: foto.url });
+      setModalDescIA({ fotoId: foto.id, fotoUrl: foto.url, fotoPendienteId: foto.fotoPendienteId });
       setSugerenciaIA('');
-      setCargandoIA(true);
-      describirFotoConIA(foto.url).then(desc => {
-        setSugerenciaIA(desc);
+      // El modal SIGUE offline: es el único momento en que el técnico describe la
+      // foto frente al trabajo. La IA no: necesita URL pública y la API. Y el if
+      // va ANTES de la llamada porque urlABase64 resuelve bien un blob: — sin
+      // esto convertiría 10 MB a base64 en la tablet para fallar recién en el POST.
+      if (foto.pendiente) {
         setCargandoIA(false);
-      }).catch(() => setCargandoIA(false));
+      } else {
+        setCargandoIA(true);
+        describirFotoConIA(foto.url).then(desc => {
+          setSugerenciaIA(desc);
+          setCargandoIA(false);
+        }).catch(() => setCargandoIA(false));
+      }
       if (estadoNuevo && comentarioAuto !== null) {
         set('estado', estadoNuevo);
         await actualizarOrden(ordenFresca.id, { estado: estadoNuevo });
@@ -353,12 +572,19 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
 
   const handleGuardarDescripcionIA = async (descripcion: string) => {
     if (!modalDescIA) { setModalDescIA(null); return; }
-    const { fotoId } = modalDescIA;
+    const { fotoId, fotoPendienteId } = modalDescIA;
     setModalDescIA(null);
     if (!descripcion.trim()) return;
-    await supabase.from('fotos').update({ descripcion: descripcion.trim() }).eq('id', fotoId);
+    const desc = descripcion.trim();
+    if (fotoPendienteId != null) {
+      // Todavía no existe la fila en `fotos`: la descripción viaja con el
+      // registro de Dexie y la escribe el SyncManager al subir (Fase 3).
+      await db.fotosPendientes.update(fotoPendienteId, { descripcion: desc });
+    } else {
+      await supabase.from('fotos').update({ descripcion: desc }).eq('id', fotoId);
+    }
     const actualizar = (arr: FotoConId[]) =>
-      arr.map(f => f.id === fotoId ? { ...f, descripcion: descripcion.trim() } : f);
+      arr.map(f => f.id === fotoId ? { ...f, descripcion: desc } : f);
     setFotosAntes(prev => actualizar(prev));
     setFotosDurante(prev => actualizar(prev));
     setFotosDespues(prev => actualizar(prev));
@@ -376,7 +602,19 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
       if (!val.valido) { setErrorFotos(`No podés eliminar la única foto ${categoria} — el estado actual la requiere.`); return; }
     }
     try {
-      await eliminarFoto(foto.id, foto.path);
+      if (foto.pendiente && foto.fotoPendienteId != null) {
+        // No existe en Supabase: se borra el binario de Dexie y su item de la
+        // cola. Sin lo segundo, el SyncManager buscaría un registro inexistente.
+        await db.fotosPendientes.delete(foto.fotoPendienteId);
+        await db.syncQueue
+          .where('tipo').equals('UPLOAD_FOTO')
+          .filter(i => (i.payload as { fotoPendienteId?: number })?.fotoPendienteId === foto.fotoPendienteId)
+          .delete();
+        URL.revokeObjectURL(foto.url);
+        objectUrls.current.delete(foto.url);
+      } else {
+        await eliminarFoto(foto.id, foto.path);
+      }
       if (categoria === 'ANTES')   setFotosAntes(  prev => prev.filter(f => f.id !== foto.id));
       if (categoria === 'DURANTE') setFotosDurante(prev => prev.filter(f => f.id !== foto.id));
       if (categoria === 'DESPUES') setFotosDespues(prev => prev.filter(f => f.id !== foto.id));
@@ -388,7 +626,26 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
   const handleGuardar = async () => {
     if (!ordenFresca) return;
     const v = validarFotosParaEstado(fotosAntes, fotosDurante, fotosDespues, estado);
-    if (!v.valido) { mostrar(v.errores.join(' · '), 'error'); setTab('fotos'); return; }
+    // Opción A de C-2. Con la lista de fotos en duda NO se bloquea el guardado,
+    // salvo que el técnico esté subiendo de estado. Bloquear todo por un requisito
+    // que no pudimos verificar le impedía guardar hasta una observación de texto en
+    // una OT que sí tiene sus fotos en el servidor.
+    let guardadoSinVerificar = false;
+    if (!v.valido) {
+      if (!fotosNoCargadas) {
+        mostrar(v.errores.join(' · '), 'error'); setTab('fotos'); return;
+      }
+      const estadoOriginal = (ordenFresca.estado ?? 'Pendiente') as EstadoOT;
+      if (exigenciaFotos(estado) > exigenciaFotos(estadoOriginal)) {
+        mostrar(
+          `Sin conexión: no se pueden verificar las fotos del servidor. Conectate para cambiar el estado a "${estado}".`,
+          'error',
+        );
+        setTab('fotos');
+        return;
+      }
+      guardadoSinVerificar = true;
+    }
 
     const fechaFinFinal = (estado === 'No aplica' && !form.fecha_fin_trabajos)
       ? new Date().toISOString().slice(0, 10)
@@ -435,6 +692,9 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
       const pendientes = useOrdenesStore.getState().otsPendientesImport;
       if (posUbicada && pendientes.includes(ordenFresca.id)) {
         useOrdenesStore.getState().completarOtImport(ordenFresca.id);
+      }
+      if (guardadoSinVerificar) {
+        mostrar('Guardado. Las fotos obligatorias no se verificaron — sin conexión con el servidor.', 'info');
       }
       if (modoForzadoFotos) onCerrar();
     } finally {
@@ -492,8 +752,14 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
     categoria: CategoriaFoto, label: string,
     requerida: boolean, ok: boolean, fotos: FotoConId[]
   ) => {
-    const alerta = requerida && !ok;
+    // Asimetría deliberada de C-2: ✓ OK sobrevive con la lista en duda porque una
+    // foto local es evidencia POSITIVA de que el requisito está cumplido —
+    // existe, sólo le falta subir. ⚠️ Requerida no sobrevive: es una afirmación
+    // sobre algo que no pudimos ver, y era la que hacía salir tres badges rojos
+    // en OT-009 teniendo sus tres fotos en el servidor.
     const cumplida = requerida && ok;
+    const alerta   = requerida && !ok && !fotosNoCargadas;
+    const neutro   = requerida && !ok && fotosNoCargadas;
     const wrapClass = [styles.fotoSeccion, alerta && styles.fotoSeccionAlerta, cumplida && styles.fotoSeccionOk].filter(Boolean).join(' ');
     // Caja punteada compartida por los dos triggers de carga. Es el mismo
     // tratamiento visual del "Agregar" único que reemplazan; sólo cambia que
@@ -514,24 +780,49 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
           {requerida && <span className={styles.required}>*</span>}
           {alerta  && <span className={`${styles.fotoEstadoBadge} ${styles.fotoEstadoAlerta}`}>⚠️ Requerida</span>}
           {cumplida && <span className={`${styles.fotoEstadoBadge} ${styles.fotoEstadoOk}`}>✓ OK</span>}
+          {neutro && (
+            <span className={`${styles.fotoEstadoBadge} ${styles.fotoEstadoNeutro}`}>
+              {estadoCarga === 'cargando' ? '⟳ Verificando' : 'Sin verificar'}
+            </span>
+          )}
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '6px' }}>
           {fotos.map((foto) => {
             const badgeColor = categoria === 'ANTES' ? 'rgba(220,50,50,0.9)' : categoria === 'DURANTE' ? 'rgba(37,99,235,0.9)' : categoria === 'DESPUES' ? 'rgba(22,163,74,0.9)' : 'rgba(100,116,139,0.9)';
             const badgeLabel = categoria === 'DESPUES' ? 'DESPUÉS' : categoria;
             const desc = (foto.descripcion ?? '').trim();
+            // F4 — El estado de sync no viene en el objeto de UI: se busca en el
+            // registro de Dexie por su id.
+            const regPend = foto.fotoPendienteId != null ? regPorPendienteId.get(foto.fotoPendienteId) : undefined;
+            const enError = regPend?.estadoSync === 'ERROR';
             return (
-              <div key={foto.id} style={{ width: 'auto', background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: '8px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+              <div key={foto.id} className={enError ? styles.fotoCardError : undefined} style={{ width: 'auto', background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: '8px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                 <div style={{ position: 'relative', width: '100%', aspectRatio: '4 / 3' }}>
-                  <img src={foto.url} alt={foto.nombre} onClick={() => setFotoEditando({ id: foto.id, orden_id: ordenFresca.id, proyecto_id: ordenFresca.proyecto_id, categoria: foto.categoria as 'ANTES' | 'DURANTE' | 'DESPUES' | 'ADJUNTO', file_url: foto.url })} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', cursor: 'pointer' }} />
+                  <img src={foto.url} alt={foto.nombre} title={foto.pendiente ? TOOLTIP_FOTO_PENDIENTE : undefined} onClick={() => { if (!foto.pendiente) setFotoEditando({ id: foto.id, orden_id: ordenFresca.id, proyecto_id: ordenFresca.proyecto_id, categoria: foto.categoria as 'ANTES' | 'DURANTE' | 'DESPUES' | 'ADJUNTO', file_url: foto.url }); }} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', cursor: foto.pendiente ? 'default' : 'pointer' }} />
                   <span style={{ position: 'absolute', top: '6px', left: '6px', background: badgeColor, color: '#FFFFFF', fontSize: '9px', fontWeight: 700, padding: '2px 5px', borderRadius: '4px', letterSpacing: '0.04em' }}>{badgeLabel}</span>
+                  {/* F4 — El técnico escanea la grilla de miniaturas, no lee los
+                      botones uno por uno: el error tiene que verse en la foto. */}
+                  {enError && (
+                    <span
+                      className={`${styles.fotoEstadoBadge} ${styles.fotoEstadoAlerta}`}
+                      style={{ position: 'absolute', top: '6px', right: '6px', margin: 0 }}
+                    >
+                      Error
+                    </span>
+                  )}
                 </div>
                 <div style={{ padding: '4px 6px 2px', flex: 1 }}>
                   <span style={{ fontSize: '10px', color: desc ? 'var(--text-primary)' : 'var(--text-secondary)', fontStyle: desc ? 'normal' : 'italic', lineHeight: 1.3, wordBreak: 'break-word', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{desc || '—'}</span>
                 </div>
                 <div style={{ display: 'flex', gap: 0 }}>
                   <BtnEliminarFotoCard onClick={() => handleEliminarFoto(foto, categoria)} />
-                  <BtnEditarFotoCard onClick={() => setFotoEditando({ id: foto.id, orden_id: ordenFresca.id, proyecto_id: ordenFresca.proyecto_id, categoria: foto.categoria as 'ANTES' | 'DURANTE' | 'DESPUES' | 'ADJUNTO', file_url: foto.url })} />
+                  <BtnEditarFotoCard disabled={!!foto.pendiente} title={foto.pendiente ? TOOLTIP_FOTO_PENDIENTE : undefined} onClick={() => setFotoEditando({ id: foto.id, orden_id: ordenFresca.id, proyecto_id: ordenFresca.proyecto_id, categoria: foto.categoria as 'ANTES' | 'DURANTE' | 'DESPUES' | 'ADJUNTO', file_url: foto.url })} />
+                  {enError && (
+                    <BtnReintentarFotoCard
+                      title={`Reintentar subida — último error: ${regPend?.ultimo_error ?? 'desconocido'}`}
+                      onClick={() => void handleReintentarFoto(foto.fotoPendienteId as number)}
+                    />
+                  )}
                 </div>
               </div>
             );
@@ -591,7 +882,15 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
     const validacion = validarFotosParaEstado(fotosAntes, fotosDurante, fotosDespues, nuevoEstado);
     if (!validacion.valido) {
       setTab('fotos');
-      mostrar(`Subí las fotos requeridas para cambiar a "${nuevoEstado}" — el estado se actualizará automáticamente`, 'info');
+      // El bloqueo NO cambia — sigue sin poder escalar sin fotos verificadas. Lo
+      // que cambia es el mensaje: pedirle fotos al técnico cuando la OT ya las
+      // tiene en el servidor y lo que falló fue nuestra lectura es una mentira.
+      mostrar(
+        fotosNoCargadas
+          ? `Sin conexión: no se pueden verificar las fotos del servidor. Conectate para cambiar el estado a "${nuevoEstado}".`
+          : `Subí las fotos requeridas para cambiar a "${nuevoEstado}" — el estado se actualizará automáticamente`,
+        'info',
+      );
       return;
     }
     const comentario = await pedirComentarioEstado(estadoAnterior, nuevoEstado, false);
@@ -649,6 +948,16 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
             {(['datos', 'fotos', 'informes', 'campos'] as const).map(t => (
               <button key={t} className={`${styles.tab} ${tab === t ? styles.active : ''}`} onClick={() => setTab(t)}>
                 {t === 'datos' ? 'Datos' : t === 'fotos' ? 'Fotos' : t === 'informes' ? 'Informes' : 'Campos'}
+                {/* F4 — Visible desde las cuatro pestañas: el técnico pasa la
+                    mayor parte del tiempo en Datos y tiene que enterarse ahí de
+                    que le quedaron fotos sin salir. Sin nada pendiente no ocupa
+                    lugar. */}
+                {t === 'fotos' && nPendientes > 0 && (
+                  <span className={`${styles.tabBadge} ${styles.tabBadgePend}`}>⏳{nPendientes}</span>
+                )}
+                {t === 'fotos' && nConError > 0 && (
+                  <span className={`${styles.tabBadge} ${styles.fotoEstadoAlerta}`}>⚠{nConError}</span>
+                )}
               </button>
             ))}
           </div>
@@ -814,6 +1123,30 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
                   <TooltipAyuda titulo="Reglas de fotos" texto="No podés cerrar una OT sin sus fotos. No podés borrar la única foto que el estado exige — bajá primero el estado." posicion="bottom" />
                 </div>
                 {errorFotos && <div className={styles.errorBox}>{errorFotos}</div>}
+                {/* F4 — El detalle del badge de la pestaña: cuántas y de qué tipo.
+                    Es el contexto donde vive el ↻ de cada tarjeta. */}
+                {(nPendientes > 0 || nConError > 0) && (
+                  <div className={styles.resumenSync}>
+                    {nPendientes > 0 && <span>⏳ {nPendientes} esperando conexión</span>}
+                    {nPendientes > 0 && nConError > 0 && <span> · </span>}
+                    {nConError > 0 && (
+                      <span className={styles.resumenSyncError}>⚠ {nConError} con error</span>
+                    )}
+                  </div>
+                )}
+                {estadoCarga === 'sin_conexion' && (
+                  <div className={styles.avisoBox}>
+                    <span>
+                      📡 Sin conexión — no se pudieron leer las fotos guardadas en el
+                      servidor. Abajo aparecen solo las que sacaste sin conexión. La
+                      verificación de fotos obligatorias queda en pausa hasta recuperar
+                      la señal.
+                    </span>
+                    <button type="button" onClick={() => { void recargarFotos(ordenFresca.id); }}>
+                      Reintentar
+                    </button>
+                  </div>
+                )}
                 {bloqueFotos('ANTES',   'ANTES',   validacion.antesRequerida,   validacion.antesOk,   fotosAntes)}
                 {bloqueFotos('DURANTE', 'DURANTE', validacion.duranteRequerida, validacion.duranteOk, fotosDurante)}
                 {bloqueFotos('DESPUES', 'DESPUÉS', validacion.despuesRequerida, validacion.despuesOk, fotosDespues)}
@@ -884,9 +1217,13 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
         </div>
       </div>
 
+      {/* Inalcanzable hoy: setVisorAbierto nunca se llama con true, así que este
+          bloque —y su onFotoGuardada— no están probados. Se mantiene coherente
+          con las otras rutas de recarga para que no sea una trampa si alguien
+          conecta el visor. */}
       {visorAbierto && (
         <VisorFotos fotos={visorFotos} initialIndex={visorIndex} ordenId={ordenFresca.id} proyectoId={ordenFresca.proyecto_id} onClose={() => setVisorAbierto(false)}
-          onFotoGuardada={() => { cargarFotosDeOrden(ordenFresca.id).then(fotos => { setFotosAntes(fotos.filter(f => f.categoria === 'ANTES')); setFotosDurante(fotos.filter(f => f.categoria === 'DURANTE')); setFotosDespues(fotos.filter(f => f.categoria === 'DESPUES')); }); }} />
+          onFotoGuardada={() => { void recargarFotos(ordenFresca.id); }} />
       )}
 
       {ToastComponent}
@@ -929,11 +1266,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
           todasLasFotos={todasLasFotosParaEditor}
           onClose={() => setFotoEditando(null)}
           onGuardado={() => {
-            cargarFotosDeOrden(ordenFresca.id).then(fotos => {
-              setFotosAntes(fotos.filter(f => f.categoria === 'ANTES'));
-              setFotosDurante(fotos.filter(f => f.categoria === 'DURANTE'));
-              setFotosDespues(fotos.filter(f => f.categoria === 'DESPUES'));
-            });
+            void recargarFotos(ordenFresca.id);
           }}
         />
       )}
