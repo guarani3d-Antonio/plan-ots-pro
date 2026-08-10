@@ -351,6 +351,26 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
     setEstadoCarga(remotaResolvio ? 'listo' : 'sin_conexion');
   };
 
+  // B2-12 — el badge de fotos pendientes se corrige solo al recuperar señal
+  // porque useLiveQuery observa Dexie, pero el banner de sin_conexion no,
+  // porque su fuente es estadoCarga (state de React) y eso solo cambia
+  // dentro de recargarFotos. Sin este listener el banner queda pegado hasta
+  // que el usuario aprieta "Reintentar" a mano.
+  // El efecto solo se suscribe a 'online' MIENTRAS estadoCarga === 'sin_conexion':
+  // apenas recargarFotos resuelve a 'listo', se desuscribe. Un parpadeo de
+  // DevTools (abrir/cerrar la emulación de Offline) dispara 'online' una vez
+  // y como mucho gatilla un recargarFotos de más — no un bucle, porque no hay
+  // nada que vuelva a disparar el evento por sí solo.
+  useEffect(() => {
+    if (estadoCarga !== 'sin_conexion') return;
+    const id = ordenFresca?.id;
+    if (!id) return;
+
+    const onOnline = () => { void recargarFotos(id); };
+    window.addEventListener('online', onOnline);
+    return () => window.removeEventListener('online', onOnline);
+  }, [estadoCarga, ordenFresca?.id]);
+
   // F4 — Conteo reactivo de las fotos sin sincronizar de ESTA OT. Va por
   // useLiveQuery y no por una lectura puntual porque quien cambia estos registros
   // es el SyncManager, que corre fuera de React: con lectura directa el badge
