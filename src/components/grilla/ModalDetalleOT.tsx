@@ -11,6 +11,7 @@ import {
   type FotoSubida,
   type CategoriaFoto,
 } from '../../services/fotosService';
+import { usePuedeVerCostos } from '../../hooks/usePuedeVerCostos';
 
 // ─────────────────────────────────────────────────────────────────── Types ──
 
@@ -157,6 +158,7 @@ export const ModalDetalleOT: React.FC<Props> = ({
   orden, onClose, onEditar,
 }) => {
   const [fotos, setFotos] = useState<FotoConId[]>([]);
+  const puedeVerCostos = usePuedeVerCostos(orden?.proyecto_id ?? null);
 
   useEffect(() => {
     if (!orden) return;
@@ -305,13 +307,15 @@ export const ModalDetalleOT: React.FC<Props> = ({
                 <span className={styles.avanceNum}>{orden.porcentaje_avance ?? 0}%</span>
               </div>
             </Campo>
-            <Campo label="Costo" full>
-              <strong style={{ fontSize: 15 }}>
-                {orden.costo != null && orden.costo > 0
-                  ? formatearGuaranies(orden.costo)
-                  : <Dash />}
-              </strong>
-            </Campo>
+            {puedeVerCostos && (
+              <Campo label="Costo" full>
+                <strong style={{ fontSize: 15 }}>
+                  {orden.costo != null && orden.costo > 0
+                    ? formatearGuaranies(orden.costo)
+                    : <Dash />}
+                </strong>
+              </Campo>
+            )}
             <Campo label="Comentarios" full>
               {orden.comentarios
                 ? <p className={styles.parrafo}>{orden.comentarios}</p>

@@ -11,6 +11,7 @@ import {
   type WidgetConfig, type WidgetId,
 } from '../../services/dashboardConfigService';
 import { ModalConfigWidgets } from '../dashboard/ModalConfigWidgets';
+import { usePuedeVerCostosMultiple } from '../../hooks/usePuedeVerCostos';
 
 const ESTADOS = ['Pendiente', 'En proceso', 'Cerrada', 'No aplica'] as const;
 
@@ -80,6 +81,15 @@ export default function Dashboard() {
     [ordenes, filtroProyecto],
   );
 
+  // P0-6: Dashboard agrega OTs de varios proyectos a la vez — solo se ven
+  // costos si el usuario es supervisor en TODOS los proyectos que aportan
+  // datos al filtro actual (fail-closed, sin totales parciales).
+  const proyectoIdsFiltrados = useMemo(
+    () => Array.from(new Set(ordenesFiltradas.map(o => o.proyecto_id))),
+    [ordenesFiltradas],
+  );
+  const puedeVerCostos = usePuedeVerCostosMultiple(proyectoIdsFiltrados);
+
   const kpi = useMemo(() => {
     const total = ordenesFiltradas.length;
     const avanceSum = ordenesFiltradas.reduce((s, o) => s + (o.porcentaje_avance ?? 0), 0);
@@ -141,10 +151,14 @@ export default function Dashboard() {
   // ── Export CSV ─────────────────────────────────────────────────────────────
 
   const handleExportCSV = useCallback(() => {
-    const headers = ['OT', 'Estado', 'Rubro', 'Prioridad', 'Responsable', 'Costo (Gs.)', 'Avance %', 'Nivel Riesgo', 'Última Modificación'];
+    const headers = [
+      'OT', 'Estado', 'Rubro', 'Prioridad', 'Responsable',
+      ...(puedeVerCostos ? ['Costo (Gs.)'] : []),
+      'Avance %', 'Nivel Riesgo', 'Última Modificación',
+    ];
     const rows = ordenesFiltradas.map(o => [
       o.ot, o.estado, o.rubro ?? '', o.prioridad ?? '', o.responsable ?? '',
-      o.costo != null ? String(o.costo) : '',
+      ...(puedeVerCostos ? [o.costo != null ? String(o.costo) : ''] : []),
       o.porcentaje_avance != null ? String(o.porcentaje_avance) : '0',
       o.nivel_riesgo ?? '', fechaCorta(o.updated_at ?? o.created_at),
     ]);
@@ -158,7 +172,7 @@ export default function Dashboard() {
     a.download = `dashboard_${proyectoLabel.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-  }, [ordenesFiltradas, proyectoLabel]);
+  }, [ordenesFiltradas, proyectoLabel, puedeVerCostos]);
 
   // ── Export HTML ────────────────────────────────────────────────────────────
 
@@ -200,7 +214,7 @@ footer{margin-top:28px;font-size:10px;color:#CBD5E1;text-align:center;padding-to
   <div class="card"><div class="lbl">Total OTs</div><div class="val">${total}</div></div>
   <div class="card"><div class="lbl">Avance General</div><div class="val blue">${avancePromedio}%</div></div>
   <div class="card"><div class="lbl">OTs en Riesgo</div><div class="val ${riesgo > 0 ? 'red' : ''}">${riesgo}</div></div>
-  <div class="card"><div class="lbl">Costo Total</div><div class="val" style="font-size:18px">${formatGs(costoTotal)}</div></div>
+  ${puedeVerCostos ? `<div class="card"><div class="lbl">Costo Total</div><div class="val" style="font-size:18px">${formatGs(costoTotal)}</div></div>` : ''}
 </div>
 <div class="stitle">Por Estado</div>
 <div class="row">
@@ -241,7 +255,7 @@ ${ultimas.map(o => `<tr>
     a.download = `dashboard_${proyectoLabel.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.html`;
     a.click();
     URL.revokeObjectURL(url);
-  }, [ordenesFiltradas, porRubro, porEstado, sinEstado, kpi, proyectoLabel, maxRubro, ultimas]);
+  }, [ordenesFiltradas, porRubro, porEstado, sinEstado, kpi, proyectoLabel, maxRubro, ultimas, puedeVerCostos]);
 
   // ── Export PDF ─────────────────────────────────────────────────────────────
 
@@ -297,7 +311,7 @@ ${ultimas.map(o => `<tr>
         ${kpiCard('Total OTs', String(total), `${modificadasUltSem} act. esta semana`)}
         ${kpiCard('Avance General', `${avancePromedio}%`, 'promedio del proyecto', '#2563EB')}
         ${kpiCard('OTs en Riesgo', String(riesgo), riesgo > 0 ? 'requieren atención' : 'sin alertas', riesgo > 0 ? '#EF4444' : '#16A34A')}
-        ${kpiCard('Costo Total', formatGs(costoTotal), 'acumulado del proyecto')}
+        ${puedeVerCostos ? kpiCard('Costo Total', formatGs(costoTotal), 'acumulado del proyecto') : ''}
       </div>
       ${secTitle('Por Estado')}
       <div style="display:flex;gap:8px;margin-bottom:6mm">
@@ -371,7 +385,7 @@ body{background:#888;font-family:Arial,sans-serif}
       pw.print();
       pw.addEventListener('afterprint', () => setTimeout(() => pw.close(), 400));
     }, 600);
-  }, [ordenesFiltradas, porRubro, porEstado, sinEstado, kpi, proyectoLabel, maxRubro, ultimas]);
+  }, [ordenesFiltradas, porRubro, porEstado, sinEstado, kpi, proyectoLabel, maxRubro, ultimas, puedeVerCostos]);
 
   // ── Render de widgets por orden ────────────────────────────────────────────
 
@@ -383,7 +397,7 @@ body{background:#888;font-family:Arial,sans-serif}
             <KPICard label="Total OTs" valor={total} subtitle={modificadasUltSem > 0 ? `${modificadasUltSem} actualizadas última semana` : 'Sin cambios esta semana'} />
             <KPICard label="Avance general" valor={`${avancePromedio}%`} color={avancePromedio >= 80 ? '#15803D' : '#2563EB'} bar={avancePromedio} />
             <KPICard label="OTs en riesgo" valor={riesgo} color={riesgo > 0 ? '#DC2626' : '#15803D'} badge={riesgo > 0 ? { text: 'Crítico', color: '#DC2626' } : { text: 'OK', color: '#15803D' }} />
-            <KPICard label="Costo total" valor={formatGs(costoTotal)} fontSize={20} />
+            {puedeVerCostos && <KPICard label="Costo total" valor={formatGs(costoTotal)} fontSize={20} />}
           </div>
         );
 

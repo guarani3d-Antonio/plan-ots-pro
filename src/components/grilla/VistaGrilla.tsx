@@ -6,6 +6,7 @@ import { useOrdenesStore } from '../../stores/ordenesStore';
 import { ModalDetalleOT } from './ModalDetalleOT';
 import { getCamposDeProyecto, type CampoDefinicion } from '../../services/camposService';
 import { colorEstado, diasAbierto } from '../../utils/calculos';
+import { usePuedeVerCostos } from '../../hooks/usePuedeVerCostos';
 
 type EstadoOT    = 'Pendiente' | 'En proceso' | 'Cerrada' | 'No aplica';
 type PrioridadOT = 'Alta' | 'Media' | 'Baja';
@@ -443,12 +444,13 @@ const GroupByPill: React.FC<GroupByPillProps> = ({ agruparPor, onSet, abierto, o
 // ─────────────────────────────────────────────── Ocultar Columnas Pill ──
 
 interface OcultarColumnasPillProps {
+  columnasDisponibles: Columna[];
   columnasOcultas: Set<string>; setColumnasOcultas: React.Dispatch<React.SetStateAction<Set<string>>>;
   abierto: boolean; onToggleAbierto: () => void;
 }
 
-const OcultarColumnasPill: React.FC<OcultarColumnasPillProps> = ({ columnasOcultas, setColumnasOcultas, abierto, onToggleAbierto }) => {
-  const opcionables = COLUMNAS.filter(c => !c.fija);
+const OcultarColumnasPill: React.FC<OcultarColumnasPillProps> = ({ columnasDisponibles, columnasOcultas, setColumnasOcultas, abierto, onToggleAbierto }) => {
+  const opcionables = columnasDisponibles.filter(c => !c.fija);
   const activo = columnasOcultas.size > 0;
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -486,13 +488,16 @@ const OcultarColumnasPill: React.FC<OcultarColumnasPillProps> = ({ columnasOcult
 
 // ─────────────────────────────────────────────── PDF Export ──
 
-function generarHTMLImprimible(ordenes: OrdenTrabajo[], columnas: Columna[], camposCustom: CampoDefinicion[], proyectoNombre: string): string {
+function generarHTMLImprimible(ordenes: OrdenTrabajo[], columnas: Columna[], camposCustom: CampoDefinicion[], proyectoNombre: string, puedeVerCostos: boolean): string {
   const fecha = new Date().toLocaleString('es-PY', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   const total      = ordenes.length;
   const pendientes = ordenes.filter(o => o.estado === 'Pendiente').length;
   const enProceso  = ordenes.filter(o => o.estado === 'En proceso').length;
   const cerradas   = ordenes.filter(o => o.estado === 'Cerrada').length;
   const costoTotal = new Intl.NumberFormat('es-PY').format(ordenes.reduce((sum, o) => sum + (o.costo ?? 0), 0));
+  const tarjetaCosto = puedeVerCostos
+    ? `<div style="background:#FFFBEB;border:1px solid #FCD34D;border-radius:10px;padding:16px;text-align:center;"><div style="font-size:28px;font-weight:900;color:#D97706;">${costoTotal}</div><div style="font-size:11px;color:#6B7280;font-weight:600;text-transform:uppercase;margin-top:4px;">Costo Total Gs.</div></div>`
+    : '';
   const rowsHtml = ordenes.map(o => {
     const cells = columnas.map(col => `<td>${escapeHtml(celdaATexto(col.key, o))}</td>`).join('');
     const customCells = camposCustom.map(c => { const v = o.campos?.[c.id]; const txt = v == null || v === '' ? '—' : Array.isArray(v) ? v.join(', ') : String(v); return `<td>${escapeHtml(txt)}</td>`; }).join('');
@@ -506,12 +511,12 @@ function generarHTMLImprimible(ordenes: OrdenTrabajo[], columnas: Columna[], cam
 <button onclick="window.print()" style="background:linear-gradient(135deg,#2462C9,#1E3A5F);color:white;border:none;padding:12px 28px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;">🖨️ Imprimir / Guardar PDF</button></div>
 <div class="watermark">CONFIDENCIAL</div>
 <div class="header"><div><div class="titulo">Órdenes de Trabajo — ${escapeHtml(proyectoNombre)}</div><div class="sub">BBC Facility Services · ${escapeHtml(fecha)}</div></div><div>${LOGO_G3D_SVG}</div></div>
-<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin:20px 0 24px;">
+<div style="display:grid;grid-template-columns:repeat(${puedeVerCostos ? 5 : 4},1fr);gap:12px;margin:20px 0 24px;">
 <div style="background:#F0F4FF;border:1px solid #BFDBFE;border-radius:10px;padding:16px;text-align:center;"><div style="font-size:28px;font-weight:900;color:#1E3A5F;">${total}</div><div style="font-size:11px;color:#6B7280;font-weight:600;text-transform:uppercase;margin-top:4px;">Total OTs</div></div>
 <div style="background:#FEF2F2;border:1px solid #FECACA;border-radius:10px;padding:16px;text-align:center;"><div style="font-size:28px;font-weight:900;color:#DC2626;">${pendientes}</div><div style="font-size:11px;color:#6B7280;font-weight:600;text-transform:uppercase;margin-top:4px;">Pendientes</div></div>
 <div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:10px;padding:16px;text-align:center;"><div style="font-size:28px;font-weight:900;color:#2563EB;">${enProceso}</div><div style="font-size:11px;color:#6B7280;font-weight:600;text-transform:uppercase;margin-top:4px;">En Proceso</div></div>
 <div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:10px;padding:16px;text-align:center;"><div style="font-size:28px;font-weight:900;color:#16A34A;">${cerradas}</div><div style="font-size:11px;color:#6B7280;font-weight:600;text-transform:uppercase;margin-top:4px;">Cerradas</div></div>
-<div style="background:#FFFBEB;border:1px solid #FCD34D;border-radius:10px;padding:16px;text-align:center;"><div style="font-size:28px;font-weight:900;color:#D97706;">${costoTotal}</div><div style="font-size:11px;color:#6B7280;font-weight:600;text-transform:uppercase;margin-top:4px;">Costo Total Gs.</div></div>
+${tarjetaCosto}
 </div>
 <div style="display:flex;gap:24px;font-size:11px;color:#64748B;margin-bottom:12px;"><span><strong>${ordenes.length}</strong> órdenes</span><span><strong>${columnas.length + camposCustom.length}</strong> columnas</span></div>
 <table><thead><tr>${headHtml}</tr></thead><tbody>${rowsHtml}</tbody></table>
@@ -527,6 +532,17 @@ function escapeHtml(s: string): string {
 
 export const VistaGrilla: React.FC<Props> = ({ proyectoId, proyectoNombre, onSwitchToPlano }) => {
   const { ordenes, cargarOrdenes } = useOrdenesStore();
+  // P0-6: único booleano que decide si costo se ve en esta grilla (columna,
+  // celda, tarjeta, CSV y PDF/HTML).
+  const puedeVerCostos = usePuedeVerCostos(proyectoId);
+  const columnasRol = useMemo(
+    () => puedeVerCostos ? COLUMNAS : COLUMNAS.filter(c => c.key !== 'costo'),
+    [puedeVerCostos],
+  );
+  const camposTarjetaRol = useMemo(
+    () => puedeVerCostos ? CAMPOS_TARJETA : CAMPOS_TARJETA.filter(c => c.key !== 'costo'),
+    [puedeVerCostos],
+  );
   const [busqueda, setBusqueda]               = useState('');
   const [filtroEstados, setFiltroEstados]     = useState<Set<string>>(new Set());
   const [filtroPrioridades, setFiltroPrioridades] = useState<Set<string>>(new Set());
@@ -643,7 +659,7 @@ export const VistaGrilla: React.FC<Props> = ({ proyectoId, proyectoNombre, onSwi
   const toggleCustomCol = (id: string) => setColumnasCustomVisibles(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   const camposCustomActivos = camposDefinicion.filter(c => columnasCustomVisibles.includes(c.id));
   const camposCustomDisponibles = camposDefinicion.filter(c => !columnasCustomVisibles.includes(c.id));
-  const visibleColumnas = useMemo(() => COLUMNAS.filter(c => c.fija || !columnasOcultas.has(c.key)), [columnasOcultas]);
+  const visibleColumnas = useMemo(() => columnasRol.filter(c => c.fija || !columnasOcultas.has(c.key)), [columnasRol, columnasOcultas]);
   const totalColumnas = visibleColumnas.length + camposCustomActivos.length;
   const conteos = useMemo(() => ({
     estado: new Set(proyecto_ordenes.map(o => o.estado)).size,
@@ -666,11 +682,11 @@ export const VistaGrilla: React.FC<Props> = ({ proyectoId, proyectoNombre, onSwi
   }, [filtradas, visibleColumnas, camposCustomActivos, proyectoNombre]);
 
   const handleExportarPDF = useCallback(() => {
-    const html = generarHTMLImprimible(filtradas, visibleColumnas, camposCustomActivos, proyectoNombre);
+    const html = generarHTMLImprimible(filtradas, visibleColumnas, camposCustomActivos, proyectoNombre, puedeVerCostos);
     const w = window.open('', '_blank');
     if (!w) return;
     w.document.open(); w.document.write(html); w.document.close();
-  }, [filtradas, visibleColumnas, camposCustomActivos, proyectoNombre]);
+  }, [filtradas, visibleColumnas, camposCustomActivos, proyectoNombre, puedeVerCostos]);
 
   const onRowClick = (o: OrdenTrabajo) => setModalOrden(o);
   void onSwitchToPlano;
@@ -744,7 +760,7 @@ export const VistaGrilla: React.FC<Props> = ({ proyectoId, proyectoNombre, onSwi
             <FiltroPill label="Rubro" opciones={rubrosUnicos} seleccion={filtroRubros} onToggle={toggleSet(setFiltroRubros)} onClear={() => setFiltroRubros(new Set())} abierto={dropdownAbierto === 'rubro'} onToggleAbierto={() => setDropdownAbierto(d => d === 'rubro' ? null : 'rubro')} />
             <FiltroPill label="Riesgo" opciones={RIESGOS as unknown as string[]} seleccion={filtroRiesgos} onToggle={toggleSet(setFiltroRiesgos)} onClear={() => setFiltroRiesgos(new Set())} abierto={dropdownAbierto === 'riesgo'} onToggleAbierto={() => setDropdownAbierto(d => d === 'riesgo' ? null : 'riesgo')} />
             <GroupByPill agruparPor={agruparPor} onSet={setAgruparPor} abierto={dropdownAbierto === 'agruparPor'} onToggleAbierto={() => setDropdownAbierto(d => d === 'agruparPor' ? null : 'agruparPor')} />
-            <OcultarColumnasPill columnasOcultas={columnasOcultas} setColumnasOcultas={setColumnasOcultas} abierto={dropdownAbierto === 'ocultar'} onToggleAbierto={() => setDropdownAbierto(d => d === 'ocultar' ? null : 'ocultar')} />
+            <OcultarColumnasPill columnasDisponibles={columnasRol} columnasOcultas={columnasOcultas} setColumnasOcultas={setColumnasOcultas} abierto={dropdownAbierto === 'ocultar'} onToggleAbierto={() => setDropdownAbierto(d => d === 'ocultar' ? null : 'ocultar')} />
 
             {vistaActiva === 'tarjetas' && (
               <div ref={personalizarRef} style={{ position: 'relative', flexShrink: 0 }}>
@@ -753,7 +769,7 @@ export const VistaGrilla: React.FC<Props> = ({ proyectoId, proyectoNombre, onSwi
                   <div style={{ position: 'absolute', top: 44, right: 0, width: 280, background: 'white', border: '1px solid #E2E2E7', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', zIndex: 100, overflow: 'hidden' }}>
                     <div style={{ padding: '10px 14px', borderBottom: '1px solid #F3F4F6', fontSize: 12, fontWeight: 700, color: '#001E40' }}>Campos visibles en tarjetas</div>
                     <div style={{ maxHeight: 320, overflowY: 'auto', padding: '6px 0' }}>
-                      {CAMPOS_TARJETA.map(campo => {
+                      {camposTarjetaRol.map(campo => {
                         const activo = camposTarjeta.has(campo.key);
                         return (
                           <div key={campo.key} onClick={() => toggleCampoTarjeta(campo.key)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 14px', cursor: 'pointer', background: activo ? '#F0F4FF' : 'white' }}>
@@ -766,7 +782,7 @@ export const VistaGrilla: React.FC<Props> = ({ proyectoId, proyectoNombre, onSwi
                       })}
                     </div>
                     <div style={{ padding: '8px 14px', borderTop: '1px solid #F3F4F6', display: 'flex', gap: 8 }}>
-                      <button type="button" onClick={() => { const all = new Set(CAMPOS_TARJETA.map(c => c.key)); setCamposTarjeta(all); try { localStorage.setItem(LS_CAMPOS_TARJETA_KEY, JSON.stringify([...all])); } catch (e) { console.error(e); } }} style={{ flex: 1, padding: 5, fontSize: 11, fontFamily: 'inherit', border: '1px solid #E2E2E7', borderRadius: 6, cursor: 'pointer', background: 'white', color: '#1E3A5F', fontWeight: 600 }}>Mostrar todo</button>
+                      <button type="button" onClick={() => { const all = new Set(camposTarjetaRol.map(c => c.key)); setCamposTarjeta(all); try { localStorage.setItem(LS_CAMPOS_TARJETA_KEY, JSON.stringify([...all])); } catch (e) { console.error(e); } }} style={{ flex: 1, padding: 5, fontSize: 11, fontFamily: 'inherit', border: '1px solid #E2E2E7', borderRadius: 6, cursor: 'pointer', background: 'white', color: '#1E3A5F', fontWeight: 600 }}>Mostrar todo</button>
                       <button type="button" onClick={() => { setCamposTarjeta(new Set()); try { localStorage.setItem(LS_CAMPOS_TARJETA_KEY, '[]'); } catch (e) { console.error(e); } }} style={{ flex: 1, padding: 5, fontSize: 11, fontFamily: 'inherit', border: '1px solid #E2E2E7', borderRadius: 6, cursor: 'pointer', background: 'white', color: '#64748B', fontWeight: 600 }}>Ocultar todos</button>
                     </div>
                   </div>
@@ -872,7 +888,7 @@ export const VistaGrilla: React.FC<Props> = ({ proyectoId, proyectoNombre, onSwi
                             {camposTarjeta.has('contratistas') && o.contratistas && o.contratistas.length > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}><span style={{ color: '#9CA3AF' }}>Contratistas</span><span style={{ fontWeight: 500 }}>{o.contratistas.join(', ')}</span></div>}
                             {camposTarjeta.has('fecha_inicio_trabajos') && o.fecha_inicio_trabajos && <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}><span style={{ color: '#9CA3AF' }}>Inicio</span><span style={{ fontWeight: 500 }}>{formatFecha(o.fecha_inicio_trabajos)}</span></div>}
                             {camposTarjeta.has('fecha_fin_trabajos') && o.fecha_fin_trabajos && <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}><span style={{ color: '#9CA3AF' }}>Fin</span><span style={{ fontWeight: 500 }}>{formatFecha(o.fecha_fin_trabajos)}</span></div>}
-                            {camposTarjeta.has('costo') && o.costo != null && o.costo > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}><span style={{ color: '#9CA3AF' }}>Costo</span><span style={{ fontWeight: 600, color: '#1E293B' }}>{formatGuaranies(o.costo)}</span></div>}
+                            {puedeVerCostos && camposTarjeta.has('costo') && o.costo != null && o.costo > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}><span style={{ color: '#9CA3AF' }}>Costo</span><span style={{ fontWeight: 600, color: '#1E293B' }}>{formatGuaranies(o.costo)}</span></div>}
                             {camposTarjeta.has('en_garantia') && <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}><span style={{ color: '#9CA3AF' }}>Garantía BBC</span><span style={{ fontWeight: 500 }}>{o.en_garantia ? 'Sí' : 'No'}</span></div>}
                             {camposTarjeta.has('asiste_facility') && <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}><span style={{ color: '#9CA3AF' }}>Asiste Facility</span><span style={{ fontWeight: 500 }}>{o.asiste_facility ? 'Sí' : 'No'}</span></div>}
                           </div>

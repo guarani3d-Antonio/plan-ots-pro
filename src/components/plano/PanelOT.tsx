@@ -49,6 +49,7 @@ import PanelComentarios from './PanelComentarios';
 import EditorFoto, { type FotoMinima } from './EditorFoto';
 import ModalDescripcionFoto from './ModalDescripcionFoto';
 import { describirFotoConIA } from '../../services/iaService';
+import { usePuedeVerCostos } from '../../hooks/usePuedeVerCostos';
 
 interface PanelOTProps {
   orden: OrdenLocal | null;
@@ -237,6 +238,8 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
 
   // ── Rol del usuario en el proyecto ──────────────────────
   const [esSupervisor, setEsSupervisor] = useState(false);
+  // P0-6: único booleano que decide si se muestra el campo Costo.
+  const puedeVerCostos = usePuedeVerCostos(proyectoActivo?.id ?? null);
 
   useEffect(() => {
     if (!user?.id || !proyectoActivo?.id) return;
@@ -1099,10 +1102,12 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
                     <div style={{ width: `${form.porcentaje_avance ?? 0}%`, background: '#3B82F6', height: '100%', borderRadius: 4, transition: 'width 0.2s' }} />
                   </div>
                 </div>
-                <div className={styles.field}>
-                  <label className={styles.label}>Costo (Gs.)</label>
-                  <input className={styles.input} value={form.costo != null && form.costo > 0 ? form.costo.toLocaleString('es-PY') : ''} onChange={e => set('costo', parsearGuaranies(e.target.value))} placeholder="0" />
-                </div>
+                {puedeVerCostos && (
+                  <div className={styles.field}>
+                    <label className={styles.label}>Costo (Gs.)</label>
+                    <input className={styles.input} value={form.costo != null && form.costo > 0 ? form.costo.toLocaleString('es-PY') : ''} onChange={e => set('costo', parsearGuaranies(e.target.value))} placeholder="0" />
+                  </div>
+                )}
                 <div className={styles.field}>
                   <label className={styles.label}>Observaciones del técnico</label>
                   <textarea className={styles.textarea} rows={3} placeholder="Notas y observaciones del técnico..." value={form.comentarios ?? ''} onChange={e => set('comentarios', e.target.value)} />
