@@ -18,6 +18,7 @@ import Contratistas   from './components/views/Contratistas';
 import Configuracion  from './components/views/Configuracion';
 import { useModoTablet } from './hooks/useModoTablet';
 import { useTemaTablet } from './hooks/useTemaTablet';
+import { useHeartbeat } from './hooks/useHeartbeat';
 import ModalImportPendiente, { type OTPendienteResumen } from './components/plano/ModalImportPendiente';
 import VisorPlano3D from './components/plano3d/VisorPlano3D';
 import PantallaAyuda from './components/ayuda/PantallaAyuda';
@@ -65,6 +66,7 @@ export default function App() {
   // con sesión guardada también entra ya en el modo correcto.
   const { modoTablet, orientacion } = useModoTablet();
   const { tema, setTema }           = useTemaTablet();
+  useHeartbeat(proyectoActivo?.id ?? null);
 
   useEffect(() => {
     const b = document.body;
