@@ -35,3 +35,7 @@ audit-*.xml
 .agents/
 .claude/skills/
 skills-lock.json
+qwen-*.md
+estructura.txt
+qwen*.md
+qwen*.md

@@ -18,7 +18,17 @@
       "PowerShell(git add *)",
       "Bash(git commit *)",
       "PowerShell($p = @\\(\"$env:ProgramFiles\\\\GitHub CLI\\\\gh.exe\",\"${env:ProgramFiles\\(x86\\)}\\\\GitHub CLI\\\\gh.exe\",\"$env:LOCALAPPDATA\\\\GitHubCLI\\\\gh.exe\",\"$env:LOCALAPPDATA\\\\Programs\\\\GitHub CLI\\\\gh.exe\"\\); foreach \\($x in $p\\) { if \\(Test-Path $x\\) { \"ENCONTRADO: $x\" } else { \"no: $x\" } }; echo \"---winget---\"; if \\(Get-Command winget -ErrorAction SilentlyContinue\\) { \"winget disponible\" } else { \"winget no disponible\" })",
-      "Bash(python -c \"import PIL; print\\('Pillow', PIL.__version__\\)\")"
+      "Bash(python -c \"import PIL; print\\('Pillow', PIL.__version__\\)\")",
+      "PowerShell(Get-ChildItem *)",
+      "PowerShell($q = Get-ChildItem \"$env:USERPROFILE\\\\Desktop\\\\_baks_planots_20260731\" -Recurse -File; \"archivos en cuarentena: \" + $q.Count; \"bytes totales: \" + \\($q | Measure-Object -Property Length -Sum\\).Sum; \"--- archivos de 0 bytes ---\"; $q | Where-Object { $_.Length -eq 0 } | Select-Object -ExpandProperty Name; \"--- \\(vacio arriba = ninguno\\) ---\"; \"--- comparacion con git ---\"; $git = git diff --name-only --diff-filter=D | ForEach-Object { \\($_ -split '/'\\)[-1] } | Sort-Object; $cua = $q | ForEach-Object { $_.Name } | Sort-Object; if \\(Compare-Object $git $cua\\) { \"DIFERENCIAS:\"; Compare-Object $git $cua } else { \"coinciden exactamente los 18 nombres\" })",
+      "PowerShell(git push *)",
+      "PowerShell(git log --oneline -5; \"--- estado ---\"; git status --short --branch)",
+      "PowerShell(npx tsc -p tsconfig.app.json --noEmit)",
+      "PowerShell(git log --oneline -3; \"--- estado ---\"; git status --short --branch)",
+      "PowerShell(Copy-Item *)",
+      "PowerShell(python --version)",
+      "PowerShell(python \"C:\\\\Users\\\\Usuario\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-Usuario-Desktop-Grupo-Diaz-Villaverde-01--D-az-Villaverde-03--Apps-05--Plan-OTs-plan-ots\\\\46956b89-fbd9-4d71-acda-81750b4a1ea8\\\\scratchpad\\\\verify_f0.py\")",
+      "PowerShell(python \"C:\\\\Users\\\\Usuario\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-Usuario-Desktop-Grupo-Diaz-Villaverde-01--D-az-Villaverde-03--Apps-05--Plan-OTs-plan-ots\\\\46956b89-fbd9-4d71-acda-81750b4a1ea8\\\\scratchpad\\\\patch_f0.py\")"
     ]
   }
 }
