@@ -2,6 +2,7 @@
 import { db } from '../db/dexie';
 import { supabase } from '../db/supabase';
 import type { OrdenLocal } from '../types/orden';
+import { ordenPatchToRow, ordenToRow } from '../data/ordenMapper';
 import type { FotoPendiente } from '../db/dexie';
 import {
   subirFoto,
@@ -33,26 +34,6 @@ const TIPOS_CONOCIDOS = new Set(['CREATE_OT', 'UPDATE_OT', 'DELETE_OT', 'UPLOAD_
 // item de cola presente: no es huérfano y el claim lo rechazaría para siempre.
 // Pasado este lease, otra pasada puede robarlo.
 const LEASE_SUBIENDO_MS = 10 * 60 * 1000;
-
-// ─── Mapper local → Supabase (igual que en ordenesStore) ─────────────────────
-function ordenToRow(o: OrdenLocal) {
-  return {
-    id:            o.id,
-    proyecto_id:   o.proyecto_id,
-    ot:            o.ot,
-    ubicacion:     o.ubicacion ?? '',
-    comentarios:   o.descripcion,
-    estado:        o.estado,
-    prioridad:     o.prioridad,
-    responsable:   o.responsable,
-    rubro:         o.rubro,
-    pos_x:         o.pos_x,
-    pos_y:         o.pos_y,
-    plano_ref_url: o.plano_ref_url,
-    campos:        o.campos,
-    conflict_flag: o.conflict_flag,
-  };
-}
 
 // ─── Subida de una foto capturada offline (B2 Fase 3) ────────────────────────
 type Claim =
@@ -184,20 +165,11 @@ async function procesarItem(item: QueueItem & { id?: number }): Promise<Resultad
 
     } else if (item.tipo === 'UPDATE_OT') {
       const { id, campos } = item.payload;
-      // Construir payload limpio para Supabase
-      const patch: Record<string, unknown> = {
+      const { data: { user } } = await supabase.auth.getUser();
+      const patch = ordenPatchToRow(campos, {
         updated_at: new Date().toISOString(),
-      };
-      const camposPublicos: (keyof OrdenLocal)[] = [
-        'ot', 'estado', 'prioridad', 'responsable',
-        'rubro', 'pos_x', 'pos_y', 'plano_ref_url',
-        'campos', 'conflict_flag',
-      ];
-      camposPublicos.forEach(k => {
-        if (k in campos) patch[k] = campos[k as keyof typeof campos];
+        updated_by: user?.id ?? null,
       });
-      if ('descripcion' in campos) patch['comentarios'] = campos.descripcion;
-      if ('ubicacion'   in campos) patch['ubicacion']   = campos.ubicacion;
 
       const { error } = await supabase
         .from('ordenes')

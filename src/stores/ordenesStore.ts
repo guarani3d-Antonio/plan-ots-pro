@@ -4,102 +4,10 @@ import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '../db/supabase';
 import { useAuthStore } from './authStore';
 import { db } from '../db/dexie';
-import type { OrdenLocal, EstadoOT, PrioridadOT } from '../types/orden';
+import type { OrdenLocal } from '../types/orden';
+import { ordenPatchToRow, ordenToRow, rowToOrden } from '../data/ordenMapper';
 
-// ─── Mapper: fila Supabase → OrdenLocal ──────────────────────────────────────
-export function rowToOrden(row: Record<string, unknown>): OrdenLocal {
-  return {
-    id:                         row.id as string,
-    proyecto_id:                row.proyecto_id as string,
-    ot:                         row.ot as string,
-    ubicacion:                  (row.ubicacion as string) ?? '',
-    comentarios:                (row.comentarios as string) ?? '',
-    estado:                     (row.estado as EstadoOT) ?? 'Pendiente',
-    prioridad:                  (row.prioridad as PrioridadOT) ?? 'Media',
-    responsable:                (row.responsable as string) ?? '',
-    rubro:                      (row.rubro as string) ?? '',
-    pos_x:                      (row.pos_x as number) ?? 0,
-    pos_y:                      (row.pos_y as number) ?? 0,
-    plano_ref_url:              (row.plano_ref_url as string) ?? '',
-    campos:                     (row.campos as Record<string, unknown>) ?? {},
-    conflict_flag:              (row.conflict_flag as boolean) ?? false,
-    created_at:                 row.created_at as string,
-    updated_at:                 row.updated_at as string,
-    created_by:                 (row.created_by as string) ?? null,
-    updated_by:                 (row.updated_by as string) ?? null,
-    _synced:                    true,
-    _last_fetched:              Date.now(),
-    fotos_pendientes_upload:    [],
-    fecha_ingreso:              (row.fecha_ingreso as string) ?? undefined,
-    obra:                       (row.obra as string) ?? undefined,
-    unidad_amenities:           (row.unidad_amenities as string) ?? undefined,
-    descripcion:                (row.descripcion as string) ?? undefined,
-    en_garantia:                (row.en_garantia as boolean) ?? false,
-    asiste_facility:            (row.asiste_facility as boolean) ?? false,
-    costo:                      (row.costo as number) ?? undefined,
-    nivel_riesgo:               (row.nivel_riesgo as OrdenLocal['nivel_riesgo']) ?? null,
-    rubro_secundario:           (row.rubro_secundario as string[]) ?? [],
-    contratistas:               (row.contratistas as string[]) ?? [],
-    fecha_inicio_trabajos:      (row.fecha_inicio_trabajos as string) ?? undefined,
-    porcentaje_avance:          (row.porcentaje_avance as number) ?? 0,
-    fecha_fin_trabajos:         (row.fecha_fin_trabajos as string) ?? undefined,
-    reincidencia:               (row.reincidencia as boolean) ?? false,
-    potencialmente_conflictivo: (row.potencialmente_conflictivo as boolean) ?? false,
-    acta_conformidad:           (row.acta_conformidad as OrdenLocal['acta_conformidad']) ?? 'Pendiente',
-    informe_relevamiento:       (row.informe_relevamiento as OrdenLocal['informe_relevamiento']) ?? 'Pendiente',
-    informe_avance:             (row.informe_avance as OrdenLocal['informe_avance']) ?? 'Pendiente',
-    informe_cierre:             (row.informe_cierre as OrdenLocal['informe_cierre']) ?? 'Pendiente',
-    acta_conformidad_url:       (row.acta_conformidad_url as string) ?? undefined,
-    informe_relevamiento_url:   (row.informe_relevamiento_url as string) ?? undefined,
-    informe_avance_url:         (row.informe_avance_url as string) ?? undefined,
-    informe_cierre_url:         (row.informe_cierre_url as string) ?? undefined,
-  };
-}
-
-// ─── Mapper: OrdenLocal → payload para Supabase ───────────────────────────────
-function ordenToRow(o: OrdenLocal) {
-  return {
-    id:                         o.id,
-    proyecto_id:                o.proyecto_id,
-    ot:                         o.ot,
-    ubicacion:                  o.ubicacion ?? '',
-    comentarios:                o.comentarios,
-    estado:                     o.estado,
-    prioridad:                  o.prioridad,
-    responsable:                o.responsable,
-    rubro:                      o.rubro,
-    pos_x:                      o.pos_x,
-    pos_y:                      o.pos_y,
-    plano_ref_url:              o.plano_ref_url,
-    campos:                     o.campos,
-    conflict_flag:              o.conflict_flag,
-    created_by:                 o.created_by  ?? null,
-    updated_by:                 o.updated_by  ?? null,
-    fecha_ingreso:              o.fecha_ingreso ?? null,
-    obra:                       o.obra ?? null,
-    unidad_amenities:           o.unidad_amenities ?? null,
-    descripcion:                o.descripcion ?? null,
-    en_garantia:                o.en_garantia ?? false,
-    asiste_facility:            o.asiste_facility ?? false,
-    costo:                      o.costo ?? null,
-    nivel_riesgo:               o.nivel_riesgo ?? null,
-    rubro_secundario:           o.rubro_secundario ?? [],
-    contratistas:               o.contratistas ?? [],
-    fecha_inicio_trabajos:      o.fecha_inicio_trabajos ?? null,
-    porcentaje_avance:          o.porcentaje_avance ?? 0,
-    fecha_fin_trabajos:         o.fecha_fin_trabajos ?? null,
-    reincidencia:               o.reincidencia ?? false,
-    potencialmente_conflictivo: o.potencialmente_conflictivo ?? false,
-    acta_conformidad:           o.acta_conformidad ?? 'Pendiente',
-    informe_relevamiento:       o.informe_relevamiento ?? 'Pendiente',
-    informe_avance:             o.informe_avance ?? 'Pendiente',
-    informe_cierre:             o.informe_cierre ?? 'Pendiente',
-    acta_conformidad_url:       o.acta_conformidad_url ?? null,
-    informe_relevamiento_url:   o.informe_relevamiento_url ?? null,
-    informe_avance_url:         o.informe_avance_url ?? null,
-    informe_cierre_url:         o.informe_cierre_url ?? null,
-  };
-}
+export { rowToOrden } from '../data/ordenMapper';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function isOnline(): boolean {
@@ -144,6 +52,7 @@ interface OrdenesState {
   crearOrdenEnPosicion:   (proyectoId: string, posX: number, posY: number) => Promise<OrdenLocal>;
   crearOrdenDesdeImport:  (datos: Omit<OrdenLocal, 'id' | '_synced' | '_last_fetched'>) => Promise<string>;
   agregarOActualizarOrden:(orden: OrdenLocal) => void;
+  aplicarEliminacionRemota:(id: string) => void;
   moverOrden:             (id: string, posX: number | null, posY: number | null) => Promise<void>;
   actualizarOrden:        (id: string, cambios: Partial<OrdenLocal>) => Promise<OrdenLocal | null>;
   eliminarOrden:          (id: string) => Promise<void>;
@@ -390,6 +299,16 @@ export const useOrdenesStore = create<OrdenesState>((set, get) => ({
     );
   },
 
+  aplicarEliminacionRemota: (id) => {
+    set(state => ({
+      ordenes: state.ordenes.filter(o => o.id !== id),
+      ordenSeleccionada: state.ordenSeleccionada === id ? null : state.ordenSeleccionada,
+    }));
+    db.ordenes.delete(id).catch(err =>
+      console.error('[ordenesStore] aplicarEliminacionRemota dexie:', err)
+    );
+  },
+
   // ── MOVER ────────────────────────────────────────────────────────────────────
   // posX/posY: number → reubicar | null → "desubicar" (volver al ToolPanel de
   // OTs sin ubicar). OrdenLocal.pos_x/pos_y se declaran `number` pero el runtime
@@ -443,27 +362,10 @@ export const useOrdenesStore = create<OrdenesState>((set, get) => ({
 
     if (isOnline()) {
       const userId = useAuthStore.getState().user?.id ?? null;
-      const supabasePatch: Record<string, unknown> = { updated_at: now, updated_by: userId };
-
-      const camposPublicos: (keyof OrdenLocal)[] = [
-        'ot', 'estado', 'prioridad', 'responsable',
-        'rubro', 'pos_x', 'pos_y', 'plano_ref_url',
-        'campos', 'conflict_flag', 'ubicacion',
-        // Nuevos campos extendidos
-        'fecha_ingreso', 'obra', 'unidad_amenities', 'descripcion',
-        'en_garantia', 'asiste_facility', 'costo', 'nivel_riesgo',
-        'rubro_secundario', 'contratistas',
-        'fecha_inicio_trabajos', 'porcentaje_avance', 'fecha_fin_trabajos',
-        'reincidencia', 'potencialmente_conflictivo',
-        'acta_conformidad', 'informe_relevamiento', 'informe_avance', 'informe_cierre',
-        'acta_conformidad_url', 'informe_relevamiento_url',
-        'informe_avance_url', 'informe_cierre_url',
-      ];
-      camposPublicos.forEach(k => {
-        if (k in cambios) supabasePatch[k] = cambios[k];
+      const supabasePatch = ordenPatchToRow(cambios, {
+        updated_at: now,
+        updated_by: userId,
       });
-      // comentarios es el nombre tanto en OrdenLocal como en Supabase
-      if ('comentarios' in cambios) supabasePatch['comentarios'] = cambios.comentarios;
 
       // `.select().single()` devuelve la fila completa post-update — la fuente
       // de verdad autoritativa contra la que se reemplaza el snapshot local.
