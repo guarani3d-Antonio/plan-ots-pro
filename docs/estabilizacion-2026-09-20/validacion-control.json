@@ -1,0 +1,13 @@
+{
+  "organizations": 2,
+  "projects": 4,
+  "tenantUsers": 10,
+  "platformCreator": 1,
+  "seeded": false,
+  "baselineFilesChanged": [
+    "CLAUDE.md"
+  ],
+  "unexpectedChanges": [],
+  "missingLinks": [],
+  "typecheck": "passed"
+}

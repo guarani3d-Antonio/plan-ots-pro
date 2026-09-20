@@ -1,0 +1,178 @@
+{
+  "scope": "Código actual en VM Node; adaptadores in-memory; sin red; NO es prueba de Supabase ni navegador ni de Dexie real.",
+  "results": [
+    {
+      "id": "T01",
+      "title": "OT sin ubicación pasa a coordenada (0,0) al mapear fila",
+      "status": "REPRODUCIDO",
+      "evidence": {
+        "input": null,
+        "output": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "id": "T02",
+      "title": "Realtime reemplaza fila completa por una versión sin campos extendidos",
+      "status": "REPRODUCIDO",
+      "evidence": {
+        "lost": [
+          "costo",
+          "descripcion",
+          "nivel_riesgo",
+          "porcentaje_avance"
+        ]
+      }
+    },
+    {
+      "id": "T03",
+      "title": "CREATE_OT offline omite autor y campos, mezcla descripción con comentario",
+      "status": "REPRODUCIDO",
+      "evidence": {
+        "lost": [
+          "costo",
+          "descripcion",
+          "nivel_riesgo",
+          "porcentaje_avance",
+          "created_by"
+        ],
+        "comentarios": "descripcion-cliente"
+      }
+    },
+    {
+      "id": "T04",
+      "title": "UPDATE_OT offline confirma sin enviar costo ni fechas ni avance ni comentario original",
+      "status": "REPRODUCIDO",
+      "evidence": {
+        "sentKeys": [
+          "updated_at",
+          "comentarios"
+        ],
+        "queueRemaining": 0
+      }
+    },
+    {
+      "id": "T05",
+      "title": "Tres fallos eliminan definitivamente la operación pendiente de OT",
+      "status": "REPRODUCIDO",
+      "evidence": {
+        "attempts": 3,
+        "queueRemaining": 0
+      }
+    },
+    {
+      "id": "T06",
+      "title": "Confirmación de sync no actualiza _synced en la copia local",
+      "status": "REPRODUCIDO",
+      "evidence": {
+        "queueRemaining": 0,
+        "localSynced": false
+      }
+    },
+    {
+      "id": "T07",
+      "title": "Recarga remota borra OT local no sincronizada",
+      "status": "REPRODUCIDO",
+      "evidence": {
+        "localRows": 0,
+        "pendingQueue": 1
+      }
+    },
+    {
+      "id": "T08",
+      "title": "Restaurar versión devuelve éxito aunque todas las escrituras fallen",
+      "status": "REPRODUCIDO",
+      "evidence": {
+        "reportedSuccess": true,
+        "failedWrites": 1
+      }
+    },
+    {
+      "id": "T09",
+      "title": "Informe general mantiene etiquetas HTML de texto no confiable",
+      "status": "REPRODUCIDO",
+      "evidence": {
+        "unescapedMarkup": true,
+        "sink": "InformePanel iframe srcDoc sin sandbox; se usó marcado inerte, no código activo"
+      }
+    },
+    {
+      "id": "T10",
+      "title": "Informe de cierre actual sí escapa texto (corrección frente a auditoría anterior)",
+      "status": "REPRODUCIDO",
+      "evidence": {
+        "unescapedMarkup": false
+      }
+    },
+    {
+      "id": "T11",
+      "title": "Imagen anotada cambia file_url pero mantiene file_path antiguo",
+      "status": "REPRODUCIDO",
+      "evidence": {
+        "updatedKeys": [
+          "file_url",
+          "anotaciones",
+          "descripcion_observacion"
+        ]
+      }
+    },
+    {
+      "id": "T12",
+      "title": "CSV mantiene fórmula introducida por texto de usuario",
+      "status": "REPRODUCIDO",
+      "evidence": {
+        "formulaUnneutralized": true
+      }
+    },
+    {
+      "id": "T13",
+      "title": "Fallback de proyectos devuelve caché de otro usuario sin filtro de identidad",
+      "status": "REPRODUCIDO",
+      "evidence": {
+        "returnedProject": "p-otro",
+        "authenticatedUser": "usuario-sintetico"
+      }
+    },
+    {
+      "id": "T14",
+      "title": "Campos personalizados se anuncian creados pese a error remoto, sin cola",
+      "status": "REPRODUCIDO",
+      "evidence": {
+        "returnedSuccess": true,
+        "localUnsynced": true,
+        "queue": 0
+      }
+    },
+    {
+      "id": "T15",
+      "title": "Exportación .otproj omite datos extendidos y binarios",
+      "status": "REPRODUCIDO",
+      "evidence": {
+        "files": [
+          "manifest.json",
+          "proyecto.json",
+          "ordenes.json",
+          "README.txt"
+        ],
+        "omitted": [
+          "descripcion",
+          "costo",
+          "nivel_riesgo",
+          "porcentaje_avance"
+        ]
+      }
+    },
+    {
+      "id": "T16",
+      "title": "Simultaneidad: código de OT se calcula a partir de misma lista local",
+      "status": "REPRODUCIDO",
+      "evidence": {
+        "client1Code": "OT-001",
+        "client2Code": "OT-001",
+        "note": "No prueba si el servidor tiene restricción UNIQUE; demuestra colisión de propuesta cliente."
+      }
+    }
+  ]
+}

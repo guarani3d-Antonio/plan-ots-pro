@@ -1,0 +1,1238 @@
+[
+  {
+    "file": ".env.example",
+    "bytes": 0,
+    "category": "configuracion-activo",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "file": ".env.local",
+    "bytes": 321,
+    "category": "configuracion-activo",
+    "sha256": "88dfec60679ac92d8e9a220ba76696a165fa16924b48ecc3e1644077e35f52b0"
+  },
+  {
+    "file": ".gitignore",
+    "bytes": 469,
+    "category": "configuracion-activo",
+    "sha256": "fa91c6fb0f787fa9248af9ddf28196231a284c105dbe725e3c49f68853ae2ba6"
+  },
+  {
+    "file": "audit-F1S0.xml",
+    "bytes": 107586,
+    "category": "historico-generado",
+    "sha256": "d6021c4fe1229557e852dc64a07b08b777b260df80e31763873f45e64b59d2af"
+  },
+  {
+    "file": "audit-informes.xml",
+    "bytes": 140905,
+    "category": "historico-generado",
+    "sha256": "6b0ab166e87d96297135e974998ec91a39baf8bf3f51bef08dd0878a502c8f22"
+  },
+  {
+    "file": "audit-offline.xml",
+    "bytes": 38390,
+    "category": "historico-generado",
+    "sha256": "a6bbc0f7e36d0ae0f8c111628c72eff994866af5ccf02009d6bd29b39a73f018"
+  },
+  {
+    "file": "audit-popup.xml",
+    "bytes": 98471,
+    "category": "historico-generado",
+    "sha256": "a898572028d998422d1f4963648fb34d18a297b0b05408ab93c7b936084f1ebd"
+  },
+  {
+    "file": "AUDITORIA_S37.md",
+    "bytes": 21405,
+    "category": "configuracion-activo",
+    "sha256": "f9d7a625ff7d9f0d30a685e0e4309bd0a98f9745ee8e6198d8c9ca4779d5161e"
+  },
+  {
+    "file": "CLAUDE.md",
+    "bytes": 1659,
+    "category": "configuracion-activo",
+    "sha256": "c0580af6a4f0ef6041431a516a6909e4122231540850c3c6ef774b3d3dd9645c"
+  },
+  {
+    "file": "docs/auditoria/00_INFORME_DEMO.md",
+    "bytes": 16553,
+    "category": "documentacion",
+    "sha256": "b3fafb9804328545f8e26ad44c972fe2b89ca494706c938c9d75edea81e8151e"
+  },
+  {
+    "file": "docs/auditoria/01_BASELINE.md",
+    "bytes": 17397,
+    "category": "documentacion",
+    "sha256": "c0bd5f56332b417947d4bca549c2f6d88458dfef7b2815370c611380fd7b60e7"
+  },
+  {
+    "file": "docs/auditoria/02_FUNCIONALIDAD_INCOMPLETA.md",
+    "bytes": 17630,
+    "category": "documentacion",
+    "sha256": "c1949f607fc27509500cf0a923f0f4974db54293c62e163ce3b00678e6ff2d8d"
+  },
+  {
+    "file": "docs/auditoria/03_CAPA_DATOS.md",
+    "bytes": 28729,
+    "category": "documentacion",
+    "sha256": "cf3290144dde0ab0d23a6081c25acbfcf64705498640799257c45570921495f0"
+  },
+  {
+    "file": "docs/auditoria/04_FLUJOS_DEMO.md",
+    "bytes": 27001,
+    "category": "documentacion",
+    "sha256": "7d8d0292edfe4ce7a2fc33eaaf9f95aff718dab9ede6a42f1f698fc89a4391d7"
+  },
+  {
+    "file": "docs/mockups/Mockup_v5_1_PlanOTs_TABLET.html.html",
+    "bytes": 636133,
+    "category": "documentacion",
+    "sha256": "1f630d36c2a6e9a6dcf80a222783babc374568e875eeb220e64afb629b168e4e"
+  },
+  {
+    "file": "docs/tablet/S37-T_PENDIENTES_DISPOSITIVO.md",
+    "bytes": 5468,
+    "category": "documentacion",
+    "sha256": "4f90126fe0f904a308a2e4c5bcf982146ce05c015418f653d521e397d50da165"
+  },
+  {
+    "file": "eslint.config.js",
+    "bytes": 591,
+    "category": "configuracion-activo",
+    "sha256": "cf80a7510234dcd5ae594b30b44682b8b45ba13c0fcb5bf8928bea143802aa1c"
+  },
+  {
+    "file": "estructura.txt",
+    "bytes": 3692,
+    "category": "configuracion-activo",
+    "sha256": "74468359128602f690c6f2bbb5192c6e9337825509b14381a4f56a25fde58fd2"
+  },
+  {
+    "file": "index.html",
+    "bytes": 456,
+    "category": "configuracion-activo",
+    "sha256": "08c490e1a84488e63cdf4e7912398501789814faa49ae2ce2db9d241d0aa5d2d"
+  },
+  {
+    "file": "ordenesstore_backup.txt",
+    "bytes": 16649,
+    "category": "historico-generado",
+    "sha256": "564881f47147b04b2a3562051a571f40896f95906546113e7502d215869099c9"
+  },
+  {
+    "file": "package-lock.json",
+    "bytes": 306768,
+    "category": "configuracion-activo",
+    "sha256": "1b0b4a88aa2a6075fff4e98f36da5813c1fd183d393bd4f571fee22c27871029"
+  },
+  {
+    "file": "package.json",
+    "bytes": 1222,
+    "category": "configuracion-activo",
+    "sha256": "d2c500fb2a81dac9ff1e4a20d655981bdabca5fbfd67cebe64aaef8b60c6288e"
+  },
+  {
+    "file": "panelresumen_backup.txt",
+    "bytes": 4405,
+    "category": "historico-generado",
+    "sha256": "6d5bfa351c662a44829a44a8c27dea1c4a56ba83f08a14f9e0a55e119e482c33"
+  },
+  {
+    "file": "patch_accent_color.py",
+    "bytes": 1240,
+    "category": "historico-generado",
+    "sha256": "05e90dc91ca25e8d6556f7acb04db96f30a3ce939ec2e5519e839c817d167966"
+  },
+  {
+    "file": "patch_comparador_labels.py",
+    "bytes": 1110,
+    "category": "historico-generado",
+    "sha256": "20a2380679b8bf1110bda9b103d8a47656c96d28fca3e6acd3518b30bc0af728"
+  },
+  {
+    "file": "patch_confirm_ui.py",
+    "bytes": 3378,
+    "category": "historico-generado",
+    "sha256": "42c5a2c44030b7f0ffd852d541a1044c460b783b5bdd0b35792d99c91ff24617"
+  },
+  {
+    "file": "patch_panelot.py",
+    "bytes": 630,
+    "category": "historico-generado",
+    "sha256": "958bc1147b1eb154684b414381888c912d971bc820a5b66c15fcfe04ee0384db"
+  },
+  {
+    "file": "patch_panelot_ia.py",
+    "bytes": 5208,
+    "category": "historico-generado",
+    "sha256": "d9b5abe924b075f97dcc00ed04cd8884dabf01db1c08130c5e86639a5063ee92"
+  },
+  {
+    "file": "patch_report.py",
+    "bytes": 2796,
+    "category": "historico-generado",
+    "sha256": "3104d3c6f422f435b6f01e807f9ad5db42b7740ecbbf585826d8bcaf97672076"
+  },
+  {
+    "file": "patch_s35a_1_modal.py",
+    "bytes": 7131,
+    "category": "historico-generado",
+    "sha256": "73df3f9d5ce530ba357de3b1e4235a86da98640cf59012ad4b7a000e85735a79"
+  },
+  {
+    "file": "patch_s35a_2_css.py",
+    "bytes": 4889,
+    "category": "historico-generado",
+    "sha256": "d2fcaed4b13cad9c0c198e2950e77e1f3a11d3e8673089adc18440badffa3cef"
+  },
+  {
+    "file": "patch_s35a_3_service.py",
+    "bytes": 1520,
+    "category": "historico-generado",
+    "sha256": "c5508a6a94a1b535e15b4195b836bf008dac71a491e69efd7b2c1bd41ab06ece"
+  },
+  {
+    "file": "patch_s35a_4_vistaplano.py",
+    "bytes": 5321,
+    "category": "historico-generado",
+    "sha256": "c13176c3d4ade5bcef11b665de7ebe040066186fa27a7ab515f667c6bc5af191"
+  },
+  {
+    "file": "patch_s35a_fix_unicode.py",
+    "bytes": 999,
+    "category": "historico-generado",
+    "sha256": "89791e89c7f7f0f838bcc5f174e2eeccf4e03dc07d959addf3531a431723dd91"
+  },
+  {
+    "file": "patch_s35a_noflash.py",
+    "bytes": 1200,
+    "category": "historico-generado",
+    "sha256": "e01cbfe71f074bff260f26058639c090d56b2b4461f20f1c8207844ad3cdd9cb"
+  },
+  {
+    "file": "patch_s35a_prefetch.py",
+    "bytes": 5205,
+    "category": "historico-generado",
+    "sha256": "ad20aca5241bb60d2aca2a827bdcca325c3eadfbbe7ee8a22561aec430dc4ad7"
+  },
+  {
+    "file": "patch_s35c_presel.py",
+    "bytes": 3828,
+    "category": "historico-generado",
+    "sha256": "1898cc834ed48d067af46e6b8a6c423f9e416dc9e70a3a6c31cb40c014f2ea26"
+  },
+  {
+    "file": "patch_s36a_panelot.py",
+    "bytes": 1626,
+    "category": "historico-generado",
+    "sha256": "2a4635537e5005fac96a2a535ccfef8ea40d6cec207227d105eba5e2327b6479"
+  },
+  {
+    "file": "patch_s36a_vistaplano.py",
+    "bytes": 1577,
+    "category": "historico-generado",
+    "sha256": "d33b1f0407ad49ecb4a0ebef5db2db16b982ed38b0cbac6b20dc524da8c00182"
+  },
+  {
+    "file": "public/favicon.svg",
+    "bytes": 9522,
+    "category": "configuracion-activo",
+    "sha256": "61bc9a161de58248288e6905425d7180f0624c2865007b97d763fdac12043a66"
+  },
+  {
+    "file": "public/icon-192.png",
+    "bytes": 5511,
+    "category": "configuracion-activo",
+    "sha256": "753820010fcf48e2ccfe271708f5c41eb842359c298a9770256abd6d9e4525ae"
+  },
+  {
+    "file": "public/icon-512.png",
+    "bytes": 19738,
+    "category": "configuracion-activo",
+    "sha256": "73d059015ffc8d6f2c43a52f1d948a6296c4cbae858b1337a4e0df6ce003610c"
+  },
+  {
+    "file": "public/icons.svg",
+    "bytes": 5031,
+    "category": "configuracion-activo",
+    "sha256": "b45fa506195cfcdef406ba9f0c77b36ddc1a7c224040926ec70abc2fdea7b93a"
+  },
+  {
+    "file": "public/manifest.json",
+    "bytes": 668,
+    "category": "configuracion-activo",
+    "sha256": "2761ca9dc5b3ae4b2eddb4960d60e0dde54f5689ba0cbc5d8d1e811ceb4ea84a"
+  },
+  {
+    "file": "public/obra_bg.jpg",
+    "bytes": 353124,
+    "category": "configuracion-activo",
+    "sha256": "633d06f3ac5ce4542d543920c4795edcba0e344d61f20b1e7975dac9d7932b79"
+  },
+  {
+    "file": "public/_redirects",
+    "bytes": 19,
+    "category": "configuracion-activo",
+    "sha256": "6036983e5fc00f0169c9e939b1816ed771eee00e27f2fcc517b819041460b9ef"
+  },
+  {
+    "file": "qwen-1-base.md",
+    "bytes": 96233,
+    "category": "configuracion-activo",
+    "sha256": "61c30fd99fd8fcf2b84425a682f196a9d2c851a33edd5db888a171e7fa349f6f"
+  },
+  {
+    "file": "qwen-2-plano.md",
+    "bytes": 298832,
+    "category": "configuracion-activo",
+    "sha256": "ff9e4db7b4e7695319b60a179d7da9f5f197529ddba124df4e9b12fe4f54cde4"
+  },
+  {
+    "file": "qwen.md",
+    "bytes": 934913,
+    "category": "configuracion-activo",
+    "sha256": "25444a5fb4715a8cfe8f2432425b0021bc49fa84e883c45278ffd0550ec4ac63"
+  },
+  {
+    "file": "README.md",
+    "bytes": 2425,
+    "category": "configuracion-activo",
+    "sha256": "8dc9e0ee2281acb3324624fbe6eb7e1377cc626f616ea4dc90e3a90ae094374d"
+  },
+  {
+    "file": "repomix-output.xml",
+    "bytes": 1475709,
+    "category": "historico-generado",
+    "sha256": "7260ff5fb75652c530e99d83120dfbb8fa92485009617d8cb716e71621571a8e"
+  },
+  {
+    "file": "repomix.config.json",
+    "bytes": 542,
+    "category": "historico-generado",
+    "sha256": "895e073919413f31113a2057130079af806003887fbf0ef047a3ddce15dbc3ce"
+  },
+  {
+    "file": "repomix.qwen.json",
+    "bytes": 780,
+    "category": "historico-generado",
+    "sha256": "5c8783d7284cca375516de113ee03ffb2dc15ea761a15158b3a5c8fdef43b410"
+  },
+  {
+    "file": "scripts/preflight-deploy.mjs",
+    "bytes": 13303,
+    "category": "configuracion-activo",
+    "sha256": "05a933196282baf3704067be5eb6b11c29be527bd049d4f30ac68279effea570"
+  },
+  {
+    "file": "skills-lock.json",
+    "bytes": 272,
+    "category": "configuracion-activo",
+    "sha256": "96fe9c6311fea65d1a62fff473b61481e785107c303c8a28b6207644b0436880"
+  },
+  {
+    "file": "src/App.css",
+    "bytes": 2891,
+    "category": "fuente",
+    "sha256": "6e25a776d3e8102da5bacb3cb99f4a5fc662a2e01e6143140671a556d28c3d5c"
+  },
+  {
+    "file": "src/App.module.css",
+    "bytes": 898,
+    "category": "fuente",
+    "sha256": "571e8f7c6051ec8524f5629a459d70d7d0da9dfcfddcf298be7248b56cb6b3dd"
+  },
+  {
+    "file": "src/App.tsx",
+    "bytes": 13087,
+    "category": "fuente",
+    "sha256": "8e5e83dc1ed748a58829200f56022e0b23775e01e666efac0994a4158411b1c2"
+  },
+  {
+    "file": "src/App.tsx.bak-P0",
+    "bytes": 12990,
+    "category": "historico-generado",
+    "sha256": "776d61a497a9c25d7adf4ab86e8aca542aea1a133f0d13631c12fce956a64a1f"
+  },
+  {
+    "file": "src/assets/hero.png",
+    "bytes": 13057,
+    "category": "fuente",
+    "sha256": "881ffbcaafc212e49addad08846a5b82761355fa20624253af3477ba33262c5c"
+  },
+  {
+    "file": "src/assets/react.svg",
+    "bytes": 4126,
+    "category": "fuente",
+    "sha256": "35ef61ed53b323ae94a16a8ec659b3d0af3880698791133f23b084085ab1c2e5"
+  },
+  {
+    "file": "src/assets/vite.svg",
+    "bytes": 8709,
+    "category": "fuente",
+    "sha256": "5be21acd42eb7b896e517f4e0f0f11eb5c5d9e54fbbcebe9453f033008fcca6f"
+  },
+  {
+    "file": "src/components/ayuda/PantallaAyuda.module.css",
+    "bytes": 3292,
+    "category": "fuente",
+    "sha256": "c94ef7360ab59b6fed164f299f087c1aab0ef2ceeddb4cd4d177fb3af9039e47"
+  },
+  {
+    "file": "src/components/ayuda/PantallaAyuda.tsx",
+    "bytes": 7451,
+    "category": "fuente",
+    "sha256": "288b679858d364c10add5d69da13beb4fb5b353c294e4916b49e9dff8aef5627"
+  },
+  {
+    "file": "src/components/ayuda/TooltipAyuda.module.css",
+    "bytes": 1152,
+    "category": "fuente",
+    "sha256": "772c2310ee9a8f3045c9970e521f1f33fc9d7ea87193a31da0d2cf891be4a7c3"
+  },
+  {
+    "file": "src/components/ayuda/TooltipAyuda.tsx",
+    "bytes": 3864,
+    "category": "fuente",
+    "sha256": "4e6f73a19c5dd01d3c7d967a549e5597fec963c7f8ba8070e7fc6b55e8b5080b"
+  },
+  {
+    "file": "src/components/ayuda/TourGuiado.module.css",
+    "bytes": 1964,
+    "category": "fuente",
+    "sha256": "4774f15522734d43cbe006ef678f15f544b073893a80759def26e5e792ae39ff"
+  },
+  {
+    "file": "src/components/ayuda/TourGuiado.tsx",
+    "bytes": 5546,
+    "category": "fuente",
+    "sha256": "91fe927f5bd16cb49c8c38e0fcf89d0529ef9fa6c87d94aed16c0c7213b9975e"
+  },
+  {
+    "file": "src/components/dashboard/Dashboard.module.css",
+    "bytes": 11441,
+    "category": "fuente",
+    "sha256": "fd8985a13e290b2a14e979e842505e971702c8f54fe76e553b147a4b0d43b8b0"
+  },
+  {
+    "file": "src/components/dashboard/Dashboard.tsx",
+    "bytes": 17136,
+    "category": "fuente",
+    "sha256": "4a91784caa8d66ee0617716e93e0dec76c5ccc8ad75b39978a851db541d0e46b"
+  },
+  {
+    "file": "src/components/dashboard/ModalConfigWidgets.module.css",
+    "bytes": 4099,
+    "category": "fuente",
+    "sha256": "12f17e2ccb9f726f82241d90e6e010fbf22ec71ab78aab4abde28c351fcfaed5"
+  },
+  {
+    "file": "src/components/dashboard/ModalConfigWidgets.tsx",
+    "bytes": 3418,
+    "category": "fuente",
+    "sha256": "789102d6bd6505cc449a3cbe81c20e6e27bf78fe23a042d9abf590e22ee9bc13"
+  },
+  {
+    "file": "src/components/grilla/ModalDetalleOT.module.css",
+    "bytes": 7400,
+    "category": "fuente",
+    "sha256": "6db9ed30ccf798d7168b413f1a6c711bbd8cf843daa8c83d90885f1cda80371e"
+  },
+  {
+    "file": "src/components/grilla/ModalDetalleOT.tsx",
+    "bytes": 14447,
+    "category": "fuente",
+    "sha256": "2fbed79554cc7300aaad151dad1a93031c9c5073396e32866b3f23e9d2bb5116"
+  },
+  {
+    "file": "src/components/grilla/VistaGrilla.module.css",
+    "bytes": 17222,
+    "category": "fuente",
+    "sha256": "9aa816c3f9660ff8eaa3ae9036f78eceecfd1e49e6adea34ecbf78cc91cca99d"
+  },
+  {
+    "file": "src/components/grilla/VistaGrilla.tsx",
+    "bytes": 68632,
+    "category": "fuente",
+    "sha256": "989188a07c4bf1b827950dfae91e4bb13b3208d36000e8ddf8624e296e1979da"
+  },
+  {
+    "file": "src/components/informes/InformePanel.module.css",
+    "bytes": 11146,
+    "category": "fuente",
+    "sha256": "c136fc575d87a62065eaa70e8d01a01e2e293a87f5e516159e799579133384c9"
+  },
+  {
+    "file": "src/components/informes/InformePanel.tsx",
+    "bytes": 11949,
+    "category": "fuente",
+    "sha256": "51fcc2334f8b9bea8e8e5453617db3dd170927ffbba057b93b82ae94c0a17b6b"
+  },
+  {
+    "file": "src/components/informes/ModalInformeOT.module.css",
+    "bytes": 10434,
+    "category": "fuente",
+    "sha256": "038506db095eae16dadec8f0f9846020da15bc33cbcf7e7d18304c97ec7fce35"
+  },
+  {
+    "file": "src/components/informes/ModalInformeOT.tsx",
+    "bytes": 18182,
+    "category": "fuente",
+    "sha256": "97f1dc3073e0976846bbb20c3dc63b84a0c9c2c55c3883a7251a0d41b8a03fc9"
+  },
+  {
+    "file": "src/components/informes/ModalInformeOT.tsx.bak-A1",
+    "bytes": 18016,
+    "category": "historico-generado",
+    "sha256": "a42bcb4e978f60c1d5b15160b7fcc31e392c4ad4a21a6cbb20768124cc0e87db"
+  },
+  {
+    "file": "src/components/layout/Sidebar.module.css",
+    "bytes": 7349,
+    "category": "fuente",
+    "sha256": "14ec9a4b5bc8f925faed92a1edc76b2993e1dfd985a604db5aa1c43b60ce0bc4"
+  },
+  {
+    "file": "src/components/layout/Sidebar.tsx",
+    "bytes": 7511,
+    "category": "fuente",
+    "sha256": "a93c8937f0f5375e682ee43cdbdf7fa9c4b326e27807e2e2867cc42256dfebe2"
+  },
+  {
+    "file": "src/components/plano/CampoRenderer.module.css",
+    "bytes": 4077,
+    "category": "fuente",
+    "sha256": "18f059fce22be7d7e9b596bdacdc93c80616e2ad42743e0c5ed83a125b1035cf"
+  },
+  {
+    "file": "src/components/plano/CampoRenderer.tsx",
+    "bytes": 10943,
+    "category": "fuente",
+    "sha256": "9899a0fad333fd4484cbb1458b57d7446e54b88e1e7e4b28f51cb44ad1d10a63"
+  },
+  {
+    "file": "src/components/plano/CampoVideo.module.css",
+    "bytes": 1856,
+    "category": "fuente",
+    "sha256": "10d841f4745d18c19967539ef191937c1609da2a64b8a120d9d681abd42631a5"
+  },
+  {
+    "file": "src/components/plano/CampoVideo.tsx",
+    "bytes": 9401,
+    "category": "fuente",
+    "sha256": "c010d530c5b609c5672d79e25787fce109fc67c8eca46bea165495a61d2cca6a"
+  },
+  {
+    "file": "src/components/plano/ComparadorVersiones.module.css",
+    "bytes": 10447,
+    "category": "fuente",
+    "sha256": "15230452cc3d4b7fb5402767f8a73098a89e3de5ddbbaad4264ca34f0ac7f3c3"
+  },
+  {
+    "file": "src/components/plano/ComparadorVersiones.tsx",
+    "bytes": 26027,
+    "category": "fuente",
+    "sha256": "dbe29d84de77e7b55dd8a01de32498fc100b5789b073eb783896e5b112180729"
+  },
+  {
+    "file": "src/components/plano/EditorFoto.module.css",
+    "bytes": 12487,
+    "category": "fuente",
+    "sha256": "74ab7b862f6b16faefcf2f13d671c91e2b4aabb36706e0e1e3d2dd2351bb8fc4"
+  },
+  {
+    "file": "src/components/plano/EditorFoto.tsx",
+    "bytes": 28969,
+    "category": "fuente",
+    "sha256": "aa584929e37ba68f202f657c7a4461c694e449d6054e6e5d4871f064f057e28d"
+  },
+  {
+    "file": "src/components/plano/GestorCampos.module.css",
+    "bytes": 5052,
+    "category": "fuente",
+    "sha256": "819b3db9501121a6a4708d7f9da92f83a8ad5c857796fe069ed5cebdbea7112e"
+  },
+  {
+    "file": "src/components/plano/GestorCampos.tsx",
+    "bytes": 11792,
+    "category": "fuente",
+    "sha256": "77c7a707ed4803b5f73b816b6e9745575f4e5f7f28ec4be0ef34928562bda0e2"
+  },
+  {
+    "file": "src/components/plano/HistorialComentarios.module.css",
+    "bytes": 1550,
+    "category": "fuente",
+    "sha256": "d235083d4e7a3e63193499dcd0412ad917b2d0102de108fb0fc2a6ea9fca334e"
+  },
+  {
+    "file": "src/components/plano/HistorialComentarios.tsx",
+    "bytes": 3002,
+    "category": "fuente",
+    "sha256": "240a4093fc308570fbd5e93a3cf785cddb997c812459ebdc29424d5c39a6ab8f"
+  },
+  {
+    "file": "src/components/plano/Marcador.module.css",
+    "bytes": 1374,
+    "category": "fuente",
+    "sha256": "98a866bde83294cd23759c976777d89047e6e58972cf2c1b4d7b59a5d89d381d"
+  },
+  {
+    "file": "src/components/plano/Marcador.tsx",
+    "bytes": 1940,
+    "category": "fuente",
+    "sha256": "c08625398e4fce6f5094f97b26af8d7975127bfed7f7d7246325a697be363e10"
+  },
+  {
+    "file": "src/components/plano/ModalComentarioEstado.module.css",
+    "bytes": 2348,
+    "category": "fuente",
+    "sha256": "b884ac1e2bc29f8c395b6a3f297796fb8bc37282b67d98caab4746e1ff7586f9"
+  },
+  {
+    "file": "src/components/plano/ModalComentarioEstado.tsx",
+    "bytes": 3615,
+    "category": "fuente",
+    "sha256": "9568170b0a39d64c61e1f591d77063718561fbe911f99fb59e0ebfbc2e322a6d"
+  },
+  {
+    "file": "src/components/plano/ModalDescripcionFoto.module.css",
+    "bytes": 4072,
+    "category": "fuente",
+    "sha256": "1e3728ddbfd7342ef80fcbeb94be905b1f28367dad39bccb065488946323c5de"
+  },
+  {
+    "file": "src/components/plano/ModalDescripcionFoto.tsx",
+    "bytes": 3532,
+    "category": "fuente",
+    "sha256": "7fa63507da0dedf6f6458350b4bcd24e780b20e6ab4bf244fbec6f68403be932"
+  },
+  {
+    "file": "src/components/plano/ModalDuplicadosOT.module.css",
+    "bytes": 2481,
+    "category": "fuente",
+    "sha256": "0d3d2c5be94d529943f60739dcdf5bc420c88f8f30e6460cdcdf9b3da9a5b54b"
+  },
+  {
+    "file": "src/components/plano/ModalDuplicadosOT.tsx",
+    "bytes": 2322,
+    "category": "fuente",
+    "sha256": "2a4e23b62d9f02522cc730be985cacfe0e8b3fdd89679ebf608d9115e666966f"
+  },
+  {
+    "file": "src/components/plano/ModalFotoDetalle.module.css",
+    "bytes": 4071,
+    "category": "fuente",
+    "sha256": "92ec491ed201bef11fd78f0154022dc298ee0a2c220005f0fc5ee749f5882aa8"
+  },
+  {
+    "file": "src/components/plano/ModalFotoDetalle.tsx",
+    "bytes": 5596,
+    "category": "fuente",
+    "sha256": "e4e01e2bfaa758550c31aa18f23ff8a02963195ad99c0aa3d0649c507159b09d"
+  },
+  {
+    "file": "src/components/plano/ModalImportCSV.tsx",
+    "bytes": 32763,
+    "category": "fuente",
+    "sha256": "d3de3e0880c0ab07241b23eb42ce06f10a3f62ce2f40fb615d50cdc577dbf77e"
+  },
+  {
+    "file": "src/components/plano/ModalImportPendiente.module.css",
+    "bytes": 2213,
+    "category": "fuente",
+    "sha256": "1468331e02da52c2e29852f4143a81ac591481d3c9035b6de0f8b63e45176ab7"
+  },
+  {
+    "file": "src/components/plano/ModalImportPendiente.tsx",
+    "bytes": 2002,
+    "category": "fuente",
+    "sha256": "8d2a5f97fe49340fbfaa3443be20352a1e16f21222f91dde85a6e7f35807e94b"
+  },
+  {
+    "file": "src/components/plano/ModalVersiones.module.css",
+    "bytes": 6042,
+    "category": "fuente",
+    "sha256": "9e3973864364511209ada4823f69b76eabc04419fd9621551e59ad7394371e44"
+  },
+  {
+    "file": "src/components/plano/ModalVersiones.tsx",
+    "bytes": 8603,
+    "category": "fuente",
+    "sha256": "ee846ce2eac0fbc977a67ad13a0f6014e521eb5c80ecb23f95aa1ac26d983865"
+  },
+  {
+    "file": "src/components/plano/MultiSelectRubro.module.css",
+    "bytes": 3159,
+    "category": "fuente",
+    "sha256": "92c5cd3cb395fd273f5a2498ab1a84bca379f66e14ce0fd8816bffe2b1682e29"
+  },
+  {
+    "file": "src/components/plano/MultiSelectRubro.tsx",
+    "bytes": 5364,
+    "category": "fuente",
+    "sha256": "6ba92b72bb6c2bf737d20ccecef1be7a3b34e7795f20a0845b68fe2e80a8f84c"
+  },
+  {
+    "file": "src/components/plano/PanelComentarios.module.css",
+    "bytes": 2744,
+    "category": "fuente",
+    "sha256": "5074c5f2aed4090ac42ea9c77468c2151931f795bcca2f078aeca7191015330b"
+  },
+  {
+    "file": "src/components/plano/PanelComentarios.tsx",
+    "bytes": 5349,
+    "category": "fuente",
+    "sha256": "084916ac96f66137ce1d292a34accd1114bf4fd726ffb321c790463b03acced5"
+  },
+  {
+    "file": "src/components/plano/PanelOT.module.css",
+    "bytes": 16309,
+    "category": "fuente",
+    "sha256": "f674679715e3ee97bd6461c1637a623289c8f7d6ff3f1f9d7c2f6952dbe10407"
+  },
+  {
+    "file": "src/components/plano/PanelOT.tsx",
+    "bytes": 70805,
+    "category": "fuente",
+    "sha256": "9d7b425b359539a1c7a09cb723896001835a6cf7eed1579485ed274dd59f1e2d"
+  },
+  {
+    "file": "src/components/plano/PanelOT.tsx.bak",
+    "bytes": 70805,
+    "category": "historico-generado",
+    "sha256": "9d7b425b359539a1c7a09cb723896001835a6cf7eed1579485ed274dd59f1e2d"
+  },
+  {
+    "file": "src/components/plano/PanelOT.tsx.bak-B2-C1",
+    "bytes": 51814,
+    "category": "historico-generado",
+    "sha256": "68bd87439f80c00044b383e53c7183b85d969d033b5bfa08a98197879300ffa8"
+  },
+  {
+    "file": "src/components/plano/PanelOT.tsx.bak-B2-C1b",
+    "bytes": 53704,
+    "category": "historico-generado",
+    "sha256": "b36d27bd84f6c9cd27424b0d2523bb628c9931fd2dd8cd1bbad7daaf36a0d647"
+  },
+  {
+    "file": "src/components/plano/PanelOT.tsx.bak-B2-C2",
+    "bytes": 55270,
+    "category": "historico-generado",
+    "sha256": "912142dc53e16feac7846a885acdfe0c58209dbfa2c4d8978bb5a4d13d3f0696"
+  },
+  {
+    "file": "src/components/plano/PanelOT.tsx.bak-B2-F4",
+    "bytes": 63165,
+    "category": "historico-generado",
+    "sha256": "fb52fed9fff137b42cbd763b8525ca2b0001b42d4477280c5e24d9964a5d6126"
+  },
+  {
+    "file": "src/components/plano/PanelOT.tsx.bak-camara",
+    "bytes": 50269,
+    "category": "historico-generado",
+    "sha256": "c4b2dc9a0f2a12f73bbac19ae88d627a760b35929a9334c2544d4ebf4791768c"
+  },
+  {
+    "file": "src/components/plano/PanelOT.tsx.bak-P0-6",
+    "bytes": 69448,
+    "category": "historico-generado",
+    "sha256": "f8fb5287e809e21c863f82e7f485f94cceddea22ec23ddde75e31a3e6eb06439"
+  },
+  {
+    "file": "src/components/plano/PanelOT.tsx.bak-P0-7",
+    "bytes": 69724,
+    "category": "historico-generado",
+    "sha256": "8e5d0d7e748e5c7af3ae5a26bcabbb3cd33d4ba64ba986ba71e52c2e8c5c6543"
+  },
+  {
+    "file": "src/components/plano/PanelResumen.module.css",
+    "bytes": 3689,
+    "category": "fuente",
+    "sha256": "8dd4c1463f7a39740900850777319490136e30674f16b5f8f2f6d9e96644ace5"
+  },
+  {
+    "file": "src/components/plano/PanelResumen.tsx",
+    "bytes": 9592,
+    "category": "fuente",
+    "sha256": "da6fd04064bc373ad147b30d4e8e96b4570c873da7393aaa052d52bac0b1200b"
+  },
+  {
+    "file": "src/components/plano/ToolPanel.module.css",
+    "bytes": 2142,
+    "category": "fuente",
+    "sha256": "d562a68df9ccb28f7754cd19111a8e03ff631f2e26a357e0d7e301d9ce26279f"
+  },
+  {
+    "file": "src/components/plano/ToolPanel.tsx",
+    "bytes": 2516,
+    "category": "fuente",
+    "sha256": "ea252e7b999304a693d437b2d3be999187c4c66ac9b0abe427e0e49f3c60520c"
+  },
+  {
+    "file": "src/components/plano/VisorFotos.module.css",
+    "bytes": 12493,
+    "category": "fuente",
+    "sha256": "550757f517d5868f840f458247de863eca71faee502764a5fc6261e63c99b923"
+  },
+  {
+    "file": "src/components/plano/VisorFotos.tsx",
+    "bytes": 27879,
+    "category": "fuente",
+    "sha256": "18a9c02d06cbdbb350094baef14710c41557382087744fba4d649ac99c070855"
+  },
+  {
+    "file": "src/components/plano/VistaPlano.module.css",
+    "bytes": 9569,
+    "category": "fuente",
+    "sha256": "baf4036ab28a776567bb74dd4e1665fa6befea4c1f2ac5c8ba7777613bb107ee"
+  },
+  {
+    "file": "src/components/plano/VistaPlano.tsx",
+    "bytes": 23366,
+    "category": "fuente",
+    "sha256": "dca848d78e56c48d1691a80d1da964b941d669992b5f26dd15b596897464c653"
+  },
+  {
+    "file": "src/components/plano3d/FpsCounter.tsx",
+    "bytes": 1115,
+    "category": "fuente",
+    "sha256": "ad13426d2d5df81efc13e5ded96912637ab17debb8079556fee58c7cd6839e4c"
+  },
+  {
+    "file": "src/components/plano3d/PanelCapas3D.tsx",
+    "bytes": 3615,
+    "category": "fuente",
+    "sha256": "84c8e302d8137848548d8ae64cc9e86b95f436d5a6a58b354e269f5888995bdd"
+  },
+  {
+    "file": "src/components/plano3d/VisorPlano3D.module.css",
+    "bytes": 3279,
+    "category": "fuente",
+    "sha256": "7b06c2a324423ead0b1ad494b7952bcd992031ee8196b31f7d931a6ccf17a91c"
+  },
+  {
+    "file": "src/components/plano3d/VisorPlano3D.tsx",
+    "bytes": 12688,
+    "category": "fuente",
+    "sha256": "a45f80028ca4b89bad8326a8786af66373d9734dd053d8cba3132197b5bf1862"
+  },
+  {
+    "file": "src/components/proyecto/ModalNuevoProyecto.module.css",
+    "bytes": 5101,
+    "category": "fuente",
+    "sha256": "f9b9c50cc39e2cb9130fa2eaa6a27ff3471009db4266ead7ed65425779f37e55"
+  },
+  {
+    "file": "src/components/proyecto/ModalNuevoProyecto.tsx",
+    "bytes": 9837,
+    "category": "fuente",
+    "sha256": "3da445c64ec1ac6856bab8a1b0f4e9fccfda8a50abdd5e68b695d514c9885b9f"
+  },
+  {
+    "file": "src/components/proyecto/PlanoThumb.tsx",
+    "bytes": 3509,
+    "category": "fuente",
+    "sha256": "a72dccf6497b59bbc3028ba7fe1bb50571a6a76dac29791c7a83908152dd89cb"
+  },
+  {
+    "file": "src/components/proyecto/SelectorProyectos.module.css",
+    "bytes": 6652,
+    "category": "fuente",
+    "sha256": "fa2a5e7fe19fae4b06d2db85f15143ce35e399fa3b50309bd857c55ccb6c033a"
+  },
+  {
+    "file": "src/components/proyecto/SelectorProyectos.tsx",
+    "bytes": 16311,
+    "category": "fuente",
+    "sha256": "a7ab06c21896ccd5d4ba5cd28deff18ddde0f6c5cb5d89980d84c9d43589ec2f"
+  },
+  {
+    "file": "src/components/ui/AuthForm.module.css",
+    "bytes": 4846,
+    "category": "fuente",
+    "sha256": "1d6daffa428381f0655f11503faf3c475d62492116565e771e6852ccebbf2279"
+  },
+  {
+    "file": "src/components/ui/AuthForm.tsx",
+    "bytes": 6587,
+    "category": "fuente",
+    "sha256": "6fceb1483b3715e65fb4453bf0691bba7ba8b74d925e4a9e5cdcb1e0f9eab28b"
+  },
+  {
+    "file": "src/components/ui/AuthForm.tsx.bak",
+    "bytes": 5885,
+    "category": "historico-generado",
+    "sha256": "1dc457ab1b01fa81645186d9c1d8fd4ccf1ba5802b0bb787928f5628f735a15d"
+  },
+  {
+    "file": "src/components/ui/CalendarPicker.module.css",
+    "bytes": 1890,
+    "category": "fuente",
+    "sha256": "303d700017d0a01530b4a6ce89937d3bad16a05e098df1f0789fe874744a4043"
+  },
+  {
+    "file": "src/components/ui/CalendarPicker.tsx",
+    "bytes": 3310,
+    "category": "fuente",
+    "sha256": "e4645704f37296d4da93570ebfaede74ed8bcc634e533712faa61f38e1089781"
+  },
+  {
+    "file": "src/components/ui/Notificaciones.module.css",
+    "bytes": 6472,
+    "category": "fuente",
+    "sha256": "eecd1ee25623239391bd429857be3e28a3788e6e880240aaf0d6995b2572b27a"
+  },
+  {
+    "file": "src/components/ui/Notificaciones.tsx",
+    "bytes": 10997,
+    "category": "fuente",
+    "sha256": "6cff48a06d7a4120a4ba32ce70ead1ba2d13c8dbe36226af2921d7f6a1177704"
+  },
+  {
+    "file": "src/components/ui/Toast.tsx",
+    "bytes": 2294,
+    "category": "fuente",
+    "sha256": "7866f96d8aa267eacd6fd2d8c802ac99eb42c9f5dc143efcab3186f978e4a184"
+  },
+  {
+    "file": "src/components/views/Calendario.tsx",
+    "bytes": 32316,
+    "category": "fuente",
+    "sha256": "1ec8995645327440930e56deac397e1cd9a142bb61b44654f1d1b657a474085b"
+  },
+  {
+    "file": "src/components/views/Configuracion.tsx",
+    "bytes": 30491,
+    "category": "fuente",
+    "sha256": "6f63cb2a1545dad38a5e2a2f1dea6986fe2426a6fa25a600d78841eee861a1fd"
+  },
+  {
+    "file": "src/components/views/Contratistas.tsx",
+    "bytes": 11689,
+    "category": "fuente",
+    "sha256": "55f8a63b8fdb4abb9dcdf57e1bf0b3cefc951665cadb29fdbd0ee3e9f4d0fea4"
+  },
+  {
+    "file": "src/components/views/Dashboard.tsx",
+    "bytes": 33387,
+    "category": "fuente",
+    "sha256": "748aa8b4a6635499eb907a39782bedbb3a9129dcf0ccea4e1f2cacae793c156f"
+  },
+  {
+    "file": "src/components/views/Gantt.tsx",
+    "bytes": 49841,
+    "category": "fuente",
+    "sha256": "f10c3d9342862ca6ed83446396ef389e4d0fee2ce29cca75f3ed3d5bbb4ff318"
+  },
+  {
+    "file": "src/components/views/Gantt.tsx.bak-A1-obj2",
+    "bytes": 47150,
+    "category": "historico-generado",
+    "sha256": "3f4acd9bab5451f5c843c11758c7b669d933167b02ed24555605d6b0e10f38fe"
+  },
+  {
+    "file": "src/components/views/Gantt.tsx.bak-A2",
+    "bytes": 47467,
+    "category": "historico-generado",
+    "sha256": "b150ee6ea11a9dd637906a959f148179e140ac1938a34c0e2046f2e6fd8d9d76"
+  },
+  {
+    "file": "src/components/views/Gantt.tsx.bak-A2-debounce",
+    "bytes": 49841,
+    "category": "historico-generado",
+    "sha256": "48d6a1b15d381df543f8b1f44cb7562a199910496673aef61c1cbda2b47ab509"
+  },
+  {
+    "file": "src/components/views/Gantt.tsx.bak-S37G",
+    "bytes": 45365,
+    "category": "historico-generado",
+    "sha256": "e2e4f4651d9efaca4ce22026ba168729bef4e3736035abcf678e15bd65b785fa"
+  },
+  {
+    "file": "src/components/views/Responsables.tsx",
+    "bytes": 10368,
+    "category": "fuente",
+    "sha256": "21712fdd4a8ccf497c816f4ba578460f30520d875523e852aa750c89eb83489d"
+  },
+  {
+    "file": "src/constants/estados.ts",
+    "bytes": 994,
+    "category": "fuente",
+    "sha256": "83e593701f0b065973b1e520aa8a2ade355f3ae2bdade1f44bd1617765da03bd"
+  },
+  {
+    "file": "src/constants/rubros.ts",
+    "bytes": 699,
+    "category": "fuente",
+    "sha256": "a2a76593052265facde63fb38772636eff4e0ce788db344993a2ce1c8b8cbbc7"
+  },
+  {
+    "file": "src/db/dexie.ts",
+    "bytes": 4033,
+    "category": "fuente",
+    "sha256": "fb1c168555da13f289b23d9a68eebd7f54c6dd589f63db1f27e7486f413f32f8"
+  },
+  {
+    "file": "src/db/supabase.ts",
+    "bytes": 356,
+    "category": "fuente",
+    "sha256": "6b19cf333ca4704d00f4bdfcf4935c4d120ac094254fe17b8705d15472c7c8a0"
+  },
+  {
+    "file": "src/hooks/useAccionesProyecto.tsx",
+    "bytes": 26667,
+    "category": "fuente",
+    "sha256": "338479a59af96f3b0200fd17b76a68d72eaee87eceeb6efa53ad4fb328323f5d"
+  },
+  {
+    "file": "src/hooks/useHeartbeat.ts",
+    "bytes": 1690,
+    "category": "fuente",
+    "sha256": "5428221063170aabf24d6a4c8807999ff6276399224248ca5a0a0cbd5891b63d"
+  },
+  {
+    "file": "src/hooks/useModoTablet.ts",
+    "bytes": 3499,
+    "category": "fuente",
+    "sha256": "f77d6a42b4bbd034e830e47435aec9ed476eee65467dbb9faf7adf0d84fa6ce1"
+  },
+  {
+    "file": "src/hooks/usePantallaCompleta.ts",
+    "bytes": 1935,
+    "category": "fuente",
+    "sha256": "ef0fccd53f5c16ba8f4d451e23f8777e027e9a9cb4bfb1b4d73e1240fc3ce7f3"
+  },
+  {
+    "file": "src/hooks/usePuedeVerCostos.ts",
+    "bytes": 3339,
+    "category": "fuente",
+    "sha256": "cdb437fe38b8ef7185e4d3cc5c7efe4d6f185e7d1a64377f32e8c6808c95e805"
+  },
+  {
+    "file": "src/hooks/useRealtimeOrdenes.ts",
+    "bytes": 2783,
+    "category": "fuente",
+    "sha256": "6fa01f0814431dc5306604413400c87d69573374109833106a2fd5b6d1faf0ee"
+  },
+  {
+    "file": "src/hooks/useTemaTablet.ts",
+    "bytes": 1098,
+    "category": "fuente",
+    "sha256": "f4d7417cb41f664dd6875a08ea1e8d3a6fc890f7adaa0971b873c3d8acfd89e7"
+  },
+  {
+    "file": "src/index.css",
+    "bytes": 10895,
+    "category": "fuente",
+    "sha256": "0d8a1c37389e21595deb9ff66af17f026d6b33e6ba91ff4f9124159b80860f4c"
+  },
+  {
+    "file": "src/main.tsx",
+    "bytes": 356,
+    "category": "fuente",
+    "sha256": "f83d5eaf428c89642ee09ee6ddacb7fae4e637ffaa4ae52988c0b21c6c8471ac"
+  },
+  {
+    "file": "src/services/camposService.ts",
+    "bytes": 6057,
+    "category": "fuente",
+    "sha256": "8c1937cb0d1f5e6b6d3f4e7e8feb0fa55ddcb1ae2d354ed9fb85b33d8d36e9ea"
+  },
+  {
+    "file": "src/services/comentariosOtService.ts",
+    "bytes": 1038,
+    "category": "fuente",
+    "sha256": "761f11188e59898e4f22752501b35ca0aa58b5683064c5eb03c752edfa12abd9"
+  },
+  {
+    "file": "src/services/comentariosService.ts",
+    "bytes": 2477,
+    "category": "fuente",
+    "sha256": "17cf78ea00e28249616acf703589d9483e0ac11287f7035d0d7e4dda08711531"
+  },
+  {
+    "file": "src/services/csvService.ts",
+    "bytes": 5862,
+    "category": "fuente",
+    "sha256": "1ee16d6a12238e6871a51c7649fb3e3bc88fa02ddadb25ed7a3bd1377d4c5be6"
+  },
+  {
+    "file": "src/services/dashboardConfigService.ts",
+    "bytes": 3303,
+    "category": "fuente",
+    "sha256": "02e9e864f9ae26bf921e26edd425422c50cbdf393484e294934eb015017a33ff"
+  },
+  {
+    "file": "src/services/editorFotoService.ts",
+    "bytes": 3320,
+    "category": "fuente",
+    "sha256": "a3c319092a920e680581578c3fcadffed6839e27353f4933e731f6cf544a4356"
+  },
+  {
+    "file": "src/services/fotosService.ts",
+    "bytes": 11684,
+    "category": "fuente",
+    "sha256": "ea0c4db8f60842c61d56359c9389476b3e885dde805384e8235a3a3a94c0d158"
+  },
+  {
+    "file": "src/services/fotosService.ts.bak-B2",
+    "bytes": 4860,
+    "category": "historico-generado",
+    "sha256": "c187fd798ccafcae0d2bc73c08d493bc1d66a39f3ce67dbf71a2ea279ab20360"
+  },
+  {
+    "file": "src/services/fotosService.ts.bak-B2-C1",
+    "bytes": 9935,
+    "category": "historico-generado",
+    "sha256": "253678348359cf97dc1134236451955b037b25b755cdf8da41f2ae29979c5e99"
+  },
+  {
+    "file": "src/services/iaService.ts",
+    "bytes": 3383,
+    "category": "fuente",
+    "sha256": "71905ff729d69e39ca3b1b6e27629243de9095870a905156184b603be3be4229"
+  },
+  {
+    "file": "src/services/informeService.ts",
+    "bytes": 24324,
+    "category": "fuente",
+    "sha256": "d34f27d26a2b2eec2e09874165106885e006dd003bcc8794bb90483407645811"
+  },
+  {
+    "file": "src/services/otprojService.ts",
+    "bytes": 6393,
+    "category": "fuente",
+    "sha256": "5576b163e89f92f17679da4fc7bd50cf630da292854d3a1ab67675039cba3916"
+  },
+  {
+    "file": "src/services/pdfThumbnailService.ts",
+    "bytes": 2152,
+    "category": "fuente",
+    "sha256": "35e3bc97d0a935d09b520f98cd9a89555e9435c03f0be7a649a1c8a9869b36e0"
+  },
+  {
+    "file": "src/services/reportService.ts",
+    "bytes": 68170,
+    "category": "fuente",
+    "sha256": "5f7519f3370a32fd94d9288858c139b4a8947727d282a1053ce1fc52d7a2090e"
+  },
+  {
+    "file": "src/services/reportService.ts.bak-B1",
+    "bytes": 86397,
+    "category": "historico-generado",
+    "sha256": "c50077445325b6ad9254e2407eda1f4bb171186bf891d6423a1140b8ba6ed538"
+  },
+  {
+    "file": "src/services/reportService.ts.bak-B1-obj2",
+    "bytes": 86056,
+    "category": "historico-generado",
+    "sha256": "246379d7a45cb1f68b743bf2846a8d9d0f08d0ce92b76eed0c9069b472b8ad78"
+  },
+  {
+    "file": "src/services/reportService.ts.bak-F0",
+    "bytes": 86631,
+    "category": "historico-generado",
+    "sha256": "57db6ecf6c7cdc854e7db3a64bde8f56251d47d50f1c7591cb780c8dfa6fd631"
+  },
+  {
+    "file": "src/services/reportTemplates.ts",
+    "bytes": 18837,
+    "category": "fuente",
+    "sha256": "69f62df7a7a2ce59c6ce0a8957940754ce2dda035a8584c60d8ab70e230d84ca"
+  },
+  {
+    "file": "src/services/statsService.ts",
+    "bytes": 1350,
+    "category": "fuente",
+    "sha256": "4db25b9a2a4db15a198d9a05616b1d0753bddec94004239aaf94ecacb7fb9712"
+  },
+  {
+    "file": "src/services/versionesService.ts",
+    "bytes": 5940,
+    "category": "fuente",
+    "sha256": "551c19b360baf540c5b5e558efde740a07d0d09e0d7b1a736835878ff8a291f3"
+  },
+  {
+    "file": "src/stores/authStore.ts",
+    "bytes": 1546,
+    "category": "fuente",
+    "sha256": "59c249a5328598eda7593b88d805c88a67419732438792e84b253852315965e2"
+  },
+  {
+    "file": "src/stores/ordenesStore.ts",
+    "bytes": 24181,
+    "category": "fuente",
+    "sha256": "360c3eee0b825620c98639617f87c0c91ad197fabce96dbae679009f9d9924fc"
+  },
+  {
+    "file": "src/stores/proyectosStore.ts",
+    "bytes": 5245,
+    "category": "fuente",
+    "sha256": "12e5813d843fce1e99f76b27f54d98acb2fa5e7e40341d0fdbd9784fb298a34f"
+  },
+  {
+    "file": "src/styles/tablet.css",
+    "bytes": 12446,
+    "category": "fuente",
+    "sha256": "caedea392b48839752b91ebc839586f38ee47ae181867ba5939f3c3267f58018"
+  },
+  {
+    "file": "src/sync/SyncManager.ts",
+    "bytes": 13404,
+    "category": "fuente",
+    "sha256": "dc910886c9f9372aa994f5883cce4a6d47ab11c8a2775473b5ba1a56be79d6b3"
+  },
+  {
+    "file": "src/sync/SyncManager.ts.bak-B2-F3",
+    "bytes": 4857,
+    "category": "historico-generado",
+    "sha256": "06ac6d39da056423ee3cc9ca935a01562621fa57c8685c2a7c611b2989705441"
+  },
+  {
+    "file": "src/types/orden.ts",
+    "bytes": 1989,
+    "category": "fuente",
+    "sha256": "26193690ef4e387157b8b06c7da4c0b0f330830821ed6922de736d1ddb8a7538"
+  },
+  {
+    "file": "src/utils/calculos.ts",
+    "bytes": 1789,
+    "category": "fuente",
+    "sha256": "f2cd2f24f71434a92d550c3a83ae8c8f9b2ff171a084347eecbb6a536392fe5a"
+  },
+  {
+    "file": "src/utils/planoScanner.ts",
+    "bytes": 2530,
+    "category": "fuente",
+    "sha256": "bf0ff2f9d52ccda63d3616062687230797783745a7448d17c23c758960f52a8d"
+  },
+  {
+    "file": "src/utils/validaciones.ts",
+    "bytes": 1986,
+    "category": "fuente",
+    "sha256": "ff02dedaf6d39e461d2332497731540af577b6d52fa9a511511b92673cfe074c"
+  },
+  {
+    "file": "tsconfig.app.json",
+    "bytes": 617,
+    "category": "configuracion-activo",
+    "sha256": "b1eac9ba6cd1c01d59ebca159805e052c798d9d4ab904680b79ce3e306ea0bbd"
+  },
+  {
+    "file": "tsconfig.json",
+    "bytes": 119,
+    "category": "configuracion-activo",
+    "sha256": "770b4140bbb581e2dfd9ea9946ffc9c75a1d86ba7d2db5f77c83e37cbdf9d808"
+  },
+  {
+    "file": "tsconfig.node.json",
+    "bytes": 591,
+    "category": "configuracion-activo",
+    "sha256": "90a22c920cbc14624fb4658b58f15c875abf3234224f3933f211849c3ada3242"
+  },
+  {
+    "file": "vite.config.ts",
+    "bytes": 2994,
+    "category": "configuracion-activo",
+    "sha256": "48e87a8f07f89bc0e239733c9c152fb40d998fbd638d1e464594cc3e0fea14be"
+  }
+]

@@ -1,0 +1,13 @@
+{
+  "status": 200,
+  "headers": {
+    "Server": "cloudflare",
+    "Content-Security-Policy": "",
+    "Content-Type": "text/html; charset=utf-8",
+    "Permissions-Policy": "",
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Strict-Transport-Security": ""
+  }
+}

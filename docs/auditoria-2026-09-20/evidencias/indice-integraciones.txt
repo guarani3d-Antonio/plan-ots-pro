@@ -1,0 +1,183 @@
+scripts/preflight-deploy.mjs:149: // import.meta.env.X / import.meta.env['X'] -> Vite (SPA)
+scripts/preflight-deploy.mjs:164: const usesVite = [...files].some((f) => (readIfExists(f) || '').includes('import.meta.env'));
+scripts/preflight-deploy.mjs:166: info('Detectado import.meta.env (Vite): las variables públicas acá llevan prefijo VITE_, no NEXT_PUBLIC_. Cualquier otra variable NO es accesible desde el cliente aunque esté en .env — Vite solo expone las VITE_*.');
+src/App.tsx:79: // clase nunca se aplica, pase lo que pase en localStorage.
+src/components/ayuda/TourGuiado.tsx:56: try { return localStorage.getItem(LS_TOUR_KEY) !== '1'; }
+src/components/ayuda/TourGuiado.tsx:87: try { localStorage.setItem(LS_TOUR_KEY, '1'); } catch { /* ignore */ }
+src/components/dashboard/Dashboard.tsx:65: supabase.from('proyectos').select('id, nombre, cliente').is('deleted_at', null).order('nombre'),
+src/components/dashboard/Dashboard.tsx:66: supabase.from('ordenes').select('id, ot, estado, responsable, rubro, prioridad, proyecto_id, updated_at').order('updated_at', { ascending: false }),
+src/components/dashboard/Dashboard.tsx:100: const weeks = Array.from({ length: 8 }, (_, i) => {
+src/components/grilla/VistaGrilla.tsx:207: <svg width="160" height="44" viewBox="0 0 160 44" xmlns="http://www.w3.org/2000/svg">
+src/components/grilla/VistaGrilla.tsx:561: try { const saved = localStorage.getItem(LS_CAMPOS_TARJETA_KEY); if (saved) return new Set(JSON.parse(saved)); } catch { /* fallthrough */ }
+src/components/grilla/VistaGrilla.tsx:571: try { localStorage.setItem(LS_CAMPOS_TARJETA_KEY, JSON.stringify([...next])); } catch (e) { console.error(e); }
+src/components/grilla/VistaGrilla.tsx:586: try { return JSON.parse(localStorage.getItem(LS_COLS_KEY) ?? '[]'); } catch { return []; }
+src/components/grilla/VistaGrilla.tsx:591: try { return new Set(JSON.parse(localStorage.getItem(LS_COLS_OCULTAS_KEY) ?? '[]')); } catch { return new Set(); }
+src/components/grilla/VistaGrilla.tsx:595: try { localStorage.setItem(LS_COLS_OCULTAS_KEY, JSON.stringify([...columnasOcultas])); } catch (e) { console.error(e); }
+src/components/grilla/VistaGrilla.tsx:604: try { localStorage.setItem(LS_COLS_KEY, JSON.stringify(columnasCustomVisibles)); } catch (e) { console.error(e); }
+src/components/grilla/VistaGrilla.tsx:650: return Array.from(map.entries());
+src/components/grilla/VistaGrilla.tsx:688: w.document.open(); w.document.write(html); w.document.close();
+src/components/grilla/VistaGrilla.tsx:785: <button type="button" onClick={() => { const all = new Set(camposTarjetaRol.map(c => c.key)); setCamposTarjeta(all); try { localStorage.setItem(LS_CAMPOS_TARJETA_KEY, JSON.stringify([...all])); } catch (e) { console.error(e); } }} style={{ flex: 1, padding: 5, fontSize: 11, fontFamily: 'inherit', border: '1px solid #E2E2E7', borderRadius: 6, cursor: 'pointer', background: 'white', color: '#1E3A5F', fontWeight: 600 }}>Mostrar todo</button>
+src/components/grilla/VistaGrilla.tsx:786: <button type="button" onClick={() => { setCamposTarjeta(new Set()); try { localStorage.setItem(LS_CAMPOS_TARJETA_KEY, '[]'); } catch (e) { console.error(e); } }} style={{ flex: 1, padding: 5, fontSize: 11, fontFamily: 'inherit', border: '1px solid #E2E2E7', borderRadius: 6, cursor: 'pointer', background: 'white', color: '#64748B', fontWeight: 600 }}>Ocultar todos</button>
+src/components/informes/InformePanel.tsx:43: const saved = localStorage.getItem(`plan-ots-logo-${proyecto.id}`)
+src/components/informes/InformePanel.tsx:76: localStorage.setItem(`plan-ots-logo-${proj.id}`, b64)
+src/components/informes/InformePanel.tsx:151: localStorage.removeItem(`plan-ots-logo-${proj.id}`)
+src/components/informes/ModalInformeOT.tsx:316: w.document.write(html);
+src/components/layout/Sidebar.tsx:71: try { return localStorage.getItem(LS_COLLAPSED_KEY) === '1'; }
+src/components/layout/Sidebar.tsx:81: try { localStorage.setItem(LS_COLLAPSED_KEY, collapsed ? '1' : '0'); }
+src/components/layout/Sidebar.tsx:82: catch (e) { console.error('[Sidebar] localStorage:', e); }
+src/components/plano/CampoRenderer.tsx:242: placeholder="https://"
+src/components/plano/CampoVideo.tsx:15: const FFMPEG_CORE_URL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.js';
+src/components/plano/CampoVideo.tsx:16: const FFMPEG_WASM_URL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.wasm';
+src/components/plano/CampoVideo.tsx:108: .from('fotos')
+src/components/plano/CampoVideo.tsx:109: .upload(path, file, { cacheControl: '3600', upsert: false });
+src/components/plano/CampoVideo.tsx:113: const { data } = supabase.storage.from('fotos').getPublicUrl(path);
+src/components/plano/ComparadorVersiones.tsx:252: .from('versiones')
+src/components/plano/ComparadorVersiones.tsx:253: .select('id, nombre, created_at, snapshot')
+src/components/plano/ComparadorVersiones.tsx:287: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+src/components/plano/EditorFoto.tsx:254: supabase.from('fotos').select('descripcion').eq('id', fotoActual.id).single(),
+src/components/plano/EditorFoto.tsx:458: .from('fotos')
+src/components/plano/PanelComentarios.tsx:60: .channel(`comentarios-ot-${ordenId}`)
+src/components/plano/PanelOT.tsx:231: try { return JSON.parse(localStorage.getItem('plan_ots_contratistas') ?? '[]'); }
+src/components/plano/PanelOT.tsx:247: .from('proyecto_miembros')
+src/components/plano/PanelOT.tsx:248: .select('rol')
+src/components/plano/PanelOT.tsx:459: supabase.from('ordenes').select('*').eq('id', capturedId).single().then(({ data, error }) => {
+src/components/plano/PanelOT.tsx:607: await supabase.from('fotos').update({ descripcion: desc }).eq('id', fotoId);
+src/components/plano/PanelOT.tsx:890: try { localStorage.setItem('plan_ots_contratistas', JSON.stringify(nueva)); } catch (e) { console.error('[PanelOT] localStorage contratistas:', e); }
+src/components/plano/PanelOT.tsx:1271: const { data, error } = await supabase.from('fotos').update({ descripcion: desc }).eq('id', editandoFoto!.id).select();
+src/components/plano/VistaPlano.tsx:19: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+src/components/plano3d/VisorPlano3D.tsx:12: 'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/models/gltf/LittlestTokyo.glb';
+src/components/plano3d/VisorPlano3D.tsx:16: //   'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/DamagedHelmet/glTF-Binary/DamagedHelmet.glb';
+src/components/plano3d/VisorPlano3D.tsx:19: const DRACO_DECODER_PATH = 'https://www.gstatic.com/draco/versioned/decoders/1.5.7/';
+src/components/proyecto/PlanoThumb.tsx:29: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+src/components/ui/Notificaciones.tsx:126: .channel(`notif-ordenes-${proyectoActivo.id}`)
+src/components/views/Calendario.tsx:279: if (v) { v.document.write(html); v.document.close(); v.focus(); }
+src/components/views/Configuracion.tsx:8: // y rol persisten vía supabase.auth.updateUser; sign-out delega al store.
+src/components/views/Configuracion.tsx:67: // proyecto_miembros JOIN auth.users, reemplazar el cuerpo del effect.
+src/components/views/Configuracion.tsx:113: const { error } = await supabase.auth.updateUser({
+src/components/views/Configuracion.tsx:132: const { error } = await supabase.auth.updateUser({
+src/components/views/Contratistas.tsx:21: try { return JSON.parse(localStorage.getItem(LS_KEY) ?? '[]'); }
+src/components/views/Contratistas.tsx:25: try { localStorage.setItem(LS_KEY, JSON.stringify(lista)); }
+src/components/views/Contratistas.tsx:26: catch (e) { console.error('[Contratistas] localStorage:', e); }
+src/components/views/Dashboard.tsx:88: () => Array.from(new Set(ordenesFiltradas.map(o => o.proyecto_id))),
+src/components/views/Dashboard.tsx:371: pw.document.write(`<!DOCTYPE html>
+src/components/views/Gantt.tsx:447: if (ventana) { ventana.document.write(html); ventana.document.close(); }
+src/db/supabase.ts:3: const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+src/db/supabase.ts:4: const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+src/hooks/useAccionesProyecto.tsx:90: const dp = Array.from({length: a.length + 1}, (_, i) =>
+src/hooks/useAccionesProyecto.tsx:91: Array.from({length: b.length + 1}, (_, j) => i || j)
+src/hooks/useHeartbeat.ts:14: .from('eventos_uso')
+src/hooks/useModoTablet.ts:24: const v = localStorage.getItem(LS_KEY);
+src/hooks/useModoTablet.ts:84: localStorage.setItem(LS_KEY, v);
+src/hooks/useModoTablet.ts:86: console.error('[useModoTablet] localStorage:', e);
+src/hooks/usePuedeVerCostos.ts:31: .from('proyecto_miembros')
+src/hooks/usePuedeVerCostos.ts:32: .select('proyecto_id, rol')
+src/hooks/useRealtimeOrdenes.ts:39: .channel(`ordenes-${proyectoId}`)
+src/hooks/useTemaTablet.ts:20: return localStorage.getItem(LS_KEY) === 'vidrio' ? 'vidrio' : 'campo';
+src/hooks/useTemaTablet.ts:32: localStorage.setItem(LS_KEY, t);
+src/hooks/useTemaTablet.ts:34: console.error('[useTemaTablet] localStorage:', e);
+src/services/camposService.ts:52: .from('campos_definicion')
+src/services/camposService.ts:53: .select('*')
+src/services/camposService.ts:112: .from('campos_definicion')
+src/services/camposService.ts:143: .from('campos_definicion')
+src/services/camposService.ts:159: await supabase.from('campos_definicion').delete().eq('id', id);
+src/services/camposService.ts:185: .from('campos_definicion')
+src/services/comentariosOtService.ts:15: .from('comentarios_ot')
+src/services/comentariosOtService.ts:16: .select('*')
+src/services/comentariosOtService.ts:31: .from('comentarios_ot')
+src/services/comentariosOtService.ts:33: .select()
+src/services/comentariosOtService.ts:41: .from('comentarios_ot')
+src/services/comentariosService.ts:26: .from('ot_comentarios')
+src/services/comentariosService.ts:27: .select('*')
+src/services/comentariosService.ts:48: .from('ot_comentarios')
+src/services/comentariosService.ts:49: .select('comentario')
+src/services/comentariosService.ts:54: .limit(1)
+src/services/comentariosService.ts:68: .from('ot_comentarios')
+src/services/comentariosService.ts:78: .select()
+src/services/dashboardConfigService.ts:29: try { localStorage.setItem(LS_KEY, JSON.stringify(w)); } catch { /* noop */ }
+src/services/dashboardConfigService.ts:34: const raw = localStorage.getItem(LS_KEY);
+src/services/dashboardConfigService.ts:54: .from('dashboard_configs')
+src/services/dashboardConfigService.ts:55: .select('widgets')
+src/services/dashboardConfigService.ts:78: .from('dashboard_configs')
+src/services/editorFotoService.ts:31: .from('fotos')
+src/services/editorFotoService.ts:32: .select('anotaciones, descripcion_observacion')
+src/services/editorFotoService.ts:54: .from('fotos')
+src/services/editorFotoService.ts:79: .from('fotos')
+src/services/editorFotoService.ts:80: .upload(path, blob, { contentType: 'image/jpeg', upsert: false });
+src/services/editorFotoService.ts:86: .from('fotos')
+src/services/editorFotoService.ts:91: .from('fotos')
+src/services/fotosService.ts:58: .from('fotos')
+src/services/fotosService.ts:59: .upload(path, file, { cacheControl: '3600', upsert: false });
+src/services/fotosService.ts:63: const { data } = supabase.storage.from('fotos').getPublicUrl(path);
+src/services/fotosService.ts:78: const { error: storageError } = await supabase.storage.from('fotos').remove([path]);
+src/services/fotosService.ts:82: const { error: dbError } = await supabase.from('fotos').delete().eq('id', id);
+src/services/fotosService.ts:94: .from('fotos')
+src/services/fotosService.ts:103: .select('id')
+src/services/fotosService.ts:132: .from('fotos')
+src/services/fotosService.ts:133: .select('id, orden_id, proyecto_id, categoria, file_url, file_path, file_type, descripcion')
+src/services/iaService.ts:7: const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
+src/services/iaService.ts:38: const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
+src/services/informeService.ts:124: .from('fotos')
+src/services/informeService.ts:125: .select('categoria, file_url, file_type')
+src/services/informeService.ts:233: .from('ordenes')
+src/services/informeService.ts:234: .select('id, ot, estado, rubro, responsable, ubicacion, comentarios, prioridad, porcentaje_avance, fecha_fin_trabajos, campos, created_at, updated_at, proyecto_id')
+src/services/pdfThumbnailService.ts:8: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'
+src/services/reportService.ts:104: // los templates se inyectan vía innerHTML — sin escape, contenido del usuario
+src/services/reportService.ts:139: <svg width="160" height="44" viewBox="0 0 160 44" xmlns="http://www.w3.org/2000/svg">
+src/services/reportService.ts:185: ventana.document.write(html);
+src/services/reportService.ts:199: <script src="https://cdn.tailwindcss.com"></script>
+src/services/reportService.ts:200: <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+src/services/reportService.ts:447: return Array.from({ length: n }, () =>
+src/services/reportService.ts:829: <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+src/services/reportService.ts:830: <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@400;600;700&display=swap" rel="stylesheet"/>
+src/services/reportService.ts:831: <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+src/services/reportService.ts:986: src="https://lh3.googleusercontent.com/aida-public/AB6AXuAZllvvhAPx9rtylzcyTEmxbZTrzv3wTxLXEuqT6hVfNKy4hOmUGXk2BxjKAKwmOO931f6sKQztPbubOSybhYusjtZEXiaa0Ggq9j70wSvZgy9HGL_8uqWfTveeotdC4TG8SExGrwqZTPWp5XRASM3dMUlb1Go4UbuZqySEN7SM0K8TG5gDtayNQPVlxGqRmDcYwu9oCXYM9ysIZWYO15_9r2RveasOdSFWzL9R_IYWpamGjGRXgSqpo4rjNdWVLcSlXKqCbWaqnoI4"/>
+src/services/reportTemplates.ts:118: <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+src/services/reportTemplates.ts:119: <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@400;600;700&display=swap" rel="stylesheet"/>
+src/services/reportTemplates.ts:120: <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+src/services/reportTemplates.ts:241: src="https://lh3.googleusercontent.com/aida-public/AB6AXuAZllvvhAPx9rtylzcyTEmxbZTrzv3wTxLXEuqT6hVfNKy4hOmUGXk2BxjKAKwmOO931f6sKQztPbubOSybhYusjtZEXiaa0Ggq9j70wSvZgy9HGL_8uqWfTveeotdC4TG8SExGrwqZTPWp5XRASM3dMUlb1Go4UbuZqySEN7SM0K8TG5gDtayNQPVlxGqRmDcYwu9oCXYM9ysIZWYO15_9r2RveasOdSFWzL9R_IYWpamGjGRXgSqpo4rjNdWVLcSlXKqCbWaqnoI4"/>
+src/services/reportTemplates.ts:335: return Array.from({ length: n }, () =>
+src/services/statsService.ts:19: .from('ordenes')
+src/services/statsService.ts:20: .select('proyecto_id, estado')
+src/services/versionesService.ts:88: const { data: userData } = await supabase.auth.getUser();
+src/services/versionesService.ts:91: .from('versiones')
+src/services/versionesService.ts:99: .select()
+src/services/versionesService.ts:116: .from('versiones')
+src/services/versionesService.ts:117: .select('id, nombre, descripcion, created_at, created_by, snapshot')
+src/services/versionesService.ts:134: .from('versiones')
+src/services/versionesService.ts:135: .select('*')
+src/services/versionesService.ts:150: .from('versiones')
+src/services/versionesService.ts:173: .from('ordenes')
+src/stores/authStore.ts:23: const { data: { session } } = await supabase.auth.getSession();
+src/stores/authStore.ts:26: supabase.auth.onAuthStateChange((_event, session) => {
+src/stores/authStore.ts:33: const { error } = await supabase.auth.signInWithPassword({ email, password });
+src/stores/authStore.ts:40: const { error } = await supabase.auth.signUp({ email, password });
+src/stores/authStore.ts:46: await supabase.auth.signOut();
+src/stores/ordenesStore.ts:188: .from('ordenes')
+src/stores/ordenesStore.ts:189: .select('*')
+src/stores/ordenesStore.ts:227: .from('ordenes')
+src/stores/ordenesStore.ts:228: .select('*')
+src/stores/ordenesStore.ts:298: .from('ordenes')
+src/stores/ordenesStore.ts:345: .from('ordenes')
+src/stores/ordenesStore.ts:414: .from('ordenes')
+src/stores/ordenesStore.ts:468: // `.select().single()` devuelve la fila completa post-update — la fuente
+src/stores/ordenesStore.ts:471: .from('ordenes')
+src/stores/ordenesStore.ts:474: .select()
+src/stores/ordenesStore.ts:516: .from('ordenes')
+src/stores/proyectosStore.ts:42: .from('proyectos')
+src/stores/proyectosStore.ts:43: .select('*')
+src/stores/proyectosStore.ts:87: const { data: { user } } = await supabase.auth.getUser();
+src/stores/proyectosStore.ts:93: .from('planos')
+src/stores/proyectosStore.ts:94: .upload(filePath, planoFile);
+src/stores/proyectosStore.ts:98: .from('planos')
+src/stores/proyectosStore.ts:102: .from('proyectos')
+src/stores/proyectosStore.ts:110: .select()
+src/stores/proyectosStore.ts:126: .from('proyectos')
+src/stores/proyectosStore.ts:142: const { data: { user } } = await supabase.auth.getUser();
+src/stores/proyectosStore.ts:146: .from('proyectos')
+src/stores/proyectosStore.ts:156: .select()
+src/sync/SyncManager.ts:96: url = supabase.storage.from('fotos').getPublicUrl(path).data.publicUrl;
+src/sync/SyncManager.ts:130: const { error } = await supabase.from('fotos').update({ descripcion: desc }).eq('id', fotoId);
+src/sync/SyncManager.ts:181: .from('ordenes')
+src/sync/SyncManager.ts:203: .from('ordenes')
+src/sync/SyncManager.ts:210: .from('ordenes')
+vite.config.ts:63: // túnel como el acceso directo por LAN desde la tablet (http://<ip>:5173),
