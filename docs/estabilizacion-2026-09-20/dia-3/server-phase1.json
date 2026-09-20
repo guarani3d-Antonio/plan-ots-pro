@@ -1,0 +1,34 @@
+{
+  "tables": {
+    "tenants": true,
+    "tenant_miembros": true,
+    "plataforma_administradores": true
+  },
+  "tenants": 0,
+  "captured_at": "2026-09-20T23:19:14.748589+00:00",
+  "project_ref": "iqgbyqyoovzvhhdjawnt",
+  "anon_helpers": {
+    "tenant": false,
+    "creator": false
+  },
+  "guard_triggers": 2,
+  "server_version": "17.6",
+  "tenant_members": 0,
+  "legacy_projects": 13,
+  "platform_admins": 0,
+  "assigned_projects": 0,
+  "tenant_id_columns": 2,
+  "legacy_compatibility_transaction": {
+    "project_visible": true,
+    "creator_membership": true,
+    "rolled_back": true
+  },
+  "phase2_preflight": {
+    "existing_functions": 0,
+    "existing_constraints": 0,
+    "photo_field_cross_project": 0,
+    "photo_order_cross_project": 0,
+    "comment_order_cross_project": 0,
+    "timeline_order_cross_project": 0
+  }
+}

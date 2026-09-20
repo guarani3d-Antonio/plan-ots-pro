@@ -6,7 +6,7 @@ create role anon nologin;
 create role authenticated nologin;
 create role service_role nologin bypassrls;
 create schema auth;
-create table auth.users (id uuid primary key);
+create table auth.users (id uuid primary key, email text unique);
 create function auth.uid() returns uuid language sql stable as $$
   select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid
 $$;
@@ -78,3 +78,59 @@ create policy "Editar proyectos (solo supervisor)" on public.proyectos for updat
 create policy "Eliminar proyectos (solo supervisor)" on public.proyectos for delete using(es_supervisor(id));
 create policy "Ver miembros del proyecto" on public.proyecto_miembros for select using(es_miembro(proyecto_id));
 create policy "Gestionar miembros (solo supervisor)" on public.proyecto_miembros for all using(es_supervisor(proyecto_id));
+
+-- Tablas mínimas adicionales para ejecutar la fase 2 completa. Conservan las
+-- claves y columnas usadas por integridad/RLS; no pretenden clonar la aplicación.
+create table public.ordenes (
+  id uuid primary key default gen_random_uuid(), proyecto_id uuid not null references public.proyectos(id) on delete cascade,
+  ot text not null, created_by uuid references auth.users(id), updated_by uuid references auth.users(id), estado text not null default 'Pendiente'
+);
+create table public.campos_definicion (
+  id uuid primary key default gen_random_uuid(), proyecto_id uuid not null references public.proyectos(id) on delete cascade,
+  nombre text not null default 'Campo'
+);
+create table public.fotos (
+  id uuid primary key default gen_random_uuid(), proyecto_id uuid not null references public.proyectos(id) on delete cascade,
+  orden_id uuid not null references public.ordenes(id) on delete cascade,
+  campo_id uuid references public.campos_definicion(id), uploaded_by uuid references auth.users(id), file_path text not null default 'fixture'
+);
+create table public.comentarios_ot (
+  id uuid primary key default gen_random_uuid(), proyecto_id uuid not null references public.proyectos(id) on delete cascade,
+  orden_id uuid not null references public.ordenes(id) on delete cascade, user_id uuid not null references auth.users(id), texto text not null default 'comentario'
+);
+create table public.ot_comentarios (
+  id uuid primary key default gen_random_uuid(), proyecto_id uuid not null references public.proyectos(id),
+  orden_id uuid not null references public.ordenes(id) on delete cascade, user_id uuid references auth.users(id), comentario text not null default 'comentario'
+);
+create table public.versiones (
+  id uuid primary key default gen_random_uuid(), proyecto_id uuid not null references public.proyectos(id) on delete cascade,
+  created_by uuid references auth.users(id), nombre text not null default 'Versión'
+);
+create table public.sync_log (
+  id uuid primary key default gen_random_uuid(), proyecto_id uuid references public.proyectos(id) on delete cascade,
+  user_id uuid references auth.users(id), accion text not null default 'UPDATE_OT'
+);
+create table public.eventos_uso (
+  id uuid primary key default gen_random_uuid(), proyecto_id uuid references public.proyectos(id) on delete set null,
+  user_id uuid not null references auth.users(id), tipo text not null default 'heartbeat'
+);
+create table public.ordenes_eliminadas (
+  id uuid primary key default gen_random_uuid(), proyecto_id uuid, orden_id uuid not null
+);
+create table public.dashboard_configs (
+  id uuid primary key default gen_random_uuid(), user_id uuid not null references auth.users(id), widgets jsonb not null default '[]'
+);
+create view public.vista_proyectos_resumen with (security_invoker=true) as
+  select p.id,p.nombre,count(o.id) total_ordenes from public.proyectos p left join public.ordenes o on o.proyecto_id=p.id group by p.id;
+create view public.vista_ordenes_fotos with (security_invoker=true) as
+  select o.id,o.proyecto_id,count(f.id) total_fotos from public.ordenes o left join public.fotos f on f.orden_id=o.id group by o.id;
+alter table public.ordenes enable row level security;
+alter table public.campos_definicion enable row level security;
+alter table public.fotos enable row level security;
+alter table public.comentarios_ot enable row level security;
+alter table public.ot_comentarios enable row level security;
+alter table public.versiones enable row level security;
+alter table public.sync_log enable row level security;
+alter table public.eventos_uso enable row level security;
+alter table public.ordenes_eliminadas enable row level security;
+alter table public.dashboard_configs enable row level security;
