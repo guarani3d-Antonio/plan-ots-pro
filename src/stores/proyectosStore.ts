@@ -99,15 +99,12 @@ export const useProyectosStore = create<ProyectosState>((set, _get) => ({
         .getPublicUrl(filePath);
 
       const { data, error } = await supabase
-        .from('proyectos')
-        .insert({
-          nombre,
-          cliente:     cliente     || null,
-          descripcion: descripcion || null,
-          plano_url:   publicUrl,
-          created_by:  user.id,
+        .rpc('plan_crear_proyecto', {
+          p_nombre: nombre,
+          p_cliente: cliente || null,
+          p_descripcion: descripcion || null,
+          p_plano_url: publicUrl,
         })
-        .select()
         .single();
 
       if (error) throw error;
@@ -143,17 +140,14 @@ export const useProyectosStore = create<ProyectosState>((set, _get) => ({
     if (!user) throw new Error('No autenticado');
 
     const { data, error } = await supabase
-      .from('proyectos')
-      .insert({
-        nombre:      `${original.nombre} (copia)`,
-        cliente:     original.cliente,
-        descripcion: original.descripcion,
-        plano_url:   original.plano_url,   // comparte el mismo plano
-        rubros:      original.rubros,
-        tecnicos:    original.tecnicos,
-        created_by:  user.id,
+      .rpc('plan_crear_proyecto', {
+        p_nombre: `${original.nombre} (copia)`,
+        p_cliente: original.cliente,
+        p_descripcion: original.descripcion,
+        p_plano_url: original.plano_url,
+        p_rubros: original.rubros,
+        p_tecnicos: original.tecnicos,
       })
-      .select()
       .single();
 
     if (error) throw new Error(error.message);

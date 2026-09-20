@@ -1,7 +1,7 @@
 -- Aprovisionamiento determinista de las dos empresas ficticias.
 -- Requiere: fases 1 y 2 aplicadas y las 11 cuentas Auth creadas por canal Admin.
 -- No crea usuarios, contraseñas ni invitaciones. Aborta si falta o sobra un email.
--- Ejecutar solo después del backup/reset controlado de datos legados.
+-- Conserva los proyectos legados; no requiere ni ejecuta un reset.
 
 begin;
 set local lock_timeout='5s';
@@ -12,8 +12,8 @@ do $$ begin
   if not exists(select 1 from pg_proc where oid='public.plan_es_miembro_proyecto(uuid)'::regprocedure) then
     raise exception 'Falta la fase 2 multitenant';
   end if;
-  if exists(select 1 from public.tenants) or exists(select 1 from public.proyectos) then
-    raise exception 'Seed detenido: la base no está vacía. Usar procedimiento de backup/reset revisado.';
+  if exists(select 1 from public.tenants) or exists(select 1 from public.proyectos where tenant_id is not null) then
+    raise exception 'Seed detenido: ya existen empresas o proyectos gestionados.';
   end if;
 end $$;
 
@@ -52,10 +52,10 @@ from (values
 ) m(tenant_id,email,rol) join plan_fixture_users u using(email);
 
 insert into public.proyectos(id,tenant_id,nombre,cliente,descripcion,plano_url,created_by) values
-('11000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000001','Obra de la empresa de prueba 1, número 1','Empresa de prueba 1','Fixture de aislamiento','pending://plan-upload-required',(select user_id from plan_fixture_users where email='admin@empresa1.plan-ots.test')),
-('11000000-0000-4000-8000-000000000002','10000000-0000-4000-8000-000000000001','Obra de la empresa de prueba 1, número 2','Empresa de prueba 1','Fixture de aislamiento','pending://plan-upload-required',(select user_id from plan_fixture_users where email='admin@empresa1.plan-ots.test')),
-('22000000-0000-4000-8000-000000000001','20000000-0000-4000-8000-000000000002','Obra de la empresa de prueba 2, número 1','Empresa de prueba 2','Fixture de aislamiento','pending://plan-upload-required',(select user_id from plan_fixture_users where email='admin@empresa2.plan-ots.test')),
-('22000000-0000-4000-8000-000000000002','20000000-0000-4000-8000-000000000002','Obra de la empresa de prueba 2, número 2','Empresa de prueba 2','Fixture de aislamiento','pending://plan-upload-required',(select user_id from plan_fixture_users where email='admin@empresa2.plan-ots.test'));
+('11000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000001','Obra de la empresa de prueba 1, número 1','Empresa de prueba 1','Fixture de aislamiento','/fixtures/plano-prueba.svg',(select user_id from plan_fixture_users where email='admin@empresa1.plan-ots.test')),
+('11000000-0000-4000-8000-000000000002','10000000-0000-4000-8000-000000000001','Obra de la empresa de prueba 1, número 2','Empresa de prueba 1','Fixture de aislamiento','/fixtures/plano-prueba.svg',(select user_id from plan_fixture_users where email='admin@empresa1.plan-ots.test')),
+('22000000-0000-4000-8000-000000000001','20000000-0000-4000-8000-000000000002','Obra de la empresa de prueba 2, número 1','Empresa de prueba 2','Fixture de aislamiento','/fixtures/plano-prueba.svg',(select user_id from plan_fixture_users where email='admin@empresa2.plan-ots.test')),
+('22000000-0000-4000-8000-000000000002','20000000-0000-4000-8000-000000000002','Obra de la empresa de prueba 2, número 2','Empresa de prueba 2','Fixture de aislamiento','/fixtures/plano-prueba.svg',(select user_id from plan_fixture_users where email='admin@empresa2.plan-ots.test'));
 
 insert into public.proyecto_miembros(proyecto_id,user_id,rol,invitado_por)
 select m.proyecto_id,u.user_id,m.rol,a.user_id
@@ -75,8 +75,8 @@ join plan_fixture_users u on u.email=m.email
 join plan_fixture_users a on a.email=m.admin_email;
 
 do $$ begin
-  if (select count(*) from public.tenants)<>2 or (select count(*) from public.proyectos)<>4
-    or (select count(*) from public.tenant_miembros)<>10 or (select count(*) from public.proyecto_miembros)<>14 then
+  if (select count(*) from public.tenants)<>2 or (select count(*) from public.proyectos where tenant_id is not null)<>4
+    or (select count(*) from public.tenant_miembros)<>10 or (select count(*) from public.proyecto_miembros where tenant_id is not null)<>14 then
     raise exception 'Conteos de fixtures inesperados';
   end if;
 end $$;

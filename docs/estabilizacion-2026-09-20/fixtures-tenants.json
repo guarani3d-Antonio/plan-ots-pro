@@ -1,7 +1,7 @@
 {
   "fixtureVersion": 1,
   "namespace": "plan-ots-qa",
-  "status": "specification-not-seeded",
+  "status": "seeded-and-rest-tested-day4",
   "platformCreator": {"key": "platform-creator", "email": "creador@plan-ots.test"},
   "organizations": [
     {

@@ -1,0 +1,23 @@
+{
+  "testedAt": "2026-09-20T23:54:00.495Z",
+  "scope": "Restauración de filas de dominio en PostgreSQL local y ciclo fase2/seed/reversión. Auth simulado. No restaura archivos Storage ni usuarios Auth remotos.",
+  "backupSha256": "6ea010bc0e2be5a4ce41d0fadf5db3b46ec4baeb74150840d9bfcbe31ddf3b56",
+  "legacyRowsPreserved": true,
+  "counts": {
+    "proyectos": 13,
+    "proyecto_miembros": 14,
+    "campos_definicion": 4,
+    "ordenes": 95,
+    "fotos": 122,
+    "comentarios_ot": 5,
+    "ot_comentarios": 12,
+    "versiones": 24,
+    "sync_log": 0,
+    "eventos_uso": 25,
+    "ordenes_eliminadas": 4,
+    "dashboard_configs": 1,
+    "tenants": 0,
+    "tenant_miembros": 0,
+    "plataforma_administradores": 0
+  }
+}

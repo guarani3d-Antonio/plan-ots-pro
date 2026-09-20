@@ -24,7 +24,8 @@ begin
   end loop;
   foreach n in array array[
     'plan_es_miembro_proyecto(uuid)','plan_puede_editar_proyecto(uuid)',
-    'plan_es_supervisor_proyecto(uuid)','plan_puede_crear_proyecto(uuid)'
+    'plan_es_supervisor_proyecto(uuid)','plan_puede_crear_proyecto(uuid)',
+    'plan_crear_proyecto(text,text,text,text,text[],text[],uuid)'
   ] loop
     if has_function_privilege('anon','public.'||n,'EXECUTE')
       or not has_function_privilege('authenticated','public.'||n,'EXECUTE')
@@ -33,6 +34,16 @@ begin
       raise exception 'Helper inseguro: %',n;
     end if;
   end loop;
+  if has_table_privilege('authenticated','public.proyectos','INSERT') then
+    raise exception 'Creación directa de proyecto permanece habilitada';
+  end if;
+  if (select count(*) from pg_trigger where not tgisinternal and tgenabled='O' and tgname='plan_validar_autoria')<>9 then
+    raise exception 'Faltan controles de autoría';
+  end if;
+  if exists(select 1 from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public'
+    and c.relname in ('vista_proyectos_resumen','vista_ordenes_fotos') and not coalesce(c.reloptions && array['security_invoker=on','security_invoker=true'],false)) then
+    raise exception 'Vista sin security_invoker';
+  end if;
   if (select count(*) from pg_trigger where not tgisinternal and tgenabled='O'
       and tgname in ('plan_normalizar_tenant_proyecto','plan_normalizar_tenant_miembro'))<>2 then
     raise exception 'Faltan triggers normalizadores';

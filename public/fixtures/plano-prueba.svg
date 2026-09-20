@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">
+  <rect width="1200" height="800" fill="#f8fafc"/>
+  <g font-family="Arial,sans-serif" fill="#334155">
+    <text x="70" y="58" font-size="27" font-weight="bold">PLANO SINTÉTICO · PRUEBAS DE ÓRDENES</text>
+    <text x="70" y="90" font-size="16">Sin datos de una obra real · Ubicación de marcadores de prueba</text>
+  </g>
+  <g fill="#fff" stroke="#334155" stroke-width="6">
+    <rect x="80" y="140" width="1040" height="530"/>
+    <path d="M80 340H480V140M480 340H770V140M770 340H1120M80 440H1120M400 440V670M770 440V670" fill="none"/>
+  </g>
+  <g fill="#f8fafc" stroke="#94a3b8" stroke-width="2">
+    <rect x="240" y="328" width="70" height="24"/><rect x="590" y="328" width="70" height="24"/>
+    <rect x="920" y="328" width="70" height="24"/><rect x="220" y="428" width="70" height="24"/>
+    <rect x="550" y="428" width="70" height="24"/><rect x="920" y="428" width="70" height="24"/>
+  </g>
+  <g font-family="Arial,sans-serif" fill="#475569" text-anchor="middle" font-size="22">
+    <text x="280" y="235">SECTOR A · RECEPCIÓN</text><text x="625" y="235">SECTOR B · OFICINA</text>
+    <text x="945" y="235">SECTOR C · SALA</text><text x="600" y="399">CIRCULACIÓN</text>
+    <text x="240" y="555">SECTOR D · DEPÓSITO</text><text x="585" y="555">SECTOR E · TALLER</text>
+    <text x="945" y="555">SECTOR F · SERVICIOS</text>
+  </g>
+  <g font-family="Arial,sans-serif" fill="#64748b" font-size="17">
+    <text x="80" y="720">Ejercicio: ubicar una OT en un sector, editar su estado y verificar el marcador.</text>
+    <text x="80" y="752">Sin escala constructiva · Este archivo público contiene únicamente un dibujo ficticio.</text>
+  </g>
+</svg>

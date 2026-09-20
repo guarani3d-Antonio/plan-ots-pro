@@ -1,0 +1,168 @@
+{
+  "testedAt": "2026-09-20T23:48:48.243Z",
+  "scope": "Supabase Auth y REST reales; JWT emitidos por login. No certifica Storage, UI, caché ni confidencialidad de costos.",
+  "passed": 40,
+  "total": 40,
+  "results": [
+    {
+      "name": "11 cuentas inician sesión con JWT real",
+      "ok": true
+    },
+    {
+      "name": "platform-creator: solo obras autorizadas",
+      "ok": true
+    },
+    {
+      "name": "platform-creator: órdenes respetan empresa y obra",
+      "ok": true
+    },
+    {
+      "name": "e1-admin: solo obras autorizadas",
+      "ok": true
+    },
+    {
+      "name": "e1-admin: órdenes respetan empresa y obra",
+      "ok": true
+    },
+    {
+      "name": "e1-supervisor: solo obras autorizadas",
+      "ok": true
+    },
+    {
+      "name": "e1-supervisor: órdenes respetan empresa y obra",
+      "ok": true
+    },
+    {
+      "name": "e1-tecnico-1: solo obras autorizadas",
+      "ok": true
+    },
+    {
+      "name": "e1-tecnico-1: órdenes respetan empresa y obra",
+      "ok": true
+    },
+    {
+      "name": "e1-tecnico-2: solo obras autorizadas",
+      "ok": true
+    },
+    {
+      "name": "e1-tecnico-2: órdenes respetan empresa y obra",
+      "ok": true
+    },
+    {
+      "name": "e1-lector: solo obras autorizadas",
+      "ok": true
+    },
+    {
+      "name": "e1-lector: órdenes respetan empresa y obra",
+      "ok": true
+    },
+    {
+      "name": "e2-admin: solo obras autorizadas",
+      "ok": true
+    },
+    {
+      "name": "e2-admin: órdenes respetan empresa y obra",
+      "ok": true
+    },
+    {
+      "name": "e2-supervisor: solo obras autorizadas",
+      "ok": true
+    },
+    {
+      "name": "e2-supervisor: órdenes respetan empresa y obra",
+      "ok": true
+    },
+    {
+      "name": "e2-tecnico-1: solo obras autorizadas",
+      "ok": true
+    },
+    {
+      "name": "e2-tecnico-1: órdenes respetan empresa y obra",
+      "ok": true
+    },
+    {
+      "name": "e2-tecnico-2: solo obras autorizadas",
+      "ok": true
+    },
+    {
+      "name": "e2-tecnico-2: órdenes respetan empresa y obra",
+      "ok": true
+    },
+    {
+      "name": "e2-lector: solo obras autorizadas",
+      "ok": true
+    },
+    {
+      "name": "e2-lector: órdenes respetan empresa y obra",
+      "ok": true
+    },
+    {
+      "name": "anon no lee tablas de dominio",
+      "ok": true
+    },
+    {
+      "name": "técnico no crea OT en otra obra de su empresa",
+      "ok": true
+    },
+    {
+      "name": "técnico no crea OT en otra empresa",
+      "ok": true
+    },
+    {
+      "name": "lector no crea OT",
+      "ok": true
+    },
+    {
+      "name": "lector no modifica OT existente",
+      "ok": true
+    },
+    {
+      "name": "autor de OT es inmutable",
+      "ok": true
+    },
+    {
+      "name": "editor falsificado se rechaza",
+      "ok": true
+    },
+    {
+      "name": "referencia cruzada foto/OT se rechaza",
+      "ok": true
+    },
+    {
+      "name": "supervisor agrega miembro de su empresa",
+      "ok": true
+    },
+    {
+      "name": "supervisor no agrega usuario de otra empresa",
+      "ok": true
+    },
+    {
+      "name": "revocación corta lectura con JWT previamente emitido",
+      "ok": true
+    },
+    {
+      "name": "rebajar rol corta edición con JWT vigente",
+      "ok": true
+    },
+    {
+      "name": "empresa inactiva corta acceso de admin",
+      "ok": true
+    },
+    {
+      "name": "RPC devuelve proyecto con membresía creada",
+      "ok": true
+    },
+    {
+      "name": "RPC niega creación en empresa ajena",
+      "ok": true
+    },
+    {
+      "name": "técnico crea/edita, supervisor borra y audita",
+      "ok": true
+    },
+    {
+      "name": "13 obras legadas conservadas y 4 fixtures exactos",
+      "ok": true
+    }
+  ]
+}

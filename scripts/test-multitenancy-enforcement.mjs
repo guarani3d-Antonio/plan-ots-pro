@@ -9,7 +9,7 @@ const runtime=process.argv[2];
 if(!runtime) throw new Error('Indicar ruta al runtime PGlite.');
 const {PGlite}=await import(pathToFileURL(resolve(runtime)).href);
 const [legacy,phase1,phase2,verification,rollback,seed]=await Promise.all([
-  readFile('supabase/tests/legacy-foundation.sql','utf8'),
+  readFile('supabase/tests/captured-domain.sql','utf8'),
   readFile('supabase/migrations/202609200001_multitenancy_foundation.sql','utf8'),
   readFile('supabase/migrations/202609200002_multitenancy_enforcement.sql','utf8'),
   readFile('supabase/verification/202609200002_multitenancy_enforcement.verify.sql','utf8'),
@@ -38,9 +38,10 @@ try{
       ('${uid(102)}','${uid(4)}','administrador'),('${uid(102)}','${uid(5)}','tecnico');`);
 
   await check('admin crea obra y tenant se asigna automáticamente',()=>asUser(1,async()=>{
-    await db.query(`insert into proyectos(id,nombre,plano_url,created_by) values('${uid(201)}','Obra A','fixture',auth.uid())`);
-    assert.equal(await scalar(`select tenant_id from proyectos where id='${uid(201)}'`),uid(101));
-    assert.equal(await scalar(`select tenant_id from proyecto_miembros where proyecto_id='${uid(201)}' and user_id=auth.uid()`),uid(101));
+    const {rows:[project]}=await db.query(`select * from plan_crear_proyecto('Obra A','fixture')`);
+    assert.equal(project.tenant_id,uid(101));
+    assert.equal(project.created_by,uid(1));
+    assert.equal(await scalar(`select tenant_id from proyecto_miembros where proyecto_id='${project.id}' and user_id=auth.uid()`),uid(101));
   }));
   await db.exec(`insert into proyectos(id,nombre,plano_url,created_by,tenant_id) values('${uid(201)}','Obra A','fixture','${uid(1)}','${uid(101)}'),('${uid(202)}','Obra B','fixture','${uid(4)}','${uid(102)}');`);
   await check('supervisor agrega técnico y viewer coherentes',()=>asUser(1,async()=>{
@@ -50,11 +51,11 @@ try{
   await db.exec(`insert into proyecto_miembros(proyecto_id,user_id,rol) values('${uid(201)}','${uid(2)}','tecnico'),('${uid(201)}','${uid(3)}','viewer'),('${uid(202)}','${uid(5)}','tecnico');`);
   await check('miembro ajeno no ve obra A',()=>asUser(4,async()=>assert.equal(await scalar(`select count(*) from proyectos where id='${uid(201)}'`),0)));
   await check('miembro ajeno no ve orden de obra A',async()=>{
-    await db.exec(`insert into ordenes(id,proyecto_id,ot,created_by) values('${uid(301)}','${uid(201)}','OT-A','${uid(1)}')`);
+    await db.exec(`insert into ordenes(id,proyecto_id,ot,created_by,ubicacion,rubro,responsable,prioridad,plano_ref_url) values('${uid(301)}','${uid(201)}','OT-A','${uid(1)}','A','General','Prueba','Media','fixture')`);
     await asUser(4,async()=>assert.equal(await scalar(`select count(*) from ordenes where id='${uid(301)}'`),0));
   });
   await check('técnico edita su obra',()=>asUser(2,async()=>{
-    await db.query(`insert into ordenes(id,proyecto_id,ot,created_by) values('${uid(302)}','${uid(201)}','OT-T',auth.uid())`);
+    await db.query(`insert into ordenes(id,proyecto_id,ot,created_by,ubicacion,rubro,responsable,prioridad,plano_ref_url) values('${uid(302)}','${uid(201)}','OT-T',auth.uid(),'A','General','Prueba','Media','fixture')`);
     await db.query(`update ordenes set ot='OT-T2' where id='${uid(302)}'`);
     assert.equal(await scalar(`select ot from ordenes where id='${uid(302)}'`),'OT-T2');
   }));
@@ -66,11 +67,32 @@ try{
   await check('no se agrega usuario de otra empresa',()=>asUser(1,()=>denied(`insert into proyecto_miembros(proyecto_id,user_id,rol) values('${uid(201)}','${uid(4)}','viewer')`)));
   await check('rol de obra no supera rol viewer de empresa',()=>asUser(1,()=>denied(`update proyecto_miembros set rol='tecnico' where proyecto_id='${uid(201)}' and user_id='${uid(3)}'`)));
   await check('empresa de una obra es inmutable',()=>asUser(1,()=>denied(`update proyectos set tenant_id='${uid(102)}' where id='${uid(201)}'`)));
-  await check('FK compuesta rechaza foto con orden de otra obra',async()=>{
-    await db.exec(`insert into ordenes(id,proyecto_id,ot,created_by) values('${uid(303)}','${uid(202)}','OT-B','${uid(4)}')`);
-    await assert.rejects(()=>db.query(`insert into fotos(proyecto_id,orden_id,uploaded_by) values('${uid(201)}','${uid(303)}','${uid(1)}')`),e=>e.code==='23503');
+  await check('crear obra directamente no evita RPC',()=>asUser(1,()=>denied(`insert into proyectos(nombre,plano_url,created_by,tenant_id) values('NO','fixture',auth.uid(),'${uid(101)}') returning *`)));
+  await check('técnico no puede crear obras mediante RPC',()=>asUser(2,()=>denied(`select * from plan_crear_proyecto('NO','fixture')`)));
+  await check('admin no crea obras en otra empresa mediante RPC',()=>asUser(1,()=>denied(`select * from plan_crear_proyecto('NO','fixture',p_tenant_id=>'${uid(102)}')`)));
+  await check('orden no cambia de obra',()=>asUser(1,()=>denied(`update ordenes set proyecto_id='${uid(202)}' where id='${uid(301)}'`)));
+  await check('autor de OT no se puede falsificar al editar',()=>asUser(2,()=>denied(`update ordenes set created_by='${uid(4)}' where id='${uid(301)}'`)));
+  await check('editor de OT no se puede falsificar',()=>asUser(2,()=>denied(`update ordenes set updated_by='${uid(4)}' where id='${uid(301)}'`)));
+  await check('rebajar rol de empresa a viewer corta edición inmediatamente',async()=>{
+    await db.exec(`update tenant_miembros set rol='viewer' where user_id='${uid(2)}'`);
+    try { await asUser(2,()=>denied(`insert into ordenes(proyecto_id,ot,created_by) values('${uid(201)}','NO',auth.uid())`)); }
+    finally { await db.exec(`update tenant_miembros set rol='tecnico' where user_id='${uid(2)}'`); }
   });
-  await check('FK compuesta rechaza comentario con orden de otra obra',()=>assert.rejects(()=>db.query(`insert into comentarios_ot(proyecto_id,orden_id,user_id) values('${uid(201)}','${uid(303)}','${uid(1)}')`),e=>e.code==='23503'));
+  await check('supervisor que no es admin puede agregar miembro de su empresa',async()=>{
+    await db.exec(`insert into tenant_miembros(tenant_id,user_id,rol) values('${uid(101)}','${uid(6)}','supervisor'),('${uid(101)}','${uid(7)}','tecnico');
+      insert into proyecto_miembros(proyecto_id,user_id,rol) values('${uid(201)}','${uid(6)}','supervisor');`);
+    await asUser(6,()=>db.query(`insert into proyecto_miembros(proyecto_id,user_id,rol) values('${uid(201)}','${uid(7)}','tecnico')`));
+  });
+  await check('FK compuesta rechaza foto con orden de otra obra',async()=>{
+    await db.exec(`insert into ordenes(id,proyecto_id,ot,created_by,ubicacion,rubro,responsable,prioridad,plano_ref_url) values('${uid(303)}','${uid(202)}','OT-B','${uid(4)}','B','General','Prueba','Media','fixture')`);
+    await assert.rejects(()=>db.query(`insert into fotos(proyecto_id,orden_id,uploaded_by,categoria,file_path,file_url,file_type) values('${uid(201)}','${uid(303)}','${uid(1)}','ANTES','fixture','fixture','imagen')`),e=>e.code==='23503');
+  });
+  await check('FK compuesta rechaza comentario con orden de otra obra',()=>assert.rejects(()=>db.query(`insert into comentarios_ot(proyecto_id,orden_id,user_id,user_name,texto) values('${uid(201)}','${uid(303)}','${uid(1)}','Prueba','Comentario')`),e=>e.code==='23503'));
+  await check('borrado autorizado genera auditoría real',()=>asUser(1,async()=>{
+    const result=await db.query(`delete from ordenes where id='${uid(301)}' returning id`);
+    assert.equal(result.rows.length,1);
+    assert.equal(await scalar(`select eliminado_por from ordenes_eliminadas where orden_id='${uid(301)}'`),uid(1));
+  }));
   await check('revocar membresía de empresa corta proyecto y orden',async()=>{
     await db.exec(`update tenant_miembros set activo=false where user_id='${uid(2)}'`);
     await asUser(2,async()=>{assert.equal(await scalar(`select count(*) from proyectos where id='${uid(201)}'`),0);assert.equal(await scalar(`select count(*) from ordenes where id='${uid(301)}'`),0);});
@@ -97,7 +119,15 @@ try{
   await check('rollback vacío restaura fase 1 y compatibilidad',async()=>{
     const rb=new PGlite();
     try{
-      await rb.exec(legacy);await rb.exec(phase1);await rb.exec(phase2);await rb.exec(rollback);
+      await rb.exec(legacy);await rb.exec(phase1);
+      const catalog=async()=>({
+        policies:(await rb.query(`select tablename,policyname,roles,cmd,qual,with_check from pg_policies where schemaname='public' order by tablename,policyname`)).rows,
+        functions:(await rb.query(`select proname,pg_get_functiondef(p.oid) definition,array(select acl::text from unnest(proacl) acl order by acl::text) acl from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' order by proname`)).rows,
+        grants:(await rb.query(`select table_name,grantee,privilege_type from information_schema.role_table_grants where table_schema='public' order by 1,2,3`)).rows,
+      });
+      const before=await catalog();
+      await rb.exec(phase2);await rb.exec(rollback);
+      assert.deepEqual(await catalog(),before);
       const value=async sql=>Object.values((await rb.query(sql)).rows[0])[0];
       assert.equal(await value(`select to_regprocedure('public.plan_es_miembro_proyecto(uuid)')`),null);
       assert.notEqual(await value(`select to_regprocedure('public.plan_proteger_tenant_transicion()')`),null);
@@ -112,18 +142,25 @@ try{
       await seeded.exec(legacy);await seeded.exec(phase1);await seeded.exec(phase2);
       const emails=['creador@plan-ots.test','admin@empresa1.plan-ots.test','supervisor@empresa1.plan-ots.test','tecnico1@empresa1.plan-ots.test','tecnico2@empresa1.plan-ots.test','lector@empresa1.plan-ots.test','admin@empresa2.plan-ots.test','supervisor@empresa2.plan-ots.test','tecnico1@empresa2.plan-ots.test','tecnico2@empresa2.plan-ots.test','lector@empresa2.plan-ots.test'];
       for(let i=0;i<emails.length;i++) await seeded.query('insert into auth.users(id,email) values($1,$2)',[uid(i+1),emails[i]]);
+      await seeded.exec(`insert into proyectos(id,nombre,plano_url,created_by) values('${uid(190)}','Legado conservado','fixture','${uid(2)}')`);
       await seeded.exec(seed);
       const count=async table=>Object.values((await seeded.query(`select count(*) from public.${table}`)).rows[0])[0];
-      assert.equal(await count('tenants'),2);assert.equal(await count('proyectos'),4);
-      assert.equal(await count('tenant_miembros'),10);assert.equal(await count('proyecto_miembros'),14);
-      assert.equal(Object.values((await seeded.query("select count(*) from proyectos where plano_url='pending://plan-upload-required'")).rows[0])[0],4);
+      assert.equal(await count('tenants'),2);assert.equal(await count('proyectos'),5);
+      assert.equal(await count('tenant_miembros'),10);assert.equal(await count('proyecto_miembros'),15);
+      assert.equal(Object.values((await seeded.query("select count(*) from proyectos where plano_url='/fixtures/plano-prueba.svg'")).rows[0])[0],4);
+      await seeded.exec(await readFile('supabase/rollback/20260920_fictional_tenants.rollback.sql','utf8'));
+      assert.equal(await count('tenants'),0);assert.equal(await count('proyectos'),1);
+      assert.equal(await count('tenant_miembros'),0);assert.equal(await count('proyecto_miembros'),1);
+      await seeded.exec(rollback);
+      assert.equal(await count('proyectos'),1);
     }finally{await seeded.close();}
   });
 }catch(error){results.push({name:'preparación/ejecución de suite',ok:false,error:error.message});await db.exec('rollback').catch(()=>{});}
 finally{
+  await db.exec('rollback').catch(()=>{});
   const version=await scalar('select version()');await db.close();
-  const report={scope:'PostgreSQL WASM local con auth.uid simulado; no prueba REST, JWT, Storage ni catálogo completo.',version,phase2Sha256:createHash('sha256').update(phase2).digest('hex'),passed:results.filter(x=>x.ok).length,total:results.length,results};
-  await mkdir('docs/estabilizacion-2026-09-20/dia-3',{recursive:true});
-  await writeFile('docs/estabilizacion-2026-09-20/dia-3/phase2-lab-tests.json',JSON.stringify(report,null,2)+'\n');
+  const report={scope:'PostgreSQL WASM local con catálogo de dominio capturado (tipos sin typmod), auth.uid simulado; no prueba REST, JWT ni Storage.',version,phase2Sha256:createHash('sha256').update(phase2).digest('hex'),passed:results.filter(x=>x.ok).length,total:results.length,results};
+  await mkdir('docs/estabilizacion-2026-09-20/dia-4',{recursive:true});
+  await writeFile('docs/estabilizacion-2026-09-20/dia-4/phase2-lab-tests.json',JSON.stringify(report,null,2)+'\n');
   console.log(JSON.stringify(report,null,2));if(results.some(x=>!x.ok))process.exitCode=1;
 }

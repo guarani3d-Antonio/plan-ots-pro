@@ -1,0 +1,114 @@
+{
+  "scope": "PostgreSQL WASM local con auth.uid simulado; no prueba REST, JWT, Storage ni catálogo completo.",
+  "version": "PostgreSQL 17.5 on aarch64-unknown-linux-gnu, compiled by emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 3.1.74 (1092ec30a3fb1d46b1782ff1b4db5094d3d06ae5), 32-bit",
+  "phase2Sha256": "5d7d1d8d76dfe07a82a28e86b0e92d537ff54a5d108b34481bf3b1f1543471ca",
+  "passed": 20,
+  "total": 25,
+  "results": [
+    {
+      "name": "admin crea obra y tenant se asigna automáticamente",
+      "ok": false,
+      "error": "new row violates row-level security policy for table \"proyectos\""
+    },
+    {
+      "name": "supervisor agrega técnico y viewer coherentes",
+      "ok": true
+    },
+    {
+      "name": "miembro ajeno no ve obra A",
+      "ok": true
+    },
+    {
+      "name": "miembro ajeno no ve orden de obra A",
+      "ok": true
+    },
+    {
+      "name": "técnico edita su obra",
+      "ok": true
+    },
+    {
+      "name": "viewer lee pero no crea órdenes",
+      "ok": true
+    },
+    {
+      "name": "técnico no escribe en obra de otra empresa",
+      "ok": true
+    },
+    {
+      "name": "no se agrega usuario de otra empresa",
+      "ok": true
+    },
+    {
+      "name": "rol de obra no supera rol viewer de empresa",
+      "ok": true
+    },
+    {
+      "name": "empresa de una obra es inmutable",
+      "ok": true
+    },
+    {
+      "name": "autor de OT no se puede falsificar al editar",
+      "ok": false,
+      "error": "Missing expected rejection."
+    },
+    {
+      "name": "editor de OT no se puede falsificar",
+      "ok": false,
+      "error": "Missing expected rejection."
+    },
+    {
+      "name": "rebajar rol de empresa a viewer corta edición inmediatamente",
+      "ok": false,
+      "error": "Missing expected rejection."
+    },
+    {
+      "name": "supervisor que no es admin puede agregar miembro de su empresa",
+      "ok": false,
+      "error": "El usuario no pertenece a la empresa activa"
+    },
+    {
+      "name": "FK compuesta rechaza foto con orden de otra obra",
+      "ok": true
+    },
+    {
+      "name": "FK compuesta rechaza comentario con orden de otra obra",
+      "ok": true
+    },
+    {
+      "name": "revocar membresía de empresa corta proyecto y orden",
+      "ok": true
+    },
+    {
+      "name": "desactivar empresa corta acceso",
+      "ok": true
+    },
+    {
+      "name": "creador ve ambas empresas y obras",
+      "ok": true
+    },
+    {
+      "name": "obra legada solo sigue visible a miembro histórico",
+      "ok": true
+    },
+    {
+      "name": "anon no tiene tablas ni helpers",
+      "ok": true
+    },
+    {
+      "name": "políticas de dominio solo nombran authenticated",
+      "ok": true
+    },
+    {
+      "name": "verificación operativa acepta fase 2",
+      "ok": true
+    },
+    {
+      "name": "rollback vacío restaura fase 1 y compatibilidad",
+      "ok": true
+    },
+    {
+      "name": "seed crea exactamente 2 empresas, 4 obras y 10 usuarios tenant",
+      "ok": true
+    }
+  ]
+}

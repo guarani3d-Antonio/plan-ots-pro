@@ -1,0 +1,62 @@
+{
+  "verifiedAt": "2026-09-20T23:53:32.907Z",
+  "contentMatchesPreMigrationCapture": true,
+  "limitation": "AX normaliza espacios repetidos. Se conserva captura original y respaldo REST exacto de las mismas filas; no se afirma igualdad byte a byte con la captura AX.",
+  "results": [
+    {
+      "table": "fotos",
+      "preservedRows": 122,
+      "rowsWithAXWhitespaceNormalization": 1
+    },
+    {
+      "table": "ordenes",
+      "preservedRows": 95,
+      "rowsWithAXWhitespaceNormalization": 0
+    },
+    {
+      "table": "proyectos",
+      "preservedRows": 13,
+      "rowsWithAXWhitespaceNormalization": 1
+    },
+    {
+      "table": "versiones",
+      "preservedRows": 24,
+      "rowsWithAXWhitespaceNormalization": 0
+    },
+    {
+      "table": "eventos_uso",
+      "preservedRows": 25,
+      "rowsWithAXWhitespaceNormalization": 0
+    },
+    {
+      "table": "comentarios_ot",
+      "preservedRows": 5,
+      "rowsWithAXWhitespaceNormalization": 0
+    },
+    {
+      "table": "ot_comentarios",
+      "preservedRows": 12,
+      "rowsWithAXWhitespaceNormalization": 0
+    },
+    {
+      "table": "campos_definicion",
+      "preservedRows": 4,
+      "rowsWithAXWhitespaceNormalization": 0
+    },
+    {
+      "table": "dashboard_configs",
+      "preservedRows": 1,
+      "rowsWithAXWhitespaceNormalization": 0
+    },
+    {
+      "table": "proyecto_miembros",
+      "preservedRows": 14,
+      "rowsWithAXWhitespaceNormalization": 0
+    },
+    {
+      "table": "ordenes_eliminadas",
+      "preservedRows": 4,
+      "rowsWithAXWhitespaceNormalization": 0
+    }
+  ]
+}

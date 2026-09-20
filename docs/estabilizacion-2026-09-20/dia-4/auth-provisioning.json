@@ -1,0 +1,61 @@
+{
+  "createdAt": "2026-09-20T23:45:29.059Z",
+  "project": "iqgbyqyoovzvhhdjawnt",
+  "accounts": [
+    {
+      "key": "platform-creator",
+      "email": "creador@plan-ots.test",
+      "id": "81303709-3ebd-4aa7-ad1e-d236b931e2a4"
+    },
+    {
+      "key": "e1-admin",
+      "email": "admin@empresa1.plan-ots.test",
+      "id": "3eaeda60-f53c-460c-8aec-3be82384738d"
+    },
+    {
+      "key": "e1-supervisor",
+      "email": "supervisor@empresa1.plan-ots.test",
+      "id": "d8156244-6e6a-4786-ac68-dfb856f16e47"
+    },
+    {
+      "key": "e1-tecnico-1",
+      "email": "tecnico1@empresa1.plan-ots.test",
+      "id": "09f60569-51a1-40e3-9309-8f821b0eab47"
+    },
+    {
+      "key": "e1-tecnico-2",
+      "email": "tecnico2@empresa1.plan-ots.test",
+      "id": "bffb2672-6c5a-4b17-8a28-d4e2dfdd5aeb"
+    },
+    {
+      "key": "e1-lector",
+      "email": "lector@empresa1.plan-ots.test",
+      "id": "b8922706-1d98-4372-b2be-26d0ef739cde"
+    },
+    {
+      "key": "e2-admin",
+      "email": "admin@empresa2.plan-ots.test",
+      "id": "dbf9026b-82cf-4c10-ab16-0ef6909d2875"
+    },
+    {
+      "key": "e2-supervisor",
+      "email": "supervisor@empresa2.plan-ots.test",
+      "id": "bb10ee3d-dec1-4b5e-b344-9ac6076a3d2e"
+    },
+    {
+      "key": "e2-tecnico-1",
+      "email": "tecnico1@empresa2.plan-ots.test",
+      "id": "be29e6da-b40a-43d9-b2c8-241ef260366a"
+    },
+    {
+      "key": "e2-tecnico-2",
+      "email": "tecnico2@empresa2.plan-ots.test",
+      "id": "be004825-4a3e-4541-8a0d-63993f311e88"
+    },
+    {
+      "key": "e2-lector",
+      "email": "lector@empresa2.plan-ots.test",
+      "id": "5a4f7306-cf2d-4125-a15a-fc07956e5fcc"
+    }
+  ]
+}

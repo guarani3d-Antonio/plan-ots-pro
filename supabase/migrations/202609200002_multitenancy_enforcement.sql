@@ -87,7 +87,7 @@ set search_path = pg_catalog, pg_temp as $$
       on tm.tenant_id = p.tenant_id and tm.user_id = auth.uid() and tm.activo
     where p.id = p_proyecto_id
       and ((p.tenant_id is null and pm.tenant_id is null)
-        or (p.tenant_id is not null and t.activo and pm.tenant_id = p.tenant_id and tm.user_id is not null))
+        or (p.tenant_id is not null and t.activo and pm.tenant_id = p.tenant_id and tm.rol in ('administrador','supervisor','tecnico')))
   );
 $$;
 
@@ -104,7 +104,7 @@ set search_path = pg_catalog, pg_temp as $$
       on tm.tenant_id = p.tenant_id and tm.user_id = auth.uid() and tm.activo
     where p.id = p_proyecto_id
       and ((p.tenant_id is null and pm.tenant_id is null)
-        or (p.tenant_id is not null and t.activo and pm.tenant_id = p.tenant_id and tm.user_id is not null))
+        or (p.tenant_id is not null and t.activo and pm.tenant_id = p.tenant_id and tm.rol in ('administrador','supervisor')))
   );
 $$;
 
@@ -196,7 +196,7 @@ begin
          or not public.plan_puede_crear_proyecto(new.tenant_id) then
         raise exception 'Empresa o creador no autorizado' using errcode='42501';
       end if;
-    elsif new.tenant_id is distinct from old.tenant_id
+    elsif new.id is distinct from old.id or new.tenant_id is distinct from old.tenant_id
        or new.created_by is distinct from old.created_by then
       raise exception 'Empresa y creador son inmutables' using errcode='42501';
     end if;
@@ -206,7 +206,7 @@ end;
 $$;
 
 create function public.plan_normalizar_tenant_miembro()
-returns trigger language plpgsql security invoker
+returns trigger language plpgsql security definer
 set search_path = pg_catalog, pg_temp as $$
 declare
   v_tenant_id uuid;
@@ -222,7 +222,9 @@ begin
     select tm.rol into v_rol_tenant from public.tenant_miembros tm
     join public.tenants t on t.id=tm.tenant_id and t.activo
     where tm.tenant_id=v_tenant_id and tm.user_id=new.user_id and tm.activo;
-    if v_rol_tenant is null then
+    if v_rol_tenant is null and not exists (
+      select 1 from public.plataforma_administradores where user_id=new.user_id and activo
+    ) then
       raise exception 'El usuario no pertenece a la empresa activa' using errcode='42501';
     end if;
     if (v_rol_tenant='viewer' and new.rol<>'viewer')
@@ -240,6 +242,74 @@ for each row execute function public.plan_normalizar_tenant_proyecto();
 create trigger plan_normalizar_tenant_miembro before insert or update on public.proyecto_miembros
 for each row execute function public.plan_normalizar_tenant_miembro();
 
+-- La creación y su membresía se completan antes de devolver la fila. INSERT
+-- RETURNING desde REST evalúa SELECT antes del AFTER trigger de membresía.
+create function public.plan_crear_proyecto(
+  p_nombre text, p_plano_url text, p_cliente text default null,
+  p_descripcion text default null, p_rubros text[] default '{}',
+  p_tecnicos text[] default '{}', p_tenant_id uuid default null
+) returns public.proyectos language plpgsql security definer
+set search_path = pg_catalog, pg_temp as $$
+declare v_tenant uuid; v_result public.proyectos;
+begin
+  v_tenant := coalesce(p_tenant_id, public.plan_tenant_id());
+  if auth.uid() is null or v_tenant is null
+    or not public.plan_puede_crear_proyecto(v_tenant)
+    or not exists(select 1 from public.tenants where id=v_tenant and activo) then
+    raise exception 'No tiene permiso para crear obras en esta empresa' using errcode='42501';
+  end if;
+  if nullif(btrim(p_nombre),'') is null or nullif(btrim(p_plano_url),'') is null then
+    raise exception 'Nombre y plano son obligatorios' using errcode='22023';
+  end if;
+  insert into public.proyectos(nombre,plano_url,cliente,descripcion,rubros,tecnicos,tenant_id,created_by)
+  values(btrim(p_nombre),p_plano_url,p_cliente,p_descripcion,coalesce(p_rubros,'{}'),coalesce(p_tecnicos,'{}'),v_tenant,auth.uid())
+  returning * into v_result;
+  return v_result;
+end $$;
+revoke all on function public.plan_crear_proyecto(text,text,text,text,text[],text[],uuid) from public,anon,authenticated;
+grant execute on function public.plan_crear_proyecto(text,text,text,text,text[],text[],uuid) to authenticated;
+
+-- Identidad y atribución se validan también en UPDATE, no solo en INSERT/RLS.
+create function public.plan_validar_autoria()
+returns trigger language plpgsql security invoker
+set search_path=pg_catalog,pg_temp as $$
+declare v_new jsonb := to_jsonb(new); v_old jsonb; k text;
+begin
+  if current_user in ('postgres','service_role') then return new; end if;
+  if tg_op='UPDATE' then
+    v_old := to_jsonb(old);
+    foreach k in array array['id','proyecto_id','orden_id','created_by','uploaded_by','user_id','created_at'] loop
+      if v_new ? k and v_new->k is distinct from v_old->k then
+        raise exception 'No se permite modificar %',k using errcode='42501';
+      end if;
+    end loop;
+  else
+    foreach k in array array['created_by','uploaded_by','user_id'] loop
+      if v_new ? k then
+        if v_new->>k is not null and v_new->>k is distinct from auth.uid()::text then
+          raise exception 'Autor no autorizado' using errcode='42501';
+        end if;
+        v_new := jsonb_set(v_new,array[k],to_jsonb(auth.uid()));
+      end if;
+    end loop;
+  end if;
+  if v_new ? 'updated_by' then
+    if v_new->>'updated_by' is not null and v_new->>'updated_by' is distinct from auth.uid()::text
+      and (tg_op='INSERT' or v_new->'updated_by' is distinct from v_old->'updated_by') then
+      raise exception 'Editor no autorizado' using errcode='42501';
+    end if;
+    v_new := jsonb_set(v_new,'{updated_by}',to_jsonb(auth.uid()));
+  end if;
+  new := jsonb_populate_record(new,v_new);
+  return new;
+end $$;
+revoke all on function public.plan_validar_autoria() from public,anon,authenticated;
+do $$ declare t text; begin
+  foreach t in array array['ordenes','fotos','campos_definicion','comentarios_ot','ot_comentarios','versiones','sync_log','eventos_uso','dashboard_configs'] loop
+    execute format('create trigger plan_validar_autoria before insert or update on public.%I for each row execute function public.plan_validar_autoria()',t);
+  end loop;
+end $$;
+
 -- Se retiran todas las políticas históricas de las tablas de dominio.
 do $$ declare r record; begin
   for r in select schemaname,tablename,policyname from pg_policies
@@ -252,8 +322,6 @@ end $$;
 
 create policy proyectos_select on public.proyectos for select to authenticated
 using (public.plan_es_miembro_proyecto(id));
-create policy proyectos_insert on public.proyectos for insert to authenticated
-with check (created_by=auth.uid() and tenant_id is not null and public.plan_puede_crear_proyecto(tenant_id));
 create policy proyectos_update on public.proyectos for update to authenticated
 using (public.plan_es_supervisor_proyecto(id)) with check (public.plan_es_supervisor_proyecto(id));
 create policy proyectos_delete on public.proyectos for delete to authenticated
@@ -276,14 +344,14 @@ create policy ordenes_delete on public.ordenes for delete to authenticated using
 create policy fotos_select on public.fotos for select to authenticated using (public.plan_es_miembro_proyecto(proyecto_id));
 create policy fotos_insert on public.fotos for insert to authenticated with check (public.plan_puede_editar_proyecto(proyecto_id) and (uploaded_by is null or uploaded_by=auth.uid()));
 create policy fotos_update on public.fotos for update to authenticated using (public.plan_puede_editar_proyecto(proyecto_id)) with check (public.plan_puede_editar_proyecto(proyecto_id));
-create policy fotos_delete on public.fotos for delete to authenticated using (public.plan_es_supervisor_proyecto(proyecto_id) or (uploaded_by=auth.uid() and public.plan_es_miembro_proyecto(proyecto_id)));
+create policy fotos_delete on public.fotos for delete to authenticated using (public.plan_es_supervisor_proyecto(proyecto_id) or (uploaded_by=auth.uid() and public.plan_puede_editar_proyecto(proyecto_id)));
 
 create policy campos_select on public.campos_definicion for select to authenticated using (public.plan_es_miembro_proyecto(proyecto_id));
 create policy campos_write on public.campos_definicion for all to authenticated using (public.plan_es_supervisor_proyecto(proyecto_id)) with check (public.plan_es_supervisor_proyecto(proyecto_id));
 
 create policy comentarios_select on public.comentarios_ot for select to authenticated using (public.plan_es_miembro_proyecto(proyecto_id));
 create policy comentarios_insert on public.comentarios_ot for insert to authenticated with check (user_id=auth.uid() and public.plan_puede_editar_proyecto(proyecto_id));
-create policy comentarios_delete on public.comentarios_ot for delete to authenticated using ((user_id=auth.uid() and public.plan_es_miembro_proyecto(proyecto_id)) or public.plan_es_supervisor_proyecto(proyecto_id));
+create policy comentarios_delete on public.comentarios_ot for delete to authenticated using ((user_id=auth.uid() and public.plan_puede_editar_proyecto(proyecto_id)) or public.plan_es_supervisor_proyecto(proyecto_id));
 create policy ot_comentarios_select on public.ot_comentarios for select to authenticated using (public.plan_es_miembro_proyecto(proyecto_id));
 create policy ot_comentarios_insert on public.ot_comentarios for insert to authenticated with check ((user_id is null or user_id=auth.uid()) and public.plan_puede_editar_proyecto(proyecto_id));
 
@@ -308,6 +376,7 @@ grant select,insert,update,delete on table public.proyectos, public.proyecto_mie
   public.ot_comentarios, public.versiones, public.sync_log, public.eventos_uso,
   public.dashboard_configs to authenticated;
 grant select on table public.ordenes_eliminadas to authenticated;
+revoke insert on public.proyectos from authenticated;
 revoke all on table public.vista_proyectos_resumen, public.vista_ordenes_fotos from public, anon, authenticated;
 grant select on table public.vista_proyectos_resumen, public.vista_ordenes_fotos to authenticated;
 
