@@ -1,0 +1,133 @@
+{
+  "version": "PostgreSQL 17.5 on aarch64-unknown-linux-gnu, compiled by emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 3.1.74 (1092ec30a3fb1d46b1782ff1b4db5094d3d06ae5), 32-bit",
+  "migrationSha256": "400c7fd06e4900905dde043379a9859f9b023233a1b8137fe8e17d4f85466ee6",
+  "passed": 20,
+  "total": 29,
+  "results": [
+    {
+      "name": "rollback vacío devuelve schema legado",
+      "ok": true
+    },
+    {
+      "name": "anon sin EXECUTE plan_es_creador()",
+      "ok": false,
+      "error": "Expected values to be strictly equal:\n\ntrue !== false\n"
+    },
+    {
+      "name": "anon sin EXECUTE plan_tenant_id()",
+      "ok": false,
+      "error": "Expected values to be strictly equal:\n\ntrue !== false\n"
+    },
+    {
+      "name": "anon sin EXECUTE plan_es_admin_tenant(uuid)",
+      "ok": false,
+      "error": "Expected values to be strictly equal:\n\ntrue !== false\n"
+    },
+    {
+      "name": "visibilidad tenants usuario 1",
+      "ok": true
+    },
+    {
+      "name": "visibilidad tenants usuario 2",
+      "ok": true
+    },
+    {
+      "name": "visibilidad tenants usuario 3",
+      "ok": true
+    },
+    {
+      "name": "visibilidad tenants usuario 4",
+      "ok": true
+    },
+    {
+      "name": "visibilidad tenants usuario 11",
+      "ok": true
+    },
+    {
+      "name": "técnico solo lee membresía propia",
+      "ok": true
+    },
+    {
+      "name": "admin empresa 1 no administra empresa 2",
+      "ok": true
+    },
+    {
+      "name": "identidad sin membresía no es creador",
+      "ok": true
+    },
+    {
+      "name": "sin escritura directa tenants",
+      "ok": true
+    },
+    {
+      "name": "anon sin SELECT tenants",
+      "ok": true
+    },
+    {
+      "name": "sin escritura directa tenant_miembros",
+      "ok": true
+    },
+    {
+      "name": "anon sin SELECT tenant_miembros",
+      "ok": true
+    },
+    {
+      "name": "sin escritura directa plataforma_administradores",
+      "ok": true
+    },
+    {
+      "name": "anon sin SELECT plataforma_administradores",
+      "ok": true
+    },
+    {
+      "name": "cuenta no se asigna a dos empresas activas",
+      "ok": true
+    },
+    {
+      "name": "tenant desactivado invalida tenant_id",
+      "ok": false,
+      "error": "Expected values to be strictly equal:\n+ actual - expected\n\n+ '00000000-0000-4000-8000-000000000101'\n- null\n"
+    },
+    {
+      "name": "tenant desactivado invalida administrador",
+      "ok": false,
+      "error": "Expected values to be strictly equal:\n\ntrue !== false\n"
+    },
+    {
+      "name": "tenant desactivado oculta membresías",
+      "ok": false,
+      "error": "Expected values to be strictly equal:\n\n2 !== 0\n"
+    },
+    {
+      "name": "revocación invalida helper",
+      "ok": true
+    },
+    {
+      "name": "creador desactivado pierde acceso",
+      "ok": true
+    },
+    {
+      "name": "cliente legado crea obra y trigger crea supervisor",
+      "ok": true
+    },
+    {
+      "name": "cliente no reasigna tenant de proyecto",
+      "ok": false,
+      "error": "Missing expected rejection."
+    },
+    {
+      "name": "cliente no inyecta tenant al crear proyecto",
+      "ok": false,
+      "error": "Missing expected rejection."
+    },
+    {
+      "name": "cliente no reasigna tenant de membresía",
+      "ok": false,
+      "error": "Missing expected rejection."
+    },
+    {
+      "name": "rollback con datos se detiene",
+      "ok": true
+    }
+  ]
+}

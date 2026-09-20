@@ -45,7 +45,7 @@ function nullablePosition(value: unknown): number {
   return (value == null ? null : value) as unknown as number;
 }
 
-export function rowToOrden(row: Record<string, unknown>, fetchedAt = Date.now()): OrdenLocal {
+export function rowToOrden(row: Record<string, unknown>): OrdenLocal {
   return {
     id:                         row.id as string,
     proyecto_id:                row.proyecto_id as string,
@@ -66,7 +66,7 @@ export function rowToOrden(row: Record<string, unknown>, fetchedAt = Date.now())
     created_by:                 (row.created_by as string) ?? null,
     updated_by:                 (row.updated_by as string) ?? null,
     _synced:                    true,
-    _last_fetched:              fetchedAt,
+    _last_fetched:              Date.now(),
     fotos_pendientes_upload:    [],
     fecha_ingreso:              (row.fecha_ingreso as string) ?? undefined,
     obra:                       (row.obra as string) ?? undefined,

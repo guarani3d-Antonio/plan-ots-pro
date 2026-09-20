@@ -1,0 +1,149 @@
+{
+  "scope": "PostgreSQL WASM 17 local; auth.uid simulado, dos tablas legadas reconstruidas. No prueba JWT, REST, Storage ni concurrencia real.",
+  "version": "PostgreSQL 17.5 on aarch64-unknown-linux-gnu, compiled by emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 3.1.74 (1092ec30a3fb1d46b1782ff1b4db5094d3d06ae5), 32-bit",
+  "migrationSha256": "184c74daa0303ef33b9a69386a2abab978756ada110ccf03df58b45225c02f7f",
+  "passed": 35,
+  "total": 35,
+  "results": [
+    {
+      "name": "verificación operativa acepta fundamento vacío",
+      "ok": true
+    },
+    {
+      "name": "rollback vacío devuelve schema legado",
+      "ok": true
+    },
+    {
+      "name": "verificación detecta grant anon accidental",
+      "ok": true
+    },
+    {
+      "name": "anon sin EXECUTE plan_es_creador()",
+      "ok": true
+    },
+    {
+      "name": "anon sin EXECUTE plan_tenant_id()",
+      "ok": true
+    },
+    {
+      "name": "anon sin EXECUTE plan_es_admin_tenant(uuid)",
+      "ok": true
+    },
+    {
+      "name": "invocación anon rechazada en SQL",
+      "ok": true
+    },
+    {
+      "name": "visibilidad tenants usuario 1",
+      "ok": true
+    },
+    {
+      "name": "visibilidad tenants usuario 2",
+      "ok": true
+    },
+    {
+      "name": "visibilidad tenants usuario 3",
+      "ok": true
+    },
+    {
+      "name": "visibilidad tenants usuario 4",
+      "ok": true
+    },
+    {
+      "name": "visibilidad tenants usuario 11",
+      "ok": true
+    },
+    {
+      "name": "técnico solo lee membresía propia",
+      "ok": true
+    },
+    {
+      "name": "admin lee miembros de su empresa",
+      "ok": true
+    },
+    {
+      "name": "tabla temporal no suplanta identidad de empresa",
+      "ok": true
+    },
+    {
+      "name": "admin empresa 1 no administra empresa 2",
+      "ok": true
+    },
+    {
+      "name": "identidad sin membresía no es creador",
+      "ok": true
+    },
+    {
+      "name": "sin escritura directa tenants",
+      "ok": true
+    },
+    {
+      "name": "anon sin SELECT tenants",
+      "ok": true
+    },
+    {
+      "name": "sin escritura directa tenant_miembros",
+      "ok": true
+    },
+    {
+      "name": "anon sin SELECT tenant_miembros",
+      "ok": true
+    },
+    {
+      "name": "sin escritura directa plataforma_administradores",
+      "ok": true
+    },
+    {
+      "name": "anon sin SELECT plataforma_administradores",
+      "ok": true
+    },
+    {
+      "name": "cuenta no se asigna a dos empresas activas",
+      "ok": true
+    },
+    {
+      "name": "tenant desactivado invalida tenant_id",
+      "ok": true
+    },
+    {
+      "name": "tenant desactivado invalida administrador",
+      "ok": true
+    },
+    {
+      "name": "tenant desactivado oculta membresías",
+      "ok": true
+    },
+    {
+      "name": "revocación invalida helper",
+      "ok": true
+    },
+    {
+      "name": "creador desactivado pierde acceso",
+      "ok": true
+    },
+    {
+      "name": "cliente legado crea obra y trigger crea supervisor",
+      "ok": true
+    },
+    {
+      "name": "cliente no reasigna tenant de proyecto",
+      "ok": true
+    },
+    {
+      "name": "cliente no inyecta tenant al crear proyecto",
+      "ok": true
+    },
+    {
+      "name": "cliente no reasigna tenant de membresía",
+      "ok": true
+    },
+    {
+      "name": "cliente no inyecta tenant al agregar miembro",
+      "ok": true
+    },
+    {
+      "name": "rollback con datos se detiene",
+      "ok": true
+    }
+  ]
+}

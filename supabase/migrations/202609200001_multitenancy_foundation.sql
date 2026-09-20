@@ -7,6 +7,15 @@
 -- migración pueda hacer el backfill y activar el aislamiento por tenant.
 
 begin;
+set local lock_timeout = '5s';
+set local statement_timeout = '60s';
+
+-- El propietario probado de los SECURITY DEFINER es postgres.
+do $$ begin
+  if current_user <> 'postgres' then
+    raise exception 'Ejecutar fase 1 mediante el rol administrativo postgres';
+  end if;
+end $$;
 
 create table public.tenants (
   id          uuid primary key default gen_random_uuid(),
@@ -63,12 +72,12 @@ alter table public.proyecto_miembros
 create index proyecto_miembros_tenant_usuario
   on public.proyecto_miembros(tenant_id, user_id, proyecto_id);
 
-create or replace function public.plan_es_creador()
+create function public.plan_es_creador()
 returns boolean
 language sql
 stable
 security definer
-set search_path = pg_catalog, public
+set search_path = pg_catalog, pg_temp
 as $$
   select exists (
     select 1
@@ -78,40 +87,45 @@ as $$
   );
 $$;
 
-create or replace function public.plan_tenant_id()
+create function public.plan_tenant_id()
 returns uuid
 language sql
 stable
 security definer
-set search_path = pg_catalog, public
+set search_path = pg_catalog, pg_temp
 as $$
   select tm.tenant_id
   from public.tenant_miembros tm
+  join public.tenants t on t.id = tm.tenant_id and t.activo
   where tm.user_id = auth.uid()
     and tm.activo
   limit 1;
 $$;
 
-create or replace function public.plan_es_admin_tenant(p_tenant_id uuid)
+create function public.plan_es_admin_tenant(p_tenant_id uuid)
 returns boolean
 language sql
 stable
 security definer
-set search_path = pg_catalog, public
+set search_path = pg_catalog, pg_temp
 as $$
-  select public.plan_es_creador() or exists (
+  select exists (
+    select 1 from public.tenants t where t.id = p_tenant_id
+    and (public.plan_es_creador() or (t.activo and exists (
     select 1
     from public.tenant_miembros tm
     where tm.tenant_id = p_tenant_id
       and tm.user_id = auth.uid()
       and tm.activo
       and tm.rol = 'administrador'
+    )))
   );
 $$;
 
-revoke all on function public.plan_es_creador() from public;
-revoke all on function public.plan_tenant_id() from public;
-revoke all on function public.plan_es_admin_tenant(uuid) from public;
+-- Supabase también asigna EXECUTE directo a anon por DEFAULT PRIVILEGES.
+revoke all on function public.plan_es_creador() from public, anon, authenticated;
+revoke all on function public.plan_tenant_id() from public, anon, authenticated;
+revoke all on function public.plan_es_admin_tenant(uuid) from public, anon, authenticated;
 grant execute on function public.plan_es_creador() to authenticated;
 grant execute on function public.plan_tenant_id() to authenticated;
 grant execute on function public.plan_es_admin_tenant(uuid) to authenticated;
@@ -140,7 +154,7 @@ create policy tenant_miembros_ver
   for select
   to authenticated
   using (
-    user_id = auth.uid()
+    (user_id = auth.uid() and activo and tenant_id = public.plan_tenant_id())
     or public.plan_es_admin_tenant(tenant_id)
   );
 
@@ -152,6 +166,33 @@ revoke all on table public.tenant_miembros from public, anon, authenticated;
 grant select on table public.tenants to authenticated;
 grant select on table public.plataforma_administradores to authenticated;
 grant select on table public.tenant_miembros to authenticated;
+
+-- Los grants de tablas legadas incluyen UPDATE/INSERT de cualquier columna.
+-- Mientras la fase 2 no active RPCs y coherencia de tenant, SOLO el canal
+-- administrativo puede asignar estas columnas. El cliente legado sigue
+-- creando/actualizando proyectos con tenant_id null.
+-- SECURITY INVOKER: current_user identifica al rol SQL, no a un claim editable.
+create function public.plan_proteger_tenant_transicion()
+returns trigger language plpgsql security invoker
+set search_path = pg_catalog, pg_temp as $$
+begin
+  if current_user not in ('postgres','service_role') then
+    if tg_op = 'INSERT' then
+      if new.tenant_id is not null then
+        raise exception 'Asignación de empresa reservada al aprovisionamiento' using errcode = '42501';
+      end if;
+    elsif new.tenant_id is distinct from old.tenant_id then
+      raise exception 'No se permite cambiar la empresa del registro' using errcode = '42501';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+revoke all on function public.plan_proteger_tenant_transicion() from public, anon, authenticated;
+create trigger plan_proteger_tenant_proyecto before insert or update on public.proyectos
+for each row execute function public.plan_proteger_tenant_transicion();
+create trigger plan_proteger_tenant_miembro before insert or update on public.proyecto_miembros
+for each row execute function public.plan_proteger_tenant_transicion();
 
 comment on table public.tenants is
   'Empresa aislada de Plan-OTs. No confundir con el texto legado proyectos.cliente.';

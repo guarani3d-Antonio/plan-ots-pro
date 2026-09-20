@@ -1,0 +1,23 @@
+{
+  "scope": "Módulos TS reales en VM; red, React, Zustand y Dexie simulados. No certifica sesión, conflictos, durabilidad ni RLS.",
+  "passed": 4,
+  "total": 4,
+  "results": [
+    {
+      "name": "carga online conserva campos y fecha de caché real en Array.map",
+      "ok": true
+    },
+    {
+      "name": "CREATE online e importación encolada transmiten el mismo contrato",
+      "ok": true
+    },
+    {
+      "name": "UPDATE online y cola conservan null/cero/false y omiten identidad manipulada",
+      "ok": true
+    },
+    {
+      "name": "Realtime INSERT/UPDATE conserva campos; DELETE repetido es local y limpia selección",
+      "ok": true
+    }
+  ]
+}

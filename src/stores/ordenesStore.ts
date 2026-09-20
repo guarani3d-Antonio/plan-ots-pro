@@ -376,11 +376,6 @@ export const useOrdenesStore = create<OrdenesState>((set, get) => ({
         .select()
         .single();
 
-      console.log('[DEBUG actualizarOrden] id:', id);
-      console.log('[DEBUG actualizarOrden] supabasePatch enviado:', JSON.stringify(supabasePatch, null, 2));
-      console.log('[DEBUG actualizarOrden] data recibido:', JSON.stringify(data, null, 2));
-      console.log('[DEBUG actualizarOrden] error recibido:', error);
-
       if (error || !data) {
         console.error('[ordenesStore] actualizarOrden Supabase error:', error);
         await encolarUpdate(id, cambios);

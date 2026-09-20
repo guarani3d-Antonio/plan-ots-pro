@@ -61,7 +61,7 @@ for (const required of [
   'create table public.tenant_miembros',
   'create table public.plataforma_administradores',
   'add column tenant_id uuid references public.tenants(id)',
-  'set search_path = pg_catalog, public',
+  'set search_path = pg_catalog, pg_temp',
   'revoke all on table public.tenants from public, anon, authenticated',
 ]) {
   if (!migration.toLowerCase().includes(required)) {

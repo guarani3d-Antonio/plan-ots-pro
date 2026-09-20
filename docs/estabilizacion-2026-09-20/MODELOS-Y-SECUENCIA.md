@@ -13,7 +13,7 @@ Recomendación de ingeniería para este proyecto, no garantía de rendimiento o 
 | Cola idempotente, conflictos, varias pestañas, pérdidas intermitentes difíciles | Astra alto en diagnóstico/diseño; Sol alto para cambios delimitados | Alta |
 | Ejecutar la suite repetible, compilar, revisar resultados conocidos | Sol medio | Baja; ejecutar tests no necesita Astra por sí solo |
 | Interpretar fallos contradictorios, revisión de seguridad y decisión de salida de un hito | Astra alto | Alta |
-| Arquitectura compartida con Fio Pro/BIM, precisión/identidad espacial | Astra alto en decisión; Sol medio/alto en implementación | Alta en diseño, baja en rutina |
+| Réplica independiente del patrón de planos en Fio Pro; precisión/identidad espacial | Astra alto en decisión; Sol medio/alto en implementación | Alta en diseño, baja en rutina |
 | Empaquetar una skill a partir de un procedimiento ya probado | Sol medio | Baja; Astra revisa solo el contrato/seguridad si cambian |
 
 **Ya se puede pasar a Sol para el siguiente lote acotado.** Volver a Astra al revisar multitenancy/migración/sync y en los gates de entrega. No reservar todas las pruebas a Astra: tanto ejecución como mantenimiento de regresiones corrientes pueden quedar en Sol. No se cambió el modelo de la tarea durante esta revisión.
@@ -28,7 +28,7 @@ Recomendación de ingeniería para este proyecto, no garantía de rendimiento o 
 6. **Ensayo completo:** pruebas entre empresas/obras/roles, tablet, fallos y recuperación; luego piloto con alcance medido.
 7. **Primera comercialización:** onboarding, SMTP, soporte, backup recurrente, operación y documentación; decidir salida por gates, con previsión de fecha actualizada.
 
-No asignar todavía una fecha de comercialización como compromiso. Las estimaciones anteriores son esfuerzo de ingeniería y supuestos de capacidad, no tiempo de ejecución garantizado de un agente. Convertir el backlog en calendario diario después de acordar horas/días y medir velocidad del primer lote. Cada día deberá cerrar con resultado, prueba, commit/rollback y pendientes; las tareas mayores deben ocupar varios días.
+La dedicación ya acordada es de al menos 5–6 horas por día, con límite de diez días para el piloto conectado. Adelantar bloques cuando pasen sus pruebas. Cada bloque cierra con resultado, comprobación, checkpoint y pendientes. La comercialización sigue sujeta a validación posterior; el piloto usa empresas ficticias.
 
 ## Cuándo entra Fio Pro y la skill
 
@@ -38,6 +38,6 @@ No asignar todavía una fecha de comercialización como compromiso. Las estimaci
 
 **Tercer hito, después del primer caso reproducible en cada aplicación:** crear la skill para replicar esa capacidad: preflight de proyecto, migración, permisos, montaje de visor, anclaje, pruebas de aislamiento y rollback. Incluir ejemplos sintéticos. Una skill guía al agente; cada aplicación conserva su lógica y seguridad en su propio código y SQL.
 
-BIM/IFC/SketchUp vienen después. La primera capacidad compartida útil puede ser ubicación precisa en plano 2D y navegación a una no conformidad, sin prometer GPS indoor o soporte BIM ya implementado.
+BIM/IFC/SketchUp vienen después. La primera capacidad a replicar es ubicación precisa en plano 2D y navegación a una no conformidad, sin prometer GPS indoor o soporte BIM ya implementado.
 
 La dedicación acordada es de 5–6 horas diarias y el objetivo es una build conectada para campo en diez días consecutivos. El trabajo diario y los gates están en [CALENDARIO-TRABAJO.md](CALENDARIO-TRABAJO.md).

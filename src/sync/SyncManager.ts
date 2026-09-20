@@ -165,11 +165,11 @@ async function procesarItem(item: QueueItem & { id?: number }): Promise<Resultad
 
     } else if (item.tipo === 'UPDATE_OT') {
       const { id, campos } = item.payload;
-      const { data: { user } } = await supabase.auth.getUser();
       const patch = ordenPatchToRow(campos, {
         updated_at: new Date().toISOString(),
-        updated_by: user?.id ?? null,
       });
+      // El actor requiere vincular la cola a su identidad original (B003).
+      // No atribuir operaciones antiguas a quien inició sesión después.
 
       const { error } = await supabase
         .from('ordenes')

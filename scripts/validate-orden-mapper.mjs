@@ -43,13 +43,18 @@ const baseRow = {
   en_garantia: false,
 };
 
-const local = rowToOrden(baseRow, 1234);
+const startedAt = Date.now();
+const local = rowToOrden(baseRow);
 assert.equal(local.pos_x, null, 'Una OT sin ubicar no debe convertirse en (0,0).');
 assert.equal(local.pos_y, null, 'Una OT sin ubicar no debe convertirse en (0,0).');
 assert.equal(local.comentarios, 'comentario independiente');
 assert.equal(local.descripcion, 'descripción independiente');
 assert.equal(local.costo, 0);
-assert.equal(local._last_fetched, 1234);
+assert.ok(local._last_fetched >= startedAt);
+// Array.map pasa el índice como segundo argumento: no debe convertirse en fecha.
+for (const mapped of [baseRow, baseRow].map(rowToOrden)) {
+  assert.ok(mapped._last_fetched >= startedAt);
+}
 
 const insert = ordenToRow(local);
 assert.equal(insert.comentarios, 'comentario independiente');
