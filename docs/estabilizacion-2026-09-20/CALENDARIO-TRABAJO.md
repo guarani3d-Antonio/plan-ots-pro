@@ -1,117 +1,43 @@
-# Calendario de estabilización, piloto y offline
+# Sprint intensivo de 10 días
 
-Base: 6 horas efectivas por día, lunes a viernes, una persona principal. Inicio de ejecución: domingo 20/09/2026; calendario regular desde el lunes 21/09/2026. Los feriados del 8 y 25 de diciembre y 1 de enero quedan como reserva; si se trabaja alguno, ese tiempo adelanta contingencias. Cada día termina con evidencia, commit o checkpoint y camino de reversión.
+Objetivo: al terminar el día 10, disponer de una versión conectada de Plan-OTs apta para pruebas de campo con empresas, obras y usuarios ficticios. Capacidad: al menos 5–6 horas efectivas diarias. Se trabajará en días consecutivos y cada día cerrará con validación y checkpoint reversible.
 
-Este calendario ordena el trabajo conocido. Los gates deciden salida: una fecha no convierte una build en apta si falla aislamiento, restauración o campo.
+El sprint congela alcance. En estos diez días no entran offline completo, BIM/IFC, visor 3D productivo, cobros, integraciones con Fio Pro ni la skill. Las pantallas secundarias que bloqueen el núcleo se deshabilitan temporalmente en vez de retrasar la prueba de campo.
 
-## Fechas objetivo
+## Resultado exigido al día 10
 
-| Hito | Fecha objetivo | Condición |
-|---|---|---|
-| Base multitenant aplicada y dos empresas aprovisionadas | 09/10/2026 | Revisión Astra, rollback y pruebas A/B |
-| Flujo online técnicamente coherente | 30/10/2026 | OT/plano/fotos/informes sin pérdidas ni XSS conocido |
-| Candidato a prueba de campo conectada | 20/11/2026 | Seguridad, Storage privado, restore y tablet pasan |
-| Primera ronda de campo ficticia cerrada | 04/12/2026 | Incidencias clasificadas y P0 corregidos |
-| Piloto conectado estabilizado | 18/12/2026 | Segunda ronda sin P0 abiertos |
-| Offline completo candidato a campo | 29/01/2027 | Cola, identidad, conflicto, reinicio y red intermitente pasan |
-| Flujo mínimo Fio Pro ↔ plano probado | 19/02/2027 | NC abre anclaje autorizado y vuelve al origen |
-| Skill reutilizable candidata | 26/02/2027 | Caso real reproducible en ambos repositorios y rollback probado |
-| Candidato comercial controlado | 19/03/2027 | Sin P0/P1 de seguridad/recuperación, soporte y operación listos |
+1. Dos empresas ficticias, dos obras por empresa y usuarios con roles reales.
+2. Aislamiento probado entre empresas y entre obras mediante UI, REST y Storage.
+3. Login, selección de obra, plano, alta/edición/cierre de OT, fotografías e informe funcionando con conexión.
+4. Plano y evidencia privados; ningún usuario ajeno o anónimo puede descargarlos.
+5. Errores visibles y recuperables; ninguna acción crítica confirma éxito si el servidor la rechazó.
+6. Backup y rollback probados para código, base y objetos usados en el ensayo.
+7. Recorrido en tablet y guion de campo completados con datos ficticios.
+8. Sin P0 abiertos. Los P1 aceptados para el ensayo quedan documentados y no afectan aislamiento, pérdida de datos o recuperación.
 
-## Trabajo diario: tramo hasta piloto conectado
+## Plan paso a paso
 
-| Día | Fecha | Trabajo y resultado del día |
+| Día | Trabajo | Cierre obligatorio |
 |---:|---|---|
-| 1 | Lun 21/09 | Terminar migración multitenant aditiva, tipos y validación de fixtures. |
-| 2 | Mar 22/09 | Capturar schema anterior completo; preparar migración de backfill sin ejecutarla. |
-| 3 | Mié 23/09 | Diseñar capacidades por proyecto y unificar roles `administrador/supervisor/tecnico/viewer`. |
-| 4 | Jue 24/09 | Escribir RLS fase 2 y matriz allow/deny para creador, empresa y obra. |
-| 5 | Vie 25/09 | Gate Astra: revisión de migración, funciones, `search_path`, grants y rollback. |
-| 6 | Lun 28/09 | Corregir revisión; aplicar fundación en entorno remoto con evidencia de catálogo. |
-| 7 | Mar 29/09 | Crear Creador y flujo administrativo mínimo de aprovisionamiento. |
-| 8 | Mié 30/09 | Crear Empresa de prueba 1 y sus dos obras por el flujo de dominio. |
-| 9 | Jue 01/10 | Crear Empresa de prueba 2 y sus dos obras; asignar roles y membresías. |
-| 10 | Vie 02/10 | Probar lectura/escritura A/B, técnico entre obras, lector y usuario sin membresía. |
-| 11 | Lun 05/10 | Migrar proyectos existentes al tenant legado o fixture decidido; verificar conteos. |
-| 12 | Mar 06/10 | Activar integridad tenant/proyecto y referencias compuestas donde corresponda. |
-| 13 | Mié 07/10 | Implementar contexto de tenant/usuario en cliente con fallo cerrado. |
-| 14 | Jue 08/10 | Adaptar selector de proyectos y creación para usar tenant real. |
-| 15 | Vie 09/10 | Gate Astra: aislamiento completo y rollback; cerrar hito multitenant. |
-| 16 | Lun 12/10 | Rediseñar paths de `planos` y `fotos` como tenant/proyecto/objeto. |
-| 17 | Mar 13/10 | Crear buckets/policies privadas y acceso temporal autorizado. |
-| 18 | Mié 14/10 | Migrar referencias históricas y compatibilidad de lectura durante transición. |
-| 19 | Jue 15/10 | Probar descarga/subida/borrado entre empresas, obras, anónimo y revocado. |
-| 20 | Vie 16/10 | Verificar cachés y URLs expiradas; documentar recuperación de objetos. |
-| 21 | Lun 19/10 | Implementar mapper canónico row ↔ OT, con null, cero y fechas. |
-| 22 | Mar 20/10 | Unificar CREATE/UPDATE online y preparar comandos idempotentes. |
-| 23 | Mié 21/10 | Corregir Realtime para conservar campos y no reemitir DELETE. |
-| 24 | Jue 22/10 | Corregir conflicto de código OT y mostrar recuperación al usuario. |
-| 25 | Vie 23/10 | Regresión del flujo OT online en dos sesiones autorizadas. |
-| 26 | Lun 26/10 | Centralizar escape HTML y validación de URLs en informes. |
-| 27 | Mar 27/10 | Aislar preview/impresión y probar payloads de marcado inerte. |
-| 28 | Mié 28/10 | Actualizar PDF.js y workers; probar PDF grande, rotado y multipágina. |
-| 29 | Jue 29/10 | Actualizar Vite/transitivas, limitar servidor de desarrollo y construir PWA. |
-| 30 | Vie 30/10 | Gate Astra: flujo online coherente, seguridad de documentos y dependencias. |
-| 31 | Lun 02/11 | Reparar restauración de versiones para no informar éxitos falsos. |
-| 32 | Mar 03/11 | Validar relaciones OT/proyecto en fotos y comentarios en servidor. |
-| 33 | Mié 04/11 | Derivar actor desde Auth y registrar eventos críticos de negocio. |
-| 34 | Jue 05/11 | Reemplazar invitaciones simuladas por aprovisionamiento administrativo real. |
-| 35 | Vie 06/11 | Probar alta, revocación y reingreso de usuarios con sesión nueva. |
-| 36 | Lun 09/11 | Preparar dataset de campo: estados, fotos, costos, anclajes y casos negativos. |
-| 37 | Mar 10/11 | E2E del recorrido conectado: login → obra → plano → OT → foto → informe. |
-| 38 | Mié 11/11 | E2E de dos empresas y dos obras mediante REST, Storage y UI. |
-| 39 | Jue 12/11 | Ensayo de backup/restore de base y objetos en espacio de prueba. |
-| 40 | Vie 13/11 | Corregir resultados del restore y completar runbook de incidentes. |
-| 41 | Lun 16/11 | Prueba tablet horizontal/vertical, cámara, PDF, suspensión y reapertura online. |
-| 42 | Mar 17/11 | Medir arranque, memoria y planos representativos; corregir bloqueos P0. |
-| 43 | Mié 18/11 | Ensayo operativo con guion de campo y observación de errores visibles. |
-| 44 | Jue 19/11 | Regresión completa desde checkout limpio y equivalencia con despliegue. |
-| 45 | Vie 20/11 | Gate Astra: aceptar o rechazar candidato a prueba de campo conectada. |
+| **1** | Auditoría final, respaldo, revisión de Supabase y Fio Pro, decisión de independencia, migración multitenant aditiva y mapper canónico de OTs. | **Completado:** commits `54742be` y `85fac0d`; TypeScript, ESLint del lote, validadores y build pasan. |
+| **2** | Revisión Astra de migración, RLS, grants, rollback y fixtures. Corregir el diseño antes de tocar el servidor. | Migración aprobada o lista cerrada de correcciones; schema previo preservado. |
+| **3** | Aplicar fundamento multitenant. Crear Creador, dos empresas, cuatro obras y usuarios sintéticos con credenciales fuera del repo. | Conteos exactos, rollback comprobado y acceso positivo del Creador. |
+| **4** | Activar RLS y capacidades por empresa/obra. Corregir viewer, autor autenticado, referencias cruzadas y revocación. | Matriz allow/deny A/B pasa con cuentas reales; técnico no entra a otra obra. |
+| **5** | Hacer privados `planos`, `fotos` y `exports`; migrar paths a tenant/proyecto y usar acceso temporal. | Anónimo, empresa ajena y técnico de otra obra no descargan ni suben objetos. |
+| **6** | Adaptar frontend a tenant y membresías reales: sesión, selector, creación de proyecto, permisos y cambio de cuenta. | Cada rol ve solo sus obras; Creador administra; no quedan controles falsos de invitación/rol. |
+| **7** | Cerrar flujo OT conectado: mapper, updates parciales, Realtime, conflicto de código, fotos y estados. | Dos sesiones autorizadas conservan todos los campos y no generan escrituras duplicadas. |
+| **8** | Asegurar informes/HTML, corregir restauración falsa y actualizar PDF.js si la adaptación cabe sin romper el visor. Deshabilitar cualquier salida insegura que no llegue. | Recorrido OT → fotos → informe pasa; payloads HTML no ejecutan código; restauración informa resultado real. |
+| **9** | Prueba integral en tablet con las cuatro obras: orientación, cámara, plano, suspensión breve, sesión y recuperación. Corregir todos los P0. | Evidencia de campo ficticia, incidencias reproducibles y build candidata. |
+| **10** | Regresión final, repetición de aislamiento, restore, despliegue controlado y guion de prueba de campo. | Decisión explícita GO/NO-GO. Con GO, la build queda lista para uso acompañado con clientes ficticios. |
 
-## Trabajo diario: campo conectado y preparación offline
+## Después del día 10
 
-| Día | Fecha | Trabajo y resultado del día |
-|---:|---|---|
-| 46 | Lun 23/11 | Campo ficticio 1, Empresa 1/Obra 1, uso acompañado y registro de incidentes. |
-| 47 | Mar 24/11 | Campo ficticio 1, Empresa 1/Obra 2 con técnico restringido. |
-| 48 | Mié 25/11 | Analizar evidencia, reproducir incidentes y priorizar P0/P1. |
-| 49 | Jue 26/11 | Corregir P0 de campo y agregar regresiones útiles. |
-| 50 | Vie 27/11 | Repetir recorrido fallido y emitir build candidata 2. |
-| 51 | Lun 30/11 | Campo ficticio 2, Empresa 2/Obra 1, cuenta y dispositivo distintos. |
-| 52 | Mar 01/12 | Campo ficticio 2, Empresa 2/Obra 2; verificar aislamiento cruzado. |
-| 53 | Mié 02/12 | Probar revocación durante operación y expiración normal de sesión. |
-| 54 | Jue 03/12 | Corregir P0/P1 de segunda ronda. |
-| 55 | Vie 04/12 | Gate de primera ronda cerrada; decidir alcance exacto del offline. |
-| 56 | Lun 07/12 | Versionar Dexie por identidad/tenant y estrategia de migración local. |
-| — | Mar 08/12 | Feriado/reserva; sin trabajo obligatorio programado. |
-| 57 | Mié 09/12 | Vincular cola a actor/tenant y bloquear envío con otra sesión. |
-| 58 | Jue 10/12 | Introducir estados durable/processing/retry/failed/acked y leases. |
-| 59 | Vie 11/12 | Implementar backoff, error visible y reintento manual sin descarte. |
-| 60 | Lun 14/12 | Probar tres fallos, cierre de pestaña y crash después del commit remoto. |
-| 61 | Mar 15/12 | Implementar merge servidor/local sin borrar pendientes. |
-| 62 | Mié 16/12 | Resolver conflicto update/update y delete/update de manera visible. |
-| 63 | Jue 17/12 | Segunda ronda conectada con correcciones y simulación de red breve. |
-| 64 | Vie 18/12 | Gate Astra: piloto conectado estabilizado y diseño offline confirmado. |
-| 65 | Lun 21/12 | Diseñar tablas de documento/revisión/lámina/anclaje para integración Fio Pro. |
-| 66 | Mar 22/12 | Implementar contrato espacial v1 y adaptador Plan-OTs. |
-| 67 | Mié 23/12 | Probar coordenadas 0..1, revisión inmutable y deep link local. |
-| 68 | Jue 24/12 | Buffer de correcciones/documentación; sin despliegue riesgoso. |
-| — | Vie 25/12 | Feriado/reserva; sin trabajo obligatorio programado. |
-| 69 | Lun 28/12 | Preparar checkpoint seguro del árbol actual de Fio Pro. |
-| 70 | Mar 29/12 | Montar adaptador Fio Pro en rama/worktree aislado, sin cambiar ciclo NC. |
-| 71 | Mié 30/12 | Probar NC → plano → anclaje con datos sintéticos y permisos. |
-| 72 | Jue 31/12 | Documentar hallazgos y backlog de integración; cierre sin publicación. |
-| — | Vie 01/01 | Feriado/reserva; sin trabajo obligatorio programado. |
+El siguiente bloque desarrolla offline completo: datos por identidad, cola durable, fotos, reintentos, conflictos, varias pestañas, actualización PWA y pruebas de red intermitente. No se prometerá offline hasta pasar esas pruebas.
 
-## Continuación enero-marzo
+Después de validar Plan-OTs en campo se replica el módulo de planos dentro de Fio Pro como desarrollo independiente. La skill se extrae únicamente cuando esa réplica también haya sido probada.
 
-- **04–29/01/2027:** terminar offline: fotos, almacenamiento, cuotas, actualización PWA, red intermitente, dos pestañas, cambio de usuario y tablet física. Gate Astra el 29/01.
-- **01–19/02/2027:** estabilizar el flujo Fio Pro ↔ Plan-OTs y probarlo entre las dos empresas/obras, manteniendo Fio Pro como dueño de la NC.
-- **22–26/02/2027:** crear la skill desde el procedimiento ya probado, con preflight, migración, tests y rollback.
-- **01–19/03/2027:** operación comercial: SMTP, onboarding, soporte, observabilidad, recuperación, límites, documentación y último ciclo de campo. La fecha del 19/03 es un candidato sujeto a gates, no una promesa de venta.
+## Uso de modelos durante el sprint
 
-## Uso de modelos
-
-- Sol alto: implementación cotidiana, refactors delimitados, tests, documentación y corrección de fallos conocidos.
-- Astra alto: días 5, 15, 30, 45 y 64; además, cualquier conflicto de sincronización no reproducible, cambio de RLS/Storage de alto impacto o decisión de salida.
-- El cambio de modelo se avisa antes del gate. Después de cada revisión se vuelve a Sol para ejecutar las correcciones.
+- Sol alto para implementación, pruebas rutinarias y correcciones delimitadas.
+- Astra alto en el día 2, antes de aplicar RLS/Storage, y nuevamente en el gate final del día 10.
+- Si aparece un fallo contradictorio de autorización o pérdida de datos, se cambia a Astra en ese momento y se vuelve a Sol al quedar delimitada la corrección.

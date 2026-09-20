@@ -40,8 +40,8 @@ create table public.tenant_miembros (
     check (rol in ('administrador', 'supervisor', 'tecnico', 'viewer'))
 );
 
--- El modelo inicial, al igual que Fio Pro, asigna una cuenta activa a una sola
--- empresa. Se conservan membresías inactivas para trazabilidad y transferencias.
+-- El modelo inicial asigna una cuenta activa a una sola empresa. Se conservan
+-- membresías inactivas para trazabilidad y transferencias.
 create unique index tenant_miembros_un_tenant_activo_por_usuario
   on public.tenant_miembros(user_id)
   where activo;

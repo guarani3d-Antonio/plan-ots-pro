@@ -20,20 +20,14 @@ export interface TenantMembership {
   updated_at: string;
 }
 
-export const SPATIAL_ENTITY_TYPES = ['work_order', 'non_conformity'] as const;
-
-export type SpatialEntityType = typeof SPATIAL_ENTITY_TYPES[number];
-
 /**
- * Contrato compartible con Fio Pro. Las coordenadas u/v son normalizadas
- * dentro de la página o lámina y siempre permanecen en el rango 0..1.
+ * Anclaje local de una OT de Plan-OTs. Fio Pro implementará su propio modelo
+ * independiente para no conformidades, reutilizando el patrón y no los datos.
  */
 export interface SpatialAnchor {
   tenant_id: string;
   project_id: string;
-  source_system: 'plan-ots' | 'fio-pro';
-  entity_type: SpatialEntityType;
-  entity_id: string;
+  work_order_id: string;
   document_revision_id: string;
   sheet_id: string;
   u: number;

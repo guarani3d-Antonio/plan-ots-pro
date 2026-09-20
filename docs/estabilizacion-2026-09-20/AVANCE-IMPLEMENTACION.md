@@ -5,9 +5,9 @@
 ### Fundamento multitenant
 
 - Migración aditiva, rollback y verificación creados.
-- Contrato `tenant -> proyecto -> miembro` alineado semánticamente con Fio Pro.
+- Contrato local `tenant -> proyecto -> miembro`. Fio Pro permanece independiente y solo reutilizará el patrón cuando se replique el módulo de planos.
 - Fixtures validados: dos empresas, cuatro obras, diez usuarios de tenant y un Creador.
-- Calendario de trabajo creado con base de seis horas efectivas por día.
+- Sprint intensivo de diez días creado con base de 5–6 horas efectivas diarias.
 - Estado remoto: **no aplicado**. Requiere revisión Astra antes de modificar RLS/Storage o sembrar cuentas.
 
 ### Contrato canónico de órdenes
