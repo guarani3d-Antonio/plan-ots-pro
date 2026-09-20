@@ -70,5 +70,5 @@ La primera prioridad será baseline de schema/migraciones y organización/membre
 - Cuentas de prueba reales, CRUD allow/deny, REST/RPC, revocación y Storage privado después de corregir políticas; simulación SQL de lectura no cubre estos casos.
 - Backup remoto/restore de DB y objetos; schema versionado completo y procedimiento de reset.
 - Matriz tablet física, cámara, suspensión, cuota y actualización PWA.
-- Repositorio Fio Pro para contratos compartidos; configuración de rate limits/protección de ataques y pruebas de entrega SMTP.
+- Configuración de rate limits/protección de ataques y pruebas de entrega SMTP. El repositorio Fio Pro ya fue revisado en lectura; el contrato resultante está en [INTEGRACION-FIO-PRO.md](INTEGRACION-FIO-PRO.md) y falta crear un checkpoint seguro antes de editar su árbol actualmente sucio.
 - Calendario con dedicación acordada y revisión de alcance tras primer lote. Se puede planificar ahora, pero la salida a clientes seguirá condicionada a pruebas y recuperación, no solo a fecha.

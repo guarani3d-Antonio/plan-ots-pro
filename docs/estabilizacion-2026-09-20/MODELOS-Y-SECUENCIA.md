@@ -32,10 +32,12 @@ No asignar todavía una fecha de comercialización como compromiso. Las estimaci
 
 ## Cuándo entra Fio Pro y la skill
 
-**Primer hito, durante fundamentos:** inspeccionar Fio Pro y acordar IDs de empresa/obra/usuario, dueño de cada entidad, permisos y contrato de ubicación 2D. Conocer su arquitectura antes de tocar la aplicación que ya está en producción.
+**Primer hito, durante fundamentos:** completado en lectura el 20/09/2026. Fio Pro usa Creador → tenant → obra → membresía por obra y capacidades explícitas. El contrato acordado conserva dueño por entidad e IDs de empresa/obra/usuario; ver [INTEGRACION-FIO-PRO.md](INTEGRACION-FIO-PRO.md). Su árbol local está muy modificado y requiere checkpoint antes de editarlo.
 
 **Segundo hito, después de validar 2D y aislamiento:** extraer un paquete/contrato con documento/revisión/página, coordenadas normalizadas, anotaciones y vínculo a OT o no conformidad. Probar un flujo mínimo en ambas aplicaciones con adaptadores; no copiar stores completos.
 
 **Tercer hito, después del primer caso reproducible:** crear la skill para integrar esa capacidad: preflight de proyecto, migración, permisos, montaje de visor, anclaje, pruebas de aislamiento y rollback. Incluir ejemplos sintéticos y versiones compatibles. Una skill guía al agente; la capacidad de la aplicación debe vivir en código/API reutilizable. No duplicar lógica de seguridad dentro de texto de instrucciones.
 
 BIM/IFC/SketchUp vienen después. La primera capacidad compartida útil puede ser ubicación precisa en plano 2D y navegación a una no conformidad, sin prometer GPS indoor o soporte BIM ya implementado.
+
+La dedicación acordada es de 5–6 horas diarias; la planificación usa 6 horas efectivas de lunes a viernes. Fechas, trabajo diario y gates están en [CALENDARIO-TRABAJO.md](CALENDARIO-TRABAJO.md).

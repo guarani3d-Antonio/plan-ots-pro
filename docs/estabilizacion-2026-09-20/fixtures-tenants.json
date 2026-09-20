@@ -12,11 +12,11 @@
         {"key": "e1-obra-2", "name": "Obra de la empresa de prueba 1, número 2"}
       ],
       "users": [
-        {"key": "e1-admin", "email": "admin@empresa1.plan-ots.test", "organizationRole": "admin", "projects": ["e1-obra-1", "e1-obra-2"], "projectRole": "supervisor"},
-        {"key": "e1-supervisor", "email": "supervisor@empresa1.plan-ots.test", "organizationRole": "member", "projects": ["e1-obra-1", "e1-obra-2"], "projectRole": "supervisor"},
-        {"key": "e1-tecnico-1", "email": "tecnico1@empresa1.plan-ots.test", "organizationRole": "member", "projects": ["e1-obra-1"], "projectRole": "tecnico"},
-        {"key": "e1-tecnico-2", "email": "tecnico2@empresa1.plan-ots.test", "organizationRole": "member", "projects": ["e1-obra-2"], "projectRole": "tecnico"},
-        {"key": "e1-lector", "email": "lector@empresa1.plan-ots.test", "organizationRole": "member", "projects": ["e1-obra-1"], "projectRole": "viewer"}
+        {"key": "e1-admin", "email": "admin@empresa1.plan-ots.test", "tenantRole": "administrador", "projects": ["e1-obra-1", "e1-obra-2"], "projectRole": "supervisor"},
+        {"key": "e1-supervisor", "email": "supervisor@empresa1.plan-ots.test", "tenantRole": "supervisor", "projects": ["e1-obra-1", "e1-obra-2"], "projectRole": "supervisor"},
+        {"key": "e1-tecnico-1", "email": "tecnico1@empresa1.plan-ots.test", "tenantRole": "tecnico", "projects": ["e1-obra-1"], "projectRole": "tecnico"},
+        {"key": "e1-tecnico-2", "email": "tecnico2@empresa1.plan-ots.test", "tenantRole": "tecnico", "projects": ["e1-obra-2"], "projectRole": "tecnico"},
+        {"key": "e1-lector", "email": "lector@empresa1.plan-ots.test", "tenantRole": "viewer", "projects": ["e1-obra-1"], "projectRole": "viewer"}
       ]
     },
     {
@@ -27,11 +27,11 @@
         {"key": "e2-obra-2", "name": "Obra de la empresa de prueba 2, número 2"}
       ],
       "users": [
-        {"key": "e2-admin", "email": "admin@empresa2.plan-ots.test", "organizationRole": "admin", "projects": ["e2-obra-1", "e2-obra-2"], "projectRole": "supervisor"},
-        {"key": "e2-supervisor", "email": "supervisor@empresa2.plan-ots.test", "organizationRole": "member", "projects": ["e2-obra-1", "e2-obra-2"], "projectRole": "supervisor"},
-        {"key": "e2-tecnico-1", "email": "tecnico1@empresa2.plan-ots.test", "organizationRole": "member", "projects": ["e2-obra-1"], "projectRole": "tecnico"},
-        {"key": "e2-tecnico-2", "email": "tecnico2@empresa2.plan-ots.test", "organizationRole": "member", "projects": ["e2-obra-2"], "projectRole": "tecnico"},
-        {"key": "e2-lector", "email": "lector@empresa2.plan-ots.test", "organizationRole": "member", "projects": ["e2-obra-1"], "projectRole": "viewer"}
+        {"key": "e2-admin", "email": "admin@empresa2.plan-ots.test", "tenantRole": "administrador", "projects": ["e2-obra-1", "e2-obra-2"], "projectRole": "supervisor"},
+        {"key": "e2-supervisor", "email": "supervisor@empresa2.plan-ots.test", "tenantRole": "supervisor", "projects": ["e2-obra-1", "e2-obra-2"], "projectRole": "supervisor"},
+        {"key": "e2-tecnico-1", "email": "tecnico1@empresa2.plan-ots.test", "tenantRole": "tecnico", "projects": ["e2-obra-1"], "projectRole": "tecnico"},
+        {"key": "e2-tecnico-2", "email": "tecnico2@empresa2.plan-ots.test", "tenantRole": "tecnico", "projects": ["e2-obra-2"], "projectRole": "tecnico"},
+        {"key": "e2-lector", "email": "lector@empresa2.plan-ots.test", "tenantRole": "viewer", "projects": ["e2-obra-1"], "projectRole": "viewer"}
       ]
     }
   ]
