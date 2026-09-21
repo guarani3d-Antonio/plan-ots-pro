@@ -1,5 +1,7 @@
 // src/services/fotosService.ts
 import { supabase } from '../db/supabase';
+import { LEGACY_OFFLINE_ENABLED, sessionTicket } from '../security/sessionScope';
+import { exigirPermiso } from '../stores/accessStore';
 import { db } from '../db/dexie';
 import type { FotoPendiente } from '../db/dexie';
 import { identificarArchivo, referenciaArchivo, resolverArchivo, subirArchivo } from './storageService';
@@ -57,6 +59,7 @@ export async function subirFoto(
     if (error || !data) throw new Error('No tienes acceso a esta orden');
     proyectoId = data.proyecto_id as string;
   }
+  exigirPermiso(proyectoId, 'editar');
   const { path, ref } = await subirArchivo('fotos', proyectoId, file, file.name.split('.').pop() ?? 'jpg', ordenId);
 
   return {
@@ -186,6 +189,7 @@ export async function encolarFotoOffline(
   categoria:   CategoriaFoto,
   storagePath?: string
 ): Promise<FotoResultado> {
+  if (!LEGACY_OFFLINE_ENABLED) throw new Error('La captura sin conexión aún no está habilitada. El archivo permanece en tu dispositivo.');
   validarArchivoFoto(file);
 
   // Duplicado: misma OT + categoría + nombre + tamaño, todavía sin subir.
@@ -238,6 +242,7 @@ export async function encolarFotoOffline(
 
 /** Fotos pendientes de una OT, ya como objetos de UI. Crea objectURLs: revocarlos. */
 export async function cargarFotosPendientesDeOrden(ordenId: string): Promise<FotoResultado[]> {
+  if (!LEGACY_OFFLINE_ENABLED) return [];
   const regs = await db.fotosPendientes.where('orden_id').equals(ordenId).toArray();
   return regs
     .filter(r => r.estadoSync !== 'COMPLETADO')
@@ -255,31 +260,8 @@ export async function cargarFotosPendientesDeOrden(ordenId: string): Promise<Fot
  * subido. Con la función compuesta ese path muere en su scope y el archivo queda
  * huérfano en el bucket para siempre — sin fila en `fotos`, invisible en la app.
  */
-export async function subirOEncolarFoto(
-  file:       File,
-  ordenId:    string,
-  proyectoId: string,
-  categoria:  CategoriaFoto
-): Promise<FotoResultado> {
-  validarArchivoFoto(file);   // un archivo inválido no se encola: fallaría siempre
-
-  if (navigator.onLine) {
-    let base: Omit<FotoSubida, 'proyecto_id'> | null = null;
-    try {
-      base = await subirFoto(file, ordenId, categoria, proyectoId);
-    } catch (err) {
-      console.warn('[fotosService] upload falló, encolando offline:', err);
-    }
-
-    if (base) {
-      const foto: FotoSubida = { ...base, proyecto_id: proyectoId };
-      try {
-        return { ...foto, id: await registrarFotoEnDB(foto) };
-      } catch (err) {
-        console.warn('[fotosService] insert falló, archivo ya en Storage:', err);
-        return encolarFotoOffline(file, ordenId, proyectoId, categoria, base.path);
-      }
-    }
-  }
-  return encolarFotoOffline(file, ordenId, proyectoId, categoria);
+/** Piloto conectado: un rechazo nunca se presenta como pendiente sincronizable. */
+export async function subirOEncolarFoto(file:File,ordenId:string,proyectoId:string,categoria:CategoriaFoto):Promise<FotoResultado> {
+  sessionTicket();exigirPermiso(proyectoId,'editar');validarArchivoFoto(file);
+  return subirYRegistrarFoto(file,ordenId,proyectoId,categoria);
 }

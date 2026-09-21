@@ -1,3 +1,5 @@
+import { useAccessStore } from '../../stores/accessStore';
+import { AdministracionCreador } from './AdministracionCreador';
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { useProyectosStore, type Proyecto } from '../../stores/proyectosStore';
 import { useAuthStore } from '../../stores/authStore';
@@ -40,6 +42,8 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
   } = useProyectosStore();
 
   const abrirProyecto = onAbrirProyecto ?? setProyectoActivo;
+  const { contexto, empresaId } = useAccessStore();
+  const puedeCrear = !!contexto?.empresas.find(e=>e.id===empresaId)?.puede_crear;
   const { user } = useAuthStore();
 
   const [modalAbierto,   setModalAbierto]   = useState(false);
@@ -51,7 +55,7 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
   const [thumbnails,     setThumbnails]     = useState<Record<string, string>>({});
   const menuRef    = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { cargarProyectos(); }, [cargarProyectos]);
+  useEffect(() => { setStatsMap({}); setThumbnails({}); void cargarProyectos(); }, [cargarProyectos, empresaId]);
 
   // Cargar conteos reales de OTs por proyecto desde Supabase.
   // Una sola query con .in() agrupa todas las stats en memoria.
@@ -138,7 +142,7 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
         </div>
         <div className={styles.userInfo} style={{ cursor: 'default' }}>
           <div className={styles.avatar}>{iniciales}</div>
-          <span className={styles.userName}>{nombreUsuario}</span>
+          <span className={styles.userName}>{nombreUsuario}{contexto?.creador ? " · Creador" : ""}</span><button onClick={()=>void useAuthStore.getState().signOut()}>Cerrar sesión</button>
         </div>
       </nav>
 
@@ -151,6 +155,10 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
         {/* Header con título, búsqueda y botón */}
         <div className={styles.header}>
           <h1 className={styles.title}>Mis proyectos</h1>
+          <label>Empresa <select aria-label="Empresa" value={empresaId} onChange={e=>{setProyectoActivo(null);useAccessStore.setState({empresaId:e.target.value});}}>
+            <option value="">Todas las obras autorizadas</option>
+            {contexto?.empresas.map(e=><option key={e.id} value={e.id}>{e.nombre}</option>)}
+          </select></label>
           <div className={styles.searchWrap}>
             <input
               className={styles.searchInput}
@@ -160,11 +168,12 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
             />
             <span className={styles.searchIcon}>🔍</span>
           </div>
-          <button className={styles.newBtn} onClick={() => setModalAbierto(true)}>
+          <button disabled={!puedeCrear} title={puedeCrear ? undefined : "Selecciona una empresa donde tengas permiso para crear obras"} className={styles.newBtn} onClick={() => setModalAbierto(true)}>
             + Nuevo proyecto
           </button>
         </div>
 
+        <AdministracionCreador />
         {/* Errores / loading */}
         {(error || accionError) && (
           <div style={{
@@ -184,7 +193,7 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
             <div className={styles.empty}>
               {busqueda
                 ? `No hay proyectos que coincidan con "${busqueda}".`
-                : 'No tenés proyectos aún. Creá el primero con "+ Nuevo proyecto".'}
+                : 'No hay obras asignadas en esta selección.'}
             </div>
           ) : proyectosFiltrados.map(proyecto => {
             const stats    = statsMap[proyecto.id] ?? STATS_VACIO;
@@ -247,6 +256,7 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
                     onClick={e => e.stopPropagation()}
                   >
                     <button
+                      disabled={!contexto?.obras.find(p=>p.id===proyecto.id)?.administrar}
                       className={styles.cardMenu}
                       onClick={() => setMenuAbierto(prev => prev === proyecto.id ? null : proyecto.id)}
                       title="Opciones"

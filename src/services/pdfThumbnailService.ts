@@ -1,3 +1,4 @@
+import { assertSession, sessionTicket } from '../security/sessionScope'
 import * as pdfjsLib from 'pdfjs-dist'
 import { resolverArchivo } from './storageService'
 
@@ -16,11 +17,14 @@ export async function generarThumbnailPDF(
   ancho = 800   // resolución alta → se escala bien en la card
 ): Promise<string | null> {
   // Devolver desde caché si ya fue generado
+  const ticket = sessionTicket()
+  const signedUrl = await resolverArchivo(url)
+  assertSession(ticket)
   if (cache.has(url)) return cache.get(url)!
 
   try {
     const loadingTask = pdfjsLib.getDocument({
-      url: await resolverArchivo(url),
+      url: signedUrl,
       disableRange: true,      // obligatorio para Supabase Storage
       disableStream: true,     // obligatorio para Supabase Storage
     })
@@ -53,6 +57,7 @@ export async function generarThumbnailPDF(
     const dataUrl = canvas.toDataURL('image/png', 1.0)
 
     // Guardar en caché
+    assertSession(ticket)
     cache.set(url, dataUrl)
 
     // Limpiar recursos

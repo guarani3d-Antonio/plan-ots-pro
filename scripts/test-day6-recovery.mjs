@@ -1,0 +1,32 @@
+import {readFile,writeFile} from 'node:fs/promises';
+import {createHash} from 'node:crypto';
+import assert from 'node:assert/strict';
+import {pathToFileURL} from 'node:url';
+import {resolve} from 'node:path';
+const {PGlite}=await import(pathToFileURL(resolve(process.argv[2])).href);
+const dir='.backups.local/2026-09-20-dia6/',bytes=await readFile(dir+'domain-before.json');
+const data=JSON.parse(bytes),schema=JSON.parse(await readFile(dir+'schema-before.json','utf8'));
+const tables=['tenants','plataforma_administradores','tenant_miembros','proyectos','proyecto_miembros','campos_definicion','ordenes','fotos','comentarios_ot','ot_comentarios','versiones','sync_log','eventos_uso','ordenes_eliminadas','dashboard_configs'];
+const db=new PGlite(),run=async p=>db.exec(await readFile(p,'utf8'));
+const dump=async()=>{const out={};for(const t of tables)out[t]=(await db.query(`select coalesce(jsonb_agg(r order by r::text),'[]') rows from (select to_jsonb(t) r from ${t} t) q`)).rows[0].rows;return out;};
+try{
+ await run('supabase/tests/captured-domain.sql');await run('supabase/tests/storage-foundation.sql');
+ for(const m of ['202609200001_multitenancy_foundation','202609200002_multitenancy_enforcement'])await run('supabase/migrations/'+m+'.sql');
+ const ids=new Set();for(const t of tables)for(const row of data[t])for(const k of ['created_by','updated_by','uploaded_by','user_id','invitado_por','eliminado_por'])if(row[k])ids.add(row[k]);
+ for(const id of ids)await db.query('insert into auth.users(id) values($1) on conflict do nothing',[id]);
+ for(const t of tables)await db.exec(`alter table ${t} disable trigger user`);
+ for(const t of tables)if(data[t].length)await db.query(`insert into ${t} select * from jsonb_populate_recordset(null::${t},$1::jsonb)`,[JSON.stringify(data[t])]);
+ for(const t of tables)await db.exec(`alter table ${t} enable trigger user`);
+ await run('supabase/migrations/202609210003_private_storage.sql');
+ const original=await dump();
+ const audit=(await db.query("select pg_get_functiondef('fn_audit_orden_eliminada()'::regprocedure) def")).rows[0].def;
+ assert.equal(audit.replace(/\r\n/g,'\n').trim(),schema.functions.find(f=>f.proname==='fn_audit_orden_eliminada').definition.replace(/\r\n/g,'\n').trim());
+ await run('supabase/migrations/202609210004_session_capabilities_costs.sql');
+ const costs=(await db.query('select orden_id,costo from orden_costos')).rows;
+ assert.equal(costs.length,data.ordenes.filter(o=>o.costo!==null).length);
+ for(const o of data.ordenes.filter(o=>o.costo!==null))assert.equal(Number(costs.find(c=>c.orden_id===o.id)?.costo),o.costo);
+ await run('supabase/rollback/202609210004_session_capabilities_costs.rollback.sql');
+ assert.deepEqual(await dump(),original,'Todas las filas y costos restaurados');
+ const report={testedAt:new Date().toISOString(),backupSha256:createHash('sha256').update(bytes).digest('hex'),tables:tables.length,rows:tables.reduce((n,t)=>n+data[t].length,0),costsPreserved:costs.length,rollbackRestoresAllRows:true,scope:'15 tablas restauradas en PostgreSQL local; migración y rollback conservan texto y costos. Auth simulado; sin reset remoto.'};
+ await writeFile('docs/estabilizacion-2026-09-20/dia-6/recovery-test.json',JSON.stringify(report,null,2)+'\n');console.log(JSON.stringify(report,null,2));
+}catch(e){console.error(e.message.split('\n')[0]);process.exitCode=1;}finally{await db.close();}

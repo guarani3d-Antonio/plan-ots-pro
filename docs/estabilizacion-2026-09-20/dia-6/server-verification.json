@@ -1,0 +1,145 @@
+{
+  "rpc": [
+    {
+      "name": "plan_admin_empresa",
+      "owner": "postgres",
+      "config": [
+        "search_path=pg_catalog, pg_temp"
+      ],
+      "definer": true,
+      "anon_execute": false
+    },
+    {
+      "name": "plan_admin_miembro",
+      "owner": "postgres",
+      "config": [
+        "search_path=pg_catalog, pg_temp"
+      ],
+      "definer": true,
+      "anon_execute": false
+    },
+    {
+      "name": "plan_admin_obra_miembro",
+      "owner": "postgres",
+      "config": [
+        "search_path=pg_catalog, pg_temp"
+      ],
+      "definer": true,
+      "anon_execute": false
+    },
+    {
+      "name": "plan_contexto_acceso",
+      "owner": "postgres",
+      "config": [
+        "search_path=pg_catalog, pg_temp"
+      ],
+      "definer": false,
+      "anon_execute": false
+    },
+    {
+      "name": "plan_separar_costo",
+      "owner": "postgres",
+      "config": [
+        "search_path=pg_catalog, pg_temp"
+      ],
+      "definer": true,
+      "anon_execute": false
+    }
+  ],
+  "buckets": [
+    {
+      "id": "exports",
+      "public": false
+    },
+    {
+      "id": "fotos",
+      "public": false
+    },
+    {
+      "id": "planos",
+      "public": false
+    }
+  ],
+  "policies": [
+    {
+      "cmd": "SELECT",
+      "qual": "(plan_es_supervisor_proyecto(proyecto_id) AND (EXISTS ( SELECT 1\n   FROM (ordenes o\n     JOIN proyectos p ON ((p.id = o.proyecto_id)))\n  WHERE ((o.id = orden_costos.orden_id) AND (o.deleted_at IS NULL) AND (p.deleted_at IS NULL)))))",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "orden_costos",
+      "permissive": "PERMISSIVE",
+      "policyname": "costos_select",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "plan_es_supervisor_proyecto(proyecto_id)",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "ordenes_eliminadas",
+      "permissive": "PERMISSIVE",
+      "policyname": "eliminadas_select",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "DELETE",
+      "qual": "plan_es_supervisor_proyecto(proyecto_id)",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "versiones",
+      "permissive": "PERMISSIVE",
+      "policyname": "versiones_delete",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "INSERT",
+      "qual": null,
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "versiones",
+      "permissive": "PERMISSIVE",
+      "policyname": "versiones_insert",
+      "schemaname": "public",
+      "with_check": "(plan_es_supervisor_proyecto(proyecto_id) AND ((created_by IS NULL) OR (created_by = auth.uid())))"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "plan_es_supervisor_proyecto(proyecto_id)",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "versiones",
+      "permissive": "PERMISSIVE",
+      "policyname": "versiones_select",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "UPDATE",
+      "qual": "plan_es_supervisor_proyecto(proyecto_id)",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "versiones",
+      "permissive": "PERMISSIVE",
+      "policyname": "versiones_update",
+      "schemaname": "public",
+      "with_check": "plan_es_supervisor_proyecto(proyecto_id)"
+    }
+  ],
+  "checked_at": "2026-09-21T01:30:33.163453+00:00",
+  "storage_objects": 188,
+  "client_cost_write": false,
+  "costs_in_realtime": 0,
+  "private_cost_rows": 25,
+  "private_costs_rls": true,
+  "public_cost_values": 0,
+  "anonymous_cost_read": false
+}

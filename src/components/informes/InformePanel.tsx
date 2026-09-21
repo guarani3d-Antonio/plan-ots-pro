@@ -1,3 +1,4 @@
+import { scopedKey } from '../../security/sessionScope';
 // src/components/informes/InformePanel.tsx
 import { useState, useRef, useEffect } from 'react'
 import { useProyectosStore } from '../../stores/proyectosStore'
@@ -40,7 +41,7 @@ export default function InformePanel({ onClose }: Props) {
 
   useEffect(() => {
     if (!proyecto) return
-    const saved = localStorage.getItem(`plan-ots-logo-${proyecto.id}`)
+    const saved = localStorage.getItem(scopedKey(`plan-ots-logo-${proyecto.id}`))
     if (saved) setLogoB64(saved)
     getCamposDeProyecto(proyecto.id).then(campos =>
       setCamposNumericos(
@@ -73,7 +74,7 @@ export default function InformePanel({ onClose }: Props) {
     reader.onload = ev => {
       const b64 = ev.target?.result as string
       setLogoB64(b64)
-      localStorage.setItem(`plan-ots-logo-${proj.id}`, b64)
+      localStorage.setItem(scopedKey(`plan-ots-logo-${proj.id}`), b64)
     }
     reader.readAsDataURL(file)
   }
@@ -148,7 +149,7 @@ export default function InformePanel({ onClose }: Props) {
                   {logoB64 && (
                     <button className={styles.btnLink} onClick={() => {
                       setLogoB64(undefined)
-                      localStorage.removeItem(`plan-ots-logo-${proj.id}`)
+                      localStorage.removeItem(scopedKey(`plan-ots-logo-${proj.id}`))
                     }}>Quitar logo</button>
                   )}
                 </div>

@@ -1,5 +1,4 @@
 // src/services/informeService.ts
-import { db } from '../db/dexie'
 import { supabase } from '../db/supabase'
 import { resolverArchivo } from './storageService'
 import { ESTADO_LABEL, ESTADO_COLOR } from '../constants/estados'
@@ -229,18 +228,11 @@ tr.photo-row td{background:#F9FAFB;border:1px dashed #D1D5DB;padding:8px 10px}
 // ─── Obtener órdenes: Supabase primero, Dexie fallback ───────────────────────
 
 async function obtenerOrdenes(proyectoId: string) {
-  try {
-    const { data, error } = await supabase
-      .from('ordenes')
-      .select('id, ot, estado, rubro, responsable, ubicacion, comentarios, prioridad, porcentaje_avance, fecha_fin_trabajos, campos, created_at, updated_at, proyecto_id')
-      .eq('proyecto_id', proyectoId)
-      .order('ot', { ascending: true })
-    if (error) throw error
-    return data ?? []
-  } catch {
-    const local = await db.ordenes.where('proyecto_id').equals(proyectoId).toArray()
-    return local
-  }
+  const {data,error}=await supabase.from('ordenes')
+    .select('id, ot, estado, rubro, responsable, ubicacion, comentarios, prioridad, porcentaje_avance, fecha_fin_trabajos, campos, created_at, updated_at, proyecto_id')
+    .eq('proyecto_id',proyectoId).order('ot',{ascending:true});
+  if(error)throw new Error('No se pudo cargar el informe desde el servidor.');
+  return data??[];
 }
 
 // ─── Helper: extraer fecha de finalización ────────────────────────────────────

@@ -1,448 +1,94 @@
-// src/stores/ordenesStore.ts
 import { create } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '../db/supabase';
 import { useAuthStore } from './authStore';
-import { db } from '../db/dexie';
+import { exigirPermiso } from './accessStore';
+import { assertSession, sessionTicket } from '../security/sessionScope';
 import type { OrdenLocal } from '../types/orden';
-import { ordenPatchToRow, ordenToRow, rowToOrden } from '../data/ordenMapper';
-
+import { ORDEN_SELECT, ordenPatchToRow, ordenToRow, rowToOrden } from '../data/ordenMapper';
 export { rowToOrden } from '../data/ordenMapper';
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-function isOnline(): boolean {
-  return navigator.onLine;
-}
-
-function nextCodigoOT(ordenes: OrdenLocal[]): string {
-  const nums = ordenes
-    .map(o => parseInt(o.ot.replace('OT-', ''), 10))
-    .filter(n => !isNaN(n));
-  const max = nums.length > 0 ? Math.max(...nums) : 0;
-  return `OT-${String(max + 1).padStart(3, '0')}`;
-}
-
-async function encolarUpdate(
-  ordenId: string,
-  campos: Partial<OrdenLocal>
-): Promise<void> {
-  await db.syncQueue.add({
-    tipo:       'UPDATE_OT',
-    payload:    { id: ordenId, campos },
-    created_at: new Date().toISOString(),
-    intentos:   0,
-  });
-}
-
-// ─── Tipos del store ──────────────────────────────────────────────────────────
 interface OrdenesState {
-  ordenes:           OrdenLocal[];
-  ordenSeleccionada: string | null;
-  cargando:          boolean;
-  error:             string | null;
-
-  // IDs de OTs recién importadas que todavía no fueron ubicadas + completadas
-  // con fotos. El guard de navegación en App.tsx consulta este array antes de
-  // permitir cambios de vista o salida de proyecto: si hay pendientes, abre
-  // un modal pidiendo cancelar la importación o continuar cargándolas.
+  ordenes: OrdenLocal[]; ordenSeleccionada: string | null; cargando: boolean; error: string | null;
   otsPendientesImport: string[];
-
-  cargarOrdenes:          (proyectoId: string) => Promise<void>;
-  cargarTodasLasOrdenes:  () => Promise<void>;
-  crearOrdenEnPosicion:   (proyectoId: string, posX: number, posY: number) => Promise<OrdenLocal>;
-  crearOrdenDesdeImport:  (datos: Omit<OrdenLocal, 'id' | '_synced' | '_last_fetched'>) => Promise<string>;
-  agregarOActualizarOrden:(orden: OrdenLocal) => void;
-  aplicarEliminacionRemota:(id: string) => void;
-  moverOrden:             (id: string, posX: number | null, posY: number | null) => Promise<void>;
-  actualizarOrden:        (id: string, cambios: Partial<OrdenLocal>) => Promise<OrdenLocal | null>;
-  eliminarOrden:          (id: string) => Promise<void>;
-  seleccionar:            (id: string | null) => void;
-  limpiar:                () => void;
-  setOtsPendientesImport: (ids: string[]) => void;
-  completarOtImport:      (id: string) => void;
+  cargarOrdenes: (proyectoId:string)=>Promise<void>;
+  cargarTodasLasOrdenes: ()=>Promise<void>;
+  crearOrdenEnPosicion: (proyectoId:string,posX:number,posY:number)=>Promise<OrdenLocal>;
+  crearOrdenDesdeImport: (datos:Omit<OrdenLocal,'id'|'_synced'|'_last_fetched'>)=>Promise<string>;
+  agregarOActualizarOrden:(orden:OrdenLocal)=>void;
+  aplicarEliminacionRemota:(id:string)=>void;
+  moverOrden:(id:string,posX:number|null,posY:number|null)=>Promise<void>;
+  actualizarOrden:(id:string,cambios:Partial<OrdenLocal>)=>Promise<OrdenLocal|null>;
+  eliminarOrden:(id:string)=>Promise<void>;
+  seleccionar:(id:string|null)=>void;limpiar:()=>void;
+  setOtsPendientesImport:(ids:string[])=>void;completarOtImport:(id:string)=>void;
 }
-
-// ─── Store ────────────────────────────────────────────────────────────────────
-export const useOrdenesStore = create<OrdenesState>((set, get) => ({
-  ordenes:             [],
-  ordenSeleccionada:   null,
-  cargando:            false,
-  error:               null,
-  otsPendientesImport: [],
-
-  // ── CARGAR TODAS LAS OTs (de todos los proyectos del usuario) ──────────────
-  // Usado por las vistas globales (Dashboard, Gantt, Calendario, Responsables,
-  // Contratistas). Trae las OTs vía .in('proyecto_id', [...]) — RLS limita los
-  // proyectos visibles al usuario actual, así que el set efectivo es "todos los
-  // proyectos accesibles". Cae a Dexie en offline.
-  cargarTodasLasOrdenes: async () => {
-    set({ cargando: true, error: null });
+let sequence=0,scope='*';
+const message=(e:unknown)=>e instanceof Error?e.message:'No se pudo confirmar la operación en el servidor.';
+export const useOrdenesStore=create<OrdenesState>((set,get)=>({
+  ordenes:[],ordenSeleccionada:null,cargando:false,error:null,otsPendientesImport:[],
+  cargarTodasLasOrdenes:async()=>{
+    const request=++sequence;scope='*';set({ordenes:[],cargando:true,error:null});
     try {
-      // Asegurar que tenemos la lista de proyectos antes de pedir las OTs.
-      const proyectosStoreRef = await import('./proyectosStore');
-      const proyectosStore = proyectosStoreRef.useProyectosStore;
-      let proyectos = proyectosStore.getState().proyectos;
-      if (proyectos.length === 0) {
-        await proyectosStore.getState().cargarProyectos();
-        proyectos = proyectosStore.getState().proyectos;
-      }
-      const ids = proyectos.map(p => p.id);
-      if (ids.length === 0) {
-        set({ ordenes: [], cargando: false });
-        return;
-      }
-
-      if (isOnline()) {
-        const { data, error } = await supabase
-          .from('ordenes')
-          .select('*')
-          .in('proyecto_id', ids)
-          .order('updated_at', { ascending: false });
-        if (error) throw error;
-
-        const ordenes = (data ?? []).map(rowToOrden);
-
-        // Reemplaza el cache local de OTs de proyectos del usuario.
-        await db.transaction('rw', db.ordenes, async () => {
-          for (const pid of ids) {
-            await db.ordenes.where('proyecto_id').equals(pid).delete();
-          }
-          if (ordenes.length > 0) await db.ordenes.bulkPut(ordenes);
-        });
-
-        set({ ordenes, cargando: false });
-      } else {
-        const todas = await db.ordenes.toArray();
-        const filtradas = todas.filter(o => ids.includes(o.proyecto_id));
-        set({ ordenes: filtradas, cargando: false });
-      }
-    } catch (err) {
-      console.error('[ordenesStore] cargarTodasLasOrdenes:', err);
-      try {
-        const todas = await db.ordenes.toArray();
-        set({ ordenes: todas, cargando: false, error: 'Modo offline — mostrando datos locales' });
-      } catch {
-        set({ cargando: false, error: 'Error al cargar órdenes' });
-      }
-    }
+      const ticket=sessionTicket();
+      const {useProyectosStore}=await import('./proyectosStore');
+      await useProyectosStore.getState().cargarProyectos();assertSession(ticket);
+      const ids=useProyectosStore.getState().proyectos.map(p=>p.id);
+      const {data,error}=ids.length?await supabase.from('ordenes').select(ORDEN_SELECT).in('proyecto_id',ids).is('deleted_at',null).order('updated_at',{ascending:false}):{data:[],error:null};
+      assertSession(ticket);if(error)throw new Error(error.message);
+      if(request===sequence)set({ordenes:(data??[]).map(rowToOrden),cargando:false});
+    }catch(e){if(request===sequence)set({ordenes:[],cargando:false,error:message(e)});}
   },
-
-  // ── CARGAR (por proyecto) ──────────────────────────────────────────────────
-  cargarOrdenes: async (proyectoId) => {
-    set({ cargando: true, error: null });
-    try {
-      if (isOnline()) {
-        const { data, error } = await supabase
-          .from('ordenes')
-          .select('*')
-          .eq('proyecto_id', proyectoId)
-          .order('ot', { ascending: true });
-
-        if (error) throw error;
-
-        const ordenes = (data ?? []).map(rowToOrden);
-
-        await db.transaction('rw', db.ordenes, async () => {
-          await db.ordenes.where('proyecto_id').equals(proyectoId).delete();
-          if (ordenes.length > 0) await db.ordenes.bulkPut(ordenes);
-        });
-
-        set({ ordenes, cargando: false });
-      } else {
-        const ordenes = await db.ordenes
-          .where('proyecto_id')
-          .equals(proyectoId)
-          .sortBy('ot');
-        set({ ordenes, cargando: false });
-      }
-    } catch (err) {
-      console.error('[ordenesStore] cargarOrdenes:', err);
-      try {
-        const ordenes = await db.ordenes
-          .where('proyecto_id')
-          .equals(proyectoId)
-          .sortBy('ot');
-        set({ ordenes, cargando: false, error: 'Modo offline — mostrando datos locales' });
-      } catch {
-        set({ cargando: false, error: 'Error al cargar órdenes' });
-      }
-    }
+  cargarOrdenes:async(proyectoId)=>{
+    const request=++sequence;scope=proyectoId;set({ordenes:[],ordenSeleccionada:null,cargando:true,error:null});
+    try{
+      const ticket=sessionTicket();
+      const {data,error}=await supabase.from('ordenes').select(ORDEN_SELECT).eq('proyecto_id',proyectoId).is('deleted_at',null).order('ot',{ascending:true});
+      assertSession(ticket);if(error)throw new Error(error.message);
+      if(request===sequence)set({ordenes:(data??[]).map(rowToOrden),cargando:false});
+    }catch(e){if(request===sequence)set({ordenes:[],cargando:false,error:message(e)});}
   },
-
-  // ── CREAR (desde plano) ───────────────────────────────────────────────────────
-  crearOrdenEnPosicion: async (proyectoId, posX, posY) => {
-    const { ordenes } = get();
-    const now = new Date().toISOString();
-    const userId = useAuthStore.getState().user?.id ?? null;
-
-    const nueva: OrdenLocal = {
-      id:                      uuidv4(),
-      proyecto_id:             proyectoId,
-      ot:                      nextCodigoOT(ordenes),
-      ubicacion:               '',
-      comentarios:             '',
-      estado:                  'Pendiente',
-      prioridad:               'Media',
-      responsable:             '',
-      rubro:                   '',
-      pos_x:                   posX,
-      pos_y:                   posY,
-      plano_ref_url:           '',
-      campos:                  {},
-      conflict_flag:           false,
-      created_at:              now,
-      updated_at:              now,
-      created_by:              userId,
-      updated_by:              userId,
-      _synced:                 false,
-      _last_fetched:           Date.now(),
-      fotos_pendientes_upload: [],
-    };
-
-    set({ ordenes: [...ordenes, nueva] });
-    await db.ordenes.put(nueva);
-
-    if (isOnline()) {
-      const { error } = await supabase
-        .from('ordenes')
-        .insert(ordenToRow(nueva));
-
-      if (error) {
-        console.error('[ordenesStore] crearOrden Supabase error:', error);
-        await db.syncQueue.add({
-          tipo:       'CREATE_OT',
-          payload:    nueva,
-          created_at: now,
-          intentos:   0,
-        });
-      } else {
-        await db.ordenes.update(nueva.id, { _synced: true });
-        set(state => ({
-          ordenes: state.ordenes.map(o =>
-            o.id === nueva.id ? { ...o, _synced: true } : o
-          ),
-        }));
-      }
-    } else {
-      await db.syncQueue.add({
-        tipo:       'CREATE_OT',
-        payload:    nueva,
-        created_at: now,
-        intentos:   0,
-      });
-    }
-
-    return nueva;
+  crearOrdenEnPosicion:async(proyectoId,posX,posY)=>{
+    const max=Math.max(0,...get().ordenes.map(o=>parseInt(o.ot.replace('OT-',''),10)||0));
+    const now=new Date().toISOString(),userId=useAuthStore.getState().user?.id??null;
+    const row={id:uuidv4(),proyecto_id:proyectoId,ot:'OT-'+String(max+1).padStart(3,'0'),ubicacion:'',comentarios:'',estado:'Pendiente',prioridad:'Media',responsable:'',rubro:'',pos_x:posX,pos_y:posY,plano_ref_url:'',campos:{},conflict_flag:false,created_at:now,updated_at:now,created_by:userId,updated_by:userId};
+    const id=await get().crearOrdenDesdeImport(rowToOrden(row));
+    const saved=get().ordenes.find(o=>o.id===id);
+    if(!saved)throw new Error('La obra cambió. Vuelve a abrirla para ver la orden creada.');
+    return saved;
   },
-
-  // ── CREAR (desde importación CSV) ─────────────────────────────────────────────
-  crearOrdenDesdeImport: async (datos) => {
-    const now = new Date().toISOString();
-    const nueva: OrdenLocal = {
-      ...datos,
-      id:                      uuidv4(),
-      _synced:                 false,
-      _last_fetched:           Date.now(),
-      fotos_pendientes_upload: datos.fotos_pendientes_upload ?? [],
-    };
-
-    set(state => ({ ordenes: [...state.ordenes, nueva] }));
-    await db.ordenes.put(nueva);
-
-    if (isOnline()) {
-      const { error } = await supabase
-        .from('ordenes')
-        .insert(ordenToRow(nueva));
-
-      if (error) {
-        console.error('[ordenesStore] crearOrdenDesdeImport error:', error);
-        await db.syncQueue.add({
-          tipo:       'CREATE_OT',
-          payload:    nueva,
-          created_at: now,
-          intentos:   0,
-        });
-      } else {
-        await db.ordenes.update(nueva.id, { _synced: true });
-        set(state => ({
-          ordenes: state.ordenes.map(o =>
-            o.id === nueva.id ? { ...o, _synced: true } : o
-          ),
-        }));
-      }
-    } else {
-      await db.syncQueue.add({
-        tipo:       'CREATE_OT',
-        payload:    nueva,
-        created_at: now,
-        intentos:   0,
-      });
-    }
-
-    return nueva.id;
+  crearOrdenDesdeImport:async(datos)=>{
+    exigirPermiso(datos.proyecto_id,'editar');const ticket=sessionTicket();
+    const nueva={...datos,id:uuidv4(),_synced:false,_last_fetched:Date.now()} as OrdenLocal;
+    const {data,error}=await supabase.from('ordenes').insert(ordenToRow(nueva)).select(ORDEN_SELECT).single();
+    assertSession(ticket);if(error||!data)throw new Error(error?.message??'El servidor no confirmó la creación.');
+    const saved=rowToOrden(data);
+    if(scope==='*'||scope===saved.proyecto_id)set(s=>({ordenes:[...s.ordenes.filter(o=>o.id!==saved.id),saved]}));
+    return saved.id;
   },
-
-  // ── UPSERT para Realtime ──────────────────────────────────────────────────────
-  agregarOActualizarOrden: (orden) => {
-    set(state => {
-      const existe = state.ordenes.some(o => o.id === orden.id);
-      if (existe) {
-        return {
-          ordenes: state.ordenes.map(o => o.id === orden.id ? orden : o),
-        };
-      }
-      return { ordenes: [...state.ordenes, orden] };
-    });
-    // Actualizar caché local también
-    db.ordenes.put(orden).catch(err =>
-      console.error('[ordenesStore] agregarOActualizarOrden dexie:', err)
-    );
+  agregarOActualizarOrden:orden=>{
+    if(scope!=='*'&&scope!==orden.proyecto_id)return;
+    set(s=>({ordenes:s.ordenes.some(o=>o.id===orden.id)?s.ordenes.map(o=>o.id===orden.id?orden:o):[...s.ordenes,orden]}));
   },
-
-  aplicarEliminacionRemota: (id) => {
-    set(state => ({
-      ordenes: state.ordenes.filter(o => o.id !== id),
-      ordenSeleccionada: state.ordenSeleccionada === id ? null : state.ordenSeleccionada,
-    }));
-    db.ordenes.delete(id).catch(err =>
-      console.error('[ordenesStore] aplicarEliminacionRemota dexie:', err)
-    );
+  aplicarEliminacionRemota:id=>set(s=>({ordenes:s.ordenes.filter(o=>o.id!==id),ordenSeleccionada:s.ordenSeleccionada===id?null:s.ordenSeleccionada})),
+  moverOrden:async(id,posX,posY)=>{await get().actualizarOrden(id,{pos_x:posX as number,pos_y:posY as number});},
+  actualizarOrden:async(id,cambios)=>{
+    const previous=get().ordenes.find(o=>o.id===id);if(!previous)throw new Error('Vuelve a cargar la orden.');
+    exigirPermiso(previous.proyecto_id,'editar');const ticket=sessionTicket();
+    const patch=ordenPatchToRow(cambios,{updated_at:new Date().toISOString(),updated_by:useAuthStore.getState().user?.id??null});
+    const {data,error}=await supabase.from('ordenes').update(patch).eq('id',id).select(ORDEN_SELECT).single();
+    assertSession(ticket);if(error||!data)throw new Error(error?.message??'El servidor no confirmó la edición.');
+    const saved=rowToOrden(data);set(s=>({ordenes:s.ordenes.map(o=>o.id===id?saved:o)}));return saved;
   },
-
-  // ── MOVER ────────────────────────────────────────────────────────────────────
-  // posX/posY: number → reubicar | null → "desubicar" (volver al ToolPanel de
-  // OTs sin ubicar). OrdenLocal.pos_x/pos_y se declaran `number` pero el runtime
-  // acepta null para OTs importadas/desubicadas; el cast preserva esa convención.
-  moverOrden: async (id, posX, posY) => {
-    const now = new Date().toISOString();
-    const patch = {
-      pos_x: posX as unknown as number,
-      pos_y: posY as unknown as number,
-      updated_at: now,
-      _synced: false,
-    };
-
-    set(state => ({
-      ordenes: state.ordenes.map(o => o.id === id ? { ...o, ...patch } : o),
-    }));
-    await db.ordenes.update(id, patch);
-
-    if (isOnline()) {
-      const userId = useAuthStore.getState().user?.id ?? null;
-      const { error } = await supabase
-        .from('ordenes')
-        .update({ pos_x: posX, pos_y: posY, updated_at: now, updated_by: userId })
-        .eq('id', id);
-
-      if (error) {
-        console.error('[ordenesStore] moverOrden Supabase error:', error);
-        await encolarUpdate(id, { pos_x: patch.pos_x, pos_y: patch.pos_y });
-      } else {
-        await db.ordenes.update(id, { _synced: true });
-        set(state => ({
-          ordenes: state.ordenes.map(o =>
-            o.id === id ? { ...o, _synced: true } : o
-          ),
-        }));
-      }
-    } else {
-      await encolarUpdate(id, { pos_x: patch.pos_x, pos_y: patch.pos_y });
-    }
+  eliminarOrden:async(id)=>{
+    const previous=get().ordenes.find(o=>o.id===id);if(!previous)throw new Error('Vuelve a cargar la orden.');
+    exigirPermiso(previous.proyecto_id,'administrar');const ticket=sessionTicket();
+    const {error,data}=await supabase.from('ordenes').delete().eq('id',id).select('id').single();
+    assertSession(ticket);if(error||!data)throw new Error(error?.message??'El servidor no confirmó el borrado.');
+    get().aplicarEliminacionRemota(id);
   },
-
-  // ── ACTUALIZAR ───────────────────────────────────────────────────────────────
-  actualizarOrden: async (id, cambios) => {
-    const now = new Date().toISOString();
-    const patch = { ...cambios, updated_at: now, _synced: false };
-
-    set(state => ({
-      ordenes: state.ordenes.map(o => o.id === id ? { ...o, ...patch } : o),
-    }));
-    await db.ordenes.update(id, patch);
-
-    if (isOnline()) {
-      const userId = useAuthStore.getState().user?.id ?? null;
-      const supabasePatch = ordenPatchToRow(cambios, {
-        updated_at: now,
-        updated_by: userId,
-      });
-
-      // `.select().single()` devuelve la fila completa post-update — la fuente
-      // de verdad autoritativa contra la que se reemplaza el snapshot local.
-      const { data, error } = await supabase
-        .from('ordenes')
-        .update(supabasePatch)
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error || !data) {
-        console.error('[ordenesStore] actualizarOrden Supabase error:', error);
-        await encolarUpdate(id, cambios);
-        return null;
-      }
-
-      const ordenServidor = rowToOrden(data as Record<string, unknown>);
-      set(state => ({
-        ordenes: state.ordenes.map(o => o.id === id ? ordenServidor : o),
-      }));
-      await db.ordenes.put(ordenServidor);
-      return ordenServidor;
-    } else {
-      // Offline: queda encolado para retry; devolvemos el snapshot optimista
-      // (lo que ya se mostró tras el `set` de arriba) para que el caller pueda
-      // hidratar su form local sin esperar al sync online.
-      await encolarUpdate(id, cambios);
-      return get().ordenes.find(o => o.id === id) ?? null;
-    }
-  },
-
-  // ── ELIMINAR ─────────────────────────────────────────────────────────────────
-  eliminarOrden: async (id) => {
-    const now = new Date().toISOString();
-
-    set(state => ({
-      ordenes: state.ordenes.filter(o => o.id !== id),
-      ordenSeleccionada:
-        state.ordenSeleccionada === id ? null : state.ordenSeleccionada,
-    }));
-    await db.ordenes.delete(id);
-
-    if (isOnline()) {
-      const { error } = await supabase
-        .from('ordenes')
-        .delete()
-        .eq('id', id);
-
-      if (error) {
-        console.error('[ordenesStore] eliminarOrden Supabase error:', error);
-        await db.syncQueue.add({
-          tipo:       'DELETE_OT',
-          payload:    { id },
-          created_at: now,
-          intentos:   0,
-        });
-      }
-    } else {
-      await db.syncQueue.add({
-        tipo:       'DELETE_OT',
-        payload:    { id },
-        created_at: now,
-        intentos:   0,
-      });
-    }
-  },
-
-  // ── UI ───────────────────────────────────────────────────────────────────────
-  seleccionar: (id) => set({ ordenSeleccionada: id }),
-  limpiar:     ()   => set({ ordenes: [], ordenSeleccionada: null, error: null }),
-
-  // ── Guard de importación ────────────────────────────────────────────────────
-  // Tracking de OTs recién importadas que el usuario todavía no terminó de
-  // ubicar + completar con fotos. App.tsx lee este array para mostrar el modal
-  // de "Importación incompleta" si intenta navegar fuera del plano antes.
-  setOtsPendientesImport: (ids) => set({ otsPendientesImport: ids }),
-  completarOtImport:      (id)  => set(state => ({
-    otsPendientesImport: state.otsPendientesImport.filter(x => x !== id),
-  })),
+  seleccionar:id=>set({ordenSeleccionada:id}),
+  limpiar:()=>{sequence++;scope='';set({ordenes:[],ordenSeleccionada:null,cargando:false,error:null,otsPendientesImport:[]});},
+  setOtsPendientesImport:ids=>set({otsPendientesImport:ids}),
+  completarOtImport:id=>set(s=>({otsPendientesImport:s.otsPendientesImport.filter(x=>x!==id)})),
 }));

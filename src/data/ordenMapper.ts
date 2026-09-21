@@ -1,4 +1,5 @@
 import type { OrdenLocal } from '../types/orden';
+export const ORDEN_SELECT = '*,orden_costos(costo)';
 
 const MUTABLE_COLUMNS: readonly (keyof OrdenLocal)[] = [
   'ot',
@@ -46,6 +47,8 @@ function nullablePosition(value: unknown): number {
 }
 
 export function rowToOrden(row: Record<string, unknown>): OrdenLocal {
+  const relation = row.orden_costos as { costo?: number } | { costo?: number }[] | null | undefined;
+  const costo = Array.isArray(relation) ? relation[0]?.costo : relation?.costo;
   return {
     id:                         row.id as string,
     proyecto_id:                row.proyecto_id as string,
@@ -74,7 +77,7 @@ export function rowToOrden(row: Record<string, unknown>): OrdenLocal {
     descripcion:                (row.descripcion as string) ?? undefined,
     en_garantia:                (row.en_garantia as boolean) ?? false,
     asiste_facility:            (row.asiste_facility as boolean) ?? false,
-    costo:                      (row.costo as number) ?? undefined,
+    costo:                      costo ?? (row.costo as number) ?? undefined,
     nivel_riesgo:               (row.nivel_riesgo as OrdenLocal['nivel_riesgo']) ?? null,
     rubro_secundario:           (row.rubro_secundario as string[]) ?? [],
     contratistas:               (row.contratistas as string[]) ?? [],

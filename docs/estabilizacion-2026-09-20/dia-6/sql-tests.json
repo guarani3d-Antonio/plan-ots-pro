@@ -1,0 +1,136 @@
+{
+  "testedAt": "2026-09-21T01:21:16.494Z",
+  "sha256": "b5e5ebe3b491259dcd4d52740cc6c63f58d77ad89ab1cc6d9fedcba432f7949a",
+  "passed": 32,
+  "total": 32,
+  "results": [
+    {
+      "name": "migración separa y conserva los dos importes",
+      "ok": true
+    },
+    {
+      "name": "rol 1: costos según capacidad efectiva",
+      "ok": true
+    },
+    {
+      "name": "rol 2: costos según capacidad efectiva",
+      "ok": true
+    },
+    {
+      "name": "rol 3: costos según capacidad efectiva",
+      "ok": true
+    },
+    {
+      "name": "rol 4: costos según capacidad efectiva",
+      "ok": true
+    },
+    {
+      "name": "rol 5: costos según capacidad efectiva",
+      "ok": true
+    },
+    {
+      "name": "rol 6: costos según capacidad efectiva",
+      "ok": true
+    },
+    {
+      "name": "rol 7: costos según capacidad efectiva",
+      "ok": true
+    },
+    {
+      "name": "rol 8: costos según capacidad efectiva",
+      "ok": true
+    },
+    {
+      "name": "rol 9: costos según capacidad efectiva",
+      "ok": true
+    },
+    {
+      "name": "rol 10: costos según capacidad efectiva",
+      "ok": true
+    },
+    {
+      "name": "rol 11: costos según capacidad efectiva",
+      "ok": true
+    },
+    {
+      "name": "anon sin acceso a tabla privada",
+      "ok": true
+    },
+    {
+      "name": "técnico lee órdenes sin recuperar ni filtrar costo real",
+      "ok": true
+    },
+    {
+      "name": "técnico no modifica importes",
+      "ok": true
+    },
+    {
+      "name": "técnico edita contenido sin borrar el costo privado",
+      "ok": true
+    },
+    {
+      "name": "supervisor actualiza costo y cero sin publicarlos",
+      "ok": true
+    },
+    {
+      "name": "sin escritura directa en tabla privada",
+      "ok": true
+    },
+    {
+      "name": "inserción con costo se completa atómicamente",
+      "ok": true
+    },
+    {
+      "name": "técnico no lee snapshots que contienen costos",
+      "ok": true
+    },
+    {
+      "name": "técnico no crea snapshots",
+      "ok": true
+    },
+    {
+      "name": "supervisor conserva snapshots íntegros",
+      "ok": true
+    },
+    {
+      "name": "borrado audita el costo antes de cascada",
+      "ok": true
+    },
+    {
+      "name": "contexto del técnico no concede administración",
+      "ok": true
+    },
+    {
+      "name": "contexto del Creador cubre cuatro obras y dos empresas",
+      "ok": true
+    },
+    {
+      "name": "admin de empresa no ejecuta RPC de Creador",
+      "ok": true
+    },
+    {
+      "name": "Creador crea y desactiva empresa",
+      "ok": true
+    },
+    {
+      "name": "Creador rebaja miembro sin conservar capacidades",
+      "ok": true
+    },
+    {
+      "name": "Creador revoca acceso a obra",
+      "ok": true
+    },
+    {
+      "name": "revocación corta costos con sesión existente",
+      "ok": true
+    },
+    {
+      "name": "funciones RPC no ejecutables por anon",
+      "ok": true
+    },
+    {
+      "name": "rollback restaura filas y auditoría previas",
+      "ok": true
+    }
+  ]
+}

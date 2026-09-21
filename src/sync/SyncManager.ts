@@ -1,5 +1,6 @@
 // src/sync/SyncManager.ts
 import { db } from '../db/dexie';
+import { LEGACY_OFFLINE_ENABLED } from '../security/sessionScope';
 import { supabase } from '../db/supabase';
 import type { OrdenLocal } from '../types/orden';
 import { ordenPatchToRow, ordenToRow } from '../data/ordenMapper';
@@ -208,6 +209,9 @@ async function procesarItem(item: QueueItem & { id?: number }): Promise<Resultad
 
 // ─── Función principal: procesar toda la cola ─────────────────────────────────
 export async function procesarSyncQueue(): Promise<void> {
+  // Pendientes sin identidad: se conservan para recuperación, nunca se adoptan
+  // ni sincronizan bajo la cuenta que abre la aplicación conectada.
+  if (!LEGACY_OFFLINE_ENABLED) return;
   if (!navigator.onLine) return;
 
   // Antes de leer la cola: recuperar los binarios que quedaron sin item.

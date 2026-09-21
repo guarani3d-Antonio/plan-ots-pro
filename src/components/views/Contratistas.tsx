@@ -1,3 +1,4 @@
+import { scopedKey } from '../../security/sessionScope';
 import { useEffect, useMemo, useState } from 'react';
 import { useOrdenesStore } from '../../stores/ordenesStore';
 import { useProyectosStore } from '../../stores/proyectosStore';
@@ -18,11 +19,11 @@ function colorFromName(n: string): string {
 const inicial = (n: string) => n ? n.trim().charAt(0).toUpperCase() : '?';
 
 function cargarLista(): string[] {
-  try { return JSON.parse(localStorage.getItem(LS_KEY) ?? '[]'); }
+  try { return JSON.parse(localStorage.getItem(scopedKey(LS_KEY)) ?? '[]'); }
   catch { return []; }
 }
 function guardarLista(lista: string[]): void {
-  try { localStorage.setItem(LS_KEY, JSON.stringify(lista)); }
+  try { localStorage.setItem(scopedKey(LS_KEY), JSON.stringify(lista)); }
   catch (e) { console.error('[Contratistas] localStorage:', e); }
 }
 

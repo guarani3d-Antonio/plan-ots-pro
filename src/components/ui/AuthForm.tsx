@@ -100,6 +100,8 @@ export const AuthForm: React.FC = () => {
             </button>
             <button
               className={`${styles.tab} ${modo === 'register' ? styles.active : ''}`}
+              disabled
+              title="Solicita una cuenta al administrador de la plataforma"
               onClick={() => cambiarModo('register')}
               type="button"
             >

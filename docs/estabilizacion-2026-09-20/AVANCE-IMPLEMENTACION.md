@@ -1,6 +1,6 @@
 # Avance de implementación
 
-Estado vigente: **día 5 completado**. Fundamento y aislamiento de dominio están aplicados desde días 3–4; ahora Storage es privado y el cliente local carga planos/fotos mediante autorización temporal. Ver [informe y límites del día 5](dia-5/INFORME.md) y [calendario actualizado](CALENDARIO-TRABAJO.md). El registro siguiente conserva el estado histórico del primer bloque.
+Estado vigente: **día 6 completado para el piloto conectado**. Sesión, selector por empresa, capacidades y costos protegidos en servidor; cola/caché offline antiguas conservadas sin uso automático. Ver [informe y límites del día 6](dia-6/INFORME.md) y [calendario actualizado](CALENDARIO-TRABAJO.md). Frontend local, sin nuevo despliegue público. Siguiente bloque: día 7 con Sol alto. El registro siguiente conserva el estado histórico del primer bloque.
 
 ## 20/09/2026
 

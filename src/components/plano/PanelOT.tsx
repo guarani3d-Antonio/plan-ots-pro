@@ -1,3 +1,6 @@
+import { LEGACY_OFFLINE_ENABLED, scopedKey } from '../../security/sessionScope';
+import { usePermisoObra } from '../../stores/accessStore';
+import { ORDEN_SELECT } from '../../data/ordenMapper';
 // src/components/plano/PanelOT.tsx
 import { useState, useEffect, useMemo, useRef } from 'react';
 import type { CSSProperties } from 'react';
@@ -228,7 +231,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
   const [inputContratista, setInputContratista] = useState('');
   const [dropdownContratistasOpen, setDropdownContratistasOpen] = useState(false);
   const [contratistasGlobales, setContratistasGlobales] = useState<string[]>(() => {
-    try { return JSON.parse(localStorage.getItem('plan_ots_contratistas') ?? '[]'); }
+    try { return JSON.parse(localStorage.getItem(scopedKey('plan_ots_contratistas')) ?? '[]'); }
     catch { return []; }
   });
   const [confirmEliminar, setConfirmEliminar] = useState(false);
@@ -237,22 +240,10 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
   const [tipoInforme,     setTipoInforme]     = useState<TipoInformeModal>('cierre');
 
   // ── Rol del usuario en el proyecto ──────────────────────
-  const [esSupervisor, setEsSupervisor] = useState(false);
-  // P0-6: único booleano que decide si se muestra el campo Costo.
+  const permiso = usePermisoObra(proyectoActivo?.id);
+  const esSupervisor = !!permiso?.administrar;
+  const puedeEditar = !!permiso?.editar;
   const puedeVerCostos = usePuedeVerCostos(proyectoActivo?.id ?? null);
-
-  useEffect(() => {
-    if (!user?.id || !proyectoActivo?.id) return;
-    supabase
-      .from('proyecto_miembros')
-      .select('rol')
-      .eq('proyecto_id', proyectoActivo.id)
-      .eq('user_id', user.id)
-      .single()
-      .then(({ data }) => {
-        setEsSupervisor(data?.rol === 'supervisor');
-      });
-  }, [user?.id, proyectoActivo?.id]);
 
   // ── Fotos ────────────────────────────────────────────────
   const [fotosAntes,   setFotosAntes]   = useState<FotoConId[]>([]);
@@ -381,7 +372,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
   const syncFotos = useLiveQuery(
     async () => {
       const id = ordenProp?.id;
-      if (!id) return { ordenId: null as string | null, regs: [] as FotoPendiente[] };
+      if (!id || !LEGACY_OFFLINE_ENABLED) return { ordenId: null as string | null, regs: [] as FotoPendiente[] };
       const regs = await db.fotosPendientes.where('orden_id').equals(id).toArray();
       return { ordenId: id, regs: regs.filter(r => r.estadoSync !== 'COMPLETADO') };
     },
@@ -456,7 +447,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
   useEffect(() => {
     if (!ordenProp?.id) return;
     const capturedId = ordenProp.id;
-    supabase.from('ordenes').select('*').eq('id', capturedId).single().then(({ data, error }) => {
+    supabase.from('ordenes').select(ORDEN_SELECT).eq('id', capturedId).single().then(({ data, error }) => {
       if (!error && data && ordenProp?.id === capturedId) {
         const fresh = rowToOrden(data as Record<string, unknown>);
         useOrdenesStore.getState().agregarOActualizarOrden(fresh);
@@ -887,7 +878,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
     if (!contratistasGlobales.includes(trimmed)) {
       const nueva = [...contratistasGlobales, trimmed].sort((a, b) => a.localeCompare(b));
       setContratistasGlobales(nueva);
-      try { localStorage.setItem('plan_ots_contratistas', JSON.stringify(nueva)); } catch (e) { console.error('[PanelOT] localStorage contratistas:', e); }
+      try { localStorage.setItem(scopedKey('plan_ots_contratistas'), JSON.stringify(nueva)); } catch (e) { console.error('[PanelOT] localStorage contratistas:', e); }
     }
     setInputContratista('');
     setDropdownContratistasOpen(false);
@@ -985,7 +976,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
             ))}
           </div>
 
-          <div className={styles.body}>
+          <fieldset disabled={!puedeEditar} className={styles.body} style={{ border: 0, margin: 0, minWidth: 0 }}>
 
             {tab === 'datos' && <>
               <div className={styles.section}>
@@ -1203,7 +1194,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
 
             {tab === 'campos' && (
               <div className={`${styles.section} ${styles.camposWrap}`}>
-                <button className={styles.gestorBtn} onClick={() => setMostrarGestor(true)}>⚙️ Gestionar campos</button>
+                <button disabled={!esSupervisor} className={styles.gestorBtn} onClick={() => setMostrarGestor(true)}>⚙️ Gestionar campos</button>
                 {camposDefinicion.length === 0 ? (
                   <div className={styles.posicion}>No hay campos personalizados definidos.</div>
                 ) : (
@@ -1212,7 +1203,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
               </div>
             )}
 
-          </div>
+          </fieldset>
           </>)}
 
           {tabActivo === 'historial' && (
@@ -1229,7 +1220,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
                 {confirmEliminar ? '¿Confirmar?' : 'Borrar'}
               </button>
             ) : null}
-            <button className={styles.saveBtn} onClick={handleGuardar} disabled={guardando || (modoForzadoFotos && !validacion.valido)}>
+            <button className={styles.saveBtn} onClick={handleGuardar} disabled={!puedeEditar || guardando || (modoForzadoFotos && !validacion.valido)}>
               {guardando ? 'Guardando...' : 'Guardar cambios'}
             </button>
           </div>
@@ -1238,7 +1229,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
             <GestorCampos proyectoId={ordenFresca.proyecto_id} onClose={() => { setMostrarGestor(false); getCamposDeProyecto(ordenFresca.proyecto_id).then(setCamposDefinicion); }} />
           )}
         </div>
-        <PanelComentarios ordenId={ordenFresca.id} proyectoId={ordenFresca.proyecto_id} />
+        <fieldset disabled={!puedeEditar} style={{border:0,margin:0,padding:0}}><PanelComentarios ordenId={ordenFresca.id} proyectoId={ordenFresca.proyecto_id} /></fieldset>
         </div>
       </div>
 

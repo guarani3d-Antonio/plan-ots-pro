@@ -23,13 +23,18 @@ import ModalImportPendiente, { type OTPendienteResumen } from './components/plan
 import VisorPlano3D from './components/plano3d/VisorPlano3D';
 import PantallaAyuda from './components/ayuda/PantallaAyuda';
 import TourGuiado from './components/ayuda/TourGuiado';
+import { SessionGate } from './components/ui/SessionGate';
 
 const FADE_OUT_MS = 180;
 
 const VISTAS_CON_PROYECTO = new Set<Vista>(['grilla', 'plano']);
 
 export default function App() {
-  const { user, initialize }          = useAuthStore();
+  return <SessionGate><ContenidoApp /></SessionGate>;
+}
+
+function ContenidoApp() {
+  const { user }                     = useAuthStore();
   const proyectoActivo                = useProyectosStore(s => s.proyectoActivo);
   const setProyectoActivo             = useProyectosStore(s => s.setProyectoActivo);
   const [vista, setVista]             = useState<Vista>('proyectos');
@@ -79,8 +84,6 @@ export default function App() {
     // clase nunca se aplica, pase lo que pase en localStorage.
     b.classList.toggle('tema-vidrio', modoTablet && tema === 'vidrio');
   }, [modoTablet, orientacion, tema]);
-
-  useEffect(() => { initialize(); }, []);
 
   useEffect(() => {
     if (!user) return;

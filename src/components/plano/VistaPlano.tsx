@@ -1,6 +1,7 @@
 ﻿import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
 import { useProyectosStore } from '../../stores/proyectosStore';
+import { usePermisoObra } from '../../stores/accessStore';
 import { useArchivoPrivadoEstado } from '../../hooks/useArchivoPrivado';
 import { useOrdenesStore } from '../../stores/ordenesStore';
 import type { OrdenLocal } from '../../types/orden';
@@ -30,6 +31,10 @@ interface VistaPlanoProps {
 
 export default function VistaPlano({ fullscreen = false, onToggleFullscreen }: VistaPlanoProps) {
   const proyecto = useProyectosStore(s => s.proyectoActivo);
+  const permiso = usePermisoObra(proyecto?.id);
+  const puedeEditar = !!permiso?.editar;
+  const puedeAdministrar = !!permiso?.administrar;
+  const [errorAccion, setErrorAccion] = useState<string | null>(null);
   const { url: planoPrivado, error: errorAccesoPlano } = useArchivoPrivadoEstado(proyecto?.plano_url);
   const ordenes              = useOrdenesStore((s) => s.ordenes);
   const cargarOrdenes        = useOrdenesStore((s) => s.cargarOrdenes);
@@ -39,9 +44,9 @@ export default function VistaPlano({ fullscreen = false, onToggleFullscreen }: V
 
   // Pre-carga versiones en background — modal abre instantáneo
   useEffect(() => {
-    if (!proyecto?.id) return;
+    if (!proyecto?.id || !puedeAdministrar) return;
     void listarVersiones(proyecto.id).then(v => setVersionesCached(v));
-  }, [proyecto?.id]);
+  }, [proyecto?.id, puedeAdministrar]);
 
   // ── Fullscreen: ESC para salir ──
   useEffect(() => {
@@ -264,7 +269,7 @@ export default function VistaPlano({ fullscreen = false, onToggleFullscreen }: V
 
   // ── Click → crear OT ─────────────────────────────────────
   const onPlanClick = useCallback(async (e: React.MouseEvent<HTMLDivElement>) => {
-    if (didDragRef.current) return;
+    if (didDragRef.current || !puedeEditar) return;
     const t = e.target as HTMLElement;
     if (t.closest('[data-marcador]') || t.closest('[data-no-pan]')) return;
     if (!planoListo || !planoDims.w || !proyecto) return;
@@ -273,10 +278,11 @@ export default function VistaPlano({ fullscreen = false, onToggleFullscreen }: V
     const posX = (e.clientX - rect.left - txRef.current) / scRef.current / planoDims.w;
     const posY = (e.clientY - rect.top  - tyRef.current) / scRef.current / planoDims.h;
     if (posX < 0 || posX > 1 || posY < 0 || posY > 1) return;
-    const nueva = await crearOrdenEnPosicion(proyecto.id, posX, posY);
-    setOrdenSeleccionada(nueva);
-    setEsNuevaOT(true);
-  }, [planoListo, planoDims, proyecto, crearOrdenEnPosicion]);
+    try {
+      const nueva = await crearOrdenEnPosicion(proyecto.id, posX, posY);
+      setOrdenSeleccionada(nueva); setEsNuevaOT(true); setErrorAccion(null);
+    } catch(e) { setErrorAccion(e instanceof Error ? e.message : 'No se pudo crear la orden.'); }
+  }, [planoListo, planoDims, proyecto, crearOrdenEnPosicion, puedeEditar]);
 
   const handleSeleccionar = useCallback((orden: OrdenLocal) => {
     setOrdenSeleccionada(orden);
@@ -291,6 +297,7 @@ export default function VistaPlano({ fullscreen = false, onToggleFullscreen }: V
   const handleDropOT = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
+    if (!puedeEditar) return;
     const contenedor = planWrapRef.current;
     if (!contenedor) return;
     const rect = contenedor.getBoundingClientRect();
@@ -298,12 +305,12 @@ export default function VistaPlano({ fullscreen = false, onToggleFullscreen }: V
     const pos_y = Math.max(0.01, Math.min(0.99, (e.clientY - rect.top)  / rect.height));
     const moveId = e.dataTransfer.getData('text/ot-move');
     if (moveId) {
-      actualizarOrden(moveId, { pos_x, pos_y });
+      void actualizarOrden(moveId, { pos_x, pos_y }).catch(e=>setErrorAccion(e.message));
       return;
     }
     const placeId = e.dataTransfer.getData('text/ot-id');
     if (placeId) {
-      actualizarOrden(placeId, { pos_x, pos_y });
+      void actualizarOrden(placeId, { pos_x, pos_y }).catch(e=>setErrorAccion(e.message));
       const ordenObjetivo = useOrdenesStore.getState().ordenes.find(o => o.id === placeId);
       if (ordenObjetivo) {
         setOrdenSeleccionada(ordenObjetivo);
@@ -311,7 +318,7 @@ export default function VistaPlano({ fullscreen = false, onToggleFullscreen }: V
       }
       return;
     }
-  }, [actualizarOrden]);
+  }, [actualizarOrden, puedeEditar]);
 
   if (!proyecto) return null;
 
@@ -366,7 +373,7 @@ export default function VistaPlano({ fullscreen = false, onToggleFullscreen }: V
               className={styles.btnVolver}
               onClick={acciones.abrirImportarCSV}
               title="Importar OTs desde CSV"
-              disabled={!!cargandoAcciones}
+              disabled={!!cargandoAcciones || !puedeEditar}
             >
               📥 Importar
             </button>
@@ -374,13 +381,14 @@ export default function VistaPlano({ fullscreen = false, onToggleFullscreen }: V
               className={styles.btnVolver}
               onClick={() => setModalVersionesAbierto(true)}
               title="Guardar snapshot de versión"
-              disabled={ordenes.length === 0}
+              disabled={ordenes.length === 0 || !puedeAdministrar}
             >
               💾 Versión
             </button>
             <button
               className={styles.btnVolver}
               onClick={() => acciones.abrirComparador()}
+              disabled={!puedeAdministrar}
               title="Comparar versiones"
             >
               🔀 Comparar
@@ -583,6 +591,7 @@ export default function VistaPlano({ fullscreen = false, onToggleFullscreen }: V
       </div>
 
       {/* Panel OT derecho */}
+      {errorAccion && <div role="alert">{errorAccion}</div>}
       <PanelOT
         orden={ordenActualizada}
         modoForzadoFotos={modoForzadoFotos}

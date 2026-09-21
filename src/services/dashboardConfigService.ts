@@ -1,3 +1,4 @@
+import { scopedKey } from '../security/sessionScope';
 // src/services/dashboardConfigService.ts
 import { supabase } from '../db/supabase';
 
@@ -26,12 +27,12 @@ export const DEFAULT_WIDGETS: WidgetConfig[] = [
 const LS_KEY = 'plan_ots_dashboard_widgets';
 
 function saveLS(w: WidgetConfig[]): void {
-  try { localStorage.setItem(LS_KEY, JSON.stringify(w)); } catch { /* noop */ }
+  try { localStorage.setItem(scopedKey(LS_KEY), JSON.stringify(w)); } catch { /* noop */ }
 }
 
 function loadLS(): WidgetConfig[] | null {
   try {
-    const raw = localStorage.getItem(LS_KEY);
+    const raw = localStorage.getItem(scopedKey(LS_KEY));
     if (!raw) return null;
     return mergeWithDefaults(JSON.parse(raw) as WidgetConfig[]);
   } catch { return null; }

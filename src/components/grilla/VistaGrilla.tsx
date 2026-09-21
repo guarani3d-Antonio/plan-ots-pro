@@ -7,6 +7,7 @@ import { ModalDetalleOT } from './ModalDetalleOT';
 import { getCamposDeProyecto, type CampoDefinicion } from '../../services/camposService';
 import { colorEstado, diasAbierto } from '../../utils/calculos';
 import { usePuedeVerCostos } from '../../hooks/usePuedeVerCostos';
+import { scopedKey } from '../../security/sessionScope';
 
 type EstadoOT    = 'Pendiente' | 'En proceso' | 'Cerrada' | 'No aplica';
 type PrioridadOT = 'Alta' | 'Media' | 'Baja';
@@ -558,7 +559,7 @@ export const VistaGrilla: React.FC<Props> = ({ proyectoId, proyectoNombre, onSwi
   const [vistaActiva, setVistaActiva]         = useState<'tabla' | 'tarjetas'>('tabla');
 
   const [camposTarjeta, setCamposTarjeta] = useState<Set<string>>(() => {
-    try { const saved = localStorage.getItem(LS_CAMPOS_TARJETA_KEY); if (saved) return new Set(JSON.parse(saved)); } catch { /* fallthrough */ }
+    try { const saved = localStorage.getItem(scopedKey(LS_CAMPOS_TARJETA_KEY)); if (saved) return new Set(JSON.parse(saved)); } catch { /* fallthrough */ }
     return new Set(CAMPOS_TARJETA.filter(c => c.default).map(c => c.key));
   });
   const [mostrarPersonalizar, setMostrarPersonalizar] = useState(false);
@@ -568,7 +569,7 @@ export const VistaGrilla: React.FC<Props> = ({ proyectoId, proyectoNombre, onSwi
     setCamposTarjeta(prev => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key); else next.add(key);
-      try { localStorage.setItem(LS_CAMPOS_TARJETA_KEY, JSON.stringify([...next])); } catch (e) { console.error(e); }
+      try { localStorage.setItem(scopedKey(LS_CAMPOS_TARJETA_KEY), JSON.stringify([...next])); } catch (e) { console.error(e); }
       return next;
     });
   };
@@ -583,16 +584,16 @@ export const VistaGrilla: React.FC<Props> = ({ proyectoId, proyectoNombre, onSwi
   const accionesMenuRef = useRef<HTMLDivElement>(null);
   const [camposDefinicion, setCamposDefinicion] = useState<CampoDefinicion[]>([]);
   const [columnasCustomVisibles, setColumnasCustomVisibles] = useState<string[]>(() => {
-    try { return JSON.parse(localStorage.getItem(LS_COLS_KEY) ?? '[]'); } catch { return []; }
+    try { return JSON.parse(localStorage.getItem(scopedKey(LS_COLS_KEY)) ?? '[]'); } catch { return []; }
   });
   const [popoverColsOpen, setPopoverColsOpen] = useState(false);
   const popoverColsRef = useRef<HTMLTableCellElement>(null);
   const [columnasOcultas, setColumnasOcultas] = useState<Set<string>>(() => {
-    try { return new Set(JSON.parse(localStorage.getItem(LS_COLS_OCULTAS_KEY) ?? '[]')); } catch { return new Set(); }
+    try { return new Set(JSON.parse(localStorage.getItem(scopedKey(LS_COLS_OCULTAS_KEY)) ?? '[]')); } catch { return new Set(); }
   });
 
   useEffect(() => {
-    try { localStorage.setItem(LS_COLS_OCULTAS_KEY, JSON.stringify([...columnasOcultas])); } catch (e) { console.error(e); }
+    try { localStorage.setItem(scopedKey(LS_COLS_OCULTAS_KEY), JSON.stringify([...columnasOcultas])); } catch (e) { console.error(e); }
   }, [columnasOcultas]);
 
   useEffect(() => {
@@ -601,7 +602,7 @@ export const VistaGrilla: React.FC<Props> = ({ proyectoId, proyectoNombre, onSwi
   }, [proyectoId, cargarOrdenes]);
 
   useEffect(() => {
-    try { localStorage.setItem(LS_COLS_KEY, JSON.stringify(columnasCustomVisibles)); } catch (e) { console.error(e); }
+    try { localStorage.setItem(scopedKey(LS_COLS_KEY), JSON.stringify(columnasCustomVisibles)); } catch (e) { console.error(e); }
   }, [columnasCustomVisibles]);
 
   useEffect(() => {
@@ -782,8 +783,8 @@ export const VistaGrilla: React.FC<Props> = ({ proyectoId, proyectoNombre, onSwi
                       })}
                     </div>
                     <div style={{ padding: '8px 14px', borderTop: '1px solid #F3F4F6', display: 'flex', gap: 8 }}>
-                      <button type="button" onClick={() => { const all = new Set(camposTarjetaRol.map(c => c.key)); setCamposTarjeta(all); try { localStorage.setItem(LS_CAMPOS_TARJETA_KEY, JSON.stringify([...all])); } catch (e) { console.error(e); } }} style={{ flex: 1, padding: 5, fontSize: 11, fontFamily: 'inherit', border: '1px solid #E2E2E7', borderRadius: 6, cursor: 'pointer', background: 'white', color: '#1E3A5F', fontWeight: 600 }}>Mostrar todo</button>
-                      <button type="button" onClick={() => { setCamposTarjeta(new Set()); try { localStorage.setItem(LS_CAMPOS_TARJETA_KEY, '[]'); } catch (e) { console.error(e); } }} style={{ flex: 1, padding: 5, fontSize: 11, fontFamily: 'inherit', border: '1px solid #E2E2E7', borderRadius: 6, cursor: 'pointer', background: 'white', color: '#64748B', fontWeight: 600 }}>Ocultar todos</button>
+                      <button type="button" onClick={() => { const all = new Set(camposTarjetaRol.map(c => c.key)); setCamposTarjeta(all); try { localStorage.setItem(scopedKey(LS_CAMPOS_TARJETA_KEY), JSON.stringify([...all])); } catch (e) { console.error(e); } }} style={{ flex: 1, padding: 5, fontSize: 11, fontFamily: 'inherit', border: '1px solid #E2E2E7', borderRadius: 6, cursor: 'pointer', background: 'white', color: '#1E3A5F', fontWeight: 600 }}>Mostrar todo</button>
+                      <button type="button" onClick={() => { setCamposTarjeta(new Set()); try { localStorage.setItem(scopedKey(LS_CAMPOS_TARJETA_KEY), '[]'); } catch (e) { console.error(e); } }} style={{ flex: 1, padding: 5, fontSize: 11, fontFamily: 'inherit', border: '1px solid #E2E2E7', borderRadius: 6, cursor: 'pointer', background: 'white', color: '#64748B', fontWeight: 600 }}>Ocultar todos</button>
                     </div>
                   </div>
                 )}

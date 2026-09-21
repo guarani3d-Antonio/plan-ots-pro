@@ -1,0 +1,9 @@
+{
+  "checkedAt": "2026-09-21T01:33:32.986Z",
+  "previousRowsPreserved": 366,
+  "fixtureOrdersChanged": 4,
+  "originalCostsPreserved": 21,
+  "privateCostRows": 25,
+  "publicCosts": 0,
+  "method": "Comparación SHA-256 de cada fila anterior, reconstituyendo costo desde la tabla privada. Excluye cuatro OTs sintéticas con importes de prueba."
+}
