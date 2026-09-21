@@ -12,6 +12,10 @@ pdfjsLib.GlobalWorkerOptions.workerSrc =
 // Cache en memoria: url → dataURL PNG
 const cache = new Map<string, string>()
 
+export function obtenerThumbnailPDFCache(url: string): string | null {
+  return cache.get(url) ?? null
+}
+
 export async function generarThumbnailPDF(
   url: string,
   ancho = 800   // resolución alta → se escala bien en la card

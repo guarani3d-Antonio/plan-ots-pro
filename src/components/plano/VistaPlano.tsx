@@ -14,6 +14,7 @@ import InformePanel from '../informes/InformePanel';
 import { ModalVersiones } from './ModalVersiones';
 import type { Version } from '../../services/versionesService';
 import { restaurarVersion, listarVersiones } from '../../services/versionesService';
+import { obtenerThumbnailPDFCache } from '../../services/pdfThumbnailService';
 import styles from './VistaPlano.module.css';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc =
@@ -176,12 +177,6 @@ export default function VistaPlano({ fullscreen = false, onToggleFullscreen }: V
     );
   }, [planoDims, applyTransform]);
 
-  useEffect(() => {
-    if (!planoListo) return;
-    const frame = window.requestAnimationFrame(fitView);
-    return () => window.cancelAnimationFrame(frame);
-  }, [panelLateralVisible, planoListo, fitView]);
-
   // ── Carga del plano ──────────────────────────────────────
   useEffect(() => {
     if (!planoPrivado) { setPlanoListo(false); setErrorPlano(errorAccesoPlano); return; }
@@ -201,7 +196,8 @@ export default function VistaPlano({ fullscreen = false, onToggleFullscreen }: V
       const page  = await doc.getPage(1);
       const vp0   = page.getViewport({ scale: 1 });
       const area  = planAreaRef.current;
-      const scale = Math.max((area?.clientWidth ?? 1200) * 2.5, 2800) / vp0.width;
+      const pixelRatio = Math.min(window.devicePixelRatio || 1, 1.5);
+      const scale = Math.max((area?.clientWidth ?? 1200) * pixelRatio, 1600) / vp0.width;
       const vp    = page.getViewport({ scale });
       const canvas = canvasRef.current!;
       canvas.width = vp.width; canvas.height = vp.height;
@@ -428,24 +424,26 @@ export default function VistaPlano({ fullscreen = false, onToggleFullscreen }: V
       {/* Layout principal */}
       <div className={styles.main}>
 
-        {/* Panel IZQUIERDO: se oculta en fullscreen */}
-        {!fullscreen && panelLateralVisible && (
-          <PanelResumen
-            ordenes={ordenes}
-            ordenesFiltradas={ordenesFiltradas}
-            rubrosUnicos={rubrosUnicos}
-            filtrosEstado={filtrosEstado}
-            filtrosRubro={filtrosRubro}
-            filtrosPrioridad={filtrosPrioridad}
-            onToggleEstado={toggleEstado}
-            onToggleRubro={toggleRubro}
-            onTogglePrioridad={togglePrioridad}
-            ordenSeleccionadaId={ordenSeleccionada?.id}
-            onSeleccionar={handleSeleccionar}
-            proyecto={proyecto}
-            acciones={acciones}
-            cargando={cargandoAcciones}
-          />
+        {/* Cajón superpuesto: no cambia el tamaño ni el zoom del plano. */}
+        {!fullscreen && (
+          <div className={`${styles.panelDrawer} ${panelLateralVisible ? styles.panelDrawerOpen : ''}`} aria-hidden={!panelLateralVisible}>
+            <PanelResumen
+              ordenes={ordenes}
+              ordenesFiltradas={ordenesFiltradas}
+              rubrosUnicos={rubrosUnicos}
+              filtrosEstado={filtrosEstado}
+              filtrosRubro={filtrosRubro}
+              filtrosPrioridad={filtrosPrioridad}
+              onToggleEstado={toggleEstado}
+              onToggleRubro={toggleRubro}
+              onTogglePrioridad={togglePrioridad}
+              ordenSeleccionadaId={ordenSeleccionada?.id}
+              onSeleccionar={handleSeleccionar}
+              proyecto={proyecto}
+              acciones={acciones}
+              cargando={cargandoAcciones}
+            />
+          </div>
         )}
 
         {/* Wrapper del área del plano */}
@@ -477,8 +475,11 @@ export default function VistaPlano({ fullscreen = false, onToggleFullscreen }: V
         >
           {!planoListo && !errorPlano && (
             <div className={styles.emptyState}>
+              {proyecto.plano_url.toLowerCase().includes('.pdf') && obtenerThumbnailPDFCache(proyecto.plano_url) && (
+                <img className={styles.loadingPreview} src={obtenerThumbnailPDFCache(proyecto.plano_url)!} alt="Vista previa del plano" />
+              )}
               <div className={styles.spinner} />
-              <p>Cargando plano…</p>
+              <p>Preparando plano…</p>
             </div>
           )}
           {errorPlano && (
