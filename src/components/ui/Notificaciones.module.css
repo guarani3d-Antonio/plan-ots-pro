@@ -10,13 +10,13 @@
   align-items: center;
   gap: 10px;
   width: 100%;
-  padding: 8px 12px;
+  padding: 8px 2px;
   border: none;
   border-radius: 8px;
   background: transparent;
-  color: var(--color-text-secondary, #64748b);
-  font-size: 13px;
-  font-weight: 500;
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 14px;
+  font-weight: 600;
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
   text-align: left;
@@ -24,19 +24,42 @@
 }
 
 .bellBtn:hover {
-  background: var(--color-bg-hover, #f1f5f9);
-  color: var(--color-text-primary, #0f172a);
+  background: rgba(255, 255, 255, 0.10);
+  color: #fff;
 }
 
 .bellBtnActive {
-  background: var(--color-bg-hover, #f1f5f9);
-  color: var(--color-text-primary, #0f172a);
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+}
+
+.bellBtnCollapsed {
+  justify-content: center;
+  padding-left: 0;
+  padding-right: 0;
 }
 
 .bellIcon {
-  font-size: 16px;
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: currentColor;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
   flex-shrink: 0;
-  line-height: 1;
+}
+
+.bellIcon svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .bellLabel {

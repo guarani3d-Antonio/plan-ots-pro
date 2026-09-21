@@ -140,9 +140,16 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
           <div className={styles.brandIcon}>P</div>
           <span className={styles.brandName}>Plan-<span>OTs</span></span>
         </div>
-        <div className={styles.userInfo} style={{ cursor: 'default' }}>
+        <div className={styles.userInfo}>
           <div className={styles.avatar}>{iniciales}</div>
-          <span className={styles.userName}>{nombreUsuario}{contexto?.creador ? " · Creador" : ""}</span><button onClick={()=>void useAuthStore.getState().signOut()}>Cerrar sesión</button>
+          <div className={styles.userText}>
+            <span className={styles.userName}>{nombreUsuario}</span>
+            {contexto?.creador && <span className={styles.userRole}>Creador</span>}
+          </div>
+          <button className={styles.signOutBtn} onClick={()=>void useAuthStore.getState().signOut()}>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 5H6.5A1.5 1.5 0 0 0 5 6.5v11A1.5 1.5 0 0 0 6.5 19H10m4-4 3-3-3-3m3 3H9" /></svg>
+            <span>Cerrar sesión</span>
+          </button>
         </div>
       </nav>
 
@@ -155,10 +162,17 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
         {/* Header con título, búsqueda y botón */}
         <div className={styles.header}>
           <h1 className={styles.title}>Mis proyectos</h1>
-          <label>Empresa <select aria-label="Empresa" value={empresaId} onChange={e=>{setProyectoActivo(null);useAccessStore.setState({empresaId:e.target.value});}}>
-            <option value="">Todas las obras autorizadas</option>
-            {contexto?.empresas.map(e=><option key={e.id} value={e.id}>{e.nombre}</option>)}
-          </select></label>
+          <label className={styles.companyField}>
+            <span className={styles.companyLabel}>Empresa activa</span>
+            <span className={styles.companySelectWrap}>
+              <svg className={styles.companyIcon} viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V7h6V4h4v3h6v13h-6v-4h-4v4H4Zm3-9h2V9H7v2Zm0 4h2v-2H7v2Zm8-4h2V9h-2v2Zm0 4h2v-2h-2v2Z" /></svg>
+              <select className={styles.companySelect} aria-label="Empresa" value={empresaId} onChange={e=>{setProyectoActivo(null);useAccessStore.setState({empresaId:e.target.value});}}>
+                <option value="">Todas las obras autorizadas</option>
+                {contexto?.empresas.map(e=><option key={e.id} value={e.id}>{e.nombre}</option>)}
+              </select>
+              <svg className={styles.companyChevron} viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4" /></svg>
+            </span>
+          </label>
           <div className={styles.searchWrap}>
             <input
               className={styles.searchInput}
@@ -166,10 +180,10 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
               value={busqueda}
               onChange={e => setBusqueda(e.target.value)}
             />
-            <span className={styles.searchIcon}>🔍</span>
+            <svg className={styles.searchIcon} viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5" /><path d="m16 16 4 4" /></svg>
           </div>
           <button disabled={!puedeCrear} title={puedeCrear ? undefined : "Selecciona una empresa donde tengas permiso para crear obras"} className={styles.newBtn} onClick={() => setModalAbierto(true)}>
-            + Nuevo proyecto
+            <span className={styles.newBtnIcon}>+</span> Nuevo proyecto
           </button>
         </div>
 

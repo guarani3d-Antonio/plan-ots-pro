@@ -10,8 +10,8 @@
 .topbar {
   background: white;
   border-bottom: 1px solid #E2E8F0;
-  padding: 0 40px;
-  height: 64px;
+  padding: 0 36px;
+  height: 72px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -52,8 +52,8 @@
 .userInfo {
   display: flex;
   align-items: center;
-  gap: 10px;
-  cursor: pointer;
+  gap: 11px;
+  min-width: 0;
 }
 
 .avatar {
@@ -77,9 +77,62 @@
 }
 
 .userName {
-  font-size: 15px;
-  font-weight: 500;
+  display: block;
+  max-width: min(330px, 30vw);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 650;
   color: #0F172A;
+}
+
+.userText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.25;
+}
+
+.userRole {
+  color: #64748B;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.signOutBtn {
+  min-height: 38px;
+  padding: 0 13px;
+  margin-left: 5px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #334155;
+  background: #FFFFFF;
+  border: 1px solid #D8DEE9;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 650;
+  white-space: nowrap;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  transition: color 150ms ease, background 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.signOutBtn svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.signOutBtn:hover {
+  color: #B42318;
+  background: #FFF7F6;
+  border-color: #F2B8B5;
+  box-shadow: 0 3px 10px rgba(180, 35, 24, 0.08);
 }
 
 /* Área scrollable — toma todo el ancho del viewport, así el scrollbar
@@ -104,7 +157,7 @@
 .header {
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: 18px;
   margin-bottom: 40px;
 }
 
@@ -116,8 +169,80 @@
   flex-shrink: 0;
 }
 
+.companyField {
+  width: 250px;
+  flex: 0 0 250px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.companyLabel {
+  color: #64748B;
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.companySelectWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.companySelect {
+  width: 100%;
+  height: 44px;
+  padding: 0 38px 0 39px;
+  appearance: none;
+  color: #172033;
+  background: #FFFFFF;
+  border: 1.5px solid #D1D8E3;
+  border-radius: 10px;
+  outline: none;
+  font-size: 14px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.companySelect:hover { border-color: #AAB7CC; }
+.companySelect:focus {
+  border-color: #3B599B;
+  box-shadow: 0 0 0 3px rgba(59, 89, 155, 0.13);
+}
+
+.companyIcon,
+.companyChevron {
+  position: absolute;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.companyIcon {
+  left: 13px;
+  width: 17px;
+  height: 17px;
+  fill: #3B599B;
+}
+
+.companyChevron {
+  right: 13px;
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: #64748B;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .searchWrap {
   flex: 1;
+  min-width: 220px;
   max-width: 420px;
   position: relative;
 }
@@ -148,8 +273,13 @@
   right: 14px;
   top: 50%;
   transform: translateY(-50%);
-  color: #9CA3AF;
-  font-size: 16px;
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: #7B879A;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
   pointer-events: none;
 }
 
@@ -172,6 +302,43 @@
 }
 
 .newBtn:hover { background: #2E4A82; }
+
+.newBtnIcon {
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.14);
+  font-size: 18px;
+  line-height: 1;
+}
+
+.newBtn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+@media (max-width: 1120px) {
+  .topbar { padding: 0 22px; }
+  .content { padding: 34px 28px; }
+  .header { flex-wrap: wrap; }
+  .title { width: 100%; }
+  .companyField { flex: 1 1 240px; }
+  .searchWrap { flex: 1 1 280px; max-width: none; }
+}
+
+@media (max-width: 680px) {
+  .topbar { padding: 0 16px; }
+  .brandName { display: none; }
+  .userName { max-width: 155px; }
+  .signOutBtn span { display: none; }
+  .signOutBtn { width: 40px; padding: 0; justify-content: center; }
+  .content { padding: 28px 18px; }
+  .companyField, .searchWrap, .newBtn { width: 100%; max-width: none; flex-basis: 100%; }
+  .newBtn { justify-content: center; }
+}
 
 /* Grid de proyectos */
 .grid {

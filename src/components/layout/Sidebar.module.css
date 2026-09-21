@@ -44,6 +44,15 @@
   background: #1A4FA8;
   transform: translateY(-50%) scale(1.08);
 }
+.toggleBtn svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
 
 /* ── Top: logo ── */
 .top {
@@ -117,7 +126,7 @@
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.35);
+  color: rgba(255, 255, 255, 0.56);
   flex-shrink: 0;
 }
 .sectionLabel:first-child { padding-top: 10px; }
@@ -165,26 +174,27 @@
   border: none;
   border-left: 3px solid transparent;
   background: transparent;
-  color: rgba(255, 255, 255, 0.72);
-  font-size: 13px;
-  font-weight: 500;
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 14px;
+  font-weight: 600;
   cursor: pointer;
   font-family: inherit;
   text-align: left;
   width: 100%;
   white-space: nowrap;
   overflow: hidden;
-  transition: background 0.12s, color 0.12s, border-color 0.12s;
+  letter-spacing: -0.01em;
+  transition: background 0.12s, color 0.12s, border-color 0.12s, transform 0.12s;
 }
 .navItem:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.10);
   color: #fff;
 }
 .navItemActive {
-  background: rgba(36, 98, 201, 0.25);
-  border-left-color: #2462C9;
+  background: rgba(255, 255, 255, 0.16);
+  border-left-color: #FFFFFF;
   color: #fff;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .collapsed .navItem {
@@ -200,11 +210,36 @@
 }
 
 .navIcon {
-  font-size: 16px;
-  width: 20px;
-  text-align: center;
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.84);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
   flex-shrink: 0;
-  line-height: 1;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+.navIcon svg {
+  width: 17px;
+  height: 17px;
+  fill: currentColor;
+  stroke: none;
+}
+.navIcon svg path[fill="none"] {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.65;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.navItem:hover .navIcon,
+.navItemActive .navIcon {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.20);
 }
 
 .navLabel {

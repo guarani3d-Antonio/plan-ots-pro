@@ -190,12 +190,14 @@ export function Notificaciones({ collapsed }: NotificacionesProps) {
       <button
         ref={btnRef}
         type="button"
-        className={`${styles.bellBtn} ${open ? styles.bellBtnActive : ''}`}
+        className={`${styles.bellBtn} ${collapsed ? styles.bellBtnCollapsed : ''} ${open ? styles.bellBtnActive : ''}`}
         onClick={() => setOpen(o => !o)}
         title={collapsed ? `Notificaciones${unreadCount ? ` (${unreadCount})` : ''}` : undefined}
         aria-label="Notificaciones"
       >
-        <span className={styles.bellIcon}>🔔</span>
+        <span className={styles.bellIcon}>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 8.5h18C21 16 18 16 18 9ZM10 21h4" /></svg>
+        </span>
         {!collapsed && (
           <span className={styles.bellLabel}>Notificaciones</span>
         )}
