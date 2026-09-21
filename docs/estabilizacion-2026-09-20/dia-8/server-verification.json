@@ -1,0 +1,17 @@
+{
+  "verifiedAt": "2026-09-21T02:38:00.000Z",
+  "function": "public.plan_restaurar_version(uuid,uuid)",
+  "owner": "postgres",
+  "acl": [
+    "postgres=X/postgres",
+    "service_role=X/postgres",
+    "authenticated=X/postgres"
+  ],
+  "config": [
+    "search_path=pg_catalog, pg_temp"
+  ],
+  "anon_execute": 0,
+  "null_snapshot_guard": true,
+  "affected_rows_lock": true,
+  "result": "verified"
+}

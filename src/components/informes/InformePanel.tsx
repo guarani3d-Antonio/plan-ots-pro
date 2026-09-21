@@ -11,6 +11,7 @@ import {
   descargarHTML,
 } from '../../services/informeService'
 import type { InformeConfig, FirmanteConfig } from '../../services/informeService'
+import { hacerInformePortable } from '../../services/portableReportService'
 import styles from './InformePanel.module.css'
 
 interface Props { onClose: () => void }
@@ -35,6 +36,7 @@ export default function InformePanel({ onClose }: Props) {
   const [camposNumericos, setCamposNumericos] = useState<{ id: string; nombre: string }[]>([])
   const [generando, setGenerando]             = useState(false)
   const [htmlGenerado, setHtmlGenerado]       = useState<string | null>(null)
+  const [errorInforme, setErrorInforme]       = useState<string | null>(null)
 
   const iframeRef    = useRef<HTMLIFrameElement>(null)
   const logoInputRef = useRef<HTMLInputElement>(null)
@@ -89,6 +91,8 @@ export default function InformePanel({ onClose }: Props) {
 
   async function generar() {
     setGenerando(true)
+    setErrorInforme(null)
+    setHtmlGenerado(null)
     try {
       const config: InformeConfig = {
         proyectoId:            proj.id,
@@ -103,8 +107,11 @@ export default function InformePanel({ onClose }: Props) {
         evolucionGranularidad: granularidad,
         firmantes:             firmantes.filter(f => f.nombre.trim()),
       }
-      const html = await generarInformeHTML(config)
-      setHtmlGenerado(html)
+      const result = await hacerInformePortable(await generarInformeHTML(config))
+      setHtmlGenerado(result.html)
+      setErrorInforme(result.missingImages ? `${result.missingImages} imagen(es) no estaban disponibles y se reemplazaron por un aviso.` : null)
+    } catch (error) {
+      setErrorInforme(error instanceof Error ? error.message : 'No se pudo generar el informe.')
     } finally {
       setGenerando(false)
     }
@@ -256,6 +263,11 @@ export default function InformePanel({ onClose }: Props) {
 
           {/* Preview */}
           <div className={styles.preview}>
+            {errorInforme && !htmlGenerado && (
+              <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                {errorInforme}
+              </p>
+            )}
             {htmlGenerado ? (
               <>
                 <div className={styles.previewToolbar}>
@@ -264,10 +276,10 @@ export default function InformePanel({ onClose }: Props) {
                   <button className={styles.btnGenerar} onClick={imprimirPDF}>Imprimir / PDF</button>
                 </div>
                 <p className={styles.avisoImpresion}>
-                  Se abrirá el diálogo de impresión de Android. Para volver, usá el botón atrás.
+                  {errorInforme ?? 'El HTML incluye las fotos y puede abrirse sin volver a iniciar sesión.'}
                 </p>
                 <iframe ref={iframeRef} className={styles.iframe}
-                  srcDoc={htmlGenerado} title="Vista previa del informe" />
+                  srcDoc={htmlGenerado} sandbox="allow-same-origin" title="Vista previa del informe" />
               </>
             ) : (
               <div className={styles.previewEmpty}>

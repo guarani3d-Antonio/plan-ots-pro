@@ -25,6 +25,12 @@ export interface InformeConfig {
   firmantes:             FirmanteConfig[]
 }
 
+function escapeHtml(value: unknown): string {
+  return String(value ?? '').replace(/[&<>"']/g, char => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[char] ?? char));
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function fechaHoy(): string {
@@ -42,7 +48,7 @@ function badgeEstado(estado: string): string {
   }
   const label = ESTADO_LABEL[estado as EstadoOT] ?? estado
   const cls   = clsMap[estado] ?? 'b-na'
-  return `<span class="badge ${cls}">${label}</span>`
+  return `<span class="badge ${cls}">${escapeHtml(label)}</span>`
 }
 
 function barraCSS(items: { label: string; count: number; color: string }[], total: number): string {
@@ -51,7 +57,7 @@ function barraCSS(items: { label: string; count: number; color: string }[], tota
     const pct = total > 0 ? Math.round((it.count / total) * 100) : 0
     return `
       <table class="bar-row"><tr>
-        <td class="bar-label">${it.label}</td>
+        <td class="bar-label">${escapeHtml(it.label)}</td>
         <td class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${it.color}"></div></td>
         <td class="bar-count">${it.count}</td>
       </tr></table>`
@@ -89,7 +95,7 @@ function donutSVG(
       <td style="padding:1px 4px 1px 0">
         <span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${s.color}"></span>
       </td>
-      <td style="font-size:7pt;color:#374151;padding:1px 6px 1px 0">${s.label}</td>
+      <td style="font-size:7pt;color:#374151;padding:1px 6px 1px 0">${escapeHtml(s.label)}</td>
       <td style="font-size:7pt;font-weight:700;color:#1A2B4A;text-align:right">${s.count}</td>
     </tr>`).join('')
 
@@ -100,11 +106,11 @@ function donutSVG(
         ${arcs}
         <text x="${CX}" y="${CY - 5}" text-anchor="middle" dominant-baseline="middle"
           font-size="15" font-weight="700" fill="#1A2B4A" font-family="Calibri,Arial,sans-serif">
-          ${centerValue}
+          ${escapeHtml(centerValue)}
         </text>
         <text x="${CX}" y="${CY + 12}" text-anchor="middle" dominant-baseline="middle"
           font-size="7" fill="#6B7280" font-family="Calibri,Arial,sans-serif">
-          ${centerLabel}
+          ${escapeHtml(centerLabel)}
         </text>
       </svg>
       <table style="border-collapse:collapse">${legendRows}</table>
@@ -139,7 +145,7 @@ function htmlFotoRow(otCode: string, fotos: Record<string, string[]>, categorias
   const tieneAlgo = categorias.some(c => fotos[c]?.length > 0)
   if (!tieneAlgo) {
     return `<tr class="photo-row"><td colspan="7">
-      <div class="photo-inner">Sin fotos registradas para ${otCode}</div>
+      <div class="photo-inner">Sin fotos registradas para ${escapeHtml(otCode)}</div>
     </td></tr>`
   }
   let html = `<tr class="photo-row"><td colspan="7">
@@ -148,10 +154,10 @@ function htmlFotoRow(otCode: string, fotos: Record<string, string[]>, categorias
     const imgs = fotos[cat]
     if (!imgs?.length) return
     html += `<div>
-      <div style="font-size:7pt;font-weight:700;color:#6B7280;text-transform:uppercase;margin-bottom:5px">${cat}</div>
+      <div style="font-size:7pt;font-weight:700;color:#6B7280;text-transform:uppercase;margin-bottom:5px">${escapeHtml(cat)}</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">`
     imgs.forEach(url => {
-      html += `<img src="${url}" style="width:340px;height:245px;object-fit:cover;border-radius:4px;border:1px solid #D1D5DB" loading="lazy"/>`
+      html += `<img src="${escapeHtml(url)}" style="width:340px;height:245px;object-fit:cover;border-radius:4px;border:1px solid #D1D5DB" loading="lazy"/>`
     })
     html += `</div></div>`
   })
@@ -312,8 +318,8 @@ export async function generarInformeHTML(config: InformeConfig): Promise<string>
     .map(([label, count]) => ({ label, count, color: '#185FA5' }))
 
   // Logo
-  const logoHtml = config.logoB64
-    ? `<img src="${config.logoB64}" style="width:115px;height:75px;object-fit:contain;border-radius:4px"/>`
+  const logoHtml = config.logoB64 && /^data:image\/(?:png|jpe?g|webp);base64,/i.test(config.logoB64)
+    ? `<img src="${escapeHtml(config.logoB64)}" style="width:115px;height:75px;object-fit:contain;border-radius:4px"/>`
     : `<div class="logo-box">LOGO<br>empresa</div>`
 
   // Segmentos para donuts
@@ -376,12 +382,12 @@ export async function generarInformeHTML(config: InformeConfig): Promise<string>
         : '<span style="font-size:7pt;color:#9CA3AF">—</span>'
 
       filas += `<tr>
-        <td><span class="ot-code">${o.ot ?? '—'}</span><br><span class="ot-loc">${o.ubicacion ?? ''}</span></td>
-        <td>${o.rubro ?? '—'}</td>
-        <td style="max-width:200px">${descripcion}</td>
+        <td><span class="ot-code">${escapeHtml(o.ot ?? '—')}</span><br><span class="ot-loc">${escapeHtml(o.ubicacion ?? '')}</span></td>
+        <td>${escapeHtml(o.rubro ?? '—')}</td>
+        <td style="max-width:200px">${escapeHtml(descripcion)}</td>
         <td>${badgeEstado(o.estado ?? '')}</td>
-        <td>${o.responsable || 'Facility Services'}</td>
-        <td style="white-space:nowrap">${fecha}</td>
+        <td>${escapeHtml(o.responsable || 'Facility Services')}</td>
+        <td style="white-space:nowrap">${escapeHtml(fecha)}</td>
         <td style="min-width:90px">${barHtml}</td>
       </tr>`
 
@@ -393,7 +399,7 @@ export async function generarInformeHTML(config: InformeConfig): Promise<string>
 
     seccionesHtml += `
       <div class="sec-sub ${claseSeccion[estado] ?? ''}">
-        ${ESTADO_LABEL[estado as EstadoOT] ?? estado} — ${lista.length} OT${lista.length !== 1 ? 's' : ''}
+        ${escapeHtml(ESTADO_LABEL[estado as EstadoOT] ?? estado)} — ${lista.length} OT${lista.length !== 1 ? 's' : ''}
       </div>
       <table class="dt">
         <thead><tr>
@@ -409,8 +415,8 @@ export async function generarInformeHTML(config: InformeConfig): Promise<string>
     ? config.firmantes.map(f => `
         <td class="firma-bloque">
           <div class="firma-linea">
-            <div class="firma-nombre">${f.nombre}</div>
-            <div class="firma-cargo">${f.cargo}</div>
+            <div class="firma-nombre">${escapeHtml(f.nombre)}</div>
+            <div class="firma-cargo">${escapeHtml(f.cargo)}</div>
           </div>
         </td>`).join('<td style="width:40px"></td>')
     : '<td></td>'
@@ -420,7 +426,7 @@ export async function generarInformeHTML(config: InformeConfig): Promise<string>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Informe — ${config.proyectoNombre} — ${fechaHoy()}</title>
+<title>Informe — ${escapeHtml(config.proyectoNombre)} — ${fechaHoy()}</title>
 <style>${DOC_CSS}</style>
 </head>
 <body>
@@ -429,12 +435,12 @@ export async function generarInformeHTML(config: InformeConfig): Promise<string>
   <table class="header-tbl"><tr>
     <td>${logoHtml}</td>
     <td class="hd-title">
-      <h1>Informe de avance — ${config.proyectoNombre}</h1>
-      <h2>${config.proyectoCliente} · ${config.periodoLabel}</h2>
+      <h1>Informe de avance — ${escapeHtml(config.proyectoNombre)}</h1>
+      <h2>${escapeHtml(config.proyectoCliente)} · ${escapeHtml(config.periodoLabel)}</h2>
     </td>
     <td class="hd-meta">
       <div>Generado: <strong>${fechaHoy()}</strong></div>
-      <div>Estados: <strong>${config.filtroEstados.map(e => ESTADO_LABEL[e as EstadoOT]).join(', ')}</strong></div>
+      <div>Estados: <strong>${escapeHtml(config.filtroEstados.map(e => ESTADO_LABEL[e as EstadoOT] ?? e).join(', '))}</strong></div>
       <div class="doc-id">PLAN-OTS-${Date.now().toString(36).toUpperCase()}</div>
     </td>
   </tr></table>
@@ -490,6 +496,7 @@ export async function exportarCSV(proyectoId: string): Promise<void> {
   })
 
   const cab   = ['OT', 'Rubro', 'Ubicacion', 'Estado', 'Responsable', 'Prioridad', 'Comentarios', 'Creada', 'Actualizada']
+  const csvCell = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`
   const filas = sorted.map(o => [
     o.ot ?? '',
     o.rubro ?? '',
@@ -497,10 +504,10 @@ export async function exportarCSV(proyectoId: string): Promise<void> {
     ESTADO_LABEL[(o.estado ?? '') as EstadoOT] ?? o.estado ?? '',
     o.responsable ?? '',
     o.prioridad ?? '',
-    String(o.comentarios ?? '').replace(/"/g, '""'),
+    o.comentarios ?? '',
     o.created_at ? new Date(o.created_at).toLocaleDateString('es-PY') : '',
     o.updated_at ? new Date(o.updated_at).toLocaleDateString('es-PY') : '',
-  ].map(v => `"${v}"`).join(','))
+  ].map(csvCell).join(','))
 
   const csv  = [cab.join(','), ...filas].join('\n')
   const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' })

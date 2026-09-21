@@ -14,7 +14,7 @@ import { useAccionesProyecto } from '../../hooks/useAccionesProyecto';
 import InformePanel from '../informes/InformePanel';
 import { ModalVersiones } from './ModalVersiones';
 import type { Version } from '../../services/versionesService';
-import { guardarVersion, restaurarVersion, listarVersiones } from '../../services/versionesService';
+import { restaurarVersion, listarVersiones } from '../../services/versionesService';
 import styles from './VistaPlano.module.css';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc =
@@ -326,34 +326,14 @@ export default function VistaPlano({ fullscreen = false, onToggleFullscreen }: V
   // ── Restaurar versión ──────────────────────────────────────────────────────
   async function handleRestaurar(v: Version) {
     if (!proyecto) return;
-    // 1. Backup del estado actual
-    const fecha = new Date().toLocaleDateString('es-PY', {
-      day: '2-digit', month: '2-digit', year: 'numeric',
-    });
-    const snap = ordenes.map(o => ({
-      id:          o.id          ?? '',
-      ot:          o.ot          ?? '',
-      ubicacion:   o.ubicacion   ?? '',
-      rubro:       o.rubro       ?? '',
-      estado:      o.estado,
-      responsable: o.responsable ?? '',
-      prioridad:   o.prioridad   ?? 'Media',
-      pos_x:       o.pos_x       ?? 0,
-      pos_y:       o.pos_y       ?? 0,
-      comentarios: o.comentarios ?? '',
-      campos:      o.campos      ?? {},
-    }));
-    await guardarVersion(proyecto.id, `Backup pre-restauración — ${fecha}`, null, snap);
-
-    // 2. Aplicar snapshot en Supabase
-    const ok = await restaurarVersion(v, proyecto.id);
-
-    if (ok) {
-      // 3. Recargar ordenes desde Supabase
+    try {
+      await restaurarVersion(v, proyecto.id);
       await cargarOrdenes(proyecto.id);
       setModalVersionesAbierto(false);
-    } else {
-      window.alert('Error al restaurar. Por favor intentá de nuevo.');
+      setErrorAccion(null);
+    } catch (error) {
+      const mensaje=error instanceof Error?error.message:'No se pudo restaurar la versión.';
+      setErrorAccion(mensaje);window.alert(mensaje);
     }
   }
 

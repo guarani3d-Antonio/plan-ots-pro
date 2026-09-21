@@ -158,39 +158,21 @@ export async function eliminarVersion(versionId: string): Promise<boolean> {  //
     return false;
   }
 }
-/**
- * Restaura las OTs de un snapshot aplicando sus campos en Supabase.
- * No elimina OTs nuevas que no estaban en el snapshot.
- * Retorna true en éxito, false en error.
- */
+export interface RestoreResult { restored: number; backupId: string }
+
+/** Restaura el snapshot y crea su backup previo dentro de una sola transacción. */
 export async function restaurarVersion(
   version: Version,
   proyectoId: string
-): Promise<boolean> {
-  try {
-    for (const snap of version.snapshot.ordenes) {
-      const { error } = await supabase
-        .from('ordenes')
-        .update({
-          ot:          snap.ot,
-          ubicacion:   snap.ubicacion,
-          rubro:       snap.rubro,
-          estado:      snap.estado,
-          responsable: snap.responsable,
-          prioridad:   snap.prioridad,
-          pos_x:       snap.pos_x,
-          pos_y:       snap.pos_y,
-          comentarios: snap.comentarios,
-          campos:      snap.campos ?? {},
-          updated_at:  new Date().toISOString(),
-        })
-        .eq('id', snap.id)
-        .eq('proyecto_id', proyectoId);
-      if (error) console.warn('[restaurarVersion] orden', snap.id, error.message);
-    }
-    return true;
-  } catch (e) {
-    console.error('[versionesService] restaurarVersion:', e);
-    return false;
-  }
+): Promise<RestoreResult> {
+  const { data, error } = await supabase.rpc('plan_restaurar_version', {
+    p_version: version.id,
+    p_proyecto: proyectoId,
+  });
+  if (error) throw new Error(error.message);
+  const result = data as { restored?: unknown; backup_id?: unknown } | null;
+  if (typeof result?.restored !== 'number' || typeof result.backup_id !== 'string'
+    || result.restored !== version.snapshot.ordenes.length)
+    throw new Error('El servidor no confirmó la restauración completa.');
+  return { restored: result.restored, backupId: result.backup_id };
 }

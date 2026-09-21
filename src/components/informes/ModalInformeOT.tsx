@@ -33,6 +33,7 @@ import {
 } from '../../services/reportService';
 import { fetchComentarioTransicion } from '../../services/comentariosService';
 import { cargarFotosDeOrden } from '../../services/fotosService';
+import { hacerInformePortable } from '../../services/portableReportService';
 import { colorEstado } from '../../utils/calculos';
 import styles from './ModalInformeOT.module.css';
 
@@ -143,6 +144,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
   const [fotosAntes, setFotosAntes] = useState<FotoMin[]>([]);
   const [fotosDespues, setFotosDespues] = useState<FotoMin[]>([]);
   const [fotosDurante, setFotosDurante] = useState<FotoMin[]>([]);
+  const [errorInforme, setErrorInforme] = useState<string | null>(null);
 
   const firstRenderRef = useRef(true);
   const prevIncluirFotosRef = useRef(incluirFotos);
@@ -156,6 +158,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
     setFotosAntes([]);
     setFotosDespues([]);
     setFotosDurante([]);
+    setErrorInforme(null);
   }, [orden.id, tipo]);
 
   const construirHtml = (textoActual: string): string => {
@@ -262,11 +265,19 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
     const delay = firstRenderRef.current || incluirFotosCambio ? 0 : DEBOUNCE_MS;
     firstRenderRef.current = false;
     setGenerandoPreview(true);
+    let cancelado = false;
     const t = window.setTimeout(() => {
-      setHtmlPreview(construirHtml(observaciones));
-      setGenerandoPreview(false);
+      hacerInformePortable(construirHtml(observaciones))
+        .then(result => {
+          if (cancelado) return;
+          setHtmlPreview(result.html);
+          setErrorInforme(result.missingImages ? `${result.missingImages} imagen(es) no pudieron incorporarse y se reemplazaron por un aviso.` : null);
+        })
+        .catch(error => { if (!cancelado) setErrorInforme(error instanceof Error ? error.message : 'No se pudo preparar el informe.'); })
+        .finally(() => { if (!cancelado) setGenerandoPreview(false); });
     }, delay);
     return () => {
+      cancelado = true;
       window.clearTimeout(t);
     };
     // `observaciones` fuera de deps a propósito — se parchea el DOM directamente
@@ -285,40 +296,49 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
 
   if (!isOpen) return null;
 
-  const handleActualizarAhora = () => {
+  const handleActualizarAhora = async () => {
     if (cargandoComentario) return;
     setGenerandoPreview(true);
-    setHtmlPreview(construirHtml(observaciones));
-    setGenerandoPreview(false);
+    try {
+      const result = await hacerInformePortable(construirHtml(observaciones));
+      setHtmlPreview(result.html);
+      setErrorInforme(result.missingImages ? `${result.missingImages} imagen(es) no pudieron incorporarse y se reemplazaron por un aviso.` : null);
+    } catch (error) {
+      setErrorInforme(error instanceof Error ? error.message : 'No se pudo preparar el informe.');
+    } finally { setGenerandoPreview(false); }
   };
 
-  const handleExportarHTML = () => {
+  const handleExportarHTML = async () => {
     if (cargandoComentario) return;
-    const html = construirHtml(observaciones);
-    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    const fecha = new Date().toISOString().slice(0, 10);
-    a.href = url;
-    a.download = `${cfg.fileSlug}_OT${orden.ot}_${fecha}.html`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    setGenerandoPreview(true);
+    try {
+      const result = await hacerInformePortable(construirHtml(observaciones));
+      const blob = new Blob([result.html], { type: 'text/html;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const fecha = new Date().toISOString().slice(0, 10);
+      a.href = url;
+      a.download = `${cfg.fileSlug}_OT${orden.ot}_${fecha}.html`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+      setErrorInforme(result.missingImages ? `${result.missingImages} imagen(es) se exportaron como aviso porque no estaban disponibles.` : null);
+    } catch (error) { setErrorInforme(error instanceof Error ? error.message : 'No se pudo exportar el informe.'); }
+    finally { setGenerandoPreview(false); }
   };
 
-  const handleExportarPDF = () => {
+  const handleExportarPDF = async () => {
     if (cargandoComentario) return;
-    const html = construirHtml(observaciones);
     const w = window.open('', '_blank');
     if (!w) return;
-    w.document.open();
-    w.document.write(html);
-    w.document.close();
-    w.onload = () => {
-      w.document.title = cfg.tituloDoc;
-      setTimeout(() => w.print(), 250);
-    };
+    w.document.write('<p style="font-family:Arial;padding:24px">Preparando informe portable…</p>');
+    setGenerandoPreview(true);
+    try {
+      const result = await hacerInformePortable(construirHtml(observaciones));
+      w.document.open(); w.document.write(result.html); w.document.close();
+      w.onload = () => { w.document.title = cfg.tituloDoc; setTimeout(() => w.print(), 250); };
+      setErrorInforme(result.missingImages ? `${result.missingImages} imagen(es) no estaban disponibles para el PDF.` : null);
+    } catch (error) {
+      w.close(); setErrorInforme(error instanceof Error ? error.message : 'No se pudo preparar el PDF.');
+    } finally { setGenerandoPreview(false); }
   };
 
   // ── Render ───────────────────────────────────────────────────────────────
@@ -455,6 +475,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
                 ref={iframeRef}
                 className={styles.iframe}
                 srcDoc={htmlPreview}
+                sandbox="allow-same-origin"
                 title="preview-informe"
               />
             ) : !generandoPreview ? (
@@ -474,7 +495,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
         {/* FOOTER */}
         <div className={styles.footer}>
           <span className={styles.avisoImpresion}>
-            Se abrirá el diálogo de impresión de Android. Para volver, usá el botón atrás.
+            {errorInforme ?? 'El HTML incluye las fotos y funciona sin volver a iniciar sesión.'}
           </span>
           <button type="button" className={styles.btnCancelar} onClick={onClose}>
             Cancelar

@@ -1,0 +1,24 @@
+{
+  "testedAt": "2026-09-21T02:40:31.160Z",
+  "scope": "Supabase real con JWT ficticios y clave pública. Restauración y backup atómicos, rechazo por rol/tenant y limpieza.",
+  "passed": 4,
+  "total": 4,
+  "results": [
+    {
+      "name": "lector, anónimo y otra empresa no restauran",
+      "ok": true
+    },
+    {
+      "name": "Supabase restaura las dos OTs y crea el backup en la misma operación",
+      "ok": true
+    },
+    {
+      "name": "snapshot inválido falla sin generar otro backup",
+      "ok": true
+    },
+    {
+      "name": "la matriz no deja datos temporales",
+      "ok": true
+    }
+  ]
+}

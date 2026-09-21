@@ -1,6 +1,6 @@
 # Avance de implementación
 
-Estado vigente: **día 6 completado para el piloto conectado**. Sesión, selector por empresa, capacidades y costos protegidos en servidor; cola/caché offline antiguas conservadas sin uso automático. Ver [informe y límites del día 6](dia-6/INFORME.md) y [calendario actualizado](CALENDARIO-TRABAJO.md). Frontend local, sin nuevo despliegue público. Siguiente bloque: día 7 con Sol alto. El registro siguiente conserva el estado histórico del primer bloque.
+Estado vigente: **día 8 completado para el piloto conectado**. Informes portables y restauración atómica se suman al aislamiento, Storage privado, sesión/capacidades y flujo OT conectado. Ver [informe y límites del día 8](dia-8/INFORME.md) y [calendario actualizado](CALENDARIO-TRABAJO.md). Frontend local, sin nuevo despliegue público. Siguiente bloque: día 9 con Sol alto para tablet/cámara; Astra queda reservado para el gate final del día 10. El registro siguiente conserva el estado histórico del primer bloque.
 
 ## 20/09/2026
 
