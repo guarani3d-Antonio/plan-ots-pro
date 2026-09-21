@@ -1,5 +1,5 @@
 {
-  "testedAt": "2026-09-21T11:39:00.032Z",
+  "testedAt": "2026-09-21T12:58:32.077Z",
   "scope": "Restauración local de 15 tablas y metadata Storage; migración y reversión exactas. Los 180 binarios se releen con SHA-256, sin restaurar Auth ni subirlos de nuevo al servidor.",
   "objects": 180,
   "bytes": 172915420,

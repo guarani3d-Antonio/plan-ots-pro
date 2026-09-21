@@ -167,7 +167,11 @@
 .bodyFotos { padding: 0; background: var(--bg-subtle); }
 
 .commentsPane {
-  width: 300px;
+  position: absolute;
+  z-index: 6;
+  top: 0;
+  right: 0;
+  width: 320px;
   min-width: 0;
   height: 100%;
   border: 0;
@@ -175,11 +179,17 @@
   margin: 0;
   padding: 0;
   overflow: hidden;
-  flex-shrink: 0;
-  transition: width var(--t-slow), opacity var(--t-base), border-color var(--t-base);
+  box-shadow: var(--shadow-panel-right);
+  transition: opacity var(--t-base), visibility 0s linear 0s;
   opacity: 1;
+  visibility: visible;
 }
-.commentsPaneClosed { width: 0; opacity: 0; border-left-color: transparent; pointer-events: none; }
+.commentsPaneClosed {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity var(--t-base), visibility 0s linear var(--t-base);
+}
 
 .section {
   display: flex;
@@ -552,24 +562,127 @@
 .fotosGrid { display: flex; flex-wrap: wrap; gap: 6px; }
 
 .fotosGridAmplia {
+  --foto-card-width: 208px;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--foto-card-width)), var(--foto-card-width)));
   gap: 10px;
+  align-items: start;
+  justify-content: start;
+  grid-auto-rows: max-content;
 }
-.fotosGridGaleria { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+.fotosGridGaleria { --foto-card-width: 176px; }
 
-.fotoCard {
-  width: auto;
+.fotoCard,
+.fotoAddCard {
+  width: 100%;
+  height: 228px;
   min-width: 0;
   overflow: hidden;
-  display: flex;
-  flex-direction: column;
   border: 1px solid var(--border-default);
   border-radius: var(--r-md);
   background: var(--bg-surface);
+  align-self: start;
+}
+
+.fotoCard {
+  display: grid;
+  grid-template-rows: 142px 50px 35px;
   transition: transform var(--t-fast), box-shadow var(--t-fast), border-color var(--t-fast);
 }
 .fotoCard:hover { transform: translateY(-1px); border-color: var(--accent-mid); box-shadow: var(--shadow-sm); }
+
+.fotoPreview {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--bg-subtle);
+}
+
+.fotoPreviewImage {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  object-position: center;
+  cursor: pointer;
+}
+
+.fotoDescription {
+  min-width: 0;
+  padding: 7px 9px;
+  display: flex;
+  align-items: flex-start;
+  border-top: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  font-size: 11px;
+  line-height: 1.35;
+  word-break: break-word;
+}
+.fotoDescription span {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.fotoDescriptionEmpty { color: var(--text-tertiary); font-style: italic; }
+.fotoActions { min-width: 0; display: flex; }
+
+.fotoAddCard {
+  display: grid;
+  grid-template-rows: 1fr 44px;
+  border-style: dashed;
+  border-color: var(--border-strong);
+  background: var(--bg-subtle);
+}
+.fotoAddBody {
+  min-height: 0;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  text-align: center;
+}
+.fotoAddIcon {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-full);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  color: var(--accent);
+  font-size: 21px;
+  line-height: 1;
+}
+.fotoAddTitle { color: var(--text-primary); font-size: 12px; }
+.fotoAddHint { color: var(--text-tertiary); font-size: 10px; }
+.fotoAddActions { min-width: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border-top: 1px solid var(--border-default); }
+.fotoAddAction {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  color: var(--accent);
+  background: var(--bg-surface);
+  font-size: 10px;
+  font-weight: var(--w-semi);
+  cursor: pointer;
+  transition: background var(--t-fast), color var(--t-fast);
+}
+.fotoAddAction + .fotoAddAction { border-left: 1px solid var(--border-default); }
+.fotoAddAction:hover { background: var(--accent-subtle); color: var(--accent-hover); }
+.fotoAddAction input { display: none; }
+.fotoAddBusy { grid-template-rows: 1fr; opacity: .72; }
+
+.fotosGridGaleria .fotoCard,
+.fotosGridGaleria .fotoAddCard { height: 202px; }
+.fotosGridGaleria .fotoCard { grid-template-rows: 116px 50px 35px; }
 
 .fotoThumb {
   width: 80px;
@@ -702,6 +815,7 @@
   display: flex;
   gap: 8px;
   flex-shrink: 0;
+  justify-content: flex-end;
 }
 
 .deleteBtn {
@@ -714,6 +828,7 @@
   cursor: pointer;
   font-weight: 500;
   transition: all 150ms;
+  margin-right: auto;
 }
 .deleteBtn:hover { border-color: #EF4444; color: #EF4444; }
 
@@ -732,8 +847,9 @@
 .cancelUbicacionBtn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .saveBtn {
-  flex: 1;
-  padding: 7px;
+  flex: 0 0 auto;
+  min-width: 220px;
+  padding: 8px 20px;
   background: #3B599B;
   color: white;
   border: none;
@@ -916,15 +1032,10 @@
   .backdrop { padding: 12px; }
   .workspace { width: calc(100vw - 24px); height: calc(100vh - 24px); }
   .commentsPane {
-    position: absolute;
-    z-index: 4;
-    top: 0;
-    right: 0;
     width: min(320px, 88vw);
-    box-shadow: var(--shadow-panel-right);
   }
-  .commentsPaneClosed { width: 0; box-shadow: none; }
-  .fotosGridAmplia { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
+  .fotosGridAmplia { --foto-card-width: 184px; }
+  .fotosGridGaleria { --foto-card-width: 164px; }
 }
 
 @media (max-width: 600px) {
@@ -939,6 +1050,9 @@
   .photosToolbar, .photoFilters, .photoStages { padding-left: 10px; padding-right: 10px; }
   .photoFilters button { min-width: 98px; }
   .fotosGridAmplia, .fotosGridGaleria { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+  .fotoCard, .fotoAddCard, .fotosGridGaleria .fotoCard, .fotosGridGaleria .fotoAddCard { height: 208px; }
+  .fotoCard, .fotosGridGaleria .fotoCard { grid-template-rows: 124px 48px 35px; }
   .fotoSeccion { padding: 9px; }
   .footer { padding: 8px 10px; }
+  .saveBtn { flex: 1; min-width: 0; }
 }

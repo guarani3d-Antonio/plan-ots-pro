@@ -1,5 +1,5 @@
 {
-  "testedAt": "2026-09-21T11:38:48.711Z",
+  "testedAt": "2026-09-21T12:58:18.554Z",
   "scope": "Stores y servicios TypeScript reales con transporte simulado; no sustituye Supabase ni navegador.",
   "passed": 10,
   "total": 10,

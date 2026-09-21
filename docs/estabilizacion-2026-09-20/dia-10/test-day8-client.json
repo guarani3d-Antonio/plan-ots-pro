@@ -1,5 +1,5 @@
 {
-  "testedAt": "2026-09-21T11:38:49.822Z",
+  "testedAt": "2026-09-21T12:58:19.821Z",
   "scope": "Portabilidad, escape HTML y contrato de restauración cliente con transportes simulados.",
   "passed": 7,
   "total": 7,

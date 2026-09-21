@@ -1,17 +1,13 @@
 {
-  "preparedAt": "2026-09-21T11:46:50.895Z",
+  "preparedAt": "2026-09-21T12:58:45.077Z",
   "artifactPath": ".backups.local/2026-09-21-dia10/plan-ots-candidate.zip",
-  "artifactSha256": "84876180ea59cbcaf11e5e241ced51360ac047531bc37b8abc35121b57396a28",
-  "artifactBytes": 1006283,
+  "artifactSha256": "848f5fd0edae9383f3a35ace28ec274d53855cfc2c9e2712c5993cf6e4df26a1",
+  "artifactBytes": 1006763,
   "secretsScanPassed": true,
   "zipReadbackVerified": true,
   "legacyHttpCacheCleanupVerified": true,
   "pwaRealDeviceUpdateVerified": false,
-  "deployed": true,
-  "deploymentId": "a6b7daa2-0e94-4b9f-9616-f1c9520b1713",
-  "deploymentUrl": "https://a6b7daa2.plan-ots-pro.pages.dev",
-  "productionUrl": "https://plan-ots-pro.pages.dev",
-  "sourceCommit": "32f07c4",
+  "deployed": false,
   "files": [
     {
       "path": "assets/chunk-62oNxeRG.js",
@@ -29,14 +25,14 @@
       "sha256": "92e29051c35481ec361e024aa6c257d29fdd37033155c50b769279fc20f089a6"
     },
     {
-      "path": "assets/index-BHWWvg9u.js",
-      "bytes": 2211608,
-      "sha256": "19b026977e2f6ffb24a11835a2dbeb91781f669e47ca7ee1b21a6bef6204bd72"
+      "path": "assets/index-CTKSzdBg.css",
+      "bytes": 165871,
+      "sha256": "eab7db33900f92f18cfb0b7591a5ef1d778ff658863b519f93bb5f7cbae24869"
     },
     {
-      "path": "assets/index-C7bK6mSt.css",
-      "bytes": 163077,
-      "sha256": "b0d3cf13071e4ff558f9236e38d2b349520bfdffb1b24bb03af5ca7ff99807dc"
+      "path": "assets/index-rxUk2gh1.js",
+      "bytes": 2212408,
+      "sha256": "37fdfdf2392d47045ad50c0f420940c340140293eff553f500d0ecd5fb1c139b"
     },
     {
       "path": "assets/worker-CyhFgHU6.js",
@@ -71,7 +67,7 @@
     {
       "path": "index.html",
       "bytes": 701,
-      "sha256": "60a6691d1c36e3a972da6f04587027db81af694901860ade0b02038912542efa"
+      "sha256": "2e0e2839b856a100b44f3600eea2b409a4b8a1e50b7d8a719f189d7cd4736fed"
     },
     {
       "path": "manifest.json",
@@ -96,7 +92,7 @@
     {
       "path": "sw.js",
       "bytes": 2082,
-      "sha256": "d9c48d3b1daef24c35076aeee755c86a7d24168bacf65fdae73edc71a44cb64b"
+      "sha256": "bc027ad2184ea5b77ac2b675ad36123b0f720321180d5da244d6dae784012165"
     },
     {
       "path": "workbox-250e2fb9.js",

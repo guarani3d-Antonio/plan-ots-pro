@@ -3,7 +3,6 @@ import { usePermisoObra } from '../../stores/accessStore';
 import { ORDEN_SELECT } from '../../data/ordenMapper';
 // src/components/plano/PanelOT.tsx
 import { useState, useEffect, useMemo, useRef } from 'react';
-import type { CSSProperties } from 'react';
 import type { OrdenLocal, EstadoOT, PrioridadOT } from '../../types/orden';
 import { useOrdenesStore, rowToOrden } from '../../stores/ordenesStore';
 import { supabase } from '../../db/supabase';
@@ -237,9 +236,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
   );
 
   const [tab,             setTab]             = useState<Tab>('datos');
-  const [comentariosVisibles, setComentariosVisibles] = useState(
-    () => !window.matchMedia('(max-width: 900px)').matches,
-  );
+  const [comentariosVisibles, setComentariosVisibles] = useState(false);
   const [vistaFotos, setVistaFotos] = useState<'agenda' | 'galeria'>('agenda');
   const [filtroFotos, setFiltroFotos] = useState<'TODAS' | CategoriaFoto>('TODAS');
   const [form,            setForm]            = useState<FormState>(() => ordenToForm(ordenFresca));
@@ -809,18 +806,6 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
     const alerta   = requerida && !ok && !fotosNoCargadas;
     const neutro   = requerida && !ok && fotosNoCargadas;
     const wrapClass = [styles.fotoSeccion, alerta && styles.fotoSeccionAlerta, cumplida && styles.fotoSeccionOk].filter(Boolean).join(' ');
-    // Caja punteada compartida por los dos triggers de carga. Es el mismo
-    // tratamiento visual del "Agregar" único que reemplazan; sólo cambia que
-    // ahora entran dos por celda del grid, así que van a flex 1 cada una.
-    const cajaCarga: CSSProperties = {
-      flex: 1, minWidth: 0, minHeight: '110px',
-      border: '2px dashed #444', borderRadius: '8px',
-      display: 'flex', flexDirection: 'column',
-      alignItems: 'center', justifyContent: 'center', gap: '5px',
-      cursor: subiendo ? 'not-allowed' : 'pointer',
-      background: 'transparent', color: 'var(--text-secondary)',
-      opacity: subiendo ? 0.5 : 1,
-    };
     return (
       <div className={wrapClass}>
         <div className={styles.fotoTitulo}>
@@ -844,9 +829,9 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
             const regPend = foto.fotoPendienteId != null ? regPorPendienteId.get(foto.fotoPendienteId) : undefined;
             const enError = regPend?.estadoSync === 'ERROR';
             return (
-              <div key={foto.id} className={`${styles.fotoCard} ${enError ? styles.fotoCardError : ''}`}>
-                <div style={{ position: 'relative', width: '100%', aspectRatio: '4 / 3' }}>
-                  <img src={foto.url} alt={foto.nombre} title={foto.pendiente ? TOOLTIP_FOTO_PENDIENTE : undefined} onClick={() => { if (!foto.pendiente) setFotoEditando({ id: foto.id, orden_id: ordenFresca.id, proyecto_id: ordenFresca.proyecto_id, categoria: foto.categoria as 'ANTES' | 'DURANTE' | 'DESPUES' | 'ADJUNTO', file_url: foto.url }); }} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', cursor: foto.pendiente ? 'default' : 'pointer' }} />
+              <article key={foto.id} className={`${styles.fotoCard} ${enError ? styles.fotoCardError : ''}`}>
+                <div className={styles.fotoPreview}>
+                  <img src={foto.url} alt={foto.nombre} title={foto.pendiente ? TOOLTIP_FOTO_PENDIENTE : undefined} onClick={() => { if (!foto.pendiente) setFotoEditando({ id: foto.id, orden_id: ordenFresca.id, proyecto_id: ordenFresca.proyecto_id, categoria: foto.categoria as 'ANTES' | 'DURANTE' | 'DESPUES' | 'ADJUNTO', file_url: foto.url }); }} className={styles.fotoPreviewImage} />
                   <span style={{ position: 'absolute', top: '6px', left: '6px', background: badgeColor, color: '#FFFFFF', fontSize: '9px', fontWeight: 700, padding: '2px 5px', borderRadius: '4px', letterSpacing: '0.04em' }}>{badgeLabel}</span>
                   {/* F4 — El técnico escanea la grilla de miniaturas, no lee los
                       botones uno por uno: el error tiene que verse en la foto. */}
@@ -859,10 +844,10 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
                     </span>
                   )}
                 </div>
-                <div style={{ padding: '4px 6px 2px', flex: 1 }}>
-                  <span style={{ fontSize: '10px', color: desc ? 'var(--text-primary)' : 'var(--text-secondary)', fontStyle: desc ? 'normal' : 'italic', lineHeight: 1.3, wordBreak: 'break-word', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{desc || '—'}</span>
+                <div className={`${styles.fotoDescription} ${desc ? '' : styles.fotoDescriptionEmpty}`}>
+                  <span>{desc || 'Sin descripción'}</span>
                 </div>
-                <div style={{ display: 'flex', gap: 0 }}>
+                <div className={styles.fotoActions}>
                   <BtnEliminarFotoCard onClick={() => handleEliminarFoto(foto, categoria)} />
                   <BtnEditarFotoCard disabled={!!foto.pendiente} title={foto.pendiente ? TOOLTIP_FOTO_PENDIENTE : undefined} onClick={() => setFotoEditando({ id: foto.id, orden_id: ordenFresca.id, proyecto_id: ordenFresca.proyecto_id, categoria: foto.categoria as 'ANTES' | 'DURANTE' | 'DESPUES' | 'ADJUNTO', file_url: foto.url })} />
                   {enError && (
@@ -872,29 +857,33 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
                     />
                   )}
                 </div>
-              </div>
+              </article>
             );
           })}
-          {/* Dos triggers explícitos en la misma celda del grid: en Android un
-              input sin `capture` abre el selector genérico, nunca la cámara. */}
-          <div style={{ display: 'flex', gap: '6px', width: 'auto' }}>
+          <div className={`${styles.fotoAddCard} ${subiendo === categoria ? styles.fotoAddBusy : ''}`}>
             {subiendo === categoria ? (
-              <div style={{ ...cajaCarga, cursor: 'default' }}>
-                <span style={{ fontSize: '20px', lineHeight: 1 }}>📷</span>
-                <span style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>Subiendo…</span>
+              <div className={styles.fotoAddBody}>
+                <span className={styles.fotoAddIcon}>↥</span>
+                <strong className={styles.fotoAddTitle}>Subiendo foto…</strong>
+                <span className={styles.fotoAddHint}>La tarjeta aparecerá al terminar</span>
               </div>
             ) : (
               <>
-                <label title={`Tomar foto ${label} con la cámara`} style={cajaCarga}>
-                  <span style={{ fontSize: '20px', lineHeight: 1 }}>📷</span>
-                  <span style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>Cámara</span>
-                  <input type="file" accept="image/*" capture="environment" style={{ display: 'none' }} disabled={!!subiendo} onChange={e => onArchivoSeleccionado(e, categoria as 'ANTES' | 'DURANTE' | 'DESPUES')} />
-                </label>
-                <label title={`Elegir foto ${label} de la galería`} style={cajaCarga}>
-                  <span style={{ fontSize: '20px', lineHeight: 1 }}>🖼️</span>
-                  <span style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>Galería</span>
-                  <input type="file" accept="image/*" style={{ display: 'none' }} disabled={!!subiendo} onChange={e => onArchivoSeleccionado(e, categoria as 'ANTES' | 'DURANTE' | 'DESPUES')} />
-                </label>
+                <div className={styles.fotoAddBody}>
+                  <span className={styles.fotoAddIcon}>＋</span>
+                  <strong className={styles.fotoAddTitle}>Agregar evidencia</strong>
+                  <span className={styles.fotoAddHint}>{label.charAt(0) + label.slice(1).toLowerCase()}</span>
+                </div>
+                <div className={styles.fotoAddActions}>
+                  <label title={`Tomar foto ${label} con la cámara`} className={styles.fotoAddAction}>
+                    <span aria-hidden="true">📷</span><span>Cámara</span>
+                    <input type="file" accept="image/*" capture="environment" disabled={!!subiendo} onChange={e => onArchivoSeleccionado(e, categoria as 'ANTES' | 'DURANTE' | 'DESPUES')} />
+                  </label>
+                  <label title={`Elegir foto ${label} de la galería`} className={styles.fotoAddAction}>
+                    <span aria-hidden="true">🖼️</span><span>Galería</span>
+                    <input type="file" accept="image/*" disabled={!!subiendo} onChange={e => onArchivoSeleccionado(e, categoria as 'ANTES' | 'DURANTE' | 'DESPUES')} />
+                  </label>
+                </div>
               </>
             )}
           </div>
