@@ -2,9 +2,11 @@
 import { create } from 'zustand';
 import { supabase } from '../db/supabase';
 import { db } from '../db/dexie';
+import { resolverArchivo, subirArchivo } from '../services/storageService';
 
 export interface Proyecto {
   id: string;
+  tenant_id?: string | null;
   nombre: string;
   cliente: string | null;
   descripcion: string | null;
@@ -15,6 +17,26 @@ export interface Proyecto {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+}
+
+async function crearConPlano(datos: { nombre: string; cliente: string | null; descripcion: string | null; rubros?: string[]; tecnicos?: string[] }, file: File): Promise<Proyecto> {
+  const { data, error } = await supabase.rpc('plan_crear_proyecto', {
+    p_nombre: datos.nombre, p_cliente: datos.cliente, p_descripcion: datos.descripcion,
+    p_rubros: datos.rubros ?? [], p_tecnicos: datos.tecnicos ?? [],
+    p_plano_url: 'pending://plan-upload-required',
+  }).single();
+  if (error) throw new Error(error.message);
+  const proyecto = data as Proyecto;
+  try {
+    const { ref } = await subirArchivo('planos', proyecto.id, file, file.name.split('.').pop() ?? 'pdf');
+    const updated = await supabase.from('proyectos').update({ plano_url: ref }).eq('id', proyecto.id).select().single();
+    if (updated.error) throw new Error(updated.error.message);
+    return updated.data as Proyecto;
+  } catch (err) {
+    const cleanup = await supabase.from('proyectos').update({ deleted_at: new Date().toISOString() }).eq('id', proyecto.id).select('id').single();
+    if (cleanup.error) throw new Error('La obra quedó pendiente de plano. Revisa la conexión antes de volver a crearla.');
+    throw err;
+  }
 }
 
 interface ProyectosState {
@@ -87,29 +109,7 @@ export const useProyectosStore = create<ProyectosState>((set, _get) => ({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('No autenticado');
 
-      const ext      = planoFile.name.split('.').pop();
-      const filePath = `${user.id}/${Date.now()}.${ext}`;
-      const { error: uploadError } = await supabase.storage
-        .from('planos')
-        .upload(filePath, planoFile);
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('planos')
-        .getPublicUrl(filePath);
-
-      const { data, error } = await supabase
-        .rpc('plan_crear_proyecto', {
-          p_nombre: nombre,
-          p_cliente: cliente || null,
-          p_descripcion: descripcion || null,
-          p_plano_url: publicUrl,
-        })
-        .single();
-
-      if (error) throw error;
-
-      const nuevo = data as Proyecto;
+      const nuevo = await crearConPlano({ nombre, cliente: cliente || null, descripcion: descripcion || null }, planoFile);
       set(state => ({ proyectos: [nuevo, ...state.proyectos], loading: false }));
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Error al crear proyecto';
@@ -139,20 +139,13 @@ export const useProyectosStore = create<ProyectosState>((set, _get) => ({
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('No autenticado');
 
-    const { data, error } = await supabase
-      .rpc('plan_crear_proyecto', {
-        p_nombre: `${original.nombre} (copia)`,
-        p_cliente: original.cliente,
-        p_descripcion: original.descripcion,
-        p_plano_url: original.plano_url,
-        p_rubros: original.rubros,
-        p_tecnicos: original.tecnicos,
-      })
-      .single();
-
-    if (error) throw new Error(error.message);
-
-    const copia = data as Proyecto;
+    const response = await fetch(await resolverArchivo(original.plano_url), { cache: 'no-store' });
+    if (!response.ok) throw new Error('No se pudo descargar el plano para duplicarlo');
+    const blob = await response.blob();
+    const ext = original.plano_url.split('?')[0].split('.').pop() ?? 'pdf';
+    const copia = await crearConPlano({ nombre: `${original.nombre} (copia)`, cliente: original.cliente,
+      descripcion: original.descripcion, rubros: original.rubros, tecnicos: original.tecnicos },
+      new File([blob], `plano.${ext}`, { type: blob.type }));
     set(state => ({ proyectos: [copia, ...state.proyectos] }));
   },
 

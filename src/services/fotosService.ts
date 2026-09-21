@@ -2,6 +2,7 @@
 import { supabase } from '../db/supabase';
 import { db } from '../db/dexie';
 import type { FotoPendiente } from '../db/dexie';
+import { identificarArchivo, referenciaArchivo, resolverArchivo, subirArchivo } from './storageService';
 
 export type CategoriaFoto = 'ANTES' | 'DURANTE' | 'DESPUES' | 'ADJUNTO';
 
@@ -45,25 +46,21 @@ export function validarArchivoFoto(file: File): void {
 export async function subirFoto(
   file:      File,
   ordenId:   string,
-  categoria: CategoriaFoto
+  categoria: CategoriaFoto,
+  proyectoId?: string
 ): Promise<Omit<FotoSubida, 'proyecto_id'>> {
 
   validarArchivoFoto(file);
 
-  const ext       = file.name.split('.').pop() ?? 'jpg';
-  const timestamp = Date.now();
-  const path      = `${ordenId}/${categoria}/${timestamp}.${ext}`;
-
-  const { error } = await supabase.storage
-    .from('fotos')
-    .upload(path, file, { cacheControl: '3600', upsert: false });
-
-  if (error) throw new Error(`Error al subir foto: ${error.message}`);
-
-  const { data } = supabase.storage.from('fotos').getPublicUrl(path);
+  if (!proyectoId) {
+    const { data, error } = await supabase.from('ordenes').select('proyecto_id').eq('id', ordenId).single();
+    if (error || !data) throw new Error('No tienes acceso a esta orden');
+    proyectoId = data.proyecto_id as string;
+  }
+  const { path, ref } = await subirArchivo('fotos', proyectoId, file, file.name.split('.').pop() ?? 'jpg', ordenId);
 
   return {
-    url:      data.publicUrl,
+    url:      await resolverArchivo(ref),
     path,
     categoria,
     orden_id:  ordenId,
@@ -74,13 +71,15 @@ export async function subirFoto(
 
 // ─── Eliminar foto de Storage + DB ──────────────────────────────────────────
 export async function eliminarFoto(id: string, path: string): Promise<void> {
-  // 1. Borrar archivo de Storage
-  const { error: storageError } = await supabase.storage.from('fotos').remove([path]);
-  if (storageError) throw new Error(`Error al eliminar foto de Storage: ${storageError.message}`);
-
-  // 2. Borrar registro de la tabla fotos
-  const { error: dbError } = await supabase.from('fotos').delete().eq('id', id);
+  // Confirmar permiso y borrado de la fila antes de retirar el binario.
+  const { data, error: dbError } = await supabase.from('fotos').delete().eq('id', id).select('id').single();
   if (dbError) throw new Error(`Error al eliminar foto de DB: ${dbError.message}`);
+  if (!data) throw new Error('No se pudo eliminar la foto');
+  // Las rutas históricas se conservan como archivo; las nuevas se limpian si RLS lo permite.
+  if (/^(legacy|[0-9a-f-]{36})\/[0-9a-f-]{36}\/[0-9a-f-]{36}\//.test(path)) {
+    const { error } = await supabase.storage.from('fotos').remove([path]);
+    if (error) console.warn('La foto fue retirada; el archivo queda pendiente de limpieza administrativa');
+  }
 }
 
 // ─── Registrar foto en tabla fotos ────────────────────────────────────────────
@@ -96,7 +95,7 @@ export async function registrarFotoEnDB(foto: FotoSubida): Promise<string> {
       orden_id:    foto.orden_id,
       proyecto_id: foto.proyecto_id,
       categoria:   foto.categoria,
-      file_url:    foto.url,
+      file_url:    referenciaArchivo('fotos', foto.path),
       file_path:   foto.path,
       file_type:   fileTypeBD,
     })
@@ -118,7 +117,7 @@ export async function subirYRegistrarFoto(
   proyectoId: string,
   categoria:  CategoriaFoto
 ): Promise<FotoSubida & { id: string }> {
-  const fotoBase = await subirFoto(file, ordenId, categoria);
+  const fotoBase = await subirFoto(file, ordenId, categoria, proyectoId);
   const foto: FotoSubida = { ...fotoBase, proyecto_id: proyectoId }; // ← proyecto_id inyectado aquí
   const id = await registrarFotoEnDB(foto);
   return { ...foto, id };
@@ -135,17 +134,17 @@ export async function cargarFotosDeOrden(
 
   if (error) throw new Error(`Error al cargar fotos: ${error.message}`);
 
-  return (data ?? []).map(row => ({
+  return Promise.all((data ?? []).map(async row => ({
     id:          row.id         as string,
-    url:         row.file_url   as string,
-    path:        row.file_path  as string,
+    url:         await resolverArchivo(row.file_url as string),
+    path:        identificarArchivo(row.file_url as string)?.path ?? row.file_path as string,
     categoria:   row.categoria  as CategoriaFoto,
     orden_id:    row.orden_id   as string,
     proyecto_id: row.proyecto_id as string,  // ← añadido
     file_type:   row.file_type  as string,
     nombre:      (row.file_path as string).split('/').pop() ?? '',
     descripcion: (row.descripcion as string | null) ?? null,
-  }));
+  })));
 }
 
 // ─── OFFLINE (B2) ─────────────────────────────────────────────────────────────
@@ -267,7 +266,7 @@ export async function subirOEncolarFoto(
   if (navigator.onLine) {
     let base: Omit<FotoSubida, 'proyecto_id'> | null = null;
     try {
-      base = await subirFoto(file, ordenId, categoria);
+      base = await subirFoto(file, ordenId, categoria, proyectoId);
     } catch (err) {
       console.warn('[fotosService] upload falló, encolando offline:', err);
     }

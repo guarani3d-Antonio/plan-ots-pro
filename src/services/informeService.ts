@@ -1,6 +1,7 @@
 // src/services/informeService.ts
 import { db } from '../db/dexie'
 import { supabase } from '../db/supabase'
+import { resolverArchivo } from './storageService'
 import { ESTADO_LABEL, ESTADO_COLOR } from '../constants/estados'
 import type { EstadoOT } from '../constants/estados'
 
@@ -125,11 +126,11 @@ async function fotosPorOrden(
       .select('categoria, file_url, file_type')
       .eq('orden_id', ordenId)
       .in('categoria', categorias)
-    data?.forEach(f => {
+    await Promise.all((data ?? []).map(async f => {
       if (result[f.categoria] && f.file_type === 'imagen') {
-        result[f.categoria].push(f.file_url)
+        result[f.categoria].push(await resolverArchivo(f.file_url))
       }
-    })
+    }))
   } catch { /* sin conexión: fotos omitidas */ }
   return result
 }

@@ -5,6 +5,8 @@ import React, {
   useState, useRef, useEffect, useCallback,
 } from 'react';
 import styles from './EditorFoto.module.css';
+import { resolverArchivo } from '../../services/storageService';
+import { useArchivoPrivado } from '../../hooks/useArchivoPrivado';
 import {
   cargarEdicionFoto,
   guardarEdicionFoto,
@@ -156,6 +158,7 @@ function drawAnotacion(ctx: CanvasRenderingContext2D, ann: Anotacion) {
 export default function EditorFoto({ foto, ordenCodigo, todasLasFotos, onClose, onGuardado }: EditorFotoProps) {
   const [indice, setIndice] = useState(() => Math.max(0, todasLasFotos.findIndex(f => f.id === foto.id)));
   const fotoActual = todasLasFotos[indice] ?? foto;
+  const fotoPrivada = useArchivoPrivado(fotoActual.file_url);
 
   const [anotaciones,  setAnotaciones]  = useState<Anotacion[]>([]);
   const [historial,    setHistorial]    = useState<Anotacion[][]>([]);
@@ -392,7 +395,7 @@ export default function EditorFoto({ foto, ordenCodigo, todasLasFotos, onClose, 
     const sx = nW / dW;
     const sy = nH / dH;
 
-    const response = await fetch(fotoActual.file_url);
+    const response = await fetch(await resolverArchivo(fotoActual.file_url), { cache: 'no-store' });
     if (!response.ok) throw new Error('No se pudo descargar la imagen original');
     const imageBlob = await response.blob();
     const blobUrl = URL.createObjectURL(imageBlob);
@@ -541,7 +544,7 @@ export default function EditorFoto({ foto, ordenCodigo, todasLasFotos, onClose, 
             >
               <img
                 ref={imgRef}
-                src={fotoActual.file_url}
+                src={fotoPrivada ?? undefined}
                 alt="Evidencia fotográfica"
                 className={styles.photoImg}
                 style={{ filter: imgFilter }}

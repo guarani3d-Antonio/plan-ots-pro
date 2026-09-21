@@ -10,6 +10,7 @@ import React, {
   useCallback,
 } from 'react';
 import { subirOEncolarFoto, type CategoriaFoto } from '../../services/fotosService';
+import { resolverArchivo } from '../../services/storageService';
 import styles from './VisorFotos.module.css';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -246,7 +247,9 @@ const VisorFotos: React.FC<VisorFotosProps> = ({
       setImageLoaded(true);
     };
     img.onerror = () => setImageError(true);
-    img.src = fotoActual.file_url;
+    let cancelled = false;
+    void resolverArchivo(fotoActual.file_url).then(url => { if (!cancelled) img.src = url; }).catch(() => { if (!cancelled) setImageError(true); });
+    return () => { cancelled = true; img.onload = null; img.onerror = null; };
   }, [currentIndex]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Redraw canvas on every state change ────────────────────────────────────

@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, useMemo } from 'react';
 import { useProyectosStore, type Proyecto } from '../../stores/proyectosStore';
 import { useAuthStore } from '../../stores/authStore';
 import { ModalNuevoProyecto } from './ModalNuevoProyecto';
+import { ImagenPrivada } from './ImagenPrivada';
 import { cargarStatsProyectos, type ProyectoStats } from '../../services/statsService';
 import { generarThumbnailPDF } from '../../services/pdfThumbnailService';
 import styles from './SelectorProyectos.module.css';
@@ -194,7 +195,7 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
               planoUrl.toLowerCase().includes('.jpg')  ||
               planoUrl.toLowerCase().includes('.jpeg') ||
               planoUrl.toLowerCase().includes('.png')  ||
-              planoUrl.toLowerCase().includes('.webp')
+              planoUrl.toLowerCase().includes('.webp') || planoUrl.toLowerCase().includes('.svg')
             );
 
             return (
@@ -206,8 +207,8 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
                 {/* Portada — thumb generado (PDF), imagen directa, o placeholder */}
                 <div className={styles.cardImage}>
                   {thumbUrl || esImg ? (
-                    <img
-                      src={thumbUrl ?? planoUrl}
+                    <ImagenPrivada
+                      referencia={thumbUrl ?? planoUrl}
                       alt={proyecto.nombre}
                       loading="lazy"
                       style={{

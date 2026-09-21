@@ -3,6 +3,7 @@ import { db } from '../db/dexie';
 import { supabase } from '../db/supabase';
 import type { OrdenLocal } from '../types/orden';
 import { ordenPatchToRow, ordenToRow } from '../data/ordenMapper';
+import { referenciaArchivo } from '../services/storageService';
 import type { FotoPendiente } from '../db/dexie';
 import {
   subirFoto,
@@ -74,12 +75,12 @@ async function subirFotoPendiente(fotoPendienteId: number): Promise<ResultadoIte
   let path = reg.storage_path ?? null;
   let url:  string;
   if (path) {
-    url = supabase.storage.from('fotos').getPublicUrl(path).data.publicUrl;
+    url = referenciaArchivo('fotos', path);
   } else {
     // Se reconstruye el File en vez de confiar en que IndexedDB preserve el
     // subtipo: subirFoto necesita name/type/size.
     const file   = new File([reg.blob], reg.nombre, { type: reg.file_type });
-    const subida = await subirFoto(file, reg.orden_id, reg.categoria as CategoriaFoto);
+    const subida = await subirFoto(file, reg.orden_id, reg.categoria as CategoriaFoto, reg.proyecto_id);
     path = subida.path;
     url  = subida.url;
     // Se persiste ANTES del insert: si el insert falla, el reintento entra por la

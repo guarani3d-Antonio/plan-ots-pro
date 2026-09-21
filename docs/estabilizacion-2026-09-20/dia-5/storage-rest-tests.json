@@ -1,0 +1,137 @@
+{
+  "testedAt": "2026-09-21T00:58:04.850Z",
+  "scope": "Supabase Auth, REST y Storage API reales. Firmas son portadoras: una ya emitida sigue válida hasta caducar; el cliente pide 300 s, no es un máximo impuesto por servidor.",
+  "passed": 32,
+  "total": 32,
+  "fixtureObjects": 8,
+  "results": [
+    {
+      "name": "3 buckets privados y 11 cuentas con JWT real",
+      "ok": true
+    },
+    {
+      "name": "4 planos y 4 fotos privados registrados por usuarios autorizados",
+      "ok": true
+    },
+    {
+      "name": "platform-creator: descarga y firma según empresa/obra",
+      "ok": true
+    },
+    {
+      "name": "e1-admin: descarga y firma según empresa/obra",
+      "ok": true
+    },
+    {
+      "name": "e1-supervisor: descarga y firma según empresa/obra",
+      "ok": true
+    },
+    {
+      "name": "e1-tecnico-1: descarga y firma según empresa/obra",
+      "ok": true
+    },
+    {
+      "name": "e1-tecnico-2: descarga y firma según empresa/obra",
+      "ok": true
+    },
+    {
+      "name": "e1-lector: descarga y firma según empresa/obra",
+      "ok": true
+    },
+    {
+      "name": "e2-admin: descarga y firma según empresa/obra",
+      "ok": true
+    },
+    {
+      "name": "e2-supervisor: descarga y firma según empresa/obra",
+      "ok": true
+    },
+    {
+      "name": "e2-tecnico-1: descarga y firma según empresa/obra",
+      "ok": true
+    },
+    {
+      "name": "e2-tecnico-2: descarga y firma según empresa/obra",
+      "ok": true
+    },
+    {
+      "name": "e2-lector: descarga y firma según empresa/obra",
+      "ok": true
+    },
+    {
+      "name": "anónimo: URL pública, descarga y firma bloqueadas",
+      "ok": true
+    },
+    {
+      "name": "URL firmada autorizada descarga el binario exacto",
+      "ok": true
+    },
+    {
+      "name": "subida denegada: otra empresa",
+      "ok": true
+    },
+    {
+      "name": "subida denegada: otra obra propia",
+      "ok": true
+    },
+    {
+      "name": "subida denegada: lector",
+      "ok": true
+    },
+    {
+      "name": "subida denegada: técnico sobre planos",
+      "ok": true
+    },
+    {
+      "name": "subida denegada: técnico sobre exports",
+      "ok": true
+    },
+    {
+      "name": "subida denegada: tenant falsificado",
+      "ok": true
+    },
+    {
+      "name": "subida denegada: orden ajena",
+      "ok": true
+    },
+    {
+      "name": "listado no revela nombres de otra obra",
+      "ok": true
+    },
+    {
+      "name": "sobrescribir y mover están bloqueados",
+      "ok": true
+    },
+    {
+      "name": "copiar desde obra ajena está bloqueado",
+      "ok": true
+    },
+    {
+      "name": "lector no elimina, propietario técnico sí",
+      "ok": true
+    },
+    {
+      "name": "exports reservado a supervisores de la obra",
+      "ok": true
+    },
+    {
+      "name": "revocación impide descarga JWT y emisión de nuevas firmas",
+      "ok": true
+    },
+    {
+      "name": "URL de dos segundos caduca",
+      "ok": true
+    },
+    {
+      "name": "referencias cruzadas de plano y foto se rechazan en REST",
+      "ok": true
+    },
+    {
+      "name": "crear obra, subir plano y vincular referencia privada",
+      "ok": true
+    },
+    {
+      "name": "legados conservados y descargables solo con membresía",
+      "ok": true
+    }
+  ]
+}

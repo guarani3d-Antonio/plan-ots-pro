@@ -11,6 +11,7 @@ export default defineConfig({
       manifest: false,
       includeAssets: ['icon-192.png', 'icon-512.png', 'favicon.ico'],
       workbox: {
+        importScripts: ['/storage-cache-cleanup.js'],
         globPatterns: ['**/*.{js,css,html,png,svg,woff2,ico}'],
         // Don't precache pdf.worker (too large, loaded on demand)
         globIgnores: ['**/pdf.worker*'],
@@ -21,29 +22,9 @@ export default defineConfig({
         // se parta en chunks, este límite puede volver al default (2 MiB).
         runtimeCaching: [
           {
-            // Supabase Storage: planos y fotos → cache-first (archivos no cambian una vez subidos)
-            urlPattern: /^https:\/\/iqgbyqyoovzvhhdjawnt\.supabase\.co\/storage\/.*/,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'supabase-storage',
-              expiration: {
-                maxEntries: 200,
-                maxAgeSeconds: 60 * 60 * 24 * 30, // 30 días
-              },
-            },
-          },
-          {
-            // Supabase REST API → network-first con fallback offline
-            urlPattern: /^https:\/\/iqgbyqyoovzvhhdjawnt\.supabase\.co\/rest\/.*/,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'supabase-api',
-              networkTimeoutSeconds: 5,
-              expiration: {
-                maxEntries: 100,
-                maxAgeSeconds: 60 * 60 * 24, // 24 horas
-              },
-            },
+            // Las respuestas privadas no se comparten ni sobreviven a una sesión en CacheStorage.
+            urlPattern: /^https:\/\/iqgbyqyoovzvhhdjawnt\.supabase\.co\/(?:storage|rest)\/.*/,
+            handler: 'NetworkOnly',
           },
           {
             // CDN de pdf.js worker → cache-first (versión fija)

@@ -5,7 +5,8 @@
  */
 
 import { useRef, useState } from 'react';
-import { supabase } from '../../db/supabase';
+import { subirArchivo } from '../../services/storageService';
+import { useArchivoPrivado } from '../../hooks/useArchivoPrivado';
 import styles from './CampoVideo.module.css';
 
 const MAX_DURACION_SEG = 30;
@@ -29,8 +30,8 @@ export default function CampoVideo({
   valor,
   onChange,
   ordenId,
-  proyectoId: _proyectoId,
-  campoId,
+  proyectoId,
+  campoId: _campoId,
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [estado,   setEstado]   = useState<Estado>(valor ? 'listo' : 'vacio');
@@ -39,7 +40,8 @@ export default function CampoVideo({
   const [metaDur,  setMetaDur]  = useState<number | null>(null);
   const [metaMB,   setMetaMB]   = useState<number | null>(null);
 
-  const videoUrl = typeof valor === 'string' && valor.length > 0 ? valor : null;
+  const videoRef = typeof valor === 'string' && valor.length > 0 ? valor : null;
+  const videoUrl = useArchivoPrivado(videoRef);
 
   // ── Obtener duración sin FFmpeg ───────────────────────────────────────────
   function getDuracion(file: File): Promise<number> {
@@ -101,17 +103,8 @@ export default function CampoVideo({
 
   // ── Upload a Storage (bucket fotos, carpeta VIDEO/) ───────────────────────
   async function subirAStorage(file: File): Promise<string> {
-    const ts   = Date.now();
-    const path = `${ordenId}/VIDEO/${campoId}_${ts}.mp4`;
-
-    const { error } = await supabase.storage
-      .from('fotos')
-      .upload(path, file, { cacheControl: '3600', upsert: false });
-
-    if (error) throw new Error(`Error al subir video: ${error.message}`);
-
-    const { data } = supabase.storage.from('fotos').getPublicUrl(path);
-    return data.publicUrl;
+    const { ref } = await subirArchivo('fotos', proyectoId, file, file.name.split('.').pop() ?? 'mp4', ordenId);
+    return ref;
   }
 
   // ── Handler principal ─────────────────────────────────────────────────────

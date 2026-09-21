@@ -1,4 +1,5 @@
 import * as pdfjsLib from 'pdfjs-dist'
+import { resolverArchivo } from './storageService'
 
 // Worker de pdfjs — mismo CDN que VistaPlano. La asignación es idempotente:
 // si VistaPlano ya lo seteó, sobrescribirlo con el mismo valor no rompe nada.
@@ -19,7 +20,7 @@ export async function generarThumbnailPDF(
 
   try {
     const loadingTask = pdfjsLib.getDocument({
-      url,
+      url: await resolverArchivo(url),
       disableRange: true,      // obligatorio para Supabase Storage
       disableStream: true,     // obligatorio para Supabase Storage
     })

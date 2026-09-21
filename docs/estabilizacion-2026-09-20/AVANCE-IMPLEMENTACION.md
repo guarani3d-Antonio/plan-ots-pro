@@ -1,5 +1,7 @@
 # Avance de implementación
 
+Estado vigente: **día 5 completado**. Fundamento y aislamiento de dominio están aplicados desde días 3–4; ahora Storage es privado y el cliente local carga planos/fotos mediante autorización temporal. Ver [informe y límites del día 5](dia-5/INFORME.md) y [calendario actualizado](CALENDARIO-TRABAJO.md). El registro siguiente conserva el estado histórico del primer bloque.
+
 ## 20/09/2026
 
 ### Fundamento multitenant

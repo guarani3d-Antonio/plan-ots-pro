@@ -88,6 +88,7 @@ function setup(supabase = remote(), online = true) {
   const db = { ordenes: table(), syncQueue: table(), fotosPendientes: table(), async transaction(...args) { return args.at(-1)(); } };
   const mocks = {
     '../db/dexie': { db }, '../db/supabase': { supabase }, '../services/fotosService': {},
+    '../services/storageService': { referenciaArchivo: (bucket, name) => `storage://${bucket}/${name}` },
     './authStore': { useAuthStore: { getState: () => ({ user: { id: 'actor-test' } }) } },
   };
   const globals = { navigator: { onLine: online } };

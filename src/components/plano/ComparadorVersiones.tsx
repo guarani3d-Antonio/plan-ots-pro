@@ -1,6 +1,8 @@
 ﻿import React, { useEffect, useRef, useState, useCallback } from 'react';
 import styles from './ComparadorVersiones.module.css';
 import { supabase } from '../../db/supabase';
+import { useArchivoPrivado } from '../../hooks/useArchivoPrivado';
+import { resolverArchivo } from '../../services/storageService';
 
 // ─────────────────────────────────────────────────────────── Types ──
 interface OrdenTrabajo {
@@ -161,6 +163,7 @@ export const ComparadorVersiones: React.FC<Props> = ({
   versionPreselId,
 }) => {
   const [versiones, setVersiones]       = useState<Version[]>([]);
+  const planoPrivado = useArchivoPrivado(planoUrl);
   const [idA, setIdA]                   = useState('');
   const [idB, setIdB]                   = useState('');
   const [comparando, setComparando]     = useState(false);
@@ -287,7 +290,7 @@ export const ComparadorVersiones: React.FC<Props> = ({
           'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
         const pdf = await pdfjsLib.getDocument({
-          url: planoUrl,
+          url: await resolverArchivo(planoUrl),
           disableRange: true,
           disableStream: true,
         }).promise;
@@ -528,7 +531,7 @@ export const ComparadorVersiones: React.FC<Props> = ({
           ) : (
             <img
               ref={imgRef}
-              src={planoUrl}
+              src={planoPrivado ?? undefined}
               className={styles.planoImg}
               alt="Plano"
               draggable={false}

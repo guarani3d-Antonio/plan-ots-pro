@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from 'react';
+import { useArchivoPrivado } from '../../hooks/useArchivoPrivado';
+import { resolverArchivo } from '../../services/storageService';
 
 interface Props {
   url: string;
@@ -14,6 +16,7 @@ const IMG_STYLE: React.CSSProperties = {
 };
 
 export const PlanoThumb: React.FC<Props> = ({ url }) => {
+  const privateUrl = useArchivoPrivado(url);
   const [imgSrc, setImgSrc] = useState<string | null>(null);
   const [estado, setEstado] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
 
@@ -29,7 +32,7 @@ export const PlanoThumb: React.FC<Props> = ({ url }) => {
           'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
         const pdf = await pdfjsLib.getDocument({
-          url,
+          url: await resolverArchivo(url),
           disableRange: true,
           disableStream: true,
         }).promise;
@@ -62,7 +65,7 @@ export const PlanoThumb: React.FC<Props> = ({ url }) => {
   if (!esPDF(url)) {
     return (
       <img
-        src={url}
+        src={privateUrl ?? undefined}
         alt="plano"
         style={IMG_STYLE}
         onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}

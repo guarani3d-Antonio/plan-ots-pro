@@ -3,6 +3,7 @@
 // NUEVO ARCHIVO — no toca fotosService.ts (PROHIBIDO)
 
 import { supabase } from '../db/supabase';
+import { resolverArchivo, subirArchivo } from './storageService';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -72,31 +73,20 @@ export async function subirImagenAnotada(
   descripcion: string,
 ): Promise<string> {
   // 1. Upload al bucket 'fotos'
-  const fileName = `anotada_${fotoId}_${Date.now()}.jpg`;
-  const path     = `${proyectoId}/${ordenId}/${fileName}`;
-
-  const { error: uploadError } = await supabase.storage
-    .from('fotos')
-    .upload(path, blob, { contentType: 'image/jpeg', upsert: false });
-
-  if (uploadError) throw new Error(`Upload: ${uploadError.message}`);
-
-  // 2. Obtener URL pública
-  const { data: { publicUrl } } = supabase.storage
-    .from('fotos')
-    .getPublicUrl(path);
+  const { path, ref } = await subirArchivo('fotos', proyectoId, blob, 'jpg', ordenId);
 
   // 3. Actualizar registro en tabla fotos
   const { error: dbError } = await supabase
     .from('fotos')
     .update({
-      file_url: publicUrl,
+      file_url: ref,
+      file_path: path,
       anotaciones,
       descripcion_observacion: descripcion,
     })
-    .eq('id', fotoId);
+    .eq('id', fotoId).select('id').single();
 
   if (dbError) throw new Error(`DB: ${dbError.message}`);
 
-  return publicUrl;
+  return resolverArchivo(ref);
 }

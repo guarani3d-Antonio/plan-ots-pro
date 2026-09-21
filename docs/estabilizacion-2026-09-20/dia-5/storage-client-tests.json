@@ -1,0 +1,47 @@
+{
+  "scope": "Código TS real de acceso Storage y limpieza de caché; adaptador Supabase simulado.",
+  "passed": 10,
+  "total": 10,
+  "results": [
+    {
+      "name": "referencia durable no incluye credenciales",
+      "ok": true
+    },
+    {
+      "name": "URL pública antigua se autoriza nuevamente",
+      "ok": true
+    },
+    {
+      "name": "URL firmada vencida se vuelve a autorizar, sin reutilizar token",
+      "ok": true
+    },
+    {
+      "name": "sin sesión no se firma",
+      "ok": true
+    },
+    {
+      "name": "error RLS no cae a una URL pública",
+      "ok": true
+    },
+    {
+      "name": "respuesta tardía de otra sesión se rechaza",
+      "ok": true
+    },
+    {
+      "name": "dominios ajenos y protocolo javascript se rechazan sin solicitudes",
+      "ok": true
+    },
+    {
+      "name": "no hay caché de firmas entre resoluciones",
+      "ok": true
+    },
+    {
+      "name": "referencias con traversal o bucket ajeno se rechazan",
+      "ok": true
+    },
+    {
+      "name": "cache cleanup elimina solo las dos cachés heredadas",
+      "ok": true
+    }
+  ]
+}

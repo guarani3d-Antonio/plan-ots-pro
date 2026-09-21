@@ -1,0 +1,101 @@
+{
+  "buckets": [
+    {
+      "id": "exports",
+      "public": false
+    },
+    {
+      "id": "fotos",
+      "public": false
+    },
+    {
+      "id": "planos",
+      "public": false
+    }
+  ],
+  "policies": [
+    {
+      "name": "plan_objects_delete",
+      "check": null,
+      "roles": [
+        "authenticated"
+      ],
+      "using": "(plan_storage_permitido(bucket_id, name, 'delete'::text) OR ((bucket_id = 'fotos'::text) AND (owner_id = (auth.uid())::text) AND plan_storage_permitido(bucket_id, name, 'write'::text)))",
+      "command": "DELETE"
+    },
+    {
+      "name": "plan_objects_insert",
+      "check": "((owner_id = (auth.uid())::text) AND plan_storage_permitido(bucket_id, name, 'write'::text))",
+      "roles": [
+        "authenticated"
+      ],
+      "using": null,
+      "command": "INSERT"
+    },
+    {
+      "name": "plan_objects_read",
+      "check": null,
+      "roles": [
+        "authenticated"
+      ],
+      "using": "plan_storage_permitido(bucket_id, name, 'read'::text)",
+      "command": "SELECT"
+    }
+  ],
+  "functions": [
+    {
+      "name": "plan_archivo_de_proyecto",
+      "owner": "postgres",
+      "config": [
+        "search_path=pg_catalog, pg_temp"
+      ],
+      "definer": true,
+      "anon_execute": false
+    },
+    {
+      "name": "plan_storage_path",
+      "owner": "postgres",
+      "config": [
+        "search_path=pg_catalog, pg_temp"
+      ],
+      "definer": false,
+      "anon_execute": false
+    },
+    {
+      "name": "plan_storage_permitido",
+      "owner": "postgres",
+      "config": [
+        "search_path=pg_catalog, pg_temp"
+      ],
+      "definer": true,
+      "anon_execute": false
+    },
+    {
+      "name": "plan_storage_proyecto",
+      "owner": "postgres",
+      "config": [
+        "search_path=pg_catalog, pg_temp"
+      ],
+      "definer": true,
+      "anon_execute": false
+    },
+    {
+      "name": "plan_validar_archivos",
+      "owner": "postgres",
+      "config": [
+        "search_path=pg_catalog, pg_temp"
+      ],
+      "definer": false,
+      "anon_execute": false
+    }
+  ],
+  "checked_at": "2026-09-21T00:55:48.695234+00:00",
+  "objects_rls": true,
+  "legacy_links": 140,
+  "storage_counts": {
+    "fotos": 171,
+    "planos": 17
+  },
+  "binding_triggers": 2,
+  "registry_client_write": false
+}

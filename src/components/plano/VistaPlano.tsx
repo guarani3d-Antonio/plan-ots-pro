@@ -1,6 +1,7 @@
 ﻿import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
 import { useProyectosStore } from '../../stores/proyectosStore';
+import { useArchivoPrivadoEstado } from '../../hooks/useArchivoPrivado';
 import { useOrdenesStore } from '../../stores/ordenesStore';
 import type { OrdenLocal } from '../../types/orden';
 import Marcador from './Marcador';
@@ -29,6 +30,7 @@ interface VistaPlanoProps {
 
 export default function VistaPlano({ fullscreen = false, onToggleFullscreen }: VistaPlanoProps) {
   const proyecto = useProyectosStore(s => s.proyectoActivo);
+  const { url: planoPrivado, error: errorAccesoPlano } = useArchivoPrivadoEstado(proyecto?.plano_url);
   const ordenes              = useOrdenesStore((s) => s.ordenes);
   const cargarOrdenes        = useOrdenesStore((s) => s.cargarOrdenes);
   const crearOrdenEnPosicion = useOrdenesStore((s) => s.crearOrdenEnPosicion);
@@ -160,15 +162,15 @@ export default function VistaPlano({ fullscreen = false, onToggleFullscreen }: V
 
   // ── Carga del plano ──────────────────────────────────────
   useEffect(() => {
-    if (!proyecto?.plano_url) return;
-    const url   = proyecto.plano_url;
+    if (!planoPrivado) { setPlanoListo(false); setErrorPlano(errorAccesoPlano); return; }
+    const url = planoPrivado;
     const isPdf = url.toLowerCase().includes('.pdf');
     setEsImagen(!isPdf);
     setPlanoListo(false);
     setErrorPlano(null);
     if (isPdf) cargarPDF(url);
     else       cargarImagen(url);
-  }, [proyecto?.plano_url]);
+  }, [planoPrivado, errorAccesoPlano]);
 
   async function cargarPDF(url: string) {
     try {
