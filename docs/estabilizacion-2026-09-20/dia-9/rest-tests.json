@@ -1,0 +1,24 @@
+{
+  "testedAt": "2026-09-21T03:24:01.985Z",
+  "scope": "Supabase real con las cuatro obras y once cuentas ficticias: visibilidad, permisos, reanudación y limpieza del recorrido Samsung.",
+  "passed": 4,
+  "total": 4,
+  "results": [
+    {
+      "name": "las cuatro obras ficticias conservan un fixture activo",
+      "ok": true
+    },
+    {
+      "name": "cada cuenta recibe exactamente sus obras de campo",
+      "ok": true
+    },
+    {
+      "name": "técnicos y lectores no atraviesan empresa ni amplían permisos",
+      "ok": true
+    },
+    {
+      "name": "la reanudación usa contexto vigente y no dejó evidencia temporal",
+      "ok": true
+    }
+  ]
+}

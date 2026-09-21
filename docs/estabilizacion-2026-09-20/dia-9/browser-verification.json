@@ -1,0 +1,62 @@
+{
+  "verifiedAt": "2026-09-21T03:26:20.526Z",
+  "url": "http://127.0.0.1:5173/",
+  "deviceProfile": "Samsung Galaxy Tab FE",
+  "viewports": {
+    "landscape": {
+      "innerWidth": 1277,
+      "innerHeight": 797,
+      "bodyScrollWidth": 1277,
+      "documentScrollWidth": 1277,
+      "overflow": false,
+      "classes": ["modo-tablet", "orient-h"]
+    },
+    "portrait": {
+      "innerWidth": 797,
+      "innerHeight": 1277,
+      "bodyScrollWidth": 797,
+      "documentScrollWidth": 797,
+      "overflow": false,
+      "classes": ["modo-tablet", "orient-v"]
+    }
+  },
+  "worksOpened": 4,
+  "cameraInputs": {
+    "captureEnvironment": 3,
+    "gallery": 3,
+    "enabled": true,
+    "physicalHardwareCaptureVerified": false
+  },
+  "syntheticPhoto": {
+    "uploaded": true,
+    "manualDescriptionOpenedInUnderOneSecond": true,
+    "removed": true
+  },
+  "connectedOrderFlow": {
+    "created": true,
+    "requiredBeforePhotoEnforced": true,
+    "saved": true,
+    "reopenedWithPersistedFields": true,
+    "temporaryDataRemoved": true
+  },
+  "suspendAndResume": {
+    "verified": true,
+    "sessionPreserved": true,
+    "projectPreserved": true,
+    "photoStatePreserved": true
+  },
+  "visitReport": {
+    "generated": true,
+    "csp": true,
+    "embeddedImages": 1,
+    "externalImages": 0,
+    "scripts": 0,
+    "sandbox": "allow-same-origin",
+    "srcdocLength": 31346
+  },
+  "finalState": {
+    "tabletOverrideRemoved": true,
+    "normalDesktopModeRestored": true,
+    "eachFictionalWorkHasOneFixture": true
+  }
+}
