@@ -104,6 +104,7 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
+.voiceLabelRow { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 
 .textarea {
   width: 100%;

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { VoiceInputButton } from '../ui/VoiceInputButton';
 import styles from './ModalComentarioEstado.module.css';
 
 interface Props {
@@ -62,9 +63,10 @@ export function ModalComentarioEstado({
         </div>
 
         <div className={styles.campoTexto}>
-          <label className={styles.label}>
-            Comentario técnico <span className={styles.obligatorio}>*</span>
-          </label>
+          <div className={styles.voiceLabelRow}>
+            <label className={styles.label}>Comentario técnico <span className={styles.obligatorio}>*</span></label>
+            <VoiceInputButton value={texto} onChange={setTexto} maxLength={1000} />
+          </div>
           <textarea
             ref={textareaRef}
             className={styles.textarea}

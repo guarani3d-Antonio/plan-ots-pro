@@ -98,6 +98,7 @@
 }
 
 .labelIcon { font-size: 0.85rem; }
+.voiceLabel > :last-child { margin-left: auto; text-transform: none; letter-spacing: normal; }
 
 .iaBox {
   background: rgba(204, 122, 0, 0.04);

@@ -68,8 +68,11 @@ export function PanelResumen({
   onSeleccionar,
 }: PanelResumenProps) {
 
-  const [rubroOpen,     setRubroOpen]     = useState(true);
+  const [resumenOpen,   setResumenOpen]   = useState(false);
+  const [estadoOpen,    setEstadoOpen]    = useState(false);
+  const [rubroOpen,     setRubroOpen]     = useState(false);
   const [prioridadOpen, setPrioridadOpen] = useState(false);
+  const [sinUbicarOpen, setSinUbicarOpen] = useState(false);
 
   // ── Stats (siempre sobre el total, no las filtradas) ───────────────────────
   const stats = useMemo(() => {
@@ -104,32 +107,35 @@ export function PanelResumen({
 
       {/* ─── Resumen + stats ─── */}
       <div className={styles.section}>
-        <div className={styles.sectionHead}>
+        <button className={`${styles.sectionHead} ${styles.collapsible}`} onClick={() => setResumenOpen(o => !o)} type="button">
           <span className={styles.sectionTitle}>Resumen del proyecto</span>
-          <span className={styles.totalPill}>{stats.Total}</span>
-        </div>
-        <div className={styles.statsGrid}>
-          <div className={styles.statCard}>
-            <div className={styles.statNum}>{stats.Total}</div>
-            <div className={styles.statLabel}>Total</div>
-          </div>
-          {ESTADOS_ORDEN.map(est => (
-            <div key={est} className={styles.statCard}>
-              <div className={styles.statNum} style={{ color: ESTADO_COLOR[est] }}>
-                {stats[est] ?? 0}
-              </div>
-              <div className={styles.statLabel}>{LABEL_ESTADO_CORTO[est]}</div>
+          <span className={styles.sectionMeta}><span className={styles.totalPill}>{stats.Total}</span><span className={styles.chevron}>{resumenOpen ? '▾' : '▸'}</span></span>
+        </button>
+        {resumenOpen && (
+          <div className={styles.statsGrid}>
+            <div className={styles.statCard}>
+              <div className={styles.statNum}>{stats.Total}</div>
+              <div className={styles.statLabel}>Total</div>
             </div>
-          ))}
-        </div>
+            {ESTADOS_ORDEN.map(est => (
+              <div key={est} className={styles.statCard}>
+                <div className={styles.statNum} style={{ color: ESTADO_COLOR[est] }}>
+                  {stats[est] ?? 0}
+                </div>
+                <div className={styles.statLabel}>{LABEL_ESTADO_CORTO[est]}</div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* ─── Filtro Estado ─── */}
       <div className={styles.section}>
-        <div className={styles.sectionHead}>
+        <button className={`${styles.sectionHead} ${styles.collapsible}`} onClick={() => setEstadoOpen(o => !o)} type="button">
           <span className={styles.sectionTitle}>Estado</span>
-        </div>
-        <div className={styles.checkList}>
+          <span className={styles.chevron}>{estadoOpen ? '▾' : '▸'}</span>
+        </button>
+        {estadoOpen && <div className={styles.checkList}>
           {ESTADOS_ORDEN.map(est => {
             const on = filtrosEstado.has(est);
             return (
@@ -147,7 +153,7 @@ export function PanelResumen({
               </label>
             );
           })}
-        </div>
+        </div>}
       </div>
 
       {/* ─── Filtro Rubro (colapsable) ─── */}
@@ -222,11 +228,11 @@ export function PanelResumen({
 
       {/* ─── OTs sin ubicar — drag al plano ─── */}
       <div className={styles.listaSection}>
-        <div className={styles.sectionHead}>
+        <button className={`${styles.sectionHead} ${styles.collapsible}`} onClick={() => setSinUbicarOpen(o => !o)} type="button">
           <span className={styles.sectionTitle}>OTs sin ubicar</span>
-          <span className={styles.totalPill}>{otsSinUbicar.length}</span>
-        </div>
-        <div className={styles.lista}>
+          <span className={styles.sectionMeta}><span className={styles.totalPill}>{otsSinUbicar.length}</span><span className={styles.chevron}>{sinUbicarOpen ? '▾' : '▸'}</span></span>
+        </button>
+        {sinUbicarOpen && <div className={styles.lista}>
           {otsSinUbicar.length === 0 ? (
             <div className={styles.empty}>Todas las OTs están ubicadas en el plano ✓</div>
           ) : (
@@ -253,7 +259,7 @@ export function PanelResumen({
               </div>
             ))
           )}
-        </div>
+        </div>}
       </div>
 
     </aside>

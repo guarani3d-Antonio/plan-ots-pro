@@ -8,7 +8,6 @@ import type { OrdenLocal } from '../../types/orden';
 import Marcador from './Marcador';
 import { PanelOT } from './PanelOT';
 import { PanelResumen } from './PanelResumen';
-import ToolPanel from './ToolPanel';
 import { useRealtimeOrdenes } from '../../hooks/useRealtimeOrdenes';
 import { useAccionesProyecto } from '../../hooks/useAccionesProyecto';
 import InformePanel from '../informes/InformePanel';
@@ -80,6 +79,18 @@ export default function VistaPlano({ fullscreen = false, onToggleFullscreen }: V
   const [mostrarInforme, setMostrarInforme]           = useState(false);
   const [modalVersionesAbierto, setModalVersionesAbierto] = useState(false);
   const [versionesCached, setVersionesCached]           = useState<import('../../services/versionesService').Version[]>([]);
+  const [panelLateralVisible, setPanelLateralVisible] = useState(false);
+  const [accionesVisibles, setAccionesVisibles] = useState(false);
+  const accionesMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!accionesVisibles) return;
+    const cerrar = (event: MouseEvent) => {
+      if (!accionesMenuRef.current?.contains(event.target as Node)) setAccionesVisibles(false);
+    };
+    document.addEventListener('mousedown', cerrar);
+    return () => document.removeEventListener('mousedown', cerrar);
+  }, [accionesVisibles]);
 
   // ── Filtros visuales ──
   const [filtrosEstado, setFiltrosEstado] = useState<Set<string>>(
@@ -164,6 +175,12 @@ export default function VistaPlano({ fullscreen = false, onToggleFullscreen }: V
       (area.clientHeight - planoDims.h * sc) / 2
     );
   }, [planoDims, applyTransform]);
+
+  useEffect(() => {
+    if (!planoListo) return;
+    const frame = window.requestAnimationFrame(fitView);
+    return () => window.cancelAnimationFrame(frame);
+  }, [panelLateralVisible, planoListo, fitView]);
 
   // ── Carga del plano ──────────────────────────────────────
   useEffect(() => {
@@ -290,10 +307,6 @@ export default function VistaPlano({ fullscreen = false, onToggleFullscreen }: V
   }, []);
 
   // ── Drag & Drop ──────────────────────────────────────────
-  const ordenessinUbicar = ordenes.filter(
-    o => o.pos_x === null || o.pos_x === undefined || (o as any).pos_x === null
-  );
-
   const handleDropOT = useCallback(async (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
@@ -348,59 +361,30 @@ export default function VistaPlano({ fullscreen = false, onToggleFullscreen }: V
       {!fullscreen && (
         <div className={styles.topBar}>
           <span className={styles.statBadge}>{ordenes.length} OTs</span>
-
-          <div className={styles.topGroup}>
-            <button
-              className={styles.btnVolver}
-              onClick={acciones.abrirImportarCSV}
-              title="Importar OTs desde CSV"
-              disabled={!!cargandoAcciones || !puedeEditar}
-            >
-              📥 Importar
-            </button>
-            <button
-              className={styles.btnVolver}
-              onClick={() => setModalVersionesAbierto(true)}
-              title="Guardar snapshot de versión"
-              disabled={ordenes.length === 0 || !puedeAdministrar}
-            >
-              💾 Versión
-            </button>
-            <button
-              className={styles.btnVolver}
-              onClick={() => acciones.abrirComparador()}
-              disabled={!puedeAdministrar}
-              title="Comparar versiones"
-            >
-              🔀 Comparar
-            </button>
-          </div>
-
+          <button
+            type="button"
+            className={`${styles.btnPanel} ${panelLateralVisible ? styles.btnPanelActive : ''}`}
+            onClick={() => setPanelLateralVisible(v => !v)}
+            aria-expanded={panelLateralVisible}
+          >
+            <span aria-hidden="true">☷</span> Panel y filtros
+          </button>
           <div style={{ flex: 1 }} />
-
+          <div className={styles.actionsMenuWrap} ref={accionesMenuRef}>
+            <button type="button" className={styles.btnVolver} onClick={() => setAccionesVisibles(v => !v)} aria-expanded={accionesVisibles}>
+              Acciones <span aria-hidden="true">▾</span>
+            </button>
+            {accionesVisibles && (
+              <div className={styles.actionsMenu} role="menu">
+                <button onClick={() => { acciones.abrirImportarCSV(); setAccionesVisibles(false); }} disabled={!!cargandoAcciones || !puedeEditar}>📥 <span><b>Importar OTs</b><small>Desde un archivo CSV</small></span></button>
+                <button onClick={() => { setModalVersionesAbierto(true); setAccionesVisibles(false); }} disabled={ordenes.length === 0 || !puedeAdministrar}>💾 <span><b>Versiones</b><small>Guardar o restaurar</small></span></button>
+                <button onClick={() => { acciones.abrirComparador(); setAccionesVisibles(false); }} disabled={!puedeAdministrar}>🔀 <span><b>Comparar</b><small>Revisar cambios entre versiones</small></span></button>
+                <button onClick={() => { acciones.exportarCSV(); setAccionesVisibles(false); }} disabled={!!cargandoAcciones || ordenes.length === 0}>↑ <span><b>Exportar CSV</b><small>Descargar las órdenes</small></span></button>
+                <button onClick={() => { setMostrarInforme(true); setAccionesVisibles(false); }}>📄 <span><b>Generar informe</b><small>Vista general del proyecto</small></span></button>
+              </div>
+            )}
+          </div>
           <div className={styles.topGroup}>
-            <button
-              className={styles.btnVolver}
-              onClick={acciones.exportarCSV}
-              title="Exportar CSV"
-              disabled={!!cargandoAcciones || ordenes.length === 0}
-            >
-              ↑ CSV
-            </button>
-            <button
-              className={styles.btnInforme}
-              onClick={() => setMostrarInforme(true)}
-              title="Generar informe del proyecto"
-            >
-              📄 Informe
-            </button>
-            <button
-              className={styles.btnIcon}
-              onClick={() => console.log('config')}
-              title="Configuración"
-            >
-              ⚙
-            </button>
             <button
               className={styles.btnIcon}
               onClick={() => onToggleFullscreen?.()}
@@ -445,7 +429,7 @@ export default function VistaPlano({ fullscreen = false, onToggleFullscreen }: V
       <div className={styles.main}>
 
         {/* Panel IZQUIERDO: se oculta en fullscreen */}
-        {!fullscreen && (
+        {!fullscreen && panelLateralVisible && (
           <PanelResumen
             ordenes={ordenes}
             ordenesFiltradas={ordenesFiltradas}
@@ -462,11 +446,6 @@ export default function VistaPlano({ fullscreen = false, onToggleFullscreen }: V
             acciones={acciones}
             cargando={cargandoAcciones}
           />
-        )}
-
-        {/* ToolPanel: se oculta en fullscreen */}
-        {!fullscreen && (
-          <ToolPanel ordenessinUbicar={ordenessinUbicar} />
         )}
 
         {/* Wrapper del área del plano */}

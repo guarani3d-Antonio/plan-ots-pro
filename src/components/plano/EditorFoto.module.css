@@ -564,3 +564,11 @@
   72%  { opacity: 1; }
   100% { opacity: 0; }
 }
+.voiceLabelRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.voiceLabelRow .fieldLabel { margin: 0; }

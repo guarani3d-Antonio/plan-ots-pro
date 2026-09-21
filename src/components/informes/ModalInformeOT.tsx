@@ -36,6 +36,7 @@ import { cargarFotosDeOrden } from '../../services/fotosService';
 import { hacerInformePortable } from '../../services/portableReportService';
 import { colorEstado } from '../../utils/calculos';
 import styles from './ModalInformeOT.module.css';
+import { VoiceInputButton } from '../ui/VoiceInputButton';
 
 export type TipoInforme = 'cierre' | 'ficha' | 'relevamiento' | 'avance' | 'acta';
 
@@ -388,9 +389,21 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
 
             {muestraTextarea && (
               <div className={styles.section}>
-                <label className={styles.label} htmlFor="obs-informe">
-                  {cfg.labelTextarea}
-                </label>
+                <div className={styles.voiceLabelRow}>
+                  <label className={styles.label} htmlFor="obs-informe">{cfg.labelTextarea}</label>
+                  <VoiceInputButton
+                    value={observaciones}
+                    onChange={value => {
+                      const nuevoTexto = value.slice(0, MAX_OBSERVACIONES);
+                      setObservaciones(nuevoTexto);
+                      const doc = iframeRef.current?.contentDocument;
+                      const el = doc?.getElementById('antecedentes-texto') ?? doc?.getElementById('bloque-texto-naranja');
+                      if (el) el.textContent = nuevoTexto || 'Sin observaciones registradas.';
+                      else setHtmlPreview(construirHtml(nuevoTexto));
+                    }}
+                    maxLength={MAX_OBSERVACIONES}
+                  />
+                </div>
                 <div className={styles.sublabel}>
                   Texto que aparecerá en el informe. Editá libremente.
                 </div>

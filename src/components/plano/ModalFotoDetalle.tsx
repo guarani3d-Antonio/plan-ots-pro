@@ -16,6 +16,7 @@
 // el padre decide qué hacer con la descripción (subir nueva foto o update DB).
 
 import { useEffect, useState } from 'react';
+import { VoiceInputButton } from '../ui/VoiceInputButton';
 import styles from './ModalFotoDetalle.module.css';
 
 interface Props {
@@ -125,9 +126,10 @@ export function ModalFotoDetalle({
 
           <div className={styles.separador} />
 
-          <label className={styles.label} htmlFor="modal-foto-descripcion">
-            Descripción
-          </label>
+          <div className={styles.voiceLabelRow}>
+            <label className={styles.label} htmlFor="modal-foto-descripcion">Descripción</label>
+            <VoiceInputButton value={descripcion} onChange={setDescripcion} maxLength={MAX_DESCRIPCION} />
+          </div>
           <textarea
             id="modal-foto-descripcion"
             className={styles.textarea}

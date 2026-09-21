@@ -166,6 +166,23 @@
 
 .bodyFotos { padding: 0; background: var(--bg-subtle); }
 
+.historyBody {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 14px 16px;
+  background: var(--bg-subtle);
+}
+
+.labelRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 5px;
+}
+.labelRow .label { margin-bottom: 0; }
+
 .commentsPane {
   position: absolute;
   z-index: 6;

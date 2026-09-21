@@ -15,6 +15,7 @@ import {
 import type { AnotacionGuardada } from '../../services/editorFotoService';
 import { supabase } from '../../db/supabase';
 import { actualizarDescripcionFoto } from '../../services/fotosService';
+import { VoiceInputButton } from '../ui/VoiceInputButton';
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 
@@ -604,7 +605,10 @@ export default function EditorFoto({ foto, ordenCodigo, todasLasFotos, onClose, 
           </div>
 
           <div className={styles.panelSection}>
-            <label className={styles.fieldLabel}>Descripción (aparece en informes)</label>
+            <div className={styles.voiceLabelRow}>
+              <label className={styles.fieldLabel}>Descripción (aparece en informes)</label>
+              <VoiceInputButton value={descripcion} onChange={setDescripcion} maxLength={1500} />
+            </div>
             <textarea
               className={styles.fieldTextarea}
               value={descripcion}

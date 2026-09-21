@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { VoiceInputButton } from '../ui/VoiceInputButton';
 import styles from './ModalDescripcionFoto.module.css';
 
 const MAX_CHARS = 1500;
@@ -72,9 +73,10 @@ export default function ModalDescripcionFoto({
             </div>
 
             <div className={styles.editableSection}>
-              <div className={styles.fieldLabel}>
+              <div className={`${styles.fieldLabel} ${styles.voiceLabel}`}>
                 <span className={styles.labelIcon}>✏️</span>
                 Tu descripción (aparece en informes)
+                <VoiceInputButton value={descripcion} onChange={setDescripcion} maxLength={MAX_CHARS} />
               </div>
               <textarea
                 className={styles.textarea}

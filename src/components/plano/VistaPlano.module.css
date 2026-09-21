@@ -59,6 +59,60 @@
   border-color: var(--border-strong);
 }
 
+.btnPanel {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border-default);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  font: 600 var(--text-sm)/1 var(--font-sans);
+  cursor: pointer;
+  transition: color var(--t-fast), background var(--t-fast), border-color var(--t-fast);
+}
+.btnPanel:hover, .btnPanelActive {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-subtle, #eff4ff);
+}
+
+.actionsMenuWrap { position: relative; }
+.actionsMenu {
+  position: absolute;
+  z-index: 80;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 250px;
+  padding: 6px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-lg);
+  background: var(--bg-surface);
+  box-shadow: 0 14px 36px rgba(15, 23, 42, .16);
+}
+.actionsMenu button {
+  width: 100%;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+  font-family: var(--font-sans);
+}
+.actionsMenu button:hover:not(:disabled) { background: var(--bg-hover); }
+.actionsMenu button:disabled { opacity: .45; cursor: not-allowed; }
+.actionsMenu button > span { display: flex; flex-direction: column; gap: 3px; }
+.actionsMenu b { font-size: 12px; font-weight: var(--w-semi); }
+.actionsMenu small { color: var(--text-tertiary); font-size: 10px; }
+
 .topInfo {
   display: flex;
   align-items: baseline;

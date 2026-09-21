@@ -3,6 +3,7 @@ import { supabase } from '../../db/supabase';
 import { useAuthStore } from '../../stores/authStore';
 import { obtenerComentarios, crearComentario, eliminarComentario, type Comentario } from '../../services/comentariosOtService';
 import styles from './PanelComentarios.module.css';
+import { VoiceInputButton } from '../ui/VoiceInputButton';
 
 interface Props { ordenId: string; proyectoId: string; onCerrar?: () => void; }
 
@@ -110,6 +111,7 @@ export default function PanelComentarios({ ordenId, proyectoId, onCerrar }: Prop
       {error && <div className={styles.error}>{error}</div>}
       <div className={styles.inputWrap}>
         <textarea ref={textareaRef} className={styles.input} placeholder="Comentar... (Enter envía, Shift+Enter nueva línea)" value={texto} onChange={e => setTexto(e.target.value)} onKeyDown={handleKeyDown} rows={2} disabled={enviando} />
+        <VoiceInputButton value={texto} onChange={setTexto} disabled={enviando} compact />
         <button className={styles.btnEnviar} onClick={handleEnviar} disabled={!texto.trim() || enviando}>{enviando ? '…' : '↑'}</button>
       </div>
     </div>

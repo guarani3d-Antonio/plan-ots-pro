@@ -44,6 +44,7 @@ import { HistorialComentarios } from './HistorialComentarios';
 import { ModalFotoDetalle } from './ModalFotoDetalle';
 import { ModalInformeOT, type TipoInforme as TipoInformeModal } from '../../components/informes/ModalInformeOT';
 import { useToast } from '../ui/Toast';
+import { VoiceInputButton } from '../ui/VoiceInputButton';
 import styles from './PanelOT.module.css';
 import TooltipAyuda from '../ayuda/TooltipAyuda';
 import MultiSelectRubro from './MultiSelectRubro';
@@ -1033,7 +1034,10 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
                   <input className={styles.input} value={form.unidad_amenities ?? ''} onChange={e => set('unidad_amenities', e.target.value)} placeholder="ej: Dpto 401 / Gym" />
                 </div>
                 <div className={styles.field}>
-                  <label className={styles.label}>Descripción del reclamo</label>
+                  <div className={styles.labelRow}>
+                    <label className={styles.label}>Descripción del reclamo</label>
+                    <VoiceInputButton value={form.descripcion ?? ''} onChange={value => set('descripcion', value)} />
+                  </div>
                   <textarea className={styles.textarea} rows={3} placeholder="Descripción del problema según el cliente..." value={form.descripcion ?? ''} onChange={e => set('descripcion', e.target.value)} />
                 </div>
                 <div className={styles.field}>
@@ -1155,7 +1159,10 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
                   </div>
                 )}
                 <div className={styles.field}>
-                  <label className={styles.label}>Observaciones del técnico</label>
+                  <div className={styles.labelRow}>
+                    <label className={styles.label}>Observaciones del técnico</label>
+                    <VoiceInputButton value={form.comentarios ?? ''} onChange={value => set('comentarios', value)} />
+                  </div>
                   <textarea className={styles.textarea} rows={3} placeholder="Notas y observaciones del técnico..." value={form.comentarios ?? ''} onChange={e => set('comentarios', e.target.value)} />
                 </div>
               </div>
@@ -1265,7 +1272,9 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
           </>)}
 
           {tabActivo === 'historial' && (
-            <HistorialComentarios ordenId={ordenFresca.id} proyectoId={ordenFresca.proyecto_id} refreshTrigger={historialRefresh} />
+            <div className={styles.historyBody}>
+              <HistorialComentarios ordenId={ordenFresca.id} proyectoId={ordenFresca.proyecto_id} refreshTrigger={historialRefresh} />
+            </div>
           )}
 
           <div className={styles.footer}>
