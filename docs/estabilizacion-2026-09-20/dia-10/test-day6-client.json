@@ -1,0 +1,76 @@
+{
+  "testedAt": "2026-09-21T03:33:53.356Z",
+  "scope": "Módulos TypeScript reales con red/stores simulados. No sustituye navegador ni Supabase real.",
+  "passed": 17,
+  "total": 17,
+  "results": [
+    {
+      "name": "sin identidad: no envía peticiones de datos",
+      "ok": true
+    },
+    {
+      "name": "token de otra identidad no sale a la red",
+      "ok": true
+    },
+    {
+      "name": "respuesta de A retrasada después de cambiar a B se descarta",
+      "ok": true
+    },
+    {
+      "name": "cambio de cuenta aborta señal de petición en curso",
+      "ok": true
+    },
+    {
+      "name": "respuesta vigente y vacía conserva contrato HTTP",
+      "ok": true
+    },
+    {
+      "name": "offline no permite nuevas peticiones ni fallback",
+      "ok": true
+    },
+    {
+      "name": "almacenamiento local tiene clave diferente por identidad",
+      "ok": true
+    },
+    {
+      "name": "sync no lee ni modifica la cola legada",
+      "ok": true
+    },
+    {
+      "name": "validación iniciada sin red puede reintentarse al reconectar",
+      "ok": true
+    },
+    {
+      "name": "fallo de lectura vacía las órdenes y no lee caché",
+      "ok": true
+    },
+    {
+      "name": "rechazo de creación no publica OT ni encola",
+      "ok": true
+    },
+    {
+      "name": "rechazo de edición conserva estado confirmado",
+      "ok": true
+    },
+    {
+      "name": "rechazo de borrado conserva la orden visible",
+      "ok": true
+    },
+    {
+      "name": "rol lector rechaza mutación antes de pedirla al servidor",
+      "ok": true
+    },
+    {
+      "name": "lectura tardía no repuebla store tras limpiar/cambiar obra",
+      "ok": true
+    },
+    {
+      "name": "costo viene de relación protegida; cero se conserva",
+      "ok": true
+    },
+    {
+      "name": "fotos pendientes legadas no se leen en modo conectado",
+      "ok": true
+    }
+  ]
+}

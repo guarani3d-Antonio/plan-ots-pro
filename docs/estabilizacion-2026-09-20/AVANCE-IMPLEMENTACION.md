@@ -1,6 +1,6 @@
 # Avance de implementación
 
-Estado vigente: **día 9 completado para el piloto conectado**. El recorrido Samsung Galaxy Tab FE pasó en horizontal y vertical sobre las cuatro obras: alta de OT, foto obligatoria, suspensión, reapertura e informe portable. La prueba también eliminó del cliente una clave de IA que quedaba expuesta en el JavaScript público; la descripción manual vuelve a abrir inmediatamente. Ver [informe y límite físico del día 9](dia-9/INFORME.md) y [calendario actualizado](CALENDARIO-TRABAJO.md). Frontend local, sin nuevo despliegue público. Siguiente bloque: día 10 con Astra para el gate final, una toma real con la cámara Samsung, regresión, restore y despliegue controlado si el resultado es GO. El registro siguiente conserva el estado histórico del primer bloque.
+Estado vigente: **día 10: revisión técnica y candidata local preparadas; NO-GO de publicación pendiente de condiciones externas**. Pasan 138 controles locales y 48 remotos, más recuperación local de datos/archivos. Se mitigó la vulnerabilidad conocida del visor PDF en sus cuatro entradas y se prepararon cabeceras y ZIP verificable. Faltan confirmación de revocación de claves expuestas, despliegue verificado y recorrido físico en Samsung/PWA. Ver [informe del día 10](dia-10/INFORME.md) y [calendario](CALENDARIO-TRABAJO.md). El siguiente bloque de producto solicitado es la ventana dedicada de fotos del Panel OT, con Sol alto. El registro siguiente conserva el estado histórico del primer bloque.
 
 ## 20/09/2026
 

@@ -1,0 +1,156 @@
+{
+  "scope": "PostgreSQL local, catálogo de dominio capturado y metadata mínima de Storage. No simula API ni archivos.",
+  "sha256": "db8b57068bb64c137e2a2c9653d4fb491bfa6df37d53db2a88a92e8079ca2a93",
+  "passed": 37,
+  "total": 37,
+  "results": [
+    {
+      "name": "cuenta 1: lectura de planos A/B según obra",
+      "ok": true
+    },
+    {
+      "name": "cuenta 2: lectura de planos A/B según obra",
+      "ok": true
+    },
+    {
+      "name": "cuenta 3: lectura de planos A/B según obra",
+      "ok": true
+    },
+    {
+      "name": "cuenta 4: lectura de planos A/B según obra",
+      "ok": true
+    },
+    {
+      "name": "cuenta 5: lectura de planos A/B según obra",
+      "ok": true
+    },
+    {
+      "name": "cuenta 6: lectura de planos A/B según obra",
+      "ok": true
+    },
+    {
+      "name": "cuenta 7: lectura de planos A/B según obra",
+      "ok": true
+    },
+    {
+      "name": "cuenta 8: lectura de planos A/B según obra",
+      "ok": true
+    },
+    {
+      "name": "cuenta 9: lectura de planos A/B según obra",
+      "ok": true
+    },
+    {
+      "name": "cuenta 10: lectura de planos A/B según obra",
+      "ok": true
+    },
+    {
+      "name": "cuenta 11: lectura de planos A/B según obra",
+      "ok": true
+    },
+    {
+      "name": "anon no lee objetos",
+      "ok": true
+    },
+    {
+      "name": "técnico sube foto a su obra y orden",
+      "ok": true
+    },
+    {
+      "name": "técnico no sube a otra obra de la misma empresa",
+      "ok": true
+    },
+    {
+      "name": "técnico no sube foto en empresa ajena",
+      "ok": true
+    },
+    {
+      "name": "no se falsifica prefijo tenant",
+      "ok": true
+    },
+    {
+      "name": "no se cruza orden con proyecto",
+      "ok": true
+    },
+    {
+      "name": "viewer no sube foto",
+      "ok": true
+    },
+    {
+      "name": "técnico no sube planos",
+      "ok": true
+    },
+    {
+      "name": "supervisor sube planos",
+      "ok": true
+    },
+    {
+      "name": "técnico no lee ni sube exports",
+      "ok": true
+    },
+    {
+      "name": "supervisor sube exports",
+      "ok": true
+    },
+    {
+      "name": "no se falsifica propietario del archivo",
+      "ok": true
+    },
+    {
+      "name": "no hay sobrescritura ni traslado de objeto",
+      "ok": true
+    },
+    {
+      "name": "propietario técnico elimina su archivo",
+      "ok": true
+    },
+    {
+      "name": "lector no elimina archivo",
+      "ok": true
+    },
+    {
+      "name": "archivo legado codificado conserva acceso de miembro",
+      "ok": true
+    },
+    {
+      "name": "archivo legado no se abre a otro tenant",
+      "ok": true
+    },
+    {
+      "name": "huérfano no se publica a Creador",
+      "ok": true
+    },
+    {
+      "name": "cliente no altera asignación de archivos legados",
+      "ok": true
+    },
+    {
+      "name": "proyecto no puede adoptar plano de otra obra",
+      "ok": true
+    },
+    {
+      "name": "proyecto acepta su plano privado",
+      "ok": true
+    },
+    {
+      "name": "foto admite URL durable y ruta coherentes",
+      "ok": true
+    },
+    {
+      "name": "foto rechaza ruta ajena aun con orden local",
+      "ok": true
+    },
+    {
+      "name": "revocación de membresía corta Storage",
+      "ok": true
+    },
+    {
+      "name": "RPC reserva obra sin adoptar URL arbitraria",
+      "ok": true
+    },
+    {
+      "name": "rollback restaura políticas y RPC anteriores",
+      "ok": true
+    }
+  ]
+}

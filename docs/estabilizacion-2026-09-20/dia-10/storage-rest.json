@@ -1,0 +1,60 @@
+{
+  "testedAt": "2026-09-21T03:36:18.871Z",
+  "scope": "Lectura/firma Storage real con clave pública, once cuentas y hashes de ocho fixtures. Sin cambios en archivos.",
+  "passed": 13,
+  "total": 13,
+  "results": [
+    {
+      "name": "platform-creator: planos/fotos según membresía",
+      "ok": true
+    },
+    {
+      "name": "e1-admin: planos/fotos según membresía",
+      "ok": true
+    },
+    {
+      "name": "e1-supervisor: planos/fotos según membresía",
+      "ok": true
+    },
+    {
+      "name": "e1-tecnico-1: planos/fotos según membresía",
+      "ok": true
+    },
+    {
+      "name": "e1-tecnico-2: planos/fotos según membresía",
+      "ok": true
+    },
+    {
+      "name": "e1-lector: planos/fotos según membresía",
+      "ok": true
+    },
+    {
+      "name": "e2-admin: planos/fotos según membresía",
+      "ok": true
+    },
+    {
+      "name": "e2-supervisor: planos/fotos según membresía",
+      "ok": true
+    },
+    {
+      "name": "e2-tecnico-1: planos/fotos según membresía",
+      "ok": true
+    },
+    {
+      "name": "e2-tecnico-2: planos/fotos según membresía",
+      "ok": true
+    },
+    {
+      "name": "e2-lector: planos/fotos según membresía",
+      "ok": true
+    },
+    {
+      "name": "anónimo no descarga ni firma archivos privados",
+      "ok": true
+    },
+    {
+      "name": "firma autorizada entrega foto exacta; otra empresa no firma",
+      "ok": true
+    }
+  ]
+}

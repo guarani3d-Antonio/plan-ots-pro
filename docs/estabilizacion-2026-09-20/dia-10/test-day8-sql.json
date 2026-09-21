@@ -1,0 +1,44 @@
+{
+  "testedAt": "2026-09-21T03:33:52.528Z",
+  "sha256": "71226443ccada2f9af5a61bab21aa1c772f140bc3afdf209265e086dc7029f52",
+  "passed": 9,
+  "total": 9,
+  "results": [
+    {
+      "name": "supervisor restaura intercambio y crea backup atómico",
+      "ok": true
+    },
+    {
+      "name": "snapshot con OT ausente no cambia nada ni crea backup",
+      "ok": true
+    },
+    {
+      "name": "snapshot con código duplicado se rechaza completo",
+      "ok": true
+    },
+    {
+      "name": "snapshot sin lista de órdenes se rechaza antes del backup",
+      "ok": true
+    },
+    {
+      "name": "conflicto con OT fuera del snapshot revierte backup y cambios",
+      "ok": true
+    },
+    {
+      "name": "técnico y lector no restauran",
+      "ok": true
+    },
+    {
+      "name": "supervisor de otra empresa no restaura",
+      "ok": true
+    },
+    {
+      "name": "anónimo no ejecuta restauración",
+      "ok": true
+    },
+    {
+      "name": "rollback retira solo el RPC del día 8",
+      "ok": true
+    }
+  ]
+}

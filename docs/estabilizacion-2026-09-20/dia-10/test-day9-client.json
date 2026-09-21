@@ -1,0 +1,24 @@
+{
+  "testedAt": "2026-09-21T03:33:54.666Z",
+  "scope": "Cámara/galería, modo Samsung Tab FE y ausencia de credenciales de IA en el cliente compilado.",
+  "passed": 4,
+  "total": 4,
+  "results": [
+    {
+      "name": "descripción de foto abre el modo manual sin red",
+      "ok": true
+    },
+    {
+      "name": "la interfaz separa cámara trasera y galería",
+      "ok": true
+    },
+    {
+      "name": "la detección conserva la Samsung Tab FE horizontal y vertical",
+      "ok": true
+    },
+    {
+      "name": "el build no contiene la clave ni el endpoint directo de IA",
+      "ok": true
+    }
+  ]
+}

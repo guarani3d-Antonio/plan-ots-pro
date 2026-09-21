@@ -180,7 +180,7 @@ export default function VistaPlano({ fullscreen = false, onToggleFullscreen }: V
   async function cargarPDF(url: string) {
     try {
       if (renderTaskRef.current) { renderTaskRef.current.cancel(); renderTaskRef.current = null; }
-      const doc   = await pdfjsLib.getDocument({ url, disableRange: true, disableStream: true }).promise;
+      const doc   = await pdfjsLib.getDocument({ url, disableRange: true, disableStream: true, isEvalSupported: false }).promise;
       const page  = await doc.getPage(1);
       const vp0   = page.getViewport({ scale: 1 });
       const area  = planAreaRef.current;

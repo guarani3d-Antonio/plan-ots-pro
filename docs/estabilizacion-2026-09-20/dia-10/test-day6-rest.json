@@ -1,0 +1,84 @@
+{
+  "testedAt": "2026-09-21T03:34:32.472Z",
+  "scope": "Auth, REST y RPC reales con cuentas ficticias. Sin clave service_role. Cuatro importes sintéticos permanecen para pruebas web.",
+  "passed": 19,
+  "total": 19,
+  "results": [
+    {
+      "name": "platform-creator: contexto efectivo y costos protegidos en REST",
+      "ok": true
+    },
+    {
+      "name": "e1-admin: contexto efectivo y costos protegidos en REST",
+      "ok": true
+    },
+    {
+      "name": "e1-supervisor: contexto efectivo y costos protegidos en REST",
+      "ok": true
+    },
+    {
+      "name": "e1-tecnico-1: contexto efectivo y costos protegidos en REST",
+      "ok": true
+    },
+    {
+      "name": "e1-tecnico-2: contexto efectivo y costos protegidos en REST",
+      "ok": true
+    },
+    {
+      "name": "e1-lector: contexto efectivo y costos protegidos en REST",
+      "ok": true
+    },
+    {
+      "name": "e2-admin: contexto efectivo y costos protegidos en REST",
+      "ok": true
+    },
+    {
+      "name": "e2-supervisor: contexto efectivo y costos protegidos en REST",
+      "ok": true
+    },
+    {
+      "name": "e2-tecnico-1: contexto efectivo y costos protegidos en REST",
+      "ok": true
+    },
+    {
+      "name": "e2-tecnico-2: contexto efectivo y costos protegidos en REST",
+      "ok": true
+    },
+    {
+      "name": "e2-lector: contexto efectivo y costos protegidos en REST",
+      "ok": true
+    },
+    {
+      "name": "técnico no escribe costo ni tabla privada",
+      "ok": true
+    },
+    {
+      "name": "filtro de costo público no revela el importe privado",
+      "ok": true
+    },
+    {
+      "name": "técnico no accede a snapshots con costo; supervisor sí",
+      "ok": true
+    },
+    {
+      "name": "Creador revoca y restaura membresía sin renovar JWT técnico",
+      "ok": true
+    },
+    {
+      "name": "rebajar supervisor revoca costo con el mismo JWT",
+      "ok": true
+    },
+    {
+      "name": "admin de empresa no crea empresas ni asigna permisos de Creador",
+      "ok": true
+    },
+    {
+      "name": "anónimo no invoca contexto ni administración ni lee costos",
+      "ok": true
+    },
+    {
+      "name": "cuatro fixtures conservan sus costos tras rechazos y revocaciones",
+      "ok": true
+    }
+  ]
+}

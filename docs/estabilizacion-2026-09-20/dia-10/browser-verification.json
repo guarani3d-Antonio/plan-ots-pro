@@ -1,0 +1,12 @@
+{
+  "date": "2026-09-21",
+  "url": "http://127.0.0.1:5173/",
+  "scope": "Navegador de escritorio tras aplicar mitigación PDF, sin mutar datos del proyecto legado.",
+  "project": "Kalo",
+  "pdfVisuallyRendered": true,
+  "visibleOrders": 15,
+  "projectPdfThumbnailsVisible": true,
+  "physicalSamsungVerified": false,
+  "installedPwaUpgradeVerified": false,
+  "productionBuildBrowserVerified": false
+}

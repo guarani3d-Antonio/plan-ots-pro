@@ -1,0 +1,56 @@
+{
+  "testedAt": "2026-09-21T03:33:51.069Z",
+  "sha256": "c9b925753bf7455148d81f10dda2d57c113f0c54264a0f620c2e2ea949239df9",
+  "passed": 12,
+  "total": 12,
+  "results": [
+    {
+      "name": "dos creaciones reciben códigos correlativos confirmados por servidor",
+      "ok": true
+    },
+    {
+      "name": "índice rechaza código activo duplicado aunque se omita el RPC",
+      "ok": true
+    },
+    {
+      "name": "coordenadas inválidas no crean filas",
+      "ok": true
+    },
+    {
+      "name": "técnico no crea en obra ajena",
+      "ok": true
+    },
+    {
+      "name": "estado y comentario se confirman en una transacción",
+      "ok": true
+    },
+    {
+      "name": "versión antigua rechaza estado y no deja comentario parcial",
+      "ok": true
+    },
+    {
+      "name": "creador técnico cancela su OT reciente vacía",
+      "ok": true
+    },
+    {
+      "name": "OT con evidencia de actividad ya no se cancela como nueva",
+      "ok": true
+    },
+    {
+      "name": "lector no crea",
+      "ok": true
+    },
+    {
+      "name": "lector no cancela orden ajena",
+      "ok": true
+    },
+    {
+      "name": "RPC no ejecutables por anónimo",
+      "ok": true
+    },
+    {
+      "name": "rollback retira los tres RPC y el índice del día 7",
+      "ok": true
+    }
+  ]
+}

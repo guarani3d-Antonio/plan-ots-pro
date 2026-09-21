@@ -1,0 +1,13 @@
+{
+  "testedAt": "2026-09-21T03:35:05.194Z",
+  "entryPoints": [
+    "src/components/plano/ComparadorVersiones.tsx",
+    "src/components/plano/VistaPlano.tsx",
+    "src/components/proyecto/PlanoThumb.tsx",
+    "src/services/pdfThumbnailService.ts"
+  ],
+  "allDisableEval": true,
+  "hostingHeadersPrepared": true,
+  "advisory": "https://github.com/mozilla/pdf.js/security/advisories/GHSA-wgrm-67xf-hhpq",
+  "scope": "Verificación AST de las opciones enviadas al visor. No sustituye render en navegador ni actualización de PDF.js."
+}

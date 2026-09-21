@@ -24,6 +24,7 @@ export async function generarThumbnailPDF(
 
   try {
     const loadingTask = pdfjsLib.getDocument({
+      isEvalSupported: false, // Mitigación CVE-2024-4367 mientras se migra el visor.
       url: signedUrl,
       disableRange: true,      // obligatorio para Supabase Storage
       disableStream: true,     // obligatorio para Supabase Storage

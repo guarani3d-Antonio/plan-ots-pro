@@ -1,0 +1,36 @@
+{
+  "testedAt": "2026-09-21T03:33:54.343Z",
+  "scope": "Portabilidad, escape HTML y contrato de restauración cliente con transportes simulados.",
+  "passed": 7,
+  "total": 7,
+  "results": [
+    {
+      "name": "HTML portable incorpora imágenes y elimina dependencias ejecutables",
+      "ok": true
+    },
+    {
+      "name": "imagen vencida se reemplaza y el documento queda autocontenido",
+      "ok": true
+    },
+    {
+      "name": "contenido data existente no vuelve a consultar la red",
+      "ok": true
+    },
+    {
+      "name": "informe de OT escapa texto ingresado por el usuario",
+      "ok": true
+    },
+    {
+      "name": "informe general escapa proyecto, órdenes y firmantes",
+      "ok": true
+    },
+    {
+      "name": "restauración cliente usa una sola RPC y exige confirmación completa",
+      "ok": true
+    },
+    {
+      "name": "confirmación parcial de restauración se rechaza",
+      "ok": true
+    }
+  ]
+}

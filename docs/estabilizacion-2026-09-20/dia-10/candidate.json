@@ -1,0 +1,113 @@
+{
+  "preparedAt": "2026-09-21T03:36:46.851Z",
+  "artifactPath": ".backups.local/2026-09-21-dia10/plan-ots-candidate.zip",
+  "artifactSha256": "776ac1b7e7b855d11dc8c2214cf54514e47652e42749398b8235b946a24da537",
+  "artifactBytes": 1004332,
+  "secretsScanPassed": true,
+  "zipReadbackVerified": true,
+  "legacyHttpCacheCleanupVerified": true,
+  "pwaRealDeviceUpdateVerified": false,
+  "deployed": false,
+  "files": [
+    {
+      "path": "assets/chunk-62oNxeRG.js",
+      "bytes": 1084,
+      "sha256": "cb2fb01f2064eb36487466778d2ffc4c97ad86af89be1635209de18f0b5b2236"
+    },
+    {
+      "path": "assets/esm-CkwuUy9K.js",
+      "bytes": 3034,
+      "sha256": "e67d3bde1b6e195118d6507e590b3e6bf14d8324b0dbf87d66b9752439dae039"
+    },
+    {
+      "path": "assets/esm-Dnrje8Sg.js",
+      "bytes": 1470,
+      "sha256": "92e29051c35481ec361e024aa6c257d29fdd37033155c50b769279fc20f089a6"
+    },
+    {
+      "path": "assets/index-D1tPl-O_.css",
+      "bytes": 156925,
+      "sha256": "69e47b6e12ec42baed379e6dca8b253f2200cffd69397af02400770b8c9685b6"
+    },
+    {
+      "path": "assets/index-Dh8acnp_.js",
+      "bytes": 2208203,
+      "sha256": "d7403d0d77f783a1ad8cf8ca45d735ed14c299c5bada4c38f167fc3154e22938"
+    },
+    {
+      "path": "assets/worker-CyhFgHU6.js",
+      "bytes": 2458,
+      "sha256": "67984dc41467a79fffee725d5c2cb1e4b0358b5371db9f105bc6e654011d78fd"
+    },
+    {
+      "path": "favicon.svg",
+      "bytes": 9522,
+      "sha256": "61bc9a161de58248288e6905425d7180f0624c2865007b97d763fdac12043a66"
+    },
+    {
+      "path": "fixtures/plano-prueba.svg",
+      "bytes": 1753,
+      "sha256": "4e9e42fa952d92f1837515683a7989ca7fc551789d6abd766f17efaec7fec208"
+    },
+    {
+      "path": "icon-192.png",
+      "bytes": 5511,
+      "sha256": "753820010fcf48e2ccfe271708f5c41eb842359c298a9770256abd6d9e4525ae"
+    },
+    {
+      "path": "icon-512.png",
+      "bytes": 19738,
+      "sha256": "73d059015ffc8d6f2c43a52f1d948a6296c4cbae858b1337a4e0df6ce003610c"
+    },
+    {
+      "path": "icons.svg",
+      "bytes": 5031,
+      "sha256": "b45fa506195cfcdef406ba9f0c77b36ddc1a7c224040926ec70abc2fdea7b93a"
+    },
+    {
+      "path": "index.html",
+      "bytes": 701,
+      "sha256": "b00bf35e02c61368dfd303af3d30489c772d6786b5ee910f10d3a1895a661acc"
+    },
+    {
+      "path": "manifest.json",
+      "bytes": 668,
+      "sha256": "2761ca9dc5b3ae4b2eddb4960d60e0dde54f5689ba0cbc5d8d1e811ceb4ea84a"
+    },
+    {
+      "path": "obra_bg.jpg",
+      "bytes": 353124,
+      "sha256": "633d06f3ac5ce4542d543920c4795edcba0e344d61f20b1e7975dac9d7932b79"
+    },
+    {
+      "path": "registerSW.js",
+      "bytes": 134,
+      "sha256": "9742073ef7fc795e7673d98f272992843298426a0ffd8cb3507784df5143608b"
+    },
+    {
+      "path": "storage-cache-cleanup.js",
+      "bytes": 294,
+      "sha256": "7e04c5657dc46b2fddc67adb0733ca33f8ff5154c67fde08c33b7e9c53ef10fa"
+    },
+    {
+      "path": "sw.js",
+      "bytes": 2082,
+      "sha256": "402de2ba53fa297cdbcadd54158b0a3f1764e7bde314ce43a11171cc78bac2e0"
+    },
+    {
+      "path": "workbox-250e2fb9.js",
+      "bytes": 21839,
+      "sha256": "9b9f3a657ce39b6aad8970127e00f58b055826fe9d37701f231a46ce56ddb1e2"
+    },
+    {
+      "path": "_headers",
+      "bytes": 294,
+      "sha256": "990a48324f56c0dfd000139625e7c3e67aeb45095db088b4cdaca0b07ea2635d"
+    },
+    {
+      "path": "_redirects",
+      "bytes": 19,
+      "sha256": "6036983e5fc00f0169c9e939b1816ed771eee00e27f2fcc517b819041460b9ef"
+    }
+  ]
+}

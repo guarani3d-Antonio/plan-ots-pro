@@ -290,6 +290,7 @@ export const ComparadorVersiones: React.FC<Props> = ({
           'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
         const pdf = await pdfjsLib.getDocument({
+          isEvalSupported: false, // Mitigación CVE-2024-4367 mientras se migra el visor.
           url: await resolverArchivo(planoUrl),
           disableRange: true,
           disableStream: true,

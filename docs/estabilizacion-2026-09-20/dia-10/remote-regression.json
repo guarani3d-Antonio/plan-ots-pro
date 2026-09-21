@@ -1,0 +1,37 @@
+{
+  "testedAt": "2026-09-21T03:35:07.785Z",
+  "remote": true,
+  "planned": 4,
+  "completed": 4,
+  "allPassed": true,
+  "results": [
+    {
+      "name": "test-day6-rest",
+      "ok": true,
+      "exitCode": 0,
+      "passed": 19,
+      "total": 19
+    },
+    {
+      "name": "test-day7-rest",
+      "ok": true,
+      "exitCode": 0,
+      "passed": 8,
+      "total": 8
+    },
+    {
+      "name": "test-day8-rest",
+      "ok": true,
+      "exitCode": 0,
+      "passed": 4,
+      "total": 4
+    },
+    {
+      "name": "test-day9-rest",
+      "ok": true,
+      "exitCode": 0,
+      "passed": 4,
+      "total": 4
+    }
+  ]
+}

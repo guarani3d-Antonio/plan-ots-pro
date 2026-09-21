@@ -1,0 +1,82 @@
+{
+  "testedAt": "2026-09-21T03:34:02.512Z",
+  "remote": false,
+  "planned": 11,
+  "completed": 11,
+  "allPassed": true,
+  "results": [
+    {
+      "name": "test-private-storage-sql",
+      "ok": true,
+      "exitCode": 0,
+      "passed": 37,
+      "total": 37
+    },
+    {
+      "name": "test-day6-sql",
+      "ok": true,
+      "exitCode": 0,
+      "passed": 32,
+      "total": 32
+    },
+    {
+      "name": "test-day7-sql",
+      "ok": true,
+      "exitCode": 0,
+      "passed": 12,
+      "total": 12
+    },
+    {
+      "name": "test-day8-sql",
+      "ok": true,
+      "exitCode": 0,
+      "passed": 9,
+      "total": 9
+    },
+    {
+      "name": "test-storage-client",
+      "ok": true,
+      "exitCode": 0,
+      "passed": 10,
+      "total": 10
+    },
+    {
+      "name": "test-day6-client",
+      "ok": true,
+      "exitCode": 0,
+      "passed": 17,
+      "total": 17
+    },
+    {
+      "name": "test-day7-client",
+      "ok": true,
+      "exitCode": 0,
+      "passed": 10,
+      "total": 10
+    },
+    {
+      "name": "test-day8-client",
+      "ok": true,
+      "exitCode": 0,
+      "passed": 7,
+      "total": 7
+    },
+    {
+      "name": "test-day9-client",
+      "ok": true,
+      "exitCode": 0,
+      "passed": 4,
+      "total": 4
+    },
+    {
+      "name": "test-day5-recovery",
+      "ok": true,
+      "exitCode": 0
+    },
+    {
+      "name": "test-day6-recovery",
+      "ok": true,
+      "exitCode": 0
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "testedAt": "2026-09-21T03:34:00.999Z",
+  "scope": "Restauración local de 15 tablas y metadata Storage; migración y reversión exactas. Los 180 binarios se releen con SHA-256, sin restaurar Auth ni subirlos de nuevo al servidor.",
+  "objects": 180,
+  "bytes": 172915420,
+  "allFileHashesValid": true,
+  "allDomainRowsPreserved": true,
+  "legacyLinks": 140,
+  "linkedObjects": 140,
+  "unreferencedObjectsPreserved": 40,
+  "rollbackCatalogMatchesRemote": true
+}
