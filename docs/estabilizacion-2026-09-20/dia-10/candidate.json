@@ -7,7 +7,11 @@
   "zipReadbackVerified": true,
   "legacyHttpCacheCleanupVerified": true,
   "pwaRealDeviceUpdateVerified": false,
-  "deployed": false,
+  "deployed": true,
+  "deploymentId": "a6b7daa2-0e94-4b9f-9616-f1c9520b1713",
+  "deploymentUrl": "https://a6b7daa2.plan-ots-pro.pages.dev",
+  "productionUrl": "https://plan-ots-pro.pages.dev",
+  "sourceCommit": "32f07c4",
   "files": [
     {
       "path": "assets/chunk-62oNxeRG.js",
