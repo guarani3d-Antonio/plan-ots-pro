@@ -1,8 +1,8 @@
 {
-  "preparedAt": "2026-09-21T03:36:46.851Z",
+  "preparedAt": "2026-09-21T11:46:50.895Z",
   "artifactPath": ".backups.local/2026-09-21-dia10/plan-ots-candidate.zip",
-  "artifactSha256": "776ac1b7e7b855d11dc8c2214cf54514e47652e42749398b8235b946a24da537",
-  "artifactBytes": 1004332,
+  "artifactSha256": "84876180ea59cbcaf11e5e241ced51360ac047531bc37b8abc35121b57396a28",
+  "artifactBytes": 1006283,
   "secretsScanPassed": true,
   "zipReadbackVerified": true,
   "legacyHttpCacheCleanupVerified": true,
@@ -25,14 +25,14 @@
       "sha256": "92e29051c35481ec361e024aa6c257d29fdd37033155c50b769279fc20f089a6"
     },
     {
-      "path": "assets/index-D1tPl-O_.css",
-      "bytes": 156925,
-      "sha256": "69e47b6e12ec42baed379e6dca8b253f2200cffd69397af02400770b8c9685b6"
+      "path": "assets/index-BHWWvg9u.js",
+      "bytes": 2211608,
+      "sha256": "19b026977e2f6ffb24a11835a2dbeb91781f669e47ca7ee1b21a6bef6204bd72"
     },
     {
-      "path": "assets/index-Dh8acnp_.js",
-      "bytes": 2208203,
-      "sha256": "d7403d0d77f783a1ad8cf8ca45d735ed14c299c5bada4c38f167fc3154e22938"
+      "path": "assets/index-C7bK6mSt.css",
+      "bytes": 163077,
+      "sha256": "b0d3cf13071e4ff558f9236e38d2b349520bfdffb1b24bb03af5ca7ff99807dc"
     },
     {
       "path": "assets/worker-CyhFgHU6.js",
@@ -67,7 +67,7 @@
     {
       "path": "index.html",
       "bytes": 701,
-      "sha256": "b00bf35e02c61368dfd303af3d30489c772d6786b5ee910f10d3a1895a661acc"
+      "sha256": "60a6691d1c36e3a972da6f04587027db81af694901860ade0b02038912542efa"
     },
     {
       "path": "manifest.json",
@@ -92,7 +92,7 @@
     {
       "path": "sw.js",
       "bytes": 2082,
-      "sha256": "402de2ba53fa297cdbcadd54158b0a3f1764e7bde314ce43a11171cc78bac2e0"
+      "sha256": "d9c48d3b1daef24c35076aeee755c86a7d24168bacf65fdae73edc71a44cb64b"
     },
     {
       "path": "workbox-250e2fb9.js",

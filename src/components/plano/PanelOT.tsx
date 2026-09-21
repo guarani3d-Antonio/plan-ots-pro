@@ -237,6 +237,11 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
   );
 
   const [tab,             setTab]             = useState<Tab>('datos');
+  const [comentariosVisibles, setComentariosVisibles] = useState(
+    () => !window.matchMedia('(max-width: 900px)').matches,
+  );
+  const [vistaFotos, setVistaFotos] = useState<'agenda' | 'galeria'>('agenda');
+  const [filtroFotos, setFiltroFotos] = useState<'TODAS' | CategoriaFoto>('TODAS');
   const [form,            setForm]            = useState<FormState>(() => ordenToForm(ordenFresca));
   const baseEdicion = useRef<OrdenLocal | null>(ordenFresca);
   const [inputContratista, setInputContratista] = useState('');
@@ -781,6 +786,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
     ...fotosDurante.map(f => ({ id: f.id, orden_id: ordenFresca.id, proyecto_id: ordenFresca.proyecto_id, categoria: 'DURANTE' as const, file_url: f.url })),
     ...fotosDespues.map(f => ({ id: f.id, orden_id: ordenFresca.id, proyecto_id: ordenFresca.proyecto_id, categoria: 'DESPUES' as const, file_url: f.url })),
   ];
+  const totalFotos = fotosAntes.length + fotosDurante.length + fotosDespues.length;
 
   const INFORMES_CONFIG: { tipo: TipoInforme; icono: string; nombre: string; codigo?: string; subtitulo: string }[] = [
     { tipo: 'ficha_visita',     icono: '📋', nombre: 'Ficha de Visita',         codigo: 'FOR-09-01', subtitulo: 'Registro inicial de OT' },
@@ -828,7 +834,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
             </span>
           )}
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '6px' }}>
+        <div className={`${styles.fotosGridAmplia} ${vistaFotos === 'galeria' ? styles.fotosGridGaleria : ''}`}>
           {fotos.map((foto) => {
             const badgeColor = categoria === 'ANTES' ? 'rgba(220,50,50,0.9)' : categoria === 'DURANTE' ? 'rgba(37,99,235,0.9)' : categoria === 'DESPUES' ? 'rgba(22,163,74,0.9)' : 'rgba(100,116,139,0.9)';
             const badgeLabel = categoria === 'DESPUES' ? 'DESPUÉS' : categoria;
@@ -838,7 +844,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
             const regPend = foto.fotoPendienteId != null ? regPorPendienteId.get(foto.fotoPendienteId) : undefined;
             const enError = regPend?.estadoSync === 'ERROR';
             return (
-              <div key={foto.id} className={enError ? styles.fotoCardError : undefined} style={{ width: 'auto', background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: '8px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+              <div key={foto.id} className={`${styles.fotoCard} ${enError ? styles.fotoCardError : ''}`}>
                 <div style={{ position: 'relative', width: '100%', aspectRatio: '4 / 3' }}>
                   <img src={foto.url} alt={foto.nombre} title={foto.pendiente ? TOOLTIP_FOTO_PENDIENTE : undefined} onClick={() => { if (!foto.pendiente) setFotoEditando({ id: foto.id, orden_id: ordenFresca.id, proyecto_id: ordenFresca.proyecto_id, categoria: foto.categoria as 'ANTES' | 'DURANTE' | 'DESPUES' | 'ADJUNTO', file_url: foto.url }); }} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', cursor: foto.pendiente ? 'default' : 'pointer' }} />
                   <span style={{ position: 'absolute', top: '6px', left: '6px', background: badgeColor, color: '#FFFFFF', fontSize: '9px', fontWeight: 700, padding: '2px 5px', borderRadius: '4px', letterSpacing: '0.04em' }}>{badgeLabel}</span>
@@ -966,7 +972,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
   return (
     <>
       <div className={styles.backdrop} onClick={modoForzadoFotos ? undefined : onCerrar}>
-        <div style={{ display: 'flex', flexDirection: 'row' }} onClick={e => e.stopPropagation()}>
+        <div className={styles.workspace} onClick={e => e.stopPropagation()}>
         <div className={styles.panel} onClick={e => e.stopPropagation()}>
 
           <div className={styles.header}>
@@ -975,12 +981,25 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
               {' '}{form.ot || 'Nueva OT'}
               {(form.rubro || form.descripcion) ? ` — ${form.rubro ?? form.descripcion ?? ''}` : ''}
             </div>
-            {!modoForzadoFotos && <button className={styles.closeBtn} onClick={onCerrar}>✕</button>}
+            <div className={styles.headerActions}>
+              <button
+                className={styles.commentsToggle}
+                onClick={() => setComentariosVisibles(v => !v)}
+                type="button"
+                aria-expanded={comentariosVisibles}
+                aria-controls="panel-ot-comentarios"
+                title={comentariosVisibles ? 'Ocultar conversación' : 'Mostrar conversación'}
+              >
+                <span aria-hidden="true">💬</span>
+                <span>{comentariosVisibles ? 'Ocultar conversación' : 'Mostrar conversación'}</span>
+              </button>
+              {!modoForzadoFotos && <button className={styles.closeBtn} onClick={onCerrar} aria-label="Cerrar panel">✕</button>}
+            </div>
           </div>
 
-          <div style={{ display:'flex', borderBottom:'1px solid #2E3147', flexShrink: 0 }}>
-            <button onClick={() => setTabActivo('detalle')} style={{ padding:'6px 14px', fontSize:'12px', fontWeight:600, background:'transparent', border:'none', cursor:'pointer', borderBottom: tabActivo==='detalle' ? '2px solid #2462C9' : '2px solid transparent', color: tabActivo==='detalle' ? '#E2E8F0' : '#64748B' }}>Detalle</button>
-            <button onClick={() => setTabActivo('historial')} style={{ padding:'6px 14px', fontSize:'12px', fontWeight:600, background:'transparent', border:'none', cursor:'pointer', borderBottom: tabActivo==='historial' ? '2px solid #2462C9' : '2px solid transparent', color: tabActivo==='historial' ? '#E2E8F0' : '#64748B' }}>Historial</button>
+          <div className={styles.viewTabs}>
+            <button onClick={() => setTabActivo('detalle')} className={tabActivo === 'detalle' ? styles.viewTabActive : ''}>Detalle</button>
+            <button onClick={() => setTabActivo('historial')} className={tabActivo === 'historial' ? styles.viewTabActive : ''}>Historial</button>
           </div>
 
           {tabActivo === 'detalle' && (<>
@@ -1003,7 +1022,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
             ))}
           </div>
 
-          <fieldset disabled={!puedeEditar} className={styles.body} style={{ border: 0, margin: 0, minWidth: 0 }}>
+          <fieldset disabled={!puedeEditar} className={`${styles.body} ${tab === 'fotos' ? styles.bodyFotos : styles.bodyFormulario}`} style={{ border: 0, margin: 0, minWidth: 0 }}>
 
             {tab === 'datos' && <>
               <div className={styles.section}>
@@ -1160,11 +1179,31 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
             </>}
 
             {tab === 'fotos' && (
-              <div className={styles.section}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 4, fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)' }}>
-                  Fotos obligatorias según estado
-                  <TooltipAyuda titulo="Reglas de fotos" texto="No podés cerrar una OT sin sus fotos. No podés borrar la única foto que el estado exige — bajá primero el estado." posicion="bottom" />
+              <div className={`${styles.section} ${styles.photosWorkspace} ${vistaFotos === 'galeria' ? styles.photosGallery : ''}`}>
+                <div className={styles.photosToolbar}>
+                  <div className={styles.photosTitle}>
+                    <strong>Evidencia fotográfica</strong>
+                    <span>{totalFotos} {totalFotos === 1 ? 'foto' : 'fotos'}</span>
+                    <TooltipAyuda titulo="Reglas de fotos" texto="No podés cerrar una OT sin sus fotos. No podés borrar la única foto que el estado exige — bajá primero el estado." posicion="bottom" />
+                  </div>
+                  <div className={styles.viewSwitch} aria-label="Vista de fotos">
+                    <button type="button" className={vistaFotos === 'agenda' ? styles.viewSwitchActive : ''} onClick={() => setVistaFotos('agenda')}>Agenda</button>
+                    <button type="button" className={vistaFotos === 'galeria' ? styles.viewSwitchActive : ''} onClick={() => setVistaFotos('galeria')}>Galería</button>
+                  </div>
                 </div>
+                <div className={styles.photoFilters}>
+                  {([
+                    ['TODAS', 'Todas', totalFotos],
+                    ['ANTES', 'Antes', fotosAntes.length],
+                    ['DURANTE', 'Durante', fotosDurante.length],
+                    ['DESPUES', 'Después', fotosDespues.length],
+                  ] as const).map(([value, label, count]) => (
+                    <button key={value} type="button" className={filtroFotos === value ? styles.photoFilterActive : ''} onClick={() => setFiltroFotos(value)}>
+                      <span>{label}</span><b>{count}</b>
+                    </button>
+                  ))}
+                </div>
+                <div className={styles.photosNotices}>
                 {errorFotos && <div className={styles.errorBox}>{errorFotos}</div>}
                 {/* F4 — El detalle del badge de la pestaña: cuántas y de qué tipo.
                     Es el contexto donde vive el ↻ de cada tarjeta. */}
@@ -1190,9 +1229,12 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
                     </button>
                   </div>
                 )}
-                {bloqueFotos('ANTES',   'ANTES',   validacion.antesRequerida,   validacion.antesOk,   fotosAntes)}
-                {bloqueFotos('DURANTE', 'DURANTE', validacion.duranteRequerida, validacion.duranteOk, fotosDurante)}
-                {bloqueFotos('DESPUES', 'DESPUÉS', validacion.despuesRequerida, validacion.despuesOk, fotosDespues)}
+                </div>
+                <div className={styles.photoStages}>
+                  {(filtroFotos === 'TODAS' || filtroFotos === 'ANTES') && bloqueFotos('ANTES', 'ANTES', validacion.antesRequerida, validacion.antesOk, fotosAntes)}
+                  {(filtroFotos === 'TODAS' || filtroFotos === 'DURANTE') && bloqueFotos('DURANTE', 'DURANTE', validacion.duranteRequerida, validacion.duranteOk, fotosDurante)}
+                  {(filtroFotos === 'TODAS' || filtroFotos === 'DESPUES') && bloqueFotos('DESPUES', 'DESPUÉS', validacion.despuesRequerida, validacion.despuesOk, fotosDespues)}
+                </div>
               </div>
             )}
 
@@ -1256,7 +1298,14 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
             <GestorCampos proyectoId={ordenFresca.proyecto_id} onClose={() => { setMostrarGestor(false); getCamposDeProyecto(ordenFresca.proyecto_id).then(setCamposDefinicion); }} />
           )}
         </div>
-        <fieldset disabled={!puedeEditar} style={{border:0,margin:0,padding:0}}><PanelComentarios ordenId={ordenFresca.id} proyectoId={ordenFresca.proyecto_id} /></fieldset>
+        <fieldset
+          id="panel-ot-comentarios"
+          disabled={!puedeEditar}
+          className={`${styles.commentsPane} ${comentariosVisibles ? '' : styles.commentsPaneClosed}`}
+          aria-hidden={!comentariosVisibles}
+        >
+          <PanelComentarios ordenId={ordenFresca.id} proyectoId={ordenFresca.proyecto_id} onCerrar={() => setComentariosVisibles(false)} />
+        </fieldset>
         </div>
       </div>
 

@@ -1,5 +1,5 @@
 {
-  "testedAt": "2026-09-21T03:35:07.763Z",
+  "testedAt": "2026-09-21T11:46:24.920Z",
   "scope": "Supabase real con las cuatro obras y once cuentas ficticias: visibilidad, permisos, reanudación y limpieza del recorrido Samsung.",
   "passed": 4,
   "total": 4,

@@ -203,11 +203,24 @@ const SECRET_HINTS = [
 const SECRET_NAME_HINTS = /(SERVICE_ROLE|SECRET|PRIVATE_KEY|PASSWORD|DATABASE_URL|_TOKEN)/;
 
 let leaks = 0;
+function jwtRole(value) {
+  const parts = value.split('.');
+  if (parts.length !== 3) return null;
+  try {
+    const payload = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const padded = payload + '='.repeat((4 - payload.length % 4) % 4);
+    return JSON.parse(Buffer.from(padded, 'base64').toString('utf8')).role ?? null;
+  } catch { return null; }
+}
 for (const [k, v] of envVars) {
   const isPublic = k.startsWith('NEXT_PUBLIC_') || k.startsWith('VITE_');
   if (!isPublic) continue;
   const byName = SECRET_NAME_HINTS.test(k);
-  const byValue = SECRET_HINTS.find((h) => h.re.test(v));
+  let byValue = SECRET_HINTS.find((h) => h.re.test(v));
+  // Las claves públicas legacy de Supabase también son JWT. El claim `role`
+  // permite distinguir `anon` (diseñada para el navegador y protegida por RLS)
+  // de `service_role` u otro JWT que nunca debe hornearse en el frontend.
+  if (k === 'VITE_SUPABASE_ANON_KEY' && byValue && jwtRole(v) === 'anon') byValue = undefined;
   if (byName || byValue) {
     leaks++;
     block(`${k} es una variable PÚBLICA y ${byValue ? byValue.why : 'su nombre indica que contiene un secreto'}. Cualquiera que abra la app la puede leer. ROTAR la credencial y sacarla del prefijo público ANTES de deployar.`);
@@ -225,10 +238,13 @@ if (!ignoresEnv) block('.gitignore no cubre archivos .env — riesgo directo de 
 try {
   const tracked = execSync('git ls-files', { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
     .split(/\r?\n/).filter((f) => /(^|\/)\.env/.test(f));
-  if (tracked.length) {
-    block(`Git está trackeando archivos de entorno: ${tracked.join(', ')}. Sacarlos del índice y ROTAR todo lo que contengan.`);
+  // Se permite el template vacío convencional. Si alguien agrega cualquier
+  // contenido a .env.example, vuelve a tratarse como riesgo hasta revisarlo.
+  const trackedRisk = tracked.filter((f) => f !== '.env.example' || Boolean(readIfExists(path.join(ROOT, f)).trim()));
+  if (trackedRisk.length) {
+    block(`Git está trackeando archivos de entorno: ${trackedRisk.join(', ')}. Sacarlos del índice y ROTAR todo lo que contengan.`);
   } else {
-    console.log(`  archivos .env trackeados . ${C.green}ninguno${C.reset}`);
+    console.log(`  archivos .env sensibles trackeados . ${C.green}ninguno${C.reset}`);
   }
 
   try {

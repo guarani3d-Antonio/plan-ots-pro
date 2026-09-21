@@ -1,5 +1,5 @@
 {
-  "testedAt": "2026-09-21T03:34:56.290Z",
+  "testedAt": "2026-09-21T11:46:12.735Z",
   "scope": "Supabase real con JWT ficticios y clave pública. Restauración y backup atómicos, rechazo por rol/tenant y limpieza.",
   "passed": 4,
   "total": 4,

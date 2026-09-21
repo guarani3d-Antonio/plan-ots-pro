@@ -1,5 +1,5 @@
 {
-  "testedAt": "2026-09-21T03:33:53.356Z",
+  "testedAt": "2026-09-21T11:38:47.716Z",
   "scope": "Módulos TypeScript reales con red/stores simulados. No sustituye navegador ni Supabase real.",
   "passed": 17,
   "total": 17,

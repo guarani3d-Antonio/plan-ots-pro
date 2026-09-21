@@ -1,5 +1,5 @@
 {
-  "testedAt": "2026-09-21T03:34:46.032Z",
+  "testedAt": "2026-09-21T11:46:01.932Z",
   "scope": "Supabase real con JWT de cuentas ficticias y clave pública. Prueba creación concurrente, control de versión, transición atómica, permisos y cancelación.",
   "passed": 8,
   "total": 8,

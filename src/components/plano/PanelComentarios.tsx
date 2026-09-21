@@ -4,7 +4,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { obtenerComentarios, crearComentario, eliminarComentario, type Comentario } from '../../services/comentariosOtService';
 import styles from './PanelComentarios.module.css';
 
-interface Props { ordenId: string; proyectoId: string; }
+interface Props { ordenId: string; proyectoId: string; onCerrar?: () => void; }
 
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -36,7 +36,7 @@ function renderTexto(texto: string) {
   );
 }
 
-export default function PanelComentarios({ ordenId, proyectoId }: Props) {
+export default function PanelComentarios({ ordenId, proyectoId, onCerrar }: Props) {
   const { user } = useAuthStore();
   const [comentarios, setComentarios] = useState<Comentario[]>([]);
   const [texto, setTexto] = useState('');
@@ -87,6 +87,7 @@ export default function PanelComentarios({ ordenId, proyectoId }: Props) {
       <div className={styles.header}>
         <span className={styles.headerTitle}>💬 Comentarios</span>
         <span className={styles.headerCount}>{comentarios.length}</span>
+        {onCerrar && <button type="button" className={styles.closeBtn} onClick={onCerrar} aria-label="Ocultar conversación">✕</button>}
       </div>
       <div className={styles.lista}>
         {comentarios.length === 0 ? (
