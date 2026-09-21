@@ -1,0 +1,43 @@
+{
+  "functions": [
+    {
+      "acl": [
+        "postgres=X/postgres",
+        "service_role=X/postgres",
+        "authenticated=X/postgres"
+      ],
+      "name": "plan_cambiar_estado_orden",
+      "owner": "postgres",
+      "config": [
+        "search_path=pg_catalog, pg_temp"
+      ]
+    },
+    {
+      "acl": [
+        "postgres=X/postgres",
+        "service_role=X/postgres",
+        "authenticated=X/postgres"
+      ],
+      "name": "plan_cancelar_orden_nueva",
+      "owner": "postgres",
+      "config": [
+        "search_path=pg_catalog, pg_temp"
+      ]
+    },
+    {
+      "acl": [
+        "postgres=X/postgres",
+        "service_role=X/postgres",
+        "authenticated=X/postgres"
+      ],
+      "name": "plan_crear_orden",
+      "owner": "postgres",
+      "config": [
+        "search_path=pg_catalog, pg_temp"
+      ]
+    }
+  ],
+  "anon_execute": 0,
+  "unique_index_valid": true,
+  "active_ot_duplicates": 0
+}

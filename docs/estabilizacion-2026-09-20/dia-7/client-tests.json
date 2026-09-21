@@ -1,0 +1,48 @@
+{
+  "testedAt": "2026-09-21T02:07:35.007Z",
+  "scope": "Stores y servicios TypeScript reales con transporte simulado; no sustituye Supabase ni navegador.",
+  "passed": 10,
+  "total": 10,
+  "results": [
+    {
+      "name": "creación usa código e id confirmados por RPC",
+      "ok": true
+    },
+    {
+      "name": "edición confirmada reemplaza únicamente con fila del servidor",
+      "ok": true
+    },
+    {
+      "name": "cambio concurrente en otro campo se fusiona sin perderlo",
+      "ok": true
+    },
+    {
+      "name": "cambio concurrente del mismo campo se rechaza y conserva servidor",
+      "ok": true
+    },
+    {
+      "name": "Realtime atrasado no pisa una fila más nueva",
+      "ok": true
+    },
+    {
+      "name": "estado rechazado no cambia memoria ni crea éxito local",
+      "ok": true
+    },
+    {
+      "name": "cancelación rechazada conserva la OT",
+      "ok": true
+    },
+    {
+      "name": "si falla la fila de foto, elimina el binario recién subido",
+      "ok": true
+    },
+    {
+      "name": "descripción solo confirma con fila devuelta por servidor",
+      "ok": true
+    },
+    {
+      "name": "piloto conectado no adopta fotos offline antiguas",
+      "ok": true
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "testedAt": "2026-09-21T02:09:59.000Z",
+  "scope": "Supabase real con JWT de cuentas ficticias y clave pública. Prueba creación concurrente, control de versión, transición atómica, permisos y cancelación.",
+  "passed": 8,
+  "total": 8,
+  "results": [
+    {
+      "name": "dos sesiones crean OTs concurrentes sin repetir el código",
+      "ok": true
+    },
+    {
+      "name": "ediciones distintas se recuperan tras detectar la versión antigua",
+      "ok": true
+    },
+    {
+      "name": "estado y comentario se confirman juntos y rechazan una pantalla antigua",
+      "ok": true
+    },
+    {
+      "name": "el creador cancela una OT nueva propia y desaparece de la obra",
+      "ok": true
+    },
+    {
+      "name": "un lector no crea, cambia estado ni cancela OTs",
+      "ok": true
+    },
+    {
+      "name": "un técnico no crea OTs en otra empresa",
+      "ok": true
+    },
+    {
+      "name": "coordenadas fuera del plano se rechazan sin crear registros",
+      "ok": true
+    },
+    {
+      "name": "la matriz no deja OTs activas de prueba",
+      "ok": true
+    }
+  ]
+}

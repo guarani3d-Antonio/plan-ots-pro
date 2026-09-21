@@ -57,7 +57,7 @@ export async function guardarEdicionFoto(
       anotaciones: edicion.anotaciones,
       descripcion_observacion: edicion.descripcion_observacion,
     })
-    .eq('id', fotoId);
+    .eq('id', fotoId).select('id').single();
 
   if (error) throw new Error(`guardarEdicionFoto: ${error.message}`);
 }
@@ -72,6 +72,8 @@ export async function subirImagenAnotada(
   anotaciones: AnotacionGuardada[],
   descripcion: string,
 ): Promise<string> {
+  const actual=await supabase.from('fotos').select('file_path').eq('id',fotoId).single();
+  if(actual.error||!actual.data)throw new Error(actual.error?.message??'La foto ya no está disponible');
   // 1. Upload al bucket 'fotos'
   const { path, ref } = await subirArchivo('fotos', proyectoId, blob, 'jpg', ordenId);
 
@@ -86,7 +88,16 @@ export async function subirImagenAnotada(
     })
     .eq('id', fotoId).select('id').single();
 
-  if (dbError) throw new Error(`DB: ${dbError.message}`);
+  if (dbError) {
+    const cleanup=await supabase.storage.from('fotos').remove([path]);
+    throw new Error(`DB: ${dbError.message}${cleanup.error?' El archivo nuevo quedó pendiente de limpieza administrativa.':''}`);
+  }
+
+  const anterior=actual.data.file_path as string;
+  if(anterior&&anterior!==path&&/^(legacy|[0-9a-f-]{36})\/[0-9a-f-]{36}\/[0-9a-f-]{36}\//.test(anterior)){
+    const cleanup=await supabase.storage.from('fotos').remove([anterior]);
+    if(cleanup.error)console.warn('La edición se guardó; el archivo anterior queda pendiente de limpieza administrativa');
+  }
 
   return resolverArchivo(ref);
 }

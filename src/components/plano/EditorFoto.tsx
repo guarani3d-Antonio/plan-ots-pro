@@ -14,6 +14,7 @@ import {
 } from '../../services/editorFotoService';
 import type { AnotacionGuardada } from '../../services/editorFotoService';
 import { supabase } from '../../db/supabase';
+import { actualizarDescripcionFoto } from '../../services/fotosService';
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 
@@ -457,10 +458,7 @@ export default function EditorFoto({ foto, ordenCodigo, todasLasFotos, onClose, 
       }
 
       // ── Siempre actualizar fotos.descripcion (fuente única de verdad) ──
-      await supabase
-        .from('fotos')
-        .update({ descripcion: descripcion.trim() })
-        .eq('id', fotoActual.id);
+      await actualizarDescripcionFoto(fotoActual.id,descripcion);
 
       setToast('✓ Guardado correctamente');
       setTimeout(() => setToast(null), 2500);

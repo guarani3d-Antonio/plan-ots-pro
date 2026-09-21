@@ -1,6 +1,6 @@
 // src/services/fotosService.ts
 import { supabase } from '../db/supabase';
-import { LEGACY_OFFLINE_ENABLED, sessionTicket } from '../security/sessionScope';
+import { assertSession, LEGACY_OFFLINE_ENABLED, sessionTicket } from '../security/sessionScope';
 import { exigirPermiso } from '../stores/accessStore';
 import { db } from '../db/dexie';
 import type { FotoPendiente } from '../db/dexie';
@@ -52,7 +52,7 @@ export async function subirFoto(
   proyectoId?: string
 ): Promise<Omit<FotoSubida, 'proyecto_id'>> {
 
-  validarArchivoFoto(file);
+  validarArchivoFoto(file);const ticket=sessionTicket();
 
   if (!proyectoId) {
     const { data, error } = await supabase.from('ordenes').select('proyecto_id').eq('id', ordenId).single();
@@ -61,6 +61,7 @@ export async function subirFoto(
   }
   exigirPermiso(proyectoId, 'editar');
   const { path, ref } = await subirArchivo('fotos', proyectoId, file, file.name.split('.').pop() ?? 'jpg', ordenId);
+  assertSession(ticket);
 
   return {
     url:      await resolverArchivo(ref),
@@ -87,6 +88,7 @@ export async function eliminarFoto(id: string, path: string): Promise<void> {
 
 // ─── Registrar foto en tabla fotos ────────────────────────────────────────────
 export async function registrarFotoEnDB(foto: FotoSubida): Promise<string> {
+  const ticket=sessionTicket();
   const fileTypeBD = foto.file_type.startsWith('video/') ? 'video'
                  : foto.file_type.startsWith('image/') ? 'imagen'  // ← 'foto' → 'imagen'
                  : foto.file_type === 'application/pdf' ? 'pdf'
@@ -105,8 +107,14 @@ export async function registrarFotoEnDB(foto: FotoSubida): Promise<string> {
     .select('id')
     .single();
 
-  if (error) throw new Error(`Error al registrar foto: ${error.message}`);
+  assertSession(ticket);if (error) throw new Error(`Error al registrar foto: ${error.message}`);
   return data.id as string;
+}
+
+export async function actualizarDescripcionFoto(id:string,descripcion:string):Promise<void>{
+  const ticket=sessionTicket();
+  const {data,error}=await supabase.from('fotos').update({descripcion:descripcion.trim()}).eq('id',id).select('id').single();
+  assertSession(ticket);if(error||!data)throw new Error(error?.message??'El servidor no confirmó la descripción.');
 }
 
 // ─── Subir + registrar (operación completa) ───────────────────────────────────
@@ -122,8 +130,14 @@ export async function subirYRegistrarFoto(
 ): Promise<FotoSubida & { id: string }> {
   const fotoBase = await subirFoto(file, ordenId, categoria, proyectoId);
   const foto: FotoSubida = { ...fotoBase, proyecto_id: proyectoId }; // ← proyecto_id inyectado aquí
-  const id = await registrarFotoEnDB(foto);
-  return { ...foto, id };
+  try {
+    const id = await registrarFotoEnDB(foto);
+    return { ...foto, id };
+  } catch (error) {
+    const cleanup=await supabase.storage.from('fotos').remove([foto.path]);
+    if(cleanup.error)throw new Error(`${error instanceof Error?error.message:'No se registró la foto'} El archivo tampoco pudo limpiarse y quedó pendiente de revisión administrativa.`,{cause:error});
+    throw error;
+  }
 }
 
 // ─── Cargar fotos de una orden ────────────────────────────────────────────────

@@ -294,7 +294,7 @@ export default function VistaPlano({ fullscreen = false, onToggleFullscreen }: V
     o => o.pos_x === null || o.pos_x === undefined || (o as any).pos_x === null
   );
 
-  const handleDropOT = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+  const handleDropOT = useCallback(async (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
     if (!puedeEditar) return;
@@ -305,17 +305,18 @@ export default function VistaPlano({ fullscreen = false, onToggleFullscreen }: V
     const pos_y = Math.max(0.01, Math.min(0.99, (e.clientY - rect.top)  / rect.height));
     const moveId = e.dataTransfer.getData('text/ot-move');
     if (moveId) {
-      void actualizarOrden(moveId, { pos_x, pos_y }).catch(e=>setErrorAccion(e.message));
+      try{await actualizarOrden(moveId,{pos_x,pos_y});setErrorAccion(null);}
+      catch(err){setErrorAccion(err instanceof Error?err.message:'No se pudo mover la orden.');}
       return;
     }
     const placeId = e.dataTransfer.getData('text/ot-id');
     if (placeId) {
-      void actualizarOrden(placeId, { pos_x, pos_y }).catch(e=>setErrorAccion(e.message));
-      const ordenObjetivo = useOrdenesStore.getState().ordenes.find(o => o.id === placeId);
-      if (ordenObjetivo) {
-        setOrdenSeleccionada(ordenObjetivo);
+      try{
+        const ordenObjetivo=await actualizarOrden(placeId,{pos_x,pos_y});setErrorAccion(null);
+        if(ordenObjetivo){setOrdenSeleccionada(ordenObjetivo);
         setModoForzadoFotos(true);
-      }
+        }
+      }catch(err){setErrorAccion(err instanceof Error?err.message:'No se pudo ubicar la orden.');}
       return;
     }
   }, [actualizarOrden, puedeEditar]);

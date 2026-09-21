@@ -26,6 +26,7 @@ import {
   cargarFotosDeOrden,
   cargarFotosPendientesDeOrden,
   eliminarFoto,
+  actualizarDescripcionFoto,
   type CategoriaFoto,
   type FotoResultado,
 } from '../../services/fotosService';
@@ -43,7 +44,6 @@ import { ModalComentarioEstado } from './ModalComentarioEstado';
 import { HistorialComentarios } from './HistorialComentarios';
 import { ModalFotoDetalle } from './ModalFotoDetalle';
 import { ModalInformeOT, type TipoInforme as TipoInformeModal } from '../../components/informes/ModalInformeOT';
-import { crearComentario } from '../../services/comentariosService';
 import { useToast } from '../ui/Toast';
 import styles from './PanelOT.module.css';
 import TooltipAyuda from '../ayuda/TooltipAyuda';
@@ -183,6 +183,16 @@ function ordenToForm(orden: OrdenLocal | null): FormState {
   };
 }
 
+function camposCambiados(base: OrdenLocal, candidato: Partial<OrdenLocal>): Partial<OrdenLocal> {
+  const cambios: Partial<OrdenLocal> = {};
+  for (const [key,value] of Object.entries(candidato)) {
+    const campo=key as keyof OrdenLocal;
+    if (JSON.stringify(base[campo]) !== JSON.stringify(value))
+      (cambios as Record<string,unknown>)[key]=value;
+  }
+  return cambios;
+}
+
 function BtnEliminarFotoCard({ onClick }: { onClick: () => void }) {
   const [hover, setHover] = useState(false);
   return (
@@ -215,7 +225,7 @@ function BtnEditarFotoCard({ onClick, disabled = false, title }: { onClick: () =
 }
 
 export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, esNueva = false }: PanelOTProps) {
-  const { actualizarOrden, eliminarOrden, moverOrden } = useOrdenesStore();
+  const { actualizarOrden, cambiarEstado, cancelarOrdenNueva, eliminarOrden, moverOrden } = useOrdenesStore();
   const { user } = useAuthStore();
   const proyectoActivo = useProyectosStore(s => s.proyectoActivo);
   const { mostrar, ToastComponent } = useToast();
@@ -228,6 +238,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
 
   const [tab,             setTab]             = useState<Tab>('datos');
   const [form,            setForm]            = useState<FormState>(() => ordenToForm(ordenFresca));
+  const baseEdicion = useRef<OrdenLocal | null>(ordenFresca);
   const [inputContratista, setInputContratista] = useState('');
   const [dropdownContratistasOpen, setDropdownContratistasOpen] = useState(false);
   const [contratistasGlobales, setContratistasGlobales] = useState<string[]>(() => {
@@ -438,6 +449,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
 
   useEffect(() => {
     if (!ordenFresca) return;
+    baseEdicion.current=ordenFresca;
     setForm(ordenToForm(ordenFresca));
     setValoresCampos(
       ordenFresca.campos && typeof ordenFresca.campos === 'object' ? ordenFresca.campos : {}
@@ -451,6 +463,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
       if (!error && data && ordenProp?.id === capturedId) {
         const fresh = rowToOrden(data as Record<string, unknown>);
         useOrdenesStore.getState().agregarOActualizarOrden(fresh);
+        baseEdicion.current=fresh;
         setForm(ordenToForm(fresh));
         setValoresCampos(fresh.campos && typeof fresh.campos === 'object' ? fresh.campos : {});
       }
@@ -572,9 +585,9 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
         }).catch(() => setCargandoIA(false));
       }
       if (estadoNuevo && comentarioAuto !== null) {
+        const actualizada=await cambiarEstado(ordenFresca.id,estadoNuevo,comentarioAuto,null,baseEdicion.current??ordenFresca);
+        baseEdicion.current=actualizada;
         set('estado', estadoNuevo);
-        await actualizarOrden(ordenFresca.id, { estado: estadoNuevo });
-        await crearComentario({ orden_id: ordenFresca.id, proyecto_id: ordenFresca.proyecto_id, estado_anterior: estadoActual, estado_nuevo: estadoNuevo, comentario: comentarioAuto });
         setHistorialRefresh(prev => prev + 1);
       }
     } catch (err) {
@@ -587,21 +600,25 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
   const handleGuardarDescripcionIA = async (descripcion: string) => {
     if (!modalDescIA) { setModalDescIA(null); return; }
     const { fotoId, fotoPendienteId } = modalDescIA;
-    setModalDescIA(null);
-    if (!descripcion.trim()) return;
+    if (!descripcion.trim()) { setModalDescIA(null); return; }
     const desc = descripcion.trim();
-    if (fotoPendienteId != null) {
-      // Todavía no existe la fila en `fotos`: la descripción viaja con el
-      // registro de Dexie y la escribe el SyncManager al subir (Fase 3).
-      await db.fotosPendientes.update(fotoPendienteId, { descripcion: desc });
-    } else {
-      await supabase.from('fotos').update({ descripcion: desc }).eq('id', fotoId);
+    try {
+      if (fotoPendienteId != null) {
+        // Todavía no existe la fila en `fotos`: la descripción viaja con el
+        // registro de Dexie y la escribe el SyncManager al subir (Fase 3).
+        await db.fotosPendientes.update(fotoPendienteId, { descripcion: desc });
+      } else {
+        await actualizarDescripcionFoto(fotoId,desc);
+      }
+      const actualizar = (arr: FotoConId[]) =>
+        arr.map(f => f.id === fotoId ? { ...f, descripcion: desc } : f);
+      setFotosAntes(prev => actualizar(prev));
+      setFotosDurante(prev => actualizar(prev));
+      setFotosDespues(prev => actualizar(prev));
+      setModalDescIA(null);
+    } catch (err) {
+      setErrorFotos(err instanceof Error ? err.message : 'No se pudo guardar la descripción.');
     }
-    const actualizar = (arr: FotoConId[]) =>
-      arr.map(f => f.id === fotoId ? { ...f, descripcion: desc } : f);
-    setFotosAntes(prev => actualizar(prev));
-    setFotosDurante(prev => actualizar(prev));
-    setFotosDespues(prev => actualizar(prev));
   };
 
   const handleEliminarFoto = async (foto: FotoConId, categoria: CategoriaFoto) => {
@@ -667,7 +684,8 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
 
     setGuardando(true);
     try {
-      const actualizada = await actualizarOrden(ordenFresca.id, {
+      const base=baseEdicion.current??ordenFresca;
+      const cambios=camposCambiados(base,{
         ot:                         form.ot,
         descripcion:                form.descripcion ?? '',
         comentarios:                form.comentarios ?? '',
@@ -680,9 +698,9 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
         nivel_riesgo:               form.nivel_riesgo ?? null,
         responsable:                form.responsable ?? '',
         contratistas:               form.contratistas ?? [],
-        fecha_ingreso:              form.fecha_ingreso ?? undefined,
-        fecha_inicio_trabajos:      estado === 'No aplica' ? undefined : (form.fecha_inicio_trabajos ?? undefined),
-        fecha_fin_trabajos:         fechaFinFinal ?? undefined,
+        fecha_ingreso:              (form.fecha_ingreso || null) as unknown as string,
+        fecha_inicio_trabajos:      (estado === 'No aplica' ? null : (form.fecha_inicio_trabajos || null)) as unknown as string,
+        fecha_fin_trabajos:         (fechaFinFinal || null) as unknown as string,
         porcentaje_avance:          form.porcentaje_avance ?? 0,
         costo:                      form.costo ?? undefined,
         en_garantia:                form.en_garantia ?? false,
@@ -695,7 +713,9 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
         informe_cierre:             form.informe_cierre ?? 'Pendiente',
         campos: valoresCampos,
       });
+      const actualizada=Object.keys(cambios).length?await actualizarOrden(ordenFresca.id,cambios,base):base;
       if (actualizada) {
+        baseEdicion.current=actualizada;
         setForm(ordenToForm(actualizada));
       } else {
         const fromStore = useOrdenesStore.getState().ordenes.find(o => o.id === ordenFresca.id);
@@ -711,27 +731,35 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
         mostrar('Guardado. Las fotos obligatorias no se verificaron — sin conexión con el servidor.', 'info');
       }
       if (modoForzadoFotos) onCerrar();
+    } catch(err) {
+      mostrar(err instanceof Error?err.message:'No se pudieron guardar los cambios.','error');
     } finally {
       setGuardando(false);
     }
   };
 
-  const handleEliminar = () => {
+  const handleEliminar = async () => {
     if (!confirmEliminar) { setConfirmEliminar(true); return; }
-    eliminarOrden(ordenFresca.id);
-    onCerrar();
+    setGuardando(true);
+    try{await eliminarOrden(ordenFresca.id);onCerrar();}
+    catch(err){mostrar(err instanceof Error?err.message:'No se pudo eliminar la orden.','error');}
+    finally{setGuardando(false);}
   };
 
-  const handleCancelarNueva = () => {
+  const handleCancelarNueva = async () => {
     if (!ordenFresca) { onCerrar(); return; }
-    eliminarOrden(ordenFresca.id);
-    onCerrar();
+    setGuardando(true);
+    try{await cancelarOrdenNueva(ordenFresca.id);onCerrar();}
+    catch(err){mostrar(err instanceof Error?err.message:'La orden ya existe y no pudo eliminarse.','error');}
+    finally{setGuardando(false);}
   };
 
   const handleCancelarUbicacion = async () => {
     if (!ordenFresca) return;
-    await moverOrden(ordenFresca.id, null, null);
-    onCerrar();
+    setGuardando(true);
+    try{await moverOrden(ordenFresca.id,null,null);onCerrar();}
+    catch(err){mostrar(err instanceof Error?err.message:'No se pudo quitar la ubicación.','error');}
+    finally{setGuardando(false);}
   };
 
   const getValorCampo = (campoId: string): unknown => valoresCampos[campoId] ?? null;
@@ -909,19 +937,18 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
     }
     const comentario = await pedirComentarioEstado(estadoAnterior, nuevoEstado, false);
     if (comentario === null) return;
-    await crearComentario({
-      orden_id: ordenFresca.id, proyecto_id: ordenFresca.proyecto_id,
-      estado_anterior: estadoAnterior, estado_nuevo: nuevoEstado, comentario,
-    });
     const extraFields: Partial<OrdenLocal> = {};
     if (nuevoEstado === 'No aplica') {
       const hoy = new Date().toISOString().slice(0, 10);
-      set('fecha_fin_trabajos', hoy);
       extraFields.fecha_fin_trabajos = hoy;
     }
-    set('estado', nuevoEstado);
-    await actualizarOrden(ordenFresca.id, { estado: nuevoEstado, ...extraFields });
-    setHistorialRefresh(prev => prev + 1);
+    try{
+      const actualizada=await cambiarEstado(ordenFresca.id,nuevoEstado,comentario,extraFields.fecha_fin_trabajos??null,baseEdicion.current??ordenFresca);
+      baseEdicion.current=actualizada;
+      if(extraFields.fecha_fin_trabajos)set('fecha_fin_trabajos',extraFields.fecha_fin_trabajos);
+      set('estado',nuevoEstado);
+      setHistorialRefresh(prev => prev + 1);
+    }catch(err){mostrar(err instanceof Error?err.message:'No se pudo cambiar el estado.','error');}
   };
 
   const toggleRow = (campo: string, label: string) => {
