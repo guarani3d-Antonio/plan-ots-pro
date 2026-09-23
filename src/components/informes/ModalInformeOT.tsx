@@ -151,11 +151,64 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
   const firstRenderRef = useRef(true);
   const prevIncluirFotosRef = useRef(incluirFotos);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
+  const [previewAncho, setPreviewAncho] = useState(794);
+  const [previewAlto, setPreviewAlto] = useState(1123);
+
+  useEffect(() => {
+    if (!isOpen || !previewRef.current) return;
+    const panel = previewRef.current;
+    const medir = () => setPreviewAncho(Math.max(1, panel.clientWidth - 48));
+    medir();
+    const observer = new ResizeObserver(medir);
+    observer.observe(panel);
+    return () => observer.disconnect();
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!htmlPreview || !iframeRef.current) return;
+    const iframe = iframeRef.current;
+    let observer: ResizeObserver | undefined;
+    let frame = 0;
+    const medir = () => {
+      const doc = iframe.contentDocument;
+      if (!doc?.body) return;
+      const origen = doc.body.getBoundingClientRect().top;
+      const altoContenido = Array.from(doc.body.children).reduce((alto, elemento) => {
+        const rect = elemento.getBoundingClientRect();
+        return Math.max(alto, rect.bottom - origen);
+      }, 0);
+      const alto = Math.max(1123, Math.ceil(altoContenido + 8));
+      setPreviewAlto(actual => actual === alto ? actual : alto);
+    };
+    const alCargar = () => {
+      observer?.disconnect();
+      const doc = iframe.contentDocument;
+      if (!doc) return;
+      medir();
+      observer = new ResizeObserver(() => {
+        cancelAnimationFrame(frame);
+        frame = requestAnimationFrame(medir);
+      });
+      observer.observe(doc.documentElement);
+      if (doc.body) observer.observe(doc.body);
+    };
+    iframe.addEventListener('load', alCargar);
+    if (iframe.contentDocument?.readyState === 'complete') alCargar();
+    return () => {
+      iframe.removeEventListener('load', alCargar);
+      observer?.disconnect();
+      cancelAnimationFrame(frame);
+    };
+  }, [htmlPreview]);
+
+  const escalaPreview = Math.min(1, previewAncho / 794);
 
   // Reset de flags al cambiar de OT o tipo
   useEffect(() => {
     firstRenderRef.current = true;
     setHtmlPreview('');
+    setPreviewAlto(1123);
     setObservaciones('');
     setFotosAntes([]);
     setFotosDespues([]);
@@ -484,16 +537,20 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
           </div>
 
           {/* DERECHA */}
-          <div className={styles.right}>
+          <div className={styles.right} ref={previewRef}>
             {htmlPreview ? (
-              <iframe
-                key={`${orden.id}-${tipo}`}
-                ref={iframeRef}
-                className={styles.iframe}
-                srcDoc={htmlPreview}
-                sandbox="allow-same-origin"
-                title="preview-informe"
-              />
+              <div className={styles.previewSheet} style={{ width: 794 * escalaPreview, height: previewAlto * escalaPreview }}>
+                <iframe
+                  key={`${orden.id}-${tipo}`}
+                  ref={iframeRef}
+                  className={styles.iframe}
+                  style={{ height: previewAlto, transform: `scale(${escalaPreview})` }}
+                  srcDoc={htmlPreview}
+                  sandbox="allow-same-origin"
+                  scrolling="no"
+                  title="Vista previa del informe"
+                />
+              </div>
             ) : !generandoPreview ? (
               <div className={styles.emptyState}>
                 Hacé clic en <b>Actualizar preview</b>

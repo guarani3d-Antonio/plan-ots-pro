@@ -96,7 +96,7 @@
 .body {
   flex: 1;
   display: grid;
-  grid-template-columns: 380px 1fr;
+  grid-template-columns: minmax(320px, 380px) minmax(0, 1fr);
   overflow: hidden;
   min-height: 0;
 }
@@ -274,6 +274,7 @@
   padding: 24px;
   position: relative;
   min-height: 0;
+  min-width: 0;
 }
 
 /* Header "Vista previa del documento" — sticky para que quede visible al
@@ -293,18 +294,23 @@
   flex-shrink: 0;
 }
 
-/* Iframe del preview: tamaño A4 fijo, sombra de hoja, centrado. */
-.iframe {
-  width: 794px;
-  height: 1123px;
-  transform: scale(0.78);
-  transform-origin: top center;
-  margin-bottom: calc(1123px * (0.78 - 1));
+/* La hoja conserva su tamaño A4 interno y ocupa solo el ancho disponible. */
+.previewSheet {
+  position: relative;
   flex-shrink: 0;
-  border: none;
+  align-self: center;
   background: #fff;
   box-shadow: 0 4px 16px rgba(0,0,0,0.12);
-  border-radius: 4px;
+}
+
+.iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 794px;
+  transform-origin: top left;
+  border: none;
+  background: #fff;
 }
 
 .emptyState {
@@ -442,9 +448,29 @@
     border-radius: 0;
   }
   .body {
-    grid-template-columns: 1fr;
+    display: block;
+    overflow-y: auto;
   }
   .left {
-    display: none;
+    border-right: 0;
+    border-bottom: 1px solid #E5E7EB;
+    overflow: visible;
+    padding: 18px 24px;
+    gap: 14px;
   }
+  .right {
+    overflow: visible;
+    min-height: 320px;
+  }
+}
+
+@media (max-width: 600px) {
+  .header { flex-wrap: wrap; padding: 12px 16px; }
+  .title { order: 0; flex: 1 1 calc(100% - 80px); min-width: 0; font-size: 18px; }
+  .closeBtn { order: 1; flex: 0 0 32px; margin-left: auto; }
+  .badge { order: 2; }
+  .left, .right { padding: 16px; }
+  .footer { flex-wrap: wrap; padding: 10px 16px; gap: 8px; }
+  .avisoImpresion { flex: 0 0 100%; max-width: none; }
+  .btnCancelar, .btnSecondary, .btnPrimary { min-height: 44px; }
 }
