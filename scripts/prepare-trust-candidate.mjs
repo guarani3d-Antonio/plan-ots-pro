@@ -49,13 +49,14 @@ assert.match(sw, /NetworkOnly/);
 assert.match(sw, /storage-cache-cleanup/);
 assert(!sw.includes('day9-tablet-harness'));
 
-await mkdir('.backups.local/2026-09-22-servidor', { recursive: true });
+const pilot = process.argv.includes('--pilot');
+const outputDir = pilot ? 'tmp/piloto-campo-2026-09-23' : '.backups.local/2026-09-22-servidor';
+await mkdir(outputDir, { recursive: true });
 const artifact = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
-const artifactPath = '.backups.local/2026-09-22-servidor/plan-ots-candidate.zip';
+const artifactPath = `${outputDir}/plan-ots-candidate.zip`;
 await writeFile(artifactPath, artifact);
 const reopened = await JSZip.loadAsync(await readFile(artifactPath));
 for (const file of files) assert.equal(digest(await reopened.file(file.path).async('nodebuffer')), file.sha256);
 const report = { preparedAt: new Date().toISOString(), artifactPath, artifactSha256: digest(artifact), artifactBytes: artifact.length, secretsScanPassed: true, zipReadbackVerified: true, legacyHttpCacheCleanupVerified: true, pwaRealDeviceUpdateVerified: false, deployed: false, files };
-await mkdir('docs/bloqueos-2026-09-22', { recursive: true });
-await writeFile('docs/bloqueos-2026-09-22/candidate.json', JSON.stringify(report, null, 2) + '\n');
+await writeFile(pilot ? `${outputDir}/candidate.json` : 'docs/bloqueos-2026-09-22/candidate.json', JSON.stringify(report, null, 2) + '\n');
 console.log(`Candidata verificada: ${files.length} archivos; ZIP ${artifact.length} bytes; sin secretos detectados.`);

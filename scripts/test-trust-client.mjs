@@ -30,7 +30,7 @@ await test('coordenadas de anotación iguales tras zoom y cambio de tamaño',asy
  let width=500;const ctx={canvasRef:ref({getBoundingClientRect:()=>({width,left:20,top:30})})};vm.createContext(ctx);vm.runInContext(compile(await extract('src/components/plano/EditorFoto.tsx',['getCoords']))+'\nthis.coords=getCoords;',ctx);
  for(const w of [320,500,900,1600,2500]){width=w;const p=ctx.coords({clientX:20+w*.25,clientY:30+w*.4});assert(Math.abs(p.x-250)<1e-8);assert(Math.abs(p.y-400)<1e-8);}
 });
-const templates=await load('src/services/reportTemplates.ts');const reports=await load('src/services/reportService.ts',{'./reportTemplates':templates});
+const printCss=await load('src/services/reportPrintCss.ts');const templates=await load('src/services/reportTemplates.ts',{'./reportPrintCss':printCss});const reports=await load('src/services/reportService.ts',{'./reportTemplates':templates});
 await test('navegación no crea OTs y un doble toque crea una sola',async()=>{
  let creates=0,release;
  const context={useCallback:f=>f,accionPlanoRef:ref(false),didDragRef:ref(false),puedeEditar:true,modoPlano:'navegar',ordenAMover:null,planoListo:true,planoDims:{w:1000,h:1000},proyecto:{id:'p'},planAreaRef:ref({getBoundingClientRect:()=>({left:0,top:0})}),scRef:ref(1),txRef:ref(0),tyRef:ref(0),ordenes:[],actualizarOrden:async()=>{},crearOrdenEnPosicion:async()=>{creates++;await new Promise(r=>release=r);return {id:'qa'};},setModoPlano:()=>{},setOrdenSeleccionada:()=>{},setEsNuevaOT:()=>{},setErrorAccion:()=>{},setOrdenAMover:()=>{}};
@@ -38,9 +38,10 @@ await test('navegación no crea OTs y un doble toque crea una sola',async()=>{
  const tap={target:{closest:()=>false},clientX:200,clientY:300};await context.click(tap);assert.equal(creates,0);
  context.modoPlano='crear';const first=context.click(tap);await context.click(tap);assert.equal(creates,1);release();await first;assert.equal(context.accionPlanoRef.current,false);
 });
-await test('informes usan obra y unidad de la OT y preservan fecha civil',()=>{
+await test('cinco borradores no atribuyen emisión ni reutilizan ubicación legada',()=>{
  const order={id:'qa',ot:'OT-QA',estado:'Cerrada',obra:'OBRA_REAL_QA',unidad_amenities:'UNIDAD_REAL_QA',ubicacion:'UBICACION_ANTIGUA',rubro:'Prueba',responsable:'QA',prioridad:'Media',campos:{},updated_at:'2026-09-22T20:00:00Z',fecha_ingreso:'2026-09-22',fecha_inicio_trabajos:'2026-09-23',fecha_fin_trabajos:'2026-09-26'};
- for(const name of ['generarInformeFichaVisita','generarInformeRelevamiento','generarInformeAvance','generarInformeCierre']){const html=name==='generarInformeCierre' ? reports[name](order,'PROYECTO_DISTINTO','QA',[],[]) : reports[name](order,'QA',[],[]);assert(html.includes('OBRA_REAL_QA'),name+' obra');assert(html.includes('UNIDAD_REAL_QA'),name+' unidad');assert(!html.includes('UBICACION_ANTIGUA'),name+' legacy');assert(html.includes('2026-09-22T20:00:00Z'),name+' versión');}
+ for(const name of ['generarInformeOrdenServicio','generarInformeRelevamiento','generarInformeAvance','generarInformeCierre','generarInformeActaConformidad']){const html=name==='generarInformeCierre' ? reports[name](order,'PROYECTO_DISTINTO','QA',[],[]) : name==='generarInformeActaConformidad' ? reports[name](order) : name==='generarInformeOrdenServicio' ? reports[name](order,'QA') : reports[name](order,'QA',[],[]);assert(!html.includes('UBICACION_ANTIGUA'),name+' legacy');assert(html.includes('Revisión documental: sin emitir'),name+' borrador');}
+ const apertura=reports.generarInformeOrdenServicio(order,'QA');assert(apertura.includes('OBRA_REAL_QA'));assert(apertura.includes('UNIDAD_REAL_QA'));
  assert.equal(templates.formatearFechaLarga('2026-09-22'),'22 de Septiembre, 2026');
 });
 await test('respuesta ambigua de guardado no borra una imagen posiblemente confirmada',async()=>{
