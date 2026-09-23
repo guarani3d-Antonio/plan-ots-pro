@@ -33,7 +33,7 @@ def scenario(x, y, number, title, state, detail, action, color, bg):
 t(45, 27, "Estados que no deben parecer conformidad automática", 29, True, "#142C48")
 t(45, 73, "Variantes visuales de la misma OT ficticia · diseño conceptual", 18, False, "#53657A")
 
-scenario(45, 122, "VISITA · BORRADOR", "Falta dato obligatorio", "No se puede emitir", "Falta confirmar fecha y participante de la visita.", "Mostrar el faltante junto al campo y conservar borrador.", "#8B5A0B", "#FFF5E3")
+scenario(45, 122, "ORDEN · BORRADOR", "Falta dato obligatorio", "No se puede emitir", "Falta confirmar canal y fecha de recepción del pedido.", "Mostrar el faltante junto al campo y conservar borrador.", "#8B5A0B", "#FFF5E3")
 scenario(755, 122, "CIERRE · PRUEBA FALLIDA", "Resultado no conforme", "Cierre bloqueado", "T02 presentó una fuga visible en la verificación.", "Registrar acción correctiva y repetir la prueba; no afirmar cierre.", "#A73737", "#FBEDED")
 scenario(45, 475, "ACTA · DECISIÓN FAVORABLE", "P01 resuelto", "Aceptación propuesta", "Copia entregada el 25/09; condiciones ya definidas.", "La firma/identidad se vincula al archivo exacto antes de formalizar.", "#176D4D", "#EAF6EF")
 scenario(755, 475, "ACTA · RECHAZO", "Motivo registrado", "Recepción rechazada", "El receptor declara que T03 no quedó satisfactorio.", "Abrir tratamiento y nueva revisión; conservar el rechazo.", "#A73737", "#FBEDED")

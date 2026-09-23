@@ -827,11 +827,11 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
   const totalFotos = fotosAntes.length + fotosDurante.length + fotosDespues.length;
 
   const INFORMES_CONFIG: { tipo: TipoInforme; icono: string; nombre: string; codigo?: string; subtitulo: string }[] = [
-    { tipo: 'ficha_visita',     icono: '📋', nombre: 'Ficha de Visita',         codigo: 'FOR-09-01', subtitulo: 'Registro inicial de OT' },
+    { tipo: 'ficha_visita',     icono: '📋', nombre: 'Orden de Servicio',        subtitulo: 'Solicitud y apertura de OT' },
     { tipo: 'relevamiento',     icono: '🔍', nombre: 'Informe de Relevamiento',                      subtitulo: 'Diagnóstico técnico' },
     { tipo: 'avance',           icono: '📊', nombre: 'Informe de Avance',                            subtitulo: 'Progreso de ejecución' },
-    { tipo: 'cierre',           icono: '✅', nombre: 'Informe de Cierre',                            subtitulo: 'KPIs · días · costo · avance' },
-    { tipo: 'acta_conformidad', icono: '🏛️', nombre: 'Acta de Conformidad',                          subtitulo: 'Encuesta y firma del cliente' },
+    { tipo: 'cierre',           icono: '✅', nombre: 'Informe de Cierre',                            subtitulo: 'Resultado y verificación técnica' },
+    { tipo: 'acta_conformidad', icono: '🏛️', nombre: 'Acta de Conformidad',                          subtitulo: 'Recepción y decisión del cliente' },
   ];
 
   const bloqueFotos = (
@@ -1081,6 +1081,32 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
                   <span><strong>Creado por</strong> {creadoPor}</span>
                   <span><strong>Días abierto</strong> {diasAb} {diasAb === 1 ? 'día' : 'días'}</span>
                 </div>
+              </div>
+
+              <div className={`${styles.section} ${styles.formSection}`}>
+                <div className={styles.sectionTitle}>Origen de la solicitud</div>
+                <div className={styles.field}>
+                  <label className={styles.label}>Canal de recepción</label>
+                  <select className={styles.select} value={String(valoresCampos.canal_solicitud ?? '')} onChange={e => setValorCampo('canal_solicitud', e.target.value)}>
+                    <option value="">— No registrado —</option>
+                    <option value="Teléfono">Teléfono</option><option value="Correo">Correo</option>
+                    <option value="WhatsApp">WhatsApp</option><option value="Presencial">Presencial</option>
+                    <option value="Otro">Otro</option>
+                  </select>
+                </div>
+                <div className={styles.field}>
+                  <label className={styles.label}>Fecha y hora de recepción · Paraguay</label>
+                  <input className={styles.input} type="datetime-local" value={String(valoresCampos.fecha_solicitud ?? '')} onChange={e => setValorCampo('fecha_solicitud', e.target.value)} />
+                </div>
+                <div className={styles.field}>
+                  <label className={styles.label}>Solicitante</label>
+                  <input className={styles.input} value={String(valoresCampos.solicitante ?? '')} onChange={e => setValorCampo('solicitante', e.target.value)} placeholder="Nombre y organización" />
+                </div>
+                <div className={styles.field}>
+                  <label className={styles.label}>Referencia del mensaje</label>
+                  <input className={styles.input} value={String(valoresCampos.referencia_solicitud ?? '')} onChange={e => setValorCampo('referencia_solicitud', e.target.value)} placeholder="Correo, llamada o mensaje de origen" />
+                </div>
+                <p className={styles.metadataRow}>La orden registra lo declarado por el cliente. La visita y el diagnóstico se documentan en el relevamiento.</p>
               </div>
 
               <div className={`${styles.section} ${styles.formSection}`}>

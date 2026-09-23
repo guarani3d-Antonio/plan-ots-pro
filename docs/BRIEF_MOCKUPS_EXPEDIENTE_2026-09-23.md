@@ -1,10 +1,10 @@
 # Encargo de mockups para Sol Alto
 
-Fecha: 23/09/2026. Estado: cinco mockups A4 y vista del menú Creador generados; revisión visual del usuario pendiente. Leer primero `ESPECIFICACION_EXPEDIENTE_2026-09-23.md`. La auditoría previa solo se consulta para rastrear un hallazgo; no rehacerla.
+Fecha: 23/09/2026. Estado: cinco mockups A4 y menú Creador aprobados con cambio de la primera pieza a orden de servicio. Leer primero `ESPECIFICACION_EXPEDIENTE_2026-09-23.md`.
 
 ## Objetivo y límites de esta entrega
 
-Crear cinco modelos visuales de documentos que, juntos, expliquen una intervención completa: ficha de visita, relevamiento, avance, cierre técnico y acta de conformidad. Mostrar un caso consistente y las variantes necesarias para decidir contenido y diseño. El usuario revisará estos mockups antes de implementar. No cambiar plantillas activas, base de datos ni producción durante esta entrega.
+Crear cinco modelos visuales de documentos que, juntos, expliquen una intervención completa: orden de servicio, relevamiento, avance, cierre técnico y acta de conformidad. La primera pieza registra el pedido, aunque nunca haya habido visita.
 
 Usar Sol Alto para contenido ya definido, composición y ajustes. Reservar Astra para una revisión técnica posterior de permisos, emisión inmutable y firma si aparecen decisiones nuevas de arquitectura; no usarlo para retoques rutinarios. No crear tareas ni subagentes sin petición del usuario.
 
@@ -30,16 +30,16 @@ Fechas del caso: 21–24/09/2026, zona America/Asuncion. No confundir fecha prev
 
 | Registro | Fecha/período | Identificador corto de muestra |
 |---|---|---|
-| Visita | 21/09, 09:00–09:40 | OT-042/C01/VT-01 R00 |
-| Relevamiento | 21/09, 11:00 | OT-042/C01/REL-01 R00 |
-| Avance 1 | 22/09 | OT-042/C01/AV-01 R00 |
-| Avance 2 | 23/09 | OT-042/C01/AV-02 R00 |
-| Cierre técnico | 23/09, 16:00 | OT-042/C01/CIE-01 R00 |
-| Acta | 24/09, 10:00 | OT-042/C01/ACT-01 R00 |
+| Orden de servicio | 21/09, 08:15 recepción; 08:25 registro | POT-2026-OS-00000001 R00 |
+| Relevamiento | 21/09, 11:00 | POT-2026-REL-00000002 R00 |
+| Avance 1 | 22/09 | POT-2026-AV-00000003 R00 |
+| Avance 2 | 23/09 | POT-2026-AV-00000004 R00 |
+| Cierre técnico | 23/09, 16:00 | POT-2026-CIE-00000005 R00 |
+| Acta | 24/09, 10:00 | POT-2026-ACT-00000006 R00 |
 
-### Hechos de visita
+### Hechos de la orden de servicio
 
-Reclamo: “Se observa goteo debajo de la unidad interior durante el uso”. Condición registrada: humedad bajo el equipo, sin desmontaje ni diagnóstico en esta etapa. Evidencia E01: vista inicial del área/equipo. Restricción: coordinar acceso a la oficina ocupada; horario acordado 08:00–10:00. Compromiso: acceso y protección de mobiliario a cargo del contacto del cliente el 22/09. Resultado: realizar relevamiento técnico. Checklist breve con respuestas explícitas y un no aplica justificado; no trasladar el checklist completo a documentos posteriores.
+Reclamo recibido por correo del cliente a las 08:15: “Se observa goteo debajo de la unidad interior durante el uso”. La OT se registra a las 08:25. E01 es una imagen aportada por el cliente: se conserva el mensaje de origen y la imagen original; no se presenta como foto ni observación del técnico. Clasificación inicial: aire acondicionado, prioridad provisional media. Próximo paso: realizar relevamiento técnico. En esta pieza no hay visita, checklist de acceso ni diagnóstico.
 
 ### Hechos de relevamiento
 
@@ -53,29 +53,29 @@ Alcance aprobado de ejemplo:
 | T02 | Reinstalar y comprobar conexiones intervenidas | Sin fugas visibles durante comprobación | 30% |
 | T03 | Verificar funcionamiento y entregar registro | Sin goteo observado durante período de prueba acordado y registro entregado | 30% |
 
-Condición de prueba, duración y responsable deben figurar explícitos como acuerdo ficticio, sin presentar esos parámetros como norma universal. Exclusión: intervención en red embutida fuera del tramo accesible. Plazo previsto: 22–23/09. Aprobación de alcance simulada por responsable autorizado, vinculada a REL-01 R00; no simular firma válida.
+Condición de prueba, duración y responsable deben figurar explícitos como acuerdo ficticio, sin presentar esos parámetros como norma universal. Exclusión: intervención en red embutida fuera del tramo accesible. Plazo previsto: 22–23/09. Aprobación de alcance simulada por responsable autorizado, vinculada a POT-2026-REL-00000002 R00; no simular firma válida.
 
 ### Hechos de avances
 
-AV-01: T01 completado; T02/T03 pendientes; progreso 40% por hitos ponderados de REL-01 R00. E03 muestra trabajo ejecutado. Sin cambio de alcance. Próximo paso: reinstalación y prueba. No copiar E01 ni diagnóstico.
+AV-01: T01 completado; T02/T03 pendientes; progreso 40% por hitos ponderados de POT-2026-REL-00000002 R00. E03 muestra trabajo ejecutado. Sin cambio de alcance. Próximo paso: reinstalación y prueba. No copiar E01 ni diagnóstico.
 
 AV-02: T02/T03 completados; progreso del período +60 puntos, acumulado 100% del alcance técnico. E04 muestra prueba final. Distinguir “ejecución técnica 100%” de recepción: aún pendiente. No inventar que 100% del alcance equivale a expediente formalizado.
 
 ### Hechos de cierre
 
-T01/T02/T03 ejecutados y criterios probados con resultados explícitos, fecha y verificador. Citar REL-01 R00 y AV-01/AV-02. Usar E04 como evidencia final y E01 solo si la comparación aporta valor; no repetir todas las fotos. Conclusión: conforme técnicamente según criterios registrados; recepción del cliente pendiente.
+T01/T02/T03 ejecutados y criterios probados con resultados explícitos, fecha y verificador. Citar POT-2026-REL-00000002 R00 y AV-01/AV-02. Usar E04 como evidencia final y E01 solo si la comparación aporta valor; no repetir todas las fotos. Conclusión: conforme técnicamente según criterios registrados; recepción del cliente pendiente.
 
 Entregable administrativo pendiente P01: copia adicional del registro para archivo de administración, responsable Supervisor B, fecha 25/09. La copia principal ya fue entregada; no contradice T03. Declarar este pendiente como no impeditivo de la verificación técnica en el supuesto del caso. No usar un defecto de seguridad como ejemplo de pendiente tolerable.
 
 ### Hechos de acta
 
-Referencia exacta a CIE-01 R00. Objeto: recepción del servicio de limpieza, reinstalación y verificación de AC-204. Decisión de muestra: **aceptado con reservas**, reserva P01 y fecha/responsable. Firma pendiente en una variante; formalización simulada con recibo claramente ficticio en otra. No copiar hallazgos ni pruebas del cierre.
+Referencia exacta a POT-2026-CIE-00000005 R00. Objeto: recepción del servicio de limpieza, reinstalación y verificación de AC-204. Decisión de muestra: **aceptado con reservas**, reserva P01 y fecha/responsable. Firma pendiente en una variante; formalización simulada con recibo claramente ficticio en otra. No copiar hallazgos ni pruebas del cierre.
 
 Garantía: no inventar cobertura/plazo. En el mockup principal indicar “Condición contractual pendiente de definición para esta muestra”; por eso no se presenta como acta lista para emisión real. Mostrar además el lugar que ocupará una referencia contractual confirmada y su resumen. Si BBC proporciona condiciones, reemplazar el supuesto, manteniendo trazabilidad.
 
 ## Piezas y variantes a presentar
 
-1. Visita: 1–2 páginas, reclamo, condición inicial, checklist legible y compromisos. Variante de borrador con dato obligatorio faltante.
+1. Orden de servicio: 1–2 páginas, canal, solicitud original, evidencia aportada, clasificación y derivación. Variante de borrador con dato obligatorio faltante.
 2. Relevamiento: 2–3 páginas, hallazgos/pruebas, alcance por ítems, criterios y decisión de alcance. Mostrar diferencia entre propuesta y alcance aprobado sin duplicar todo el diseño.
 3. Avance: diseño de 1–2 páginas usando AV-01 y una segunda instancia compacta AV-02 para probar período/acumulado y continuidad.
 4. Cierre: unas 2 páginas, matriz ítem/criterio/resultado/evidencia, conclusión y pendiente P01. Variante de criterio fallido con conclusión no conforme, para comprobar que el diseño no sugiere éxito automáticamente.
@@ -92,7 +92,7 @@ Mostrar primero cinco vistas principales con enlaces claros y una tabla de conte
 Checklist de entrega:
 
 - Cada pieza se entiende aislada y referencia correctamente las anteriores.
-- Reclamo no se confunde con diagnóstico; cierre no copia relevamiento; acta no copia cierre.
+- Reclamo no se confunde con observación de visita ni diagnóstico; cierre no copia relevamiento; acta no copia cierre.
 - El porcentaje se explica y no cambia por la fecha de apertura.
 - Reservas y estado de firma se ven sin buscar en letra pequeña.
 - Datos faltantes se reconocen; no parecen aprobaciones completadas.

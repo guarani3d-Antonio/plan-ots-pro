@@ -30,11 +30,8 @@ export function formatearFechaCorta(fecha: string | null | undefined): string {
   return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
 }
 
-// Renderiza evidencia fotográfica sin recortar detalles técnicos.
-// - Una foto ocupa todo el ancho; varias se distribuyen en 2 columnas.
-// - Cada celda con `.no-break` (la foto + caption + descripción no se corta).
-// - Si hay más de 4 fotos: se parte en grupos de 4 y entre ellos se inserta
-//   un <div> separador con break-after:page (fuerza nueva página en print).
+// Cada evidencia fluye verticalmente. El navegador decide el salto de página,
+// manteniendo imagen y leyenda juntas; no se fuerza una página por cantidad.
 export function generarGridFotos(
   fotos: { file_url: string; descripcion?: string | null; descripcion_observacion?: string | null }[],
 ): string {
@@ -42,46 +39,26 @@ export function generarGridFotos(
     return '<p class="no-break" style="padding:12px 16px; border:1px solid #ddd; border-radius:8px; color:#666; font-size:12px;">Sin fotografías registradas en esta etapa.</p>';
   }
 
-  const PHOTOS_PER_PAGE = 4;
-  const chunks: { file_url: string; descripcion?: string | null; descripcion_observacion?: string | null }[][] = [];
-  for (let i = 0; i < fotos.length; i += PHOTOS_PER_PAGE) {
-    chunks.push(fotos.slice(i, i + PHOTOS_PER_PAGE));
-  }
-
-  return chunks.map((chunk, chunkIdx) => {
-    const start = chunkIdx * PHOTOS_PER_PAGE;
-    const unica = chunk.length === 1;
-    const gridStyle = `display:grid; grid-template-columns:${unica ? 'minmax(0,1fr)' : 'repeat(2,minmax(0,1fr))'}; gap:16px;`;
-    const itemsHtml = chunk.map((f, j) => {
-      const idx = start + j;
+  return `<div class="evidencias-secuenciales">${fotos.map((f, idx) => {
       const desc = (f.descripcion ?? '').trim();
       const obs  = (f.descripcion_observacion ?? '').trim();
       const descripcionHtml = desc
         ? escapeHtml(desc)
         : '<span style="color:#bbb">Sin descripción registrada</span>';
-      return `<div class="no-break" style="break-inside: avoid; page-break-inside: avoid;">
+      return `<figure class="evidencia-bloque" style="break-inside: auto; page-break-inside: auto; margin: 0 0 18px;">
         <div style="border: 1px solid #ddd; border-radius: 4px; overflow: hidden;">
-          <img src="${escapeHtml(f.file_url)}" alt="Evidencia fotográfica ${idx + 1}" loading="eager" onerror="this.style.display='none'; this.nextElementSibling && (this.nextElementSibling.style.display='flex')" style="max-width:100%; width:auto; height:auto; max-height:${unica ? '95mm' : '75mm'}; object-fit:contain; margin:0 auto; border-radius:4px; display:block;" />
+          <img src="${escapeHtml(f.file_url)}" alt="Evidencia fotográfica ${idx + 1}" loading="eager" onerror="this.style.display='none'; this.nextElementSibling && (this.nextElementSibling.style.display='flex')" style="max-width:100%; width:auto; height:auto; max-height:145mm; object-fit:contain; margin:0 auto; border-radius:4px; display:block;" />
           <div style="display:none; width:100%; min-height:75mm; background:#f0f0f0; border-radius:4px; align-items:center; justify-content:center; color:#999; font-size:11px;">
             Imagen no disponible
           </div>
         </div>
-        <div style="margin-top: 6px; padding: 6px 10px; background: #f8f8f8; border-left: 3px solid #CC7A00; border-radius: 0 4px 4px 0; min-height: 28px;">
+        <figcaption style="margin-top: 6px; padding: 6px 10px; background: #f8f8f8; border-left: 3px solid #CC7A00; border-radius: 0 4px 4px 0; min-height: 28px;">
           <span style="font-size: 10px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 2px;">Descripción técnica</span>
           <span style="font-size: 11px; color: #333; font-style: italic; line-height: 1.4;">${descripcionHtml}</span>
-        </div>
+        </figcaption>
         ${obs ? `<div style="margin-top:4px;padding:5px 10px;background:#fff8f0;border-left:3px solid #CC7A00;border-radius:0 4px 4px 0"><span style="font-size:10px;font-weight:600;color:#CC7A00;text-transform:uppercase;display:block;margin-bottom:2px">Observación del Editor</span><span style="font-size:11px;color:#333;font-style:italic">${escapeHtml(obs)}</span></div>` : ''}
-      </div>`;
-    }).join('\n');
-
-    const isLast = chunkIdx === chunks.length - 1;
-    const separator = !isLast
-      ? '\n<div style="break-after: page; page-break-after: always;"></div>'
-      : '';
-    return `<div style="${gridStyle}">
-      ${itemsHtml}
-    </div>${separator}`;
-  }).join('\n');
+      </figure>`;
+  }).join('\n')}</div>`;
 }
 
 // Configuración visual del badge "ESTADO: X" en el header de los informes.
@@ -170,7 +147,7 @@ tailwind.config = {
     box-sizing: border-box;
     overflow: visible;
   }
-  section, header, footer, .grid, .flex {
+  header, footer, .no-break {
     break-inside: avoid;
     page-break-inside: avoid;
   }
@@ -186,7 +163,7 @@ tailwind.config = {
   @media print {
     body { background: none; padding: 0; margin: 0; counter-reset: pagina; }
     .a4-page {
-      box-shadow: none; margin: 0; width: 100%; min-height: 0;
+      box-shadow: none; margin: 0; width: 100%; min-height: 0; display: block;
       padding: 8mm 16mm 28mm 16mm; overflow: visible;
       counter-increment: pagina;
     }
@@ -212,30 +189,18 @@ export const _FOOTER_INFORME = `<footer class="page-footer">
   <div class="w-full h-1.5 bg-[#CC7A00] mb-4"></div>
   <div class="flex justify-between items-start mb-3">
     <div class="flex flex-col gap-0.5">
-      <span class="font-bold text-[10px] text-primary">© __YEAR__ Benitez Bittar Constructora S.A. | Facility Services Division</span>
-      <span class="text-[9px] text-[#CC7A00] uppercase tracking-widest font-bold">Elaborado por Guaraní 3D de Grupo Díaz Villaverde</span>
+      <span class="font-bold text-[10px] text-primary">Plan-OTs · Documento de trabajo · __YEAR__</span>
+      <span class="text-[9px] text-[#CC7A00] uppercase tracking-widest font-bold">BORRADOR · SIN EMISIÓN NI APROBACIÓN</span>
     </div>
   </div>
   <div class="flex justify-between items-center">
-    <span class="text-[10px] text-on-surface-variant/80 italic">Este documento es confidencial y para uso exclusivo del destinatario y entidades autorizadas.</span>
+    <span class="text-[10px] text-on-surface-variant/80 italic">Vista de trabajo. No constituye constancia de recepción ni conformidad.</span>
     <span class="footer-pagina" style="font-size:9px; color:#fff; opacity:0.7;"></span>
   </div>
 </footer>`;
 
-// Logo de BBC (emisor del informe), usado en el header de cada informe.
-//
-// El logo del cliente se retiró en B1: estaba hardcodeado y salía en los informes de
-// TODOS los proyectos, atribuyendo mal el cliente (reproducido en campo con Kalo/OT-009).
-// Solución definitiva (roadmap, no B1): cargar un logo al CREAR el proyecto, junto a
-// nombre/cliente/plano, y leerlo desde el proyecto acá. Requiere columna en `proyectos`
-// — no existe hoy: la interfaz Proyecto (proyectosStore.ts:6-18) no tiene logo_url.
-// NO agregar UI de logo a ModalInformeOT: el dato debe venir del proyecto.
-export const _LOGOS_HTML_INFORME = `<div class="flex items-center gap-4">
-  <div class="flex items-center gap-3 flex-shrink-0">
-    <img alt="BBC Constructora Logo" class="h-10 w-auto object-contain max-w-[120px]"
-      src="https://lh3.googleusercontent.com/aida-public/AB6AXuAZllvvhAPx9rtylzcyTEmxbZTrzv3wTxLXEuqT6hVfNKy4hOmUGXk2BxjKAKwmOO931f6sKQztPbubOSybhYusjtZEXiaa0Ggq9j70wSvZgy9HGL_8uqWfTveeotdC4TG8SExGrwqZTPWp5XRASM3dMUlb1Go4UbuZqySEN7SM0K8TG5gDtayNQPVlxGqRmDcYwu9oCXYM9ysIZWYO15_9r2RveasOdSFWzL9R_IYWpamGjGRXgSqpo4rjNdWVLcSlXKqCbWaqnoI4"/>
-  </div>
-</div>`;
+// La identidad institucional se incorporará desde la política aprobada del tenant.
+export const _LOGOS_HTML_INFORME = `<div class="flex items-center gap-4"><strong style="font-size:16px;color:#003366">Plan-OTs</strong></div>`;
 
 // Encabezado de página 1: logos + badge estado + ID + título h1 + subtítulo.
 export function _paginaHeader(orden: OrdenLocal, titulo: string, subtitulo: string): string {
@@ -249,11 +214,11 @@ export function _paginaHeader(orden: OrdenLocal, titulo: string, subtitulo: stri
         ESTADO: ${badge.texto}
       </div>
       <div class="text-body-sm font-mono-technical text-on-surface-variant">ID DE ORDEN: ${escapeHtml(otLabel)}</div>
-      <div class="text-body-sm">Versión OT: ${escapeHtml(orden.updated_at || 'No registrada')}</div>
+      <div class="text-body-sm">Revisión documental: sin emitir</div>
     </div>
   </header>
   <div class="mb-8">
-    <h1 class="font-headline-xl text-headline-xl text-primary border-l-[6px] border-primary pl-5 mb-3">${escapeHtml(titulo)}</h1>
+    <h1 class="font-headline-xl text-headline-xl text-primary border-l-[6px] border-primary pl-5 mb-3">${escapeHtml(titulo)} · BORRADOR</h1>
     <p class="text-on-surface-variant text-body-md max-w-3xl leading-relaxed">${escapeHtml(subtitulo)}</p>
   </div>`;
 }

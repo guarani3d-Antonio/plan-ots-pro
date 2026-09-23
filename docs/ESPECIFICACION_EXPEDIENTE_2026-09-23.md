@@ -1,8 +1,8 @@
 # Especificación del expediente documental de Plan-OTs
 
-Fecha: 23/09/2026. Estado: especificación aprobada por el usuario; mockups visuales preparados para revisión; aún no implementado.
+Fecha: 23/09/2026. Estado: especificación y mockups visuales aprobados con la corrección de orden de servicio; implementación en curso.
 
-Base: auditoría `AUDITORIA_EXPEDIENTE_INFORMES_2026-09-23.md`, código `98ee86c` y estructuras actuales de acceso, almacenamiento, fotos e historial. Alcance: visita, relevamiento, avances, cierre técnico y acta de conformidad de una OT. El usuario solicita completar este análisis con Astra y realizar los mockups con Sol Alto antes de implementar.
+Base: auditoría `AUDITORIA_EXPEDIENTE_INFORMES_2026-09-23.md`, código `98ee86c` y estructuras actuales de acceso, almacenamiento, fotos e historial. Alcance: orden de servicio, relevamiento, avances, cierre técnico y acta de conformidad de una OT. Una visita es un hecho posible dentro del relevamiento, no el origen obligatorio de la orden.
 
 ## 1. Decisiones rectoras
 
@@ -18,7 +18,8 @@ Base: auditoría `AUDITORIA_EXPEDIENTE_INFORMES_2026-09-23.md`, código `98ee86c
 
 | Información | Documento de origen | Uso posterior permitido |
 |---|---|---|
-| Reclamo del solicitante y condiciones encontradas al llegar | Visita | Relevamiento referencia reclamo; cierre solo identifica el objeto intervenido. |
+| Solicitud original, canal, remitente y evidencia aportada por el cliente | Orden de servicio | Relevamiento referencia la solicitud; no copia sus adjuntos salvo necesidad técnica explícita. |
+| Condiciones encontradas durante visita, si la hubo | Relevamiento | Cierre referencia el hallazgo pertinente, sin reproducir la crónica de visita. |
 | Hallazgos, pruebas de diagnóstico y causa probable | Relevamiento | Avance cita hallazgo si surge un desvío; cierre referencia diagnóstico sin volver a desarrollarlo. |
 | Alcance, exclusiones y criterios de aceptación aprobados | Relevamiento y sus revisiones | Avances citan ítems; cierre compara ejecución y resultados con esos ítems. |
 | Ejecución de un período, impedimentos y acciones | Cada avance | Cierre resume resultado final y cita avances, sin copiar la bitácora. |
@@ -35,25 +36,25 @@ Una referencia muestra tipo, número, revisión y sección/ítem. Las fotos tien
 
 R = obligatorio para emitir; C = obligatorio cuando aplica, con justificación registrada si no aplica. Las secciones no aplicables se resumen, no se rellenan con páginas vacías. Toda respuesta negativa o reserva exige tratamiento, responsable y fecha cuando corresponda.
 
-### 3.1 Ficha de visita técnica — ¿qué se pidió y qué se encontró al llegar?
+### 3.1 Orden de servicio — ¿qué se pidió, por qué canal y cómo se abrió la OT?
 
 | Bloque | Datos y procedencia | Regla |
 |---|---|---|
-| Identificación de visita | Fecha/hora real, visitante, participantes y representación; registro nuevo de visita. Proyecto/OT/ubicación desde entidades seleccionadas, confirmados en visita. | R. Fecha de ingreso de OT no sustituye fecha de visita. |
-| Solicitud | Reclamo original desde `orden.descripcion`, solicitante y fecha/fuente del pedido. | R. Mantener separado de la observación técnica. Si el reclamo cambió, conservar el recibido y registrar la aclaración. |
-| Condición inicial | Observación del visitante, activo/equipo/sector; fotos iniciales seleccionadas por condición. | R observación; C activo/fotos según procedimiento. Serie, modelo y etiqueta si existen y son relevantes. |
-| Acceso y preparación | Checklist contestado: conforme/no conforme/no aplica, observación y evidencia requerida. | C por tipo de intervención. Registrar quién/cuándo verificó; no imprimir casillas vacías como verificación. |
-| Restricciones | Accesos, horarios, interferencias, disponibilidad y riesgos observados; derivación de seguridad cuando corresponda. | R respuesta explícita. No sustituye permisos de trabajo ni evaluación especializada. |
-| Compromisos | Acción, responsable, fecha y condición de acceso/próxima visita. | C. Sin compromisos: indicarlo. |
-| Resultado de visita | Requiere relevamiento / información pendiente / derivación / no procede con motivo; constancia del visitante y del contacto si el procedimiento lo exige. | R. Constatar visita no equivale a aceptar trabajos futuros. |
+| Identificación de apertura | Proyecto, OT, ubicación conocida, fecha/hora de recepción y fecha/hora de registro; usuario que abrió la orden. | R. Distinguir hecho de carga. No inventar ubicación ni fecha de visita. |
+| Procedencia | Canal (teléfono, correo, WhatsApp, presencial u otro), solicitante, medio de contacto y referencia del mensaje. | R. Conservar prueba de origen autorizada y su ID; datos personales con permisos y retención definidos. |
+| Solicitud | Texto original del reclamo y aclaración posterior separada; necesidad y urgencia manifestadas por el cliente. | R. No convertir afirmaciones del cliente en diagnóstico técnico. |
+| Evidencia aportada | Adjuntos del cliente con ID, tipo, origen, fecha conocida y vínculo al mensaje; inventario aun si se incorpora como anexo. | C. No atribuir fotos del cliente a una visita del técnico. |
+| Clasificación y asignación | Categoría, prioridad provisional, responsable y próximo paso; criterio de asignación cuando aplique. | R. La prioridad operativa no equivale a riesgo verificado. |
+| Acuse y decisión inicial | Número único de orden, estado y constancia de recepción/derivación; necesidad de relevamiento o información pendiente. | R. La orden abre el servicio, no certifica visita, alcance ni aceptación. |
 
-Excluir: diagnóstico desarrollado, presupuesto, avance, pruebas finales y recepción. Extensión objetivo: 1–2 páginas más evidencia necesaria. El código FOR-09-01 solo se adopta si BBC confirma formulario y revisión oficial; no inventar los códigos de calidad.
+Excluir: visita, checklist pretrabajo, diagnóstico, presupuesto, avance, pruebas finales y recepción. Extensión objetivo: 1–2 páginas más adjuntos de origen indispensables. El código FOR-09-01 no se adopta para este nuevo tipo sin aprobación expresa del dueño del procedimiento.
 
 ### 3.2 Informe de relevamiento — ¿qué se diagnosticó y qué se propone realizar?
 
 | Bloque | Datos y procedencia | Regla |
 |---|---|---|
-| Referencia | Visita/revisión o motivo de intervención directa; fecha, técnico y activo. | R. Resumen de necesidad en una frase, sin copiar relato de visita. |
+| Referencia | Orden de servicio/revisión; intervención remota o visita real con fecha, técnico, participantes y activo cuando corresponda. | R. Resumen de necesidad en una frase. La visita se identifica como realizada, no programada. |
+| Condición y acceso | Observaciones al llegar, restricciones, verificaciones previas y checklist respondido, únicamente si hubo visita. | C. Registrar quién/cuándo y evidencia; no imprimir casillas vacías como hechos verificados. En relevamiento remoto, declarar modalidad y límites de observación. |
 | Hallazgos | ID, condición observada, localización y evidencia enlazada. | R al menos un hallazgo o conclusión justificada de ausencia de falla. |
 | Pruebas y mediciones | Método, valor/unidad, condición de prueba, referencia y equipo usado cuando sea relevante; certificado/calibración si el procedimiento lo exige. | C. Foto no equivale a medición. No fabricar lecturas. |
 | Diagnóstico | Causa confirmada/probable/no determinada; sustento y limitaciones. | R. Explicitar incertidumbre. |
@@ -106,7 +107,7 @@ Excluir: fotos de rutina, mediciones, antecedentes extensos, costos internos y e
 
 | Dato actual | Uso correcto | Cambio requerido |
 |---|---|---|
-| `orden.descripcion` | Reclamo recibido | Snapshot de origen al registrar visita, con aclaraciones separadas. |
+| `orden.descripcion` | Reclamo recibido | Snapshot de origen al abrir la orden de servicio, con canal, remitente, fecha y aclaraciones separadas. |
 | `orden.comentarios` | Observaciones generales del técnico | No precargar como diagnóstico/avance/cierre certificado. Importación asistida exige confirmación y conserva fuente. |
 | Comentario de transición | Evidencia contextual del historial | No es el contenido oficial de una fase. Conservar ID/actor/fecha si se cita. |
 | `obra`, `unidad_amenities`, `ubicacion` | Identificación física | Confirmar diferencia proyecto/obra/sector; no sustituir un vacío con otro campo sin regla visible. |
@@ -127,7 +128,7 @@ Entidades propuestas; nombres físicos a resolver durante implementación:
 
 - **Expediente:** tenant, proyecto, OT, ciclo de intervención, índice de documentos y estado de completitud.
 - **Registro de fase/borrador:** datos tipados propios, referencias de origen, autor, validaciones y contador de concurrencia. Se guarda de forma recuperable.
-- **Documento:** identidad estable, tipo y secuencia de visita/avance/etc. Numeración legible propuesta: proyecto/OT/ciclo/tipo/secuencia; revisión independiente. Identificador global interno UUID.
+- **Documento:** identidad estable, tipo y secuencia de orden/avance/etc. El folio se reserva atómicamente en el servidor con una secuencia global de Plan-OTs, nunca en el navegador ni con `MAX()+1`. Identificador global interno UUID.
 - **Revisión:** snapshot canónico, versión de esquema y plantilla, idioma, emisor/cliente/ubicación/actores congelados, período/fechas, audiencia, referencias exactas, motivo de cambio, revisión precedente y hash de contenido.
 - **Evidencia retenida:** ID, origen, revisión de foto, binario original y representación anotada usada cuando corresponda, hashes, tamaño/MIME, autor/fecha conocida y vínculos con hallazgo/ítem/criterio. Fecha de carga no se presenta como captura si esta no se conoce.
 - **Artefacto:** binario PDF exacto, hash de bytes, tamaño, ubicación privada y metadatos de render. HTML portable es representación complementaria identificada. Firmado es artefacto derivado vinculado al original.
@@ -135,6 +136,12 @@ Entidades propuestas; nombres físicos a resolver durante implementación:
 - **Evento y entrega:** historial anexable de revisión/emisión/sustitución/anulación/envío/recepción/aceptación; destinatario y resultado. Solicitar exportación, descargar y leer son eventos diferentes.
 
 Una aprobación del alcance no es aprobación del cierre. Una autorización interna no es firma del cliente. Los IDs del snapshot se contrastan en servidor y no se aceptan referencias a otro tenant. No usar FK con borrado en cascada desde OT/foto hacia registros emitidos. Archivar operación no destruye expediente.
+
+### 5.1 Codificación y revisión no reutilizable
+
+El número legible tendrá espacio global, por ejemplo `POT-2026-OS-00000001`, `POT-2026-REL-00000002`, `POT-2026-AV-00000003`, `POT-2026-CIE-00000004`, `POT-2026-ACT-00000005`. `OS/REL/AV/CIE/ACT` identifica el tipo; el folio es global y monotónico, incluso entre empresas, proyectos y años. La base exige unicidad de folio y código. Huecos por transacciones fallidas son aceptables; **un número reservado jamás se reasigna**. El código de formulario de calidad de una empresa es otro atributo, con revisión propia y aprobación del Creador respaldada por la decisión institucional.
+
+Cada documento conserva su código en todas sus revisiones; `R00`, `R01`, etc. se agregan a la representación. La base exige unicidad de `(documento_id, revisión)`. Una revisión emitida es de solo lectura para todos los clientes y RPCs, conserva el PDF y las evidencias exactas, y una corrección produce `R+1` con motivo y referencia al emitido anterior. No reutilizar `updated_at` de la OT como revisión documental ni una fecha del navegador como folio.
 
 ## 6. Ciclo de revisión, emisión y firma
 
@@ -242,7 +249,7 @@ Las etapas técnicas no deben liberar botones que prometan emisión/firma oficia
 
 ## 11. Pruebas de aceptación
 
-1. Un caso atraviesa visita → alcance aprobado → dos avances → cierre → acta; cada dato tiene fuente, momento y dueño, sin repetir narraciones.
+1. Un caso atraviesa orden de servicio → relevamiento (con visita o remoto) → alcance aprobado → dos avances → cierre → acta; cada dato tiene fuente, momento y dueño, sin repetir narraciones.
 2. Descargar de nuevo una revisión produce exactamente los mismos bytes, aunque cambien OT, usuario, cliente, fotos o plantilla.
 3. Editar/borrar una foto operativa no cambia una evidencia emitida. Un borrado de proyecto no elimina el expediente por cascada.
 4. Dos editores y doble toque de emisión no pierden cambios ni duplican números. Clave repetida con otro payload se rechaza.

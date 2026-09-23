@@ -1,6 +1,7 @@
 import {useState} from 'react';
 import {supabase} from '../../db/supabase';
 import {useAccessStore} from '../../stores/accessStore';
+import {PoliticasDocumentales} from './PoliticasDocumentales';
 
 export function AdministracionCreador(){
  const {contexto,empresaId,refresh}=useAccessStore();
@@ -30,6 +31,7 @@ export function AdministracionCreador(){
     <label>Obra <select value={obra} onChange={e=>setObra(e.target.value)}><option value="">Seleccionar obra</option>{contexto.obras.filter(p=>p.tenant_id===empresaId).map(p=><option key={p.id} value={p.id}>{p.nombre}</option>)}</select></label>
     <label>Permiso en la obra <select value={rolObra} onChange={e=>setRolObra(e.target.value)}><option value="supervisor">Supervisor</option><option value="tecnico">Técnico</option><option value="viewer">Lector</option><option value="sin_acceso">Retirar acceso</option></select></label>
     <button disabled={!email.trim()||!contexto.obras.some(p=>p.id===obra&&p.tenant_id===empresaId)} onClick={()=>void ejecutar(()=>supabase.rpc('plan_admin_obra_miembro',{p_proyecto:obra,p_email:email,p_rol:rolObra}))}>Guardar acceso a obra</button>
+    <PoliticasDocumentales tenantId={empresaId}/>
    </>}
   </fieldset>
   {mensaje&&<p role="status">{mensaje}</p>}

@@ -89,7 +89,7 @@ const MODULOS: ModuloAyuda[] = [
     titulo: 'Generar informes',
     resumen: 'Cinco tipos de informe con vista previa antes de imprimir.',
     pasos: [
-      { texto: 'Abrí una OT → pestaña "Informes" → elegí el tipo (Ficha de visita, Relevamiento, Avance, Acta de conformidad, etc.).' },
+      { texto: 'Abrí una OT → pestaña "Informes" → elegí el tipo (Orden de servicio, Relevamiento, Avance, Cierre o Acta de conformidad).' },
       { texto: 'Revisá la vista previa y completá los comentarios finales editables.' },
       {
         texto: 'Generá el PDF. Incluye logo Guaraní 3D, KPIs y las fotos según el tipo de informe.',

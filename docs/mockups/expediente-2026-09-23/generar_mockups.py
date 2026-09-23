@@ -203,29 +203,29 @@ def signature(c, top, left_label, right_label):
     return top - h - 8
 
 
-def make_visit(c):
-    doc = "OT-042/C01/VT-01 R00"
-    y = header(c, "01 / Visita", "Ficha de visita técnica", doc, "21/09/2026 · 09:00–09:40", "Borrador de muestra")
-    y = section(c, 1, "Solicitud y condición encontrada", y)
-    y = info_box(c, y, "Reclamo recibido", "Se observa goteo debajo de la unidad interior durante el uso.", ICE, 50)
-    y = two_cards(c, y, "Observación de la visita", "Humedad bajo AC-204. No se desmontó el equipo durante la visita.", "Quiénes participaron", "Técnica A · visitante; contacto del cliente · acceso a oficina.", 71)
-    y = evidence(c, y, "E01", "21/09 · Condición inicial del sector y ubicación del equipo AC-204.", "initial")
-    y = section(c, 2, "Acceso, restricciones y compromiso", y)
-    y = table(c, y, ["Verificación", "Resultado", "Observación"], [196, 96, CW - 292], [
-        ("Acceso al sector", "Conforme", "Ingreso acordado 08:00–10:00."),
-        ("Protección de mobiliario", "Pendiente", "A cargo del contacto el 22/09."),
-        ("Permiso especial", "No aplica", "No requerido para esta visita."),
+def make_service_order(c):
+    doc = "POT-2026-OS-00000001 R00"
+    y = header(c, "01 / Apertura", "Orden de servicio", doc, "21/09/2026 · 08:25", "Borrador de muestra")
+    y = section(c, 1, "Origen y solicitud", y)
+    y = two_cards(c, y, "Recepción del pedido", "21/09 · 08:15 · Correo del cliente. Referencia MSG-01.", "Registro de la OT", "21/09 · 08:25 · Operador de mesa de servicios.", 64)
+    y = info_box(c, y, "Reclamo original del solicitante", "Se observa goteo debajo de la unidad interior durante el uso.", ICE, 52)
+    y = evidence(c, y, "E01", "Imagen enviada por el cliente con MSG-01; no es registro de una visita técnica.", "initial")
+    y = section(c, 2, "Clasificación y derivación", y)
+    y = table(c, y, ["Dato", "Registro", "Procedencia"], [140, 153, CW - 293], [
+        ("Activo referido", "AC-204", "Declarado por el cliente"),
+        ("Prioridad inicial", "Media · provisional", "Clasificación operativa"),
+        ("Responsable", "Técnica A", "Asignación de mesa"),
     ], 9.2, 30)
-    y = info_box(c, y, "Resultado de la visita", "Realizar relevamiento técnico. Coordinación de acceso el 22/09; el diagnóstico aún no está establecido.", GREEN_PALE, 54)
-    y = signature(c, y, "Visitante · Técnica A", "Contacto del cliente · constancia opcional")
+    y = info_box(c, y, "Siguiente paso", "Realizar relevamiento técnico. No se certifican visita, diagnóstico ni conformidad en esta orden.", GREEN_PALE, 55)
+    y = signature(c, y, "Registro · mesa de servicios", "Revisión de apertura · pendiente")
     footer(c, doc, content_bottom=y)
 
 
 def make_survey(c):
-    doc = "OT-042/C01/REL-01 R00"
+    doc = "POT-2026-REL-00000002 R00"
     y = header(c, "02 / Diagnóstico", "Informe de relevamiento", doc, "21/09/2026 · 11:00", "Alcance de muestra")
     y = section(c, 1, "Hallazgo y diagnóstico", y)
-    y = two_cards(c, y, "Referencia y autora", "VT-01 R00 · AC-204 · Oficina 204 · Técnica A.", "Hallazgo H01", "Obstrucción observada en tramo accesible de drenaje.", 61)
+    y = two_cards(c, y, "Origen y modalidad", "OS folio 00000001 R00 · Visita 21/09, 09:00–09:40 · Técnica A.", "Hallazgo H01", "Obstrucción observada en tramo accesible de drenaje.", 61)
     y = evidence(c, y, "E02", "21/09 · Tramo accesible donde se observó la obstrucción.", "finding")
     y = info_box(c, y, "Diagnóstico · causa probable", "La obstrucción podría explicar el goteo. Se confirmará con una prueba de descarga después de la limpieza.", AMBER_PALE, 52)
     y = section(c, 2, "Alcance y criterios propuestos", y)
@@ -235,17 +235,17 @@ def make_survey(c):
         ("T03", "Verificar y entregar registro", "Sin goteo en prueba acordada; registro entregado."),
     ], 8.9, 33)
     y = two_cards(c, y, "Exclusión", "Red embutida fuera del tramo accesible.", "Plazo previsto", "22–23/09/2026. Método y duración de prueba: acuerdo del caso ficticio.", 63)
-    y = info_box(c, y, "Decisión de alcance", "Aprobación simulada de REL-01 R00 por responsable autorizado. Sin firma ni autorización real.", GREEN_PALE, 49)
+    y = info_box(c, y, "Decisión de alcance", "Aprobación simulada de POT-2026-REL-00000002 R00 por responsable autorizado. Sin firma ni autorización real.", GREEN_PALE, 49)
     footer(c, doc, content_bottom=y)
 
 
 def make_progress(c):
-    doc = "OT-042/C01/AV-02 R00"
+    doc = "POT-2026-AV-00000004 R00"
     y = header(c, "03 / Ejecución", "Informe de avance", doc, "23/09/2026 · corte diario", "Avance 02 de 02")
     y = section(c, 1, "Resultado del período", y)
     rounded(c, M, y, CW, 92, ICE, LINE)
     txt(c, M + 12, y - 18, "ALCANCE APROBADO", 8, True, BLUE)
-    txt(c, M + 12, y - 36, "REL-01 R00 · Hitos ponderados", 10, True, NAVY)
+    txt(c, M + 12, y - 36, "POT-2026-REL-00000002 R00 · Hitos ponderados", 10, True, NAVY)
     txt(c, M + 12, y - 54, "23/09 · T02 y T03 · Técnica A", 9.5)
     right(c, W - M - 12, y - 29, "100%", 24, True, GREEN)
     right(c, W - M - 12, y - 47, "+60 puntos hoy", 9, True, GREEN)
@@ -262,16 +262,16 @@ def make_progress(c):
     ], 8.7, 32)
     y = evidence(c, y, "E04", "23/09 · Prueba final y evidencia del trabajo ejecutado.", "final")
     y = section(c, 3, "Desvíos y siguiente decisión", y)
-    y = two_cards(c, y, "Desvíos del alcance", "Sin cambios aprobados respecto de REL-01 R00 en este corte.", "Siguiente paso", "Emitir cierre técnico tras validar resultados; la recepción del cliente sigue pendiente.", 75)
+    y = two_cards(c, y, "Desvíos del alcance", "Sin cambios aprobados respecto de POT-2026-REL-00000002 R00 en este corte.", "Siguiente paso", "Emitir cierre técnico tras validar resultados; la recepción del cliente sigue pendiente.", 75)
     y = info_box(c, y, "Lectura del indicador", "100% de hitos técnicos ejecutados. El expediente no está aceptado por el cliente ni formalizado por este porcentaje.", AMBER_PALE, 49)
     footer(c, doc, content_bottom=y)
 
 
 def make_close(c):
-    doc = "OT-042/C01/CIE-01 R00"
+    doc = "POT-2026-CIE-00000005 R00"
     y = header(c, "04 / Verificación", "Informe de cierre técnico", doc, "23/09/2026 · 16:00", "Recepción pendiente")
     y = section(c, 1, "Base y ejecución final", y)
-    y = info_box(c, y, "Alcance de referencia", "REL-01 R00 · T01–T03. Ejecución 22–23/09. Avances AV-01 R00 y AV-02 R00.", ICE, 50)
+    y = info_box(c, y, "Alcance de referencia", "POT-2026-REL-00000002 R00 · T01–T03. Ejecución 22–23/09. Avances POT-2026-AV-00000003 R00 y POT-2026-AV-00000004 R00.", ICE, 50)
     y = section(c, 2, "Comprobación de criterios", y)
     y = table(c, y, ["Ítem", "Verificación registrada", "Resultado", "Evidencia"], [45, 230, 128, CW - 403], [
         ("T01", "Descarga libre; sin rebalse visible.", "Conforme", "E04"),
@@ -287,10 +287,10 @@ def make_close(c):
 
 
 def make_act(c):
-    doc = "OT-042/C01/ACT-01 R00"
+    doc = "POT-2026-ACT-00000006 R00"
     y = header(c, "05 / Recepción", "Acta de conformidad", doc, "24/09/2026 · 10:00", "Pendiente de firma")
     y = section(c, 1, "Objeto de recepción", y)
-    y = info_box(c, y, "Servicio entregado", "Intervención del drenaje y verificación de AC-204. Cierre técnico CIE-01 R00 y registro principal entregados.", ICE, 59)
+    y = info_box(c, y, "Servicio entregado", "Intervención del drenaje y verificación de AC-204. Cierre técnico POT-2026-CIE-00000005 R00 y registro principal entregados.", ICE, 59)
     y = two_cards(c, y, "Receptor previsto", "Representante C · Administración Edificio Ejemplo. Autoridad a verificar.", "Emisor", "Servicios Técnicos Ejemplo S.A. · Supervisor B.", 70)
     y = section(c, 2, "Decisión y reservas", y)
     rounded(c, M, y, CW, 76, AMBER_PALE, LINE)
@@ -300,13 +300,13 @@ def make_act(c):
     y -= 84
     y = section(c, 3, "Condiciones y formalización", y)
     y = info_box(c, y, "Garantía contractual", "Cobertura y plazo pendientes de definir para esta muestra. No se presume una garantía nueva a partir de la OT.", RED_PALE, 54)
-    y = two_cards(c, y, "Estado del instrumento", "Borrador pendiente de condiciones y firma. La decisión aún no tiene efecto.", "Contenido a consentir", "ACT-01 R00, CIE-01 R00, reserva P01 y condiciones acordadas.", 72)
+    y = two_cards(c, y, "Estado del instrumento", "Borrador pendiente de condiciones y firma. La decisión aún no tiene efecto.", "Contenido a consentir", "POT-2026-ACT-00000006 R00, POT-2026-CIE-00000005 R00, reserva P01 y condiciones acordadas.", 72)
     y = signature(c, y, "Representante C · cliente", "Supervisor B · emisor")
     footer(c, doc, content_bottom=y)
 
 
 DOCS = [
-    ("01_visita", make_visit),
+    ("01_orden_servicio", make_service_order),
     ("02_relevamiento", make_survey),
     ("03_avance", make_progress),
     ("04_cierre", make_close),

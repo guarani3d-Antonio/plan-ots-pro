@@ -27,12 +27,11 @@ import { useEffect, useRef, useState } from 'react';
 import type { OrdenLocal } from '../../types/orden';
 import {
   generarInformeCierre,
-  generarInformeFichaVisita,
+  generarInformeOrdenServicio,
   generarInformeRelevamiento,
   generarInformeAvance,
   generarInformeActaConformidad,
 } from '../../services/reportService';
-import { fetchComentarioTransicion } from '../../services/comentariosService';
 import { cargarFotosDeOrden } from '../../services/fotosService';
 import { hacerInformePortable } from '../../services/portableReportService';
 import { colorEstado } from '../../utils/calculos';
@@ -70,28 +69,28 @@ interface TipoCfg {
 const TIPO_CFG: Record<TipoInforme, TipoCfg> = {
   cierre: {
     titulo: 'Informe de Cierre',
-    tituloDoc: 'Informe de Cierre de OT - BBC Constructora',
-    fileSlug: 'Informe_Cierre',
-    labelTextarea: 'Antecedentes y Diagnóstico *',
-    placeholderTextarea: 'Ingresá los antecedentes y diagnóstico de la OT...',
+    tituloDoc: 'Informe de Cierre - borrador',
+    fileSlug: 'Informe_Cierre_Borrador',
+    labelTextarea: 'Resultado técnico y pendientes',
+    placeholderTextarea: 'Registrá resultados verificados y pendientes; no copies el relevamiento...',
     necesitaFotosAntes: true,
     necesitaFotosDespues: true,
     necesitaFotosDurante: false,
   },
   ficha: {
-    titulo: 'Ficha de Visita Técnica',
-    tituloDoc: 'Ficha de Visita - BBC Constructora',
-    fileSlug: 'Ficha_Visita',
-    labelTextarea: 'Descripción del Trabajo',
-    placeholderTextarea: 'Describí brevemente el trabajo a realizar...',
+    titulo: 'Orden de Servicio',
+    tituloDoc: 'Orden de Servicio - borrador',
+    fileSlug: 'Orden_Servicio_Borrador',
+    labelTextarea: 'Aclaración posterior de la solicitud',
+    placeholderTextarea: 'Solo si el pedido original fue aclarado después de recibirlo...',
     necesitaFotosAntes: false,
     necesitaFotosDespues: false,
     necesitaFotosDurante: false,
   },
   relevamiento: {
     titulo: 'Informe de Relevamiento',
-    tituloDoc: 'Informe de Relevamiento - BBC Constructora',
-    fileSlug: 'Informe_Relevamiento',
+    tituloDoc: 'Informe de Relevamiento - borrador',
+    fileSlug: 'Informe_Relevamiento_Borrador',
     labelTextarea: 'Diagnóstico Inicial',
     placeholderTextarea: 'Detallá el diagnóstico técnico inicial...',
     necesitaFotosAntes: true,
@@ -100,18 +99,18 @@ const TIPO_CFG: Record<TipoInforme, TipoCfg> = {
   },
   avance: {
     titulo: 'Informe de Avance',
-    tituloDoc: 'Informe de Avance - BBC Constructora',
-    fileSlug: 'Informe_Avance',
+    tituloDoc: 'Informe de Avance - borrador',
+    fileSlug: 'Informe_Avance_Borrador',
     labelTextarea: 'Estado Actual del Trabajo',
     placeholderTextarea: 'Describí el progreso actual de los trabajos...',
-    necesitaFotosAntes: true,
+    necesitaFotosAntes: false,
     necesitaFotosDespues: false,
     necesitaFotosDurante: true,
   },
   acta: {
     titulo: 'Acta de Conformidad',
-    tituloDoc: 'Acta de Conformidad - BBC Constructora',
-    fileSlug: 'Acta_Conformidad',
+    tituloDoc: 'Acta de Conformidad - borrador',
+    fileSlug: 'Acta_Conformidad_Borrador',
     labelTextarea: null,
     placeholderTextarea: '',
     necesitaFotosAntes: false,
@@ -234,7 +233,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
       case 'cierre':
         return generarInformeCierre(orden, proyectoNombre, textoActual, fa, fd);
       case 'ficha':
-        return generarInformeFichaVisita(orden, textoActual);
+        return generarInformeOrdenServicio(orden, textoActual);
       case 'relevamiento':
         return generarInformeRelevamiento(orden, textoActual, fa);
       case 'avance':
@@ -250,23 +249,9 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
     let cancelado = false;
     setCargandoComentario(true);
 
-    let promComentario: Promise<string>;
-    switch (tipo) {
-      case 'cierre':
-        promComentario = fetchComentarioTransicion(orden.id, 'En proceso', 'Cerrada');
-        break;
-      case 'relevamiento':
-      case 'avance':
-        promComentario = fetchComentarioTransicion(orden.id, 'Pendiente', 'En proceso');
-        break;
-      case 'ficha':
-        promComentario = Promise.resolve(orden.comentarios ?? '');
-        break;
-      case 'acta':
-      default:
-        promComentario = Promise.resolve('');
-        break;
-    }
+    // Un comentario de transición es contexto del historial, no contenido
+    // aprobado de una fase. La redacción del borrador empieza vacía.
+    const promComentario = Promise.resolve('');
 
     const promFotos = necesitaFotos
       ? cargarFotosDeOrden(orden.id)
@@ -378,6 +363,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
     setGenerandoPreview(true);
     try {
       const result = await hacerInformePortable(construirHtml(observaciones));
+      if (result.missingImages) throw new Error(`${result.missingImages} imagen(es) no están disponibles. No se descarga un borrador incompleto.`);
       await registrarExportacion(orden.id, tipo, 'HTML');
       const blob = new Blob([result.html], { type: 'text/html;charset=utf-8' });
       const url = URL.createObjectURL(blob);
@@ -399,6 +385,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
     setGenerandoPreview(true);
     try {
       const result = await hacerInformePortable(construirHtml(observaciones));
+      if (result.missingImages) throw new Error(`${result.missingImages} imagen(es) no están disponibles. No se prepara un PDF incompleto.`);
       await registrarExportacion(orden.id, tipo, 'PDF');
       w.document.open(); w.document.write(result.html); w.document.close();
       w.onload = () => { w.document.title = cfg.tituloDoc; setTimeout(() => w.print(), 250); };
@@ -578,7 +565,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
         {/* FOOTER */}
         <div className={styles.footer}>
           <span className={styles.avisoImpresion}>
-            {errorInforme ?? 'El HTML incluye las fotos y funciona sin volver a iniciar sesión.'}
+            {errorInforme ?? 'Descargas de borrador. No son documentos emitidos ni aprobados.'}
           </span>
           <button type="button" className={styles.btnCancelar} onClick={onClose}>
             Cancelar
@@ -589,7 +576,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
             onClick={handleExportarHTML}
             disabled={!htmlPreview || generandoPreview}
           >
-            Exportar HTML
+            Descargar HTML borrador
           </button>
           <button
             type="button"
@@ -597,7 +584,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
             onClick={handleExportarPDF}
             disabled={!htmlPreview || generandoPreview}
           >
-            Exportar PDF →
+            Imprimir PDF borrador →
           </button>
         </div>
       </div>
