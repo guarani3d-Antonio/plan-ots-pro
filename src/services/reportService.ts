@@ -38,6 +38,17 @@ export interface DatosRelevamiento {
   decisionAlcance: string;
 }
 
+export interface DatosAvance {
+  periodoDesde: string;
+  periodoHasta: string;
+  alcanceReferencia: string;
+  acumulado: string;
+  porcentaje: string;
+  metodoPorcentaje: string;
+  desvios: string;
+  proximoPeriodo: string;
+}
+
 export function informeDisponible(tipo: TipoInforme, estadoOT: string): boolean {
   switch (tipo) {
     case 'orden_servicio':
@@ -170,18 +181,28 @@ export function generarInformeAvance(
   comentarioAvance: string,
   _fotosAntes: { file_url: string; descripcion?: string | null; descripcion_observacion?: string | null }[],
   fotosDurante: { file_url: string; descripcion?: string | null; descripcion_observacion?: string | null }[],
+  datos?: DatosAvance,
 ): string {
-  const porcentaje = orden.porcentaje_avance == null
-    ? null : Math.max(0, Math.min(100, orden.porcentaje_avance));
+  const campo = (clave: keyof DatosAvance) =>
+    `<p id="av-${clave}" style="white-space:pre-line">${escapeHtml(datos?.[clave]?.trim() || 'No registrado')}</p>`;
+  const bloque = (titulo: string, clave: keyof DatosAvance) =>
+    `<section class="p-4 border border-outline-variant rounded-lg mb-4"><strong>${titulo}</strong>${campo(clave)}</section>`;
   const contenido = `<div class="a4-page">
 ${_paginaHeader(orden, 'INFORME DE AVANCE', 'Estado de la ejecución durante un período determinado. El corte y su revisión deberán quedar identificados al emitir.')}
-${_bloqueNaranjaIzquierdo('Trabajo observado en este corte', comentarioAvance, 'Sin avance técnico registrado para este corte.')}
-<section class="grid grid-cols-2 gap-4 mb-6 no-break">
-  <div class="p-4 border border-outline-variant rounded-lg"><strong>Período y fecha de corte</strong><p>Pendientes de registrar</p></div>
-  <div class="p-4 border border-outline-variant rounded-lg"><strong>Avance operativo de la OT</strong><p>${porcentaje === null ? 'No registrado' : `${porcentaje}%`}</p></div>
+<section class="grid grid-cols-2 gap-4 mb-6">
+  <div class="p-4 border border-outline-variant rounded-lg"><strong>Período desde</strong>${campo('periodoDesde')}</div>
+  <div class="p-4 border border-outline-variant rounded-lg"><strong>Corte hasta</strong>${campo('periodoHasta')}</div>
 </section>
-<p class="text-xs text-on-surface-variant">El porcentaje proviene de la OT y es provisional: falta vincular base de cálculo, hitos del alcance aprobado y verificador. No acredita finalización ni recepción.</p>
-<section class="p-4 border border-outline-variant rounded-lg mb-6 no-break"><h3>Desvíos y siguiente paso</h3><p>Pendientes de documentar para este corte. Consultar el relevamiento para el diagnóstico y las fotografías iniciales.</p></section>
+${bloque('Alcance aprobado de referencia (código y revisión)', 'alcanceReferencia')}
+${_bloqueNaranjaIzquierdo('Trabajo observado en este corte', comentarioAvance, 'Sin avance técnico registrado para este corte.')}
+${bloque('Avance acumulado y saldo por ítem', 'acumulado')}
+<section class="grid grid-cols-2 gap-4 mb-6">
+  <div class="p-4 border border-outline-variant rounded-lg"><strong>Porcentaje declarado al corte</strong>${campo('porcentaje')}</div>
+  <div class="p-4 border border-outline-variant rounded-lg"><strong>Método y base de cálculo</strong>${campo('metodoPorcentaje')}</div>
+</section>
+${bloque('Desvíos, impacto y acciones', 'desvios')}
+${bloque('Objetivos y dependencias del próximo período', 'proximoPeriodo')}
+<p class="text-xs text-on-surface-variant">Un porcentaje sin método, base y alcance aprobado no acredita el progreso. Este borrador no certifica ejecución ni recepción.</p>
 ${fotosDurante.length ? `<h3 class="font-section-header text-section-header text-primary uppercase tracking-widest">Evidencia de ejecución (durante)</h3>
 ${generarGridFotos(fotosDurante)}` : ''}
 </div>`;

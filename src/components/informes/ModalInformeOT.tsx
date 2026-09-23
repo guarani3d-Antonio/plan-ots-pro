@@ -28,7 +28,7 @@ import {
   generarInformeAvance,
   generarInformeActaConformidad,
 } from '../../services/reportService';
-import type { DatosRelevamiento, OrigenOrdenServicio } from '../../services/reportService';
+import type { DatosAvance, DatosRelevamiento, OrigenOrdenServicio } from '../../services/reportService';
 import { cargarFotosDeOrden } from '../../services/fotosService';
 import { hacerInformePortable } from '../../services/portableReportService';
 import {
@@ -180,6 +180,31 @@ const CAMPOS_RELEVAMIENTO: [keyof DatosRelevamiento, string][] = [
   ['decisionAlcance', 'Estado declarado del alcance'],
 ];
 
+const AVANCE_INICIAL: DatosAvance = {
+  periodoDesde: '', periodoHasta: '', alcanceReferencia: '', acumulado: '',
+  porcentaje: '', metodoPorcentaje: '', desvios: '', proximoPeriodo: '',
+};
+
+function avanceGuardado(valor: unknown): DatosAvance {
+  if (!valor || typeof valor !== 'object' || Array.isArray(valor)) return { ...AVANCE_INICIAL };
+  const objeto = valor as Record<string, unknown>;
+  const resultado = { ...AVANCE_INICIAL };
+  for (const clave of Object.keys(resultado) as (keyof DatosAvance)[]) {
+    if (typeof objeto[clave] === 'string') resultado[clave] = String(objeto[clave]).slice(0, 1200);
+  }
+  return resultado;
+}
+
+const CAMPOS_AVANCE: [keyof DatosAvance, string][] = [
+  ['periodoDesde', 'Período desde'], ['periodoHasta', 'Corte hasta'],
+  ['alcanceReferencia', 'Alcance aprobado: código y revisión'],
+  ['acumulado', 'Acumulado y saldo por ítem'],
+  ['porcentaje', 'Porcentaje declarado al corte'],
+  ['metodoPorcentaje', 'Método y base del porcentaje'],
+  ['desvios', 'Desvíos, impacto y acciones'],
+  ['proximoPeriodo', 'Próximo período y dependencias'],
+];
+
 export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }: Props) {
   const cfg = TIPO_CFG[tipo];
   const necesitaFotos =
@@ -189,6 +214,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
   const [observaciones, setObservaciones] = useState('');
   const [origenServicio, setOrigenServicio] = useState<OrigenOrdenServicio>(() => origenInicial(orden));
   const [datosRelevamiento, setDatosRelevamiento] = useState<DatosRelevamiento>({ ...RELEVAMIENTO_INICIAL });
+  const [datosAvance, setDatosAvance] = useState<DatosAvance>({ ...AVANCE_INICIAL });
   const [cargandoComentario, setCargandoComentario] = useState(true);
   const [htmlPreview, setHtmlPreview] = useState('');
   const [generandoPreview, setGenerandoPreview] = useState(false);
@@ -280,6 +306,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
     setObservaciones('');
     setOrigenServicio(origenInicial(orden));
     setDatosRelevamiento({ ...RELEVAMIENTO_INICIAL });
+    setDatosAvance({ ...AVANCE_INICIAL });
     setFotosAntes([]);
     setFotosDespues([]);
     setFotosDurante([]);
@@ -307,7 +334,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
       case 'relevamiento':
         return generarInformeRelevamiento(orden, textoActual, fa, datosRelevamiento);
       case 'avance':
-        return generarInformeAvance(orden, textoActual, fa, fdu);
+        return generarInformeAvance(orden, textoActual, fa, fdu, datosAvance);
       case 'acta':
         return generarInformeActaConformidad(orden);
     }
@@ -336,16 +363,19 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
           ? datos.observaciones.slice(0, MAX_OBSERVACIONES) : '';
         const origen = origenGuardado(datos?.origen, origenInicial(orden));
         const relevamiento = relevamientoGuardado(datos?.relevamiento);
+        const avance = avanceGuardado(datos?.avance);
         setObservaciones(texto);
         setOrigenServicio(origen);
         setDatosRelevamiento(relevamiento);
+        setDatosAvance(avance);
         setIncluirFotos(typeof datos?.incluirFotos === 'boolean' ? datos.incluirFotos : true);
         setDocumento(resultado?.vigente ?? null);
         setVersionBorrador(resultado?.borrador?.version ?? 0);
         setGuardado(resultado?.borrador ? JSON.stringify({ observaciones: texto,
           incluirFotos: datos?.incluirFotos !== false,
           ...(tipo === 'orden_servicio' ? { origen } : {}),
-          ...(tipo === 'relevamiento' ? { relevamiento } : {}) }) : null);
+          ...(tipo === 'relevamiento' ? { relevamiento } : {}),
+          ...(tipo === 'avance' ? { avance } : {}) }) : null);
         setPersistenciaDisponible(resultado !== null);
 
         // S33: mapeo incluye descripcion_observacion además de descripcion
@@ -448,7 +478,8 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
 
   const datosBorrador = { observaciones, incluirFotos,
     ...(tipo === 'orden_servicio' ? { origen: origenServicio } : {}),
-    ...(tipo === 'relevamiento' ? { relevamiento: datosRelevamiento } : {}) };
+    ...(tipo === 'relevamiento' ? { relevamiento: datosRelevamiento } : {}),
+    ...(tipo === 'avance' ? { avance: datosAvance } : {}) };
   const cambiosBorrador = guardado !== JSON.stringify(datosBorrador);
 
   const handleGuardarBorrador = async () => {
@@ -518,6 +549,14 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
     const recortado = valor.slice(0, 1200);
     setDatosRelevamiento(actual => ({ ...actual, [clave]: recortado }));
     const el = iframeRef.current?.contentDocument?.getElementById(`rel-${clave}`);
+    if (el) el.textContent = recortado.trim() || 'No registrado';
+  };
+
+  const actualizarAvance = (clave: keyof DatosAvance, valor: string) => {
+    if (clave === 'porcentaje' && valor !== '' && (!Number.isFinite(Number(valor)) || Number(valor) < 0 || Number(valor) > 100)) return;
+    const recortado = valor.slice(0, 1200);
+    setDatosAvance(actual => ({ ...actual, [clave]: recortado }));
+    const el = iframeRef.current?.contentDocument?.getElementById(`av-${clave}`);
     if (el) el.textContent = recortado.trim() || 'No registrado';
   };
 
@@ -616,6 +655,39 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
                   </label>
                 ))}
                 <p className={styles.sublabel}>La aprobación del alcance requiere una decisión vinculada a una revisión; este campo solo describe el estado declarado.</p>
+              </div>
+            )}
+
+            {tipo === 'avance' && (
+              <div className={styles.section}>
+                <div className={styles.sectionTitle}>Período, base y desvíos</div>
+                <div className={styles.originGrid}>
+                  {CAMPOS_AVANCE.slice(0, 3).map(([clave, etiqueta]) => (
+                    <label className={styles.originField} key={clave}>
+                      <span>{etiqueta}</span>
+                      <input type="text" value={datosAvance[clave]}
+                        onChange={e => actualizarAvance(clave, e.target.value)}
+                        disabled={cargandoComentario} maxLength={1200} placeholder="No registrado" />
+                    </label>
+                  ))}
+                  <label className={styles.originField}>
+                    <span>Porcentaje declarado al corte</span>
+                    <input type="number" min="0" max="100" step="0.1" value={datosAvance.porcentaje}
+                      onChange={e => actualizarAvance('porcentaje', e.target.value)}
+                      disabled={cargandoComentario} placeholder="0–100" />
+                  </label>
+                </div>
+                {CAMPOS_AVANCE.filter(([clave]) => !['periodoDesde', 'periodoHasta', 'alcanceReferencia', 'porcentaje'].includes(clave))
+                  .map(([clave, etiqueta]) => (
+                    <label className={styles.originField} key={clave}>
+                      <span>{etiqueta}</span>
+                      <textarea value={datosAvance[clave]}
+                        onChange={e => actualizarAvance(clave, e.target.value)}
+                        disabled={cargandoComentario} maxLength={1200} rows={2}
+                        placeholder="No registrado" />
+                    </label>
+                  ))}
+                <p className={styles.sublabel}>El porcentaje no se toma de la OT: se declara para este corte y necesita método, base y alcance aprobados.</p>
               </div>
             )}
 
