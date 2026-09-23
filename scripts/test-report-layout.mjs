@@ -20,6 +20,7 @@ const reports = await import('../tmp/report-layout/report-service-fixture.js');
 const { hacerInformePortable } = await import('../tmp/report-layout/portable-report-fixture.js');
 const image = (index) => `data:image/svg+xml;base64,${Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900"><rect width="1200" height="900" fill="#eef3f9"/><text x="90" y="460" font-family="Arial" font-size="100">Evidencia ${index}</text></svg>`).toString('base64')}`;
 const photos = Array.from({ length: 8 }, (_, index) => ({
+  id: `foto-prueba-${index + 1}`,
   file_url: image(index + 1),
   descripcion: `Evidencia ${index + 1}. ` + 'Texto de prueba para comprobar el flujo de una leyenda extensa. '.repeat(index % 3 ? 3 : 14),
 }));
@@ -35,6 +36,7 @@ const orden = {
 };
 const html = reports.generarInformeRelevamiento(orden, 'Diagnóstico de prueba. '.repeat(80), photos);
 assert.equal((html.match(/class="evidencia-bloque"/g) ?? []).length, 8);
+assert.match(html, /Ref\. evidencia: foto-prueba-1/);
 assert.equal((html.match(/break-inside: avoid; page-break-inside: avoid; margin: 0 0 18px/g) ?? []).length, 8);
 assert.deepEqual(
   [...html.matchAll(/alt="Evidencia fotográfica (\d+)"/g)].map(match => Number(match[1])),

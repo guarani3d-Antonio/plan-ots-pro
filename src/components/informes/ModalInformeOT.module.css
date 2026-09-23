@@ -203,6 +203,13 @@
   line-height: 1.4;
 }
 
+.photoList { display: grid; gap: 7px; max-height: 250px; overflow-y: auto; margin-top: 10px; }
+.photoChoice { display: flex; align-items: center; gap: 9px; padding: 6px; border: 1px solid var(--border-default, #E5E7EB); border-radius: 6px; cursor: pointer; }
+.photoChoice input { flex: none; width: 17px; height: 17px; }
+.photoChoice img { flex: none; width: 46px; height: 46px; object-fit: cover; border-radius: 4px; background: var(--bg-surface, #fff); }
+.photoMeta { min-width: 0; display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--text-secondary, #374151); }
+.photoMeta span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 .originField input:focus-visible,
 .originField textarea:focus-visible,
 .originField select:focus-visible {

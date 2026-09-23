@@ -34,7 +34,7 @@ export function formatearFechaCorta(fecha: string | null | undefined): string {
 // Cada evidencia fluye verticalmente. El navegador decide el salto de página,
 // manteniendo imagen y leyenda juntas; no se fuerza una página por cantidad.
 export function generarGridFotos(
-  fotos: { file_url: string; descripcion?: string | null; descripcion_observacion?: string | null }[],
+  fotos: { id?: string; file_url: string; descripcion?: string | null; descripcion_observacion?: string | null }[],
 ): string {
   if (fotos.length === 0) {
     return '<p class="no-break" style="padding:12px 16px; border:1px solid #ddd; border-radius:8px; color:#666; font-size:12px;">Sin fotografías registradas en esta etapa.</p>';
@@ -57,6 +57,7 @@ export function generarGridFotos(
         <figcaption style="margin-top: 6px; padding: 6px 10px; background: #f8f8f8; border-left: 3px solid #CC7A00; border-radius: 0 4px 4px 0; min-height: 28px;">
           <span style="font-size: 10px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 2px;">Descripción técnica</span>
           <span style="font-size: 11px; color: #333; font-style: italic; line-height: 1.4;">${descripcionHtml}</span>
+          ${f.id ? `<span style="display:block;font-size:9px;color:#657183;margin-top:3px;overflow-wrap:anywhere">Ref. evidencia: ${escapeHtml(f.id)}</span>` : ''}
         </figcaption>
         ${obs ? `<div style="margin-top:4px;padding:5px 10px;background:#fff8f0;border-left:3px solid #CC7A00;border-radius:0 4px 4px 0"><span style="font-size:10px;font-weight:600;color:#CC7A00;text-transform:uppercase;display:block;margin-bottom:2px">Observación del Editor</span><span style="font-size:11px;color:#333;font-style:italic">${escapeHtml(obs)}</span></div>` : ''}
       </figure>`;

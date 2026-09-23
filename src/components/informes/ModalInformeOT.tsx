@@ -51,6 +51,7 @@ interface Props {
 
 // S33: incluye descripcion_observacion para que aparezca en los informes
 type FotoMin = {
+  id: string;
   file_url: string;
   descripcion?: string | null;
   descripcion_observacion?: string | null;
@@ -279,6 +280,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
   const [fotosAntes, setFotosAntes] = useState<FotoMin[]>([]);
   const [fotosDespues, setFotosDespues] = useState<FotoMin[]>([]);
   const [fotosDurante, setFotosDurante] = useState<FotoMin[]>([]);
+  const [fotoIds, setFotoIds] = useState<string[]>([]);
   const [errorInforme, setErrorInforme] = useState<string | null>(null);
   const [documento, setDocumento] = useState<DocumentoRegistro | null>(null);
   const [documentosTipo, setDocumentosTipo] = useState<DocumentoRegistro[]>([]);
@@ -371,6 +373,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
     setFotosAntes([]);
     setFotosDespues([]);
     setFotosDurante([]);
+    setFotoIds([]);
     setErrorInforme(null);
     setDocumento(null);
     setDocumentosTipo([]);
@@ -387,9 +390,10 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
 
   const construirHtml = (textoActual: string): string => {
     const codigoDocumento = documento?.codigo;
-    const fa  = incluirFotos ? fotosAntes   : [];
-    const fd  = incluirFotos ? fotosDespues : [];
-    const fdu = incluirFotos ? fotosDurante : [];
+    const seleccion = new Set(fotoIds);
+    const fa  = incluirFotos ? fotosAntes.filter(f => seleccion.has(f.id)) : [];
+    const fd  = incluirFotos ? fotosDespues.filter(f => seleccion.has(f.id)) : [];
+    const fdu = incluirFotos ? fotosDurante.filter(f => seleccion.has(f.id)) : [];
     switch (tipo) {
       case 'cierre':
         return generarInformeCierre(orden, proyectoNombre, textoActual, fa, fd, datosCierre, codigoDocumento);
@@ -433,18 +437,29 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
         const avance = avanceGuardado(datos?.avance);
         const cierre = cierreGuardado(datos?.cierre);
         const acta = actaGuardada(datos?.acta);
+        const elegibles = fotos.filter(f =>
+          (cfg.necesitaFotosAntes && f.categoria === 'ANTES') ||
+          (cfg.necesitaFotosDurante && f.categoria === 'DURANTE') ||
+          (cfg.necesitaFotosDespues && f.categoria === 'DESPUES'));
+        const idsGuardados = Array.isArray(datos?.fotoIds)
+          ? datos.fotoIds.filter((id): id is string => typeof id === 'string').slice(0, 500)
+          : resultado?.borrador && datos?.incluirFotos !== false
+            ? elegibles.map(f => f.id) : [];
+        const idsFotos = [...new Set(idsGuardados)];
         setObservaciones(texto);
         setOrigenServicio(origen);
         setDatosRelevamiento(relevamiento);
         setDatosAvance(avance);
         setDatosCierre(cierre);
         setDatosActa(acta);
+        setFotoIds(idsFotos);
         setIncluirFotos(typeof datos?.incluirFotos === 'boolean' ? datos.incluirFotos : true);
         setDocumento(resultado?.vigente ?? null);
         setDocumentosTipo(resultado?.disponibles ?? []);
         setVersionBorrador(resultado?.borrador?.version ?? 0);
         setGuardado(JSON.stringify({ observaciones: texto,
           incluirFotos: datos?.incluirFotos !== false,
+          ...(necesitaFotos ? { fotoIds: idsFotos } : {}),
           ...(tipo === 'orden_servicio' ? { origen } : {}),
           ...(tipo === 'relevamiento' ? { relevamiento } : {}),
           ...(tipo === 'avance' ? { avance } : {}),
@@ -458,6 +473,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
             fotos
               .filter(f => f.categoria === 'ANTES')
               .map(f => ({
+                id: f.id,
                 file_url: f.url,
                 descripcion: f.descripcion ?? null,
                 descripcion_observacion: f.descripcion_observacion ?? null,
@@ -469,6 +485,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
             fotos
               .filter(f => f.categoria === 'DESPUES')
               .map(f => ({
+                id: f.id,
                 file_url: f.url,
                 descripcion: f.descripcion ?? null,
                 descripcion_observacion: f.descripcion_observacion ?? null,
@@ -480,6 +497,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
             fotos
               .filter(f => f.categoria === 'DURANTE')
               .map(f => ({
+                id: f.id,
                 file_url: f.url,
                 descripcion: f.descripcion ?? null,
                 descripcion_observacion: f.descripcion_observacion ?? null,
@@ -535,6 +553,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
     fotosAntes,
     fotosDespues,
     fotosDurante,
+    fotoIds,
     orden,
     proyectoNombre,
     tipo,
@@ -556,6 +575,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
   };
 
   const datosBorrador = { observaciones, incluirFotos,
+    ...(necesitaFotos ? { fotoIds } : {}),
     ...(tipo === 'orden_servicio' ? { origen: origenServicio } : {}),
     ...(tipo === 'relevamiento' ? { relevamiento: datosRelevamiento } : {}),
     ...(tipo === 'avance' ? { avance: datosAvance } : {}),
@@ -563,6 +583,13 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
     ...(tipo === 'acta' ? { acta: datosActa } : {}) };
   const cambiosBorrador = guardado !== JSON.stringify(datosBorrador);
   const tipoRepetible = tipo === 'relevamiento' || tipo === 'avance';
+  const fotosElegibles = [
+    ...fotosAntes.map(foto => ({ ...foto, fase: 'Antes' })),
+    ...fotosDurante.map(foto => ({ ...foto, fase: 'Durante' })),
+    ...fotosDespues.map(foto => ({ ...foto, fase: 'Después' })),
+  ];
+  const idsElegibles = new Set(fotosElegibles.map(foto => foto.id));
+  const fotosFaltantes = fotoIds.filter(id => !idsElegibles.has(id));
 
   const cambiarDocumento = (id: string) => {
     if (cargandoComentario || guardandoBorrador || cambiosBorrador) return;
@@ -606,6 +633,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
     if (cargandoComentario) return;
     setGenerandoPreview(true);
     try {
+      if (incluirFotos && fotosFaltantes.length) throw new Error(`${fotosFaltantes.length} foto(s) seleccionadas ya no están disponibles. Revisá la evidencia antes de exportar.`);
       const result = await hacerInformePortable(construirHtml(observaciones));
       if (result.missingImages) throw new Error(`${result.missingImages} imagen(es) no están disponibles. No se descarga un borrador incompleto.`);
       await registrarExportacion(orden.id, tipo, 'HTML');
@@ -628,6 +656,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
     w.document.write('<p style="font-family:Arial;padding:24px">Preparando informe portable…</p>');
     setGenerandoPreview(true);
     try {
+      if (incluirFotos && fotosFaltantes.length) throw new Error(`${fotosFaltantes.length} foto(s) seleccionadas ya no están disponibles. Revisá la evidencia antes de exportar.`);
       const result = await hacerInformePortable(construirHtml(observaciones));
       if (result.missingImages) throw new Error(`${result.missingImages} imagen(es) no están disponibles. No se prepara un PDF incompleto.`);
       await registrarExportacion(orden.id, tipo, 'PDF');
@@ -956,12 +985,40 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
                     onChange={e => setIncluirFotos(e.target.checked)}
                   />
                   <span className={styles.checkboxText}>
-                    <span className={styles.checkboxLabel}>Incluir fotos</span>
+                    <span className={styles.checkboxLabel}>Incluir fotos seleccionadas</span>
                     <span className={styles.sublabel}>
-                      Renderizar las fotos disponibles en el informe
+                      {fotoIds.length} de {fotosElegibles.length} fotos elegidas para este documento
                     </span>
                   </span>
                 </label>
+                {fotosElegibles.length ? (
+                  <div className={styles.photoList} aria-label="Evidencia disponible para este documento">
+                    {fotosElegibles.map(foto => (
+                      <label className={styles.photoChoice} key={foto.id}>
+                        <input type="checkbox" checked={fotoIds.includes(foto.id)}
+                          disabled={cargandoComentario || !incluirFotos}
+                          onChange={e => setFotoIds(actual => e.target.checked
+                            ? [...actual, foto.id] : actual.filter(id => id !== foto.id))} />
+                        <img src={foto.file_url} alt="" loading="lazy" />
+                        <span className={styles.photoMeta}>
+                          <strong>{foto.fase}</strong>
+                          <span>{foto.descripcion_observacion || foto.descripcion || 'Sin descripción'}</span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                ) : <p className={styles.sublabel}>No hay fotos disponibles para esta fase.</p>}
+                {fotosFaltantes.length > 0 && (
+                  <div>
+                    <p className={styles.sublabel} role="alert">
+                      {fotosFaltantes.length} foto(s) elegidas ya no están disponibles. Revisá la selección antes de exportar.
+                    </p>
+                    <button type="button" className={styles.btnSecondary}
+                      onClick={() => setFotoIds(actual => actual.filter(id => idsElegibles.has(id)))}>
+                      Quitar referencias faltantes
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
