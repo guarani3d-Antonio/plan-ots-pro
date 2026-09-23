@@ -1,6 +1,5 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import type { CSSProperties } from 'react';
-import { flushSync } from 'react-dom';
 import { useAuthStore } from './stores/authStore';
 import { useProyectosStore } from './stores/proyectosStore';
 import { useOrdenesStore } from './stores/ordenesStore';
@@ -24,8 +23,6 @@ import PantallaAyuda from './components/ayuda/PantallaAyuda';
 import TourGuiado from './components/ayuda/TourGuiado';
 import { SessionGate } from './components/ui/SessionGate';
 
-const FADE_OUT_MS = 180;
-
 const VISTAS_CON_PROYECTO = new Set<Vista>(['grilla', 'plano']);
 
 export default function App() {
@@ -39,30 +36,7 @@ function ContenidoApp() {
   const [vista, setVista]             = useState<Vista>('proyectos');
   const [fullscreen, setFullscreen]   = useState(false);
 
-  const [coverVisible, setCoverVisible] = useState(false);
-  const [coverFading, setCoverFading]   = useState(false);
-  const timerRef                        = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const navigate = useCallback((action: () => void) => {
-    if (timerRef.current) clearTimeout(timerRef.current);
-    flushSync(() => {
-      setCoverVisible(true);
-      setCoverFading(false);
-    });
-    requestAnimationFrame(() => {
-      action();
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          setCoverFading(true);
-          timerRef.current = setTimeout(() => {
-            setCoverVisible(false);
-            setCoverFading(false);
-            timerRef.current = null;
-          }, FADE_OUT_MS);
-        });
-      });
-    });
-  }, []);
+  const navigate = useCallback((action: () => void) => action(), []);
 
   // ── S37-T · Modo tablet ────────────────────────────────────────────────────
   // El hook se llama antes de cualquier return condicional, así que corre en
@@ -98,10 +72,6 @@ function ContenidoApp() {
   useEffect(() => {
     if (vista !== 'plano' && fullscreen) setFullscreen(false);
   }, [vista, fullscreen]);
-
-  useEffect(() => () => {
-    if (timerRef.current) clearTimeout(timerRef.current);
-  }, []);
 
   const otsPendientesImport    = useOrdenesStore(s => s.otsPendientesImport);
   const ordenes                = useOrdenesStore(s => s.ordenes);
@@ -140,14 +110,14 @@ function ContenidoApp() {
   };
 
   const cambiarVista = useCallback((v: Vista) => {
+    if (v === vista) return;
     intentarNavegar(() => setVista(v));
-  }, [intentarNavegar]);
+  }, [intentarNavegar, vista]);
 
   if (!user) {
     return (
       <>
         <AuthForm />
-        {coverVisible && <OverlayFade fading={coverFading} />}
       </>
     );
   }
@@ -164,6 +134,29 @@ function ContenidoApp() {
       );
     }
 
+    if (proyectoActivo && VISTAS_CON_PROYECTO.has(vista)) {
+      return (
+        <>
+          <div style={{ display: vista === 'plano' ? 'contents' : 'none' }}>
+            <VistaPlano
+              onSwitchToGrilla={() => cambiarVista('grilla')}
+              fullscreen={fullscreen}
+              onToggleFullscreen={() => setFullscreen(f => !f)}
+              visible={vista === 'plano'}
+            />
+          </div>
+          {vista === 'grilla' && (
+            <VistaGrilla
+              proyectoId={proyectoActivo.id}
+              proyectoNombre={proyectoActivo.nombre}
+              onBack={() => navigate(() => setProyectoActivo(null))}
+              onSwitchToPlano={() => cambiarVista('plano')}
+            />
+          )}
+        </>
+      );
+    }
+
     switch (vista) {
       case 'dashboard':     return <Dashboard />;
       case 'proyectos':
@@ -174,23 +167,6 @@ function ContenidoApp() {
               setProyectoActivo(p);
               setVista('plano');
             })}
-          />
-        );
-      case 'grilla':
-        return (
-          <VistaGrilla
-            proyectoId={proyectoActivo!.id}
-            proyectoNombre={proyectoActivo!.nombre}
-            onBack={() => navigate(() => setProyectoActivo(null))}
-            onSwitchToPlano={() => cambiarVista('plano')}
-          />
-        );
-      case 'plano':
-        return (
-          <VistaPlano
-            onSwitchToGrilla={() => cambiarVista('grilla')}
-            fullscreen={fullscreen}
-            onToggleFullscreen={() => setFullscreen(f => !f)}
           />
         );
       case 'responsables':  return <Responsables />;
@@ -243,7 +219,6 @@ function ContenidoApp() {
       </div>
 
       <TourGuiado />
-      {coverVisible && <OverlayFade fading={coverFading} />}
 
       {accionPendiente && pendientesResumen.length > 0 && (
         <ModalImportPendiente
@@ -319,20 +294,6 @@ function ProyectoTopBar({
         }}
       >Salir de proyecto</button>
     </div>
-  );
-}
-
-function OverlayFade({ fading }: { fading: boolean }) {
-  return (
-    <div style={{
-      position: 'fixed',
-      inset: 0,
-      backgroundColor: 'var(--bg-app)',
-      zIndex: 99999,
-      opacity: fading ? 0 : 1,
-      transition: fading ? `opacity ${FADE_OUT_MS}ms ease` : 'none',
-      pointerEvents: 'none',
-    }} />
   );
 }
 

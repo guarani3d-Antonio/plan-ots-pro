@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
 import { useProyectosStore } from '../../stores/proyectosStore';
 import { usePermisoObra } from '../../stores/accessStore';
@@ -27,9 +27,10 @@ interface VistaPlanoProps {
   onSwitchToGrilla?: () => void;
   fullscreen?: boolean;
   onToggleFullscreen?: () => void;
+  visible?: boolean;
 }
 
-export default function VistaPlano({ fullscreen = false, onToggleFullscreen }: VistaPlanoProps) {
+export default function VistaPlano({ fullscreen = false, onToggleFullscreen, visible = true }: VistaPlanoProps) {
   const proyecto = useProyectosStore(s => s.proyectoActivo);
   const permiso = usePermisoObra(proyecto?.id);
   const puedeEditar = !!permiso?.editar;
@@ -38,6 +39,7 @@ export default function VistaPlano({ fullscreen = false, onToggleFullscreen }: V
   const { url: planoPrivado, error: errorAccesoPlano } = useArchivoPrivadoEstado(proyecto?.plano_url);
   const ordenes              = useOrdenesStore((s) => s.ordenes);
   const cargarOrdenes        = useOrdenesStore((s) => s.cargarOrdenes);
+  const asegurarOrdenes      = useOrdenesStore((s) => s.asegurarOrdenes);
   const crearOrdenEnPosicion = useOrdenesStore((s) => s.crearOrdenEnPosicion);
   const actualizarOrden      = useOrdenesStore((s) => s.actualizarOrden);
   useRealtimeOrdenes(proyecto?.id ?? null);
@@ -165,7 +167,7 @@ export default function VistaPlano({ fullscreen = false, onToggleFullscreen }: V
 
   const fitView = useCallback(() => {
     const area = planAreaRef.current;
-    if (!area || !planoDims.w || !planoDims.h) return;
+    if (!area || area.clientWidth <= 48 || area.clientHeight <= 48 || !planoDims.w || !planoDims.h) return;
     const sc = Math.min(
       (area.clientWidth  - 48) / planoDims.w,
       (area.clientHeight - 48) / planoDims.h
@@ -220,12 +222,11 @@ export default function VistaPlano({ fullscreen = false, onToggleFullscreen }: V
     img.src     = url;
   }
 
-  useEffect(() => { if (planoListo) fitView(); }, [planoListo, fitView]);
+  useLayoutEffect(() => { if (visible && planoListo) fitView(); }, [visible, planoListo, fitView]);
 
   useEffect(() => {
-    if (proyecto?.id) cargarOrdenes(proyecto.id);
-    return () => useOrdenesStore.getState().limpiar();
-  }, [proyecto?.id]);
+    if (proyecto?.id) void asegurarOrdenes(proyecto.id);
+  }, [proyecto?.id, asegurarOrdenes]);
 
   // ── Zoom ─────────────────────────────────────────────────
   const doZoom = useCallback((factor: number, cx?: number, cy?: number) => {
@@ -603,7 +604,7 @@ export default function VistaPlano({ fullscreen = false, onToggleFullscreen }: V
               className={styles.zbtn}
               onClick={() => {
                 const area = planAreaRef.current;
-                if (!area || !planoDims.w || !planoDims.h) return;
+                if (!area || area.clientWidth <= 48 || area.clientHeight <= 48 || !planoDims.w || !planoDims.h) return;
                 const sc = scRef.current;
                 applyTransform(
                   sc,

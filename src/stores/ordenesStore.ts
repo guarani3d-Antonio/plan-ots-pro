@@ -12,6 +12,7 @@ interface OrdenesState {
   ordenes: OrdenLocal[]; ordenSeleccionada: string | null; cargando: boolean; error: string | null;
   otsPendientesImport: string[];
   cargarOrdenes: (proyectoId:string)=>Promise<void>;
+  asegurarOrdenes: (proyectoId:string)=>Promise<void>;
   cargarTodasLasOrdenes: ()=>Promise<void>;
   crearOrdenEnPosicion: (proyectoId:string,posX:number,posY:number)=>Promise<OrdenLocal>;
   crearOrdenDesdeImport: (datos:Omit<OrdenLocal,'id'|'_synced'|'_last_fetched'>)=>Promise<string>;
@@ -33,7 +34,9 @@ const newer=(incoming:OrdenLocal,current:OrdenLocal)=>
 export const useOrdenesStore=create<OrdenesState>((set,get)=>({
   ordenes:[],ordenSeleccionada:null,cargando:false,error:null,otsPendientesImport:[],
   cargarTodasLasOrdenes:async()=>{
-    const request=++sequence;scope='*';set({ordenes:[],cargando:true,error:null});
+    const request=++sequence;
+    const mismasOrdenes=scope==='*'?get().ordenes:[];
+    scope='*';set({ordenes:mismasOrdenes,cargando:true,error:null});
     try {
       const ticket=sessionTicket();
       const {useProyectosStore}=await import('./proyectosStore');
@@ -42,16 +45,22 @@ export const useOrdenesStore=create<OrdenesState>((set,get)=>({
       const {data,error}=ids.length?await supabase.from('ordenes').select(ORDEN_SELECT).in('proyecto_id',ids).is('deleted_at',null).order('updated_at',{ascending:false}):{data:[],error:null};
       assertSession(ticket);if(error)throw new Error(error.message);
       if(request===sequence)set({ordenes:(data??[]).map(rowToOrden),cargando:false});
-    }catch(e){if(request===sequence)set({ordenes:[],cargando:false,error:message(e)});}
+    }catch(e){if(request===sequence)set({ordenes:mismasOrdenes,cargando:false,error:message(e)});}
   },
   cargarOrdenes:async(proyectoId)=>{
-    const request=++sequence;scope=proyectoId;set({ordenes:[],ordenSeleccionada:null,cargando:true,error:null});
+    const request=++sequence;
+    const mismasOrdenes=scope===proyectoId?get().ordenes:[];
+    scope=proyectoId;set({ordenes:mismasOrdenes,ordenSeleccionada:null,cargando:true,error:null});
     try{
       const ticket=sessionTicket();
       const {data,error}=await supabase.from('ordenes').select(ORDEN_SELECT).eq('proyecto_id',proyectoId).is('deleted_at',null).order('ot',{ascending:true});
       assertSession(ticket);if(error)throw new Error(error.message);
       if(request===sequence)set({ordenes:(data??[]).map(rowToOrden),cargando:false});
-    }catch(e){if(request===sequence)set({ordenes:[],cargando:false,error:message(e)});}
+    }catch(e){if(request===sequence)set({ordenes:mismasOrdenes,cargando:false,error:message(e)});}
+  },
+  asegurarOrdenes:async(proyectoId)=>{
+    if(scope===proyectoId && (get().cargando || !get().error)) return;
+    await get().cargarOrdenes(proyectoId);
   },
   crearOrdenEnPosicion:async(proyectoId,posX,posY)=>{
     exigirPermiso(proyectoId,'editar');const ticket=sessionTicket();

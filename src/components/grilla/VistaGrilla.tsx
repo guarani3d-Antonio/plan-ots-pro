@@ -530,7 +530,7 @@ function escapeHtml(s: string): string {
 // ─────────────────────────────────────────────── Componente ──
 
 export const VistaGrilla: React.FC<Props> = ({ proyectoId, proyectoNombre, onSwitchToPlano }) => {
-  const { ordenes, cargarOrdenes } = useOrdenesStore();
+  const { ordenes, cargarOrdenes, asegurarOrdenes } = useOrdenesStore();
   // P0-6: único booleano que decide si costo se ve en esta grilla (columna,
   // celda, tarjeta, CSV y PDF/HTML).
   const puedeVerCostos = usePuedeVerCostos(proyectoId);
@@ -595,9 +595,9 @@ export const VistaGrilla: React.FC<Props> = ({ proyectoId, proyectoNombre, onSwi
   }, [columnasOcultas]);
 
   useEffect(() => {
-    cargarOrdenes(proyectoId);
+    void asegurarOrdenes(proyectoId);
     getCamposDeProyecto(proyectoId).then(setCamposDefinicion).catch(err => console.error('[VistaGrilla] campos:', err));
-  }, [proyectoId, cargarOrdenes]);
+  }, [proyectoId, asegurarOrdenes]);
 
   useEffect(() => {
     try { localStorage.setItem(scopedKey(LS_COLS_KEY), JSON.stringify(columnasCustomVisibles)); } catch (e) { console.error(e); }

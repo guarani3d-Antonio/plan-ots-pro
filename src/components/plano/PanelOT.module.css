@@ -20,12 +20,6 @@
   border: 1px solid var(--border-default);
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-xl);
-  animation: workspaceIn 180ms ease-out;
-}
-
-@keyframes workspaceIn {
-  from { opacity: 0; transform: scale(.985) translateY(5px); }
-  to { opacity: 1; transform: scale(1) translateY(0); }
 }
 
 .panel {
