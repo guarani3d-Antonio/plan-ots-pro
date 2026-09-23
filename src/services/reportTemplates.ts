@@ -170,7 +170,7 @@ export const _FOOTER_INFORME = `<footer class="page-footer">
 export const _LOGOS_HTML_INFORME = `<div class="flex items-center gap-4"><strong style="font-size:16px;color:#003366">Plan-OTs</strong></div>`;
 
 // Encabezado de página 1: logos + badge estado + ID + título h1 + subtítulo.
-export function _paginaHeader(orden: OrdenLocal, titulo: string, subtitulo: string): string {
+export function _paginaHeader(orden: OrdenLocal, titulo: string, subtitulo: string, codigoDocumento?: string): string {
   const badge = _estadoBadgeCfg(orden.estado);
   const otLabel = orden.ot ?? 'Sin código';
   return `<header class="flex justify-between items-start mb-10 border-b border-outline-variant pb-6">
@@ -181,6 +181,7 @@ export function _paginaHeader(orden: OrdenLocal, titulo: string, subtitulo: stri
         ESTADO: ${badge.texto}
       </div>
       <div class="text-body-sm font-mono-technical text-on-surface-variant">ID DE ORDEN: ${escapeHtml(otLabel)}</div>
+      <div class="text-body-sm font-mono-technical text-on-surface-variant">DOCUMENTO: ${escapeHtml(codigoDocumento || 'Borrador sin reservar')}</div>
       <div class="text-body-sm">Revisión documental: sin emitir</div>
     </div>
   </header>

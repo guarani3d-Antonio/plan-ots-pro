@@ -65,6 +65,9 @@ const origen = {
   referencia: '<mensaje #42>', urgencia: 'Alta', proximoPaso: 'Agendar relevamiento',
 };
 const aperturaConOrigen = reports.generarInformeOrdenServicio(orden, '', origen);
+const aperturaCodificada = reports.generarInformeOrdenServicio(orden, '', origen, 'POT-2026-OS-00000001');
+assert.match(aperturaCodificada, /DOCUMENTO: POT-2026-OS-00000001/);
+assert.match(aperturaConOrigen, /DOCUMENTO: Borrador sin reservar/);
 assert.match(aperturaConOrigen, /id="os-canal">WhatsApp<\/p>/);
 assert.match(aperturaConOrigen, /id="os-fechaRecepcion">2026-09-23 09:30<\/p>/);
 assert.match(aperturaConOrigen, /id="os-referencia">&lt;mensaje #42&gt;<\/p>/);

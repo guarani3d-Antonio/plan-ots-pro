@@ -95,13 +95,14 @@ export function generarInformeCierre(
   _fotosAntes: { file_url: string; descripcion?: string | null; descripcion_observacion?: string | null }[],
   fotosDespues: { file_url: string; descripcion?: string | null; descripcion_observacion?: string | null }[],
   datos?: DatosCierre,
+  codigoDocumento?: string,
 ): string {
   const campo = (clave: keyof DatosCierre) =>
     `<p id="cie-${clave}" style="white-space:pre-line">${escapeHtml(datos?.[clave]?.trim() || 'No registrado')}</p>`;
   const bloque = (titulo: string, clave: keyof DatosCierre) =>
     `<section class="p-4 border border-outline-variant rounded-lg mb-4"><strong>${titulo}</strong>${campo(clave)}</section>`;
   const contenido = `<div class="a4-page">
-${_paginaHeader(orden, 'INFORME DE CIERRE TÉCNICO', 'Resultados de la intervención y pendientes de verificación. La recepción del cliente corresponde al acta.')}
+${_paginaHeader(orden, 'INFORME DE CIERRE TÉCNICO', 'Resultados de la intervención y pendientes de verificación. La recepción del cliente corresponde al acta.', codigoDocumento)}
 <section class="grid grid-cols-2 gap-4 mb-6">
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Proyecto</strong><p>${escapeHtml(proyectoNombre)}</p></div>
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Alcance aprobado de referencia</strong>${campo('alcanceReferencia')}</div>
@@ -128,6 +129,7 @@ export function generarInformeOrdenServicio(
   orden: OrdenLocal,
   aclaracion: string,
   origen?: OrigenOrdenServicio,
+  codigoDocumento?: string,
 ): string {
   const dato = (clave: keyof OrigenOrdenServicio, legado: string) => {
     const valor = origen ? origen[clave] : orden.campos?.[legado];
@@ -135,7 +137,7 @@ export function generarInformeOrdenServicio(
   };
 
   const contenido = `<div class="a4-page os-page">
-${_paginaHeader(orden, 'ORDEN DE SERVICIO', 'Registro de apertura de la orden de trabajo y procedencia de la solicitud. No certifica una visita ni un diagnóstico.')}
+${_paginaHeader(orden, 'ORDEN DE SERVICIO', 'Registro de apertura de la orden de trabajo y procedencia de la solicitud. No certifica una visita ni un diagnóstico.', codigoDocumento)}
 ${_bloqueDatosCliente(orden)}
 <section class="grid grid-cols-2 gap-4 mb-6 no-break">
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Fecha de ingreso de OT</strong><p>${escapeHtml(formatearFechaCorta(orden.fecha_ingreso))}</p></div>
@@ -167,6 +169,7 @@ export function generarInformeRelevamiento(
   comentarioInicial: string,
   fotosAntes: { file_url: string; descripcion?: string | null; descripcion_observacion?: string | null }[],
   datos?: DatosRelevamiento,
+  codigoDocumento?: string,
 ): string {
   const campo = (clave: keyof DatosRelevamiento) => {
     const valor = datos?.[clave]?.trim();
@@ -176,7 +179,7 @@ export function generarInformeRelevamiento(
     `<section class="p-4 border border-outline-variant rounded-lg mb-4"><strong>${titulo}</strong>${campo(clave)}</section>`;
 
   const contenido = `<div class="a4-page relevamiento-page">
-${_paginaHeader(orden, 'INFORME DE RELEVAMIENTO', 'Diagnóstico técnico inicial y detección del alcance de la intervención requerida.')}
+${_paginaHeader(orden, 'INFORME DE RELEVAMIENTO', 'Diagnóstico técnico inicial y detección del alcance de la intervención requerida.', codigoDocumento)}
 ${_bloqueDatosCliente(orden)}
 <section class="grid grid-cols-2 gap-4 mb-6">
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Modalidad (visita o remota)</strong>${campo('modalidad')}</div>
@@ -215,13 +218,14 @@ export function generarInformeAvance(
   _fotosAntes: { file_url: string; descripcion?: string | null; descripcion_observacion?: string | null }[],
   fotosDurante: { file_url: string; descripcion?: string | null; descripcion_observacion?: string | null }[],
   datos?: DatosAvance,
+  codigoDocumento?: string,
 ): string {
   const campo = (clave: keyof DatosAvance) =>
     `<p id="av-${clave}" style="white-space:pre-line">${escapeHtml(datos?.[clave]?.trim() || 'No registrado')}</p>`;
   const bloque = (titulo: string, clave: keyof DatosAvance) =>
     `<section class="p-4 border border-outline-variant rounded-lg mb-4"><strong>${titulo}</strong>${campo(clave)}</section>`;
   const contenido = `<div class="a4-page">
-${_paginaHeader(orden, 'INFORME DE AVANCE', 'Estado de la ejecución durante un período determinado. El corte y su revisión deberán quedar identificados al emitir.')}
+${_paginaHeader(orden, 'INFORME DE AVANCE', 'Estado de la ejecución durante un período determinado. El corte y su revisión deberán quedar identificados al emitir.', codigoDocumento)}
 <section class="grid grid-cols-2 gap-4 mb-6">
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Período desde</strong>${campo('periodoDesde')}</div>
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Corte hasta</strong>${campo('periodoHasta')}</div>
@@ -245,13 +249,13 @@ ${generarGridFotos(fotosDurante)}` : ''}
 // Acta sin decisión/firma: siempre borrador. La recepción vinculante requerirá
 // una revisión emitida y la manifestación verificable del receptor autorizado.
 
-export function generarInformeActaConformidad(orden: OrdenLocal, datos?: DatosActa): string {
+export function generarInformeActaConformidad(orden: OrdenLocal, datos?: DatosActa, codigoDocumento?: string): string {
   const campo = (clave: keyof DatosActa) =>
     `<p id="act-${clave}" style="white-space:pre-line">${escapeHtml(datos?.[clave]?.trim() || 'No registrado')}</p>`;
   const bloque = (titulo: string, clave: keyof DatosActa) =>
     `<section class="p-4 border border-outline-variant rounded-lg mb-4"><strong>${titulo}</strong>${campo(clave)}</section>`;
   const contenido = `<div class="a4-page acta-page">
-${_paginaHeader(orden, 'ACTA DE CONFORMIDAD', 'Instrumento de recepción pendiente de decisión expresa del cliente.')}
+${_paginaHeader(orden, 'ACTA DE CONFORMIDAD', 'Instrumento de recepción pendiente de decisión expresa del cliente.', codigoDocumento)}
 ${_bloqueDatosCliente(orden)}
 ${bloque('Objeto breve de la entrega', 'objetoEntrega')}
 <section class="grid grid-cols-2 gap-4 mb-6">

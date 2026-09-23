@@ -281,6 +281,8 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
   const [fotosDurante, setFotosDurante] = useState<FotoMin[]>([]);
   const [errorInforme, setErrorInforme] = useState<string | null>(null);
   const [documento, setDocumento] = useState<DocumentoRegistro | null>(null);
+  const [documentosTipo, setDocumentosTipo] = useState<DocumentoRegistro[]>([]);
+  const [seleccionId, setSeleccionId] = useState<string | null>(null);
   const [versionBorrador, setVersionBorrador] = useState(0);
   const [guardado, setGuardado] = useState<string | null>(null);
   const [persistenciaDisponible, setPersistenciaDisponible] = useState(false);
@@ -371,6 +373,8 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
     setFotosDurante([]);
     setErrorInforme(null);
     setDocumento(null);
+    setDocumentosTipo([]);
+    setSeleccionId(null);
     setVersionBorrador(0);
     setGuardado(null);
     setPersistenciaDisponible(false);
@@ -382,20 +386,21 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
   }, [orden.id, tipo]);
 
   const construirHtml = (textoActual: string): string => {
+    const codigoDocumento = documento?.codigo;
     const fa  = incluirFotos ? fotosAntes   : [];
     const fd  = incluirFotos ? fotosDespues : [];
     const fdu = incluirFotos ? fotosDurante : [];
     switch (tipo) {
       case 'cierre':
-        return generarInformeCierre(orden, proyectoNombre, textoActual, fa, fd, datosCierre);
+        return generarInformeCierre(orden, proyectoNombre, textoActual, fa, fd, datosCierre, codigoDocumento);
       case 'orden_servicio':
-        return generarInformeOrdenServicio(orden, textoActual, origenServicio);
+        return generarInformeOrdenServicio(orden, textoActual, origenServicio, codigoDocumento);
       case 'relevamiento':
-        return generarInformeRelevamiento(orden, textoActual, fa, datosRelevamiento);
+        return generarInformeRelevamiento(orden, textoActual, fa, datosRelevamiento, codigoDocumento);
       case 'avance':
-        return generarInformeAvance(orden, textoActual, fa, fdu, datosAvance);
+        return generarInformeAvance(orden, textoActual, fa, fdu, datosAvance, codigoDocumento);
       case 'acta':
-        return generarInformeActaConformidad(orden, datosActa);
+        return generarInformeActaConformidad(orden, datosActa, codigoDocumento);
     }
   };
 
@@ -409,10 +414,13 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
       ? cargarFotosDeOrden(orden.id)
       : Promise.resolve([] as Awaited<ReturnType<typeof cargarFotosDeOrden>>);
     const promBorrador = listarDocumentosDeOrden(orden.id).then(async documentos => {
-      const vigente = documentos.filter(d => d.tipo === tipo && d.ciclo === 1).at(-1) ?? null;
+      const disponibles = documentos.filter(d => d.tipo === tipo && d.ciclo === 1);
+      const vigente = seleccionId === 'nuevo' ? null
+        : seleccionId ? disponibles.find(d => d.id === seleccionId) ?? null
+          : disponibles.at(-1) ?? null;
       const borrador = vigente ? await cargarBorradorDocumento(vigente.id) : null;
-      return { vigente, borrador };
-    }).catch(() => null);
+      return { vigente, borrador, disponibles };
+    });
 
     Promise.all([promFotos, promBorrador])
       .then(([fotos, resultado]) => {
@@ -433,14 +441,15 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
         setDatosActa(acta);
         setIncluirFotos(typeof datos?.incluirFotos === 'boolean' ? datos.incluirFotos : true);
         setDocumento(resultado?.vigente ?? null);
+        setDocumentosTipo(resultado?.disponibles ?? []);
         setVersionBorrador(resultado?.borrador?.version ?? 0);
-        setGuardado(resultado?.borrador ? JSON.stringify({ observaciones: texto,
+        setGuardado(JSON.stringify({ observaciones: texto,
           incluirFotos: datos?.incluirFotos !== false,
           ...(tipo === 'orden_servicio' ? { origen } : {}),
           ...(tipo === 'relevamiento' ? { relevamiento } : {}),
           ...(tipo === 'avance' ? { avance } : {}),
           ...(tipo === 'cierre' ? { cierre } : {}),
-          ...(tipo === 'acta' ? { acta } : {}) }) : null);
+          ...(tipo === 'acta' ? { acta } : {}) }));
         setPersistenciaDisponible(resultado !== null);
 
         // S33: mapeo incluye descripcion_observacion además de descripcion
@@ -481,14 +490,18 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
       })
       .catch(err => {
         console.error('[ModalInformeOT] carga inicial:', err);
-        if (!cancelado) setCargandoComentario(false);
+        if (!cancelado) {
+          setErrorBorrador(err instanceof Error ? err.message : 'No se pudo cargar el borrador.');
+          setPersistenciaDisponible(false);
+          setCargandoComentario(false);
+        }
       });
     return () => {
       cancelado = true;
     };
     // No volver a cargar al recibir actualizaciones de la misma OT: preserva lo editado.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, orden.id, tipo, necesitaFotos, cfg.necesitaFotosAntes, cfg.necesitaFotosDespues, cfg.necesitaFotosDurante]);
+  }, [isOpen, orden.id, tipo, seleccionId, necesitaFotos, cfg.necesitaFotosAntes, cfg.necesitaFotosDespues, cfg.necesitaFotosDurante]);
 
   // Regeneración del preview ante cambios que requieren rebuild completo
   useEffect(() => {
@@ -525,6 +538,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
     orden,
     proyectoNombre,
     tipo,
+    documento,
   ]);
 
   if (!isOpen) return null;
@@ -548,6 +562,18 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
     ...(tipo === 'cierre' ? { cierre: datosCierre } : {}),
     ...(tipo === 'acta' ? { acta: datosActa } : {}) };
   const cambiosBorrador = guardado !== JSON.stringify(datosBorrador);
+  const tipoRepetible = tipo === 'relevamiento' || tipo === 'avance';
+
+  const cambiarDocumento = (id: string) => {
+    if (cargandoComentario || guardandoBorrador || cambiosBorrador) return;
+    setCargandoComentario(true);
+    setHtmlPreview('');
+    setErrorInforme(null);
+    setErrorBorrador(null);
+    solicitudGuardadoRef.current = null;
+    solicitudReservaRef.current = null;
+    setSeleccionId(id);
+  };
 
   const handleGuardarBorrador = async () => {
     if (cargandoComentario || guardandoBorrador || !persistenciaDisponible) return;
@@ -567,6 +593,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
       const borrador = await guardarBorradorDocumento(vigente.id, datos, versionBorrador, solicitud);
       setVersionBorrador(borrador.version);
       setGuardado(JSON.stringify(datos));
+      if (!documento && tipoRepetible) setSeleccionId(vigente.id);
       solicitudGuardadoRef.current = null;
     } catch (error) {
       setErrorBorrador(error instanceof Error ? error.message : 'No se pudo guardar el borrador.');
@@ -670,6 +697,26 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
         <div className={styles.body}>
           {/* IZQUIERDA */}
           <div className={styles.left}>
+            {tipoRepetible && (
+              <div className={styles.section}>
+                <label className={styles.originField}>
+                  <span>{tipo === 'avance' ? 'Informe de avance' : 'Informe de relevamiento'}</span>
+                  <select value={seleccionId ?? documento?.id ?? 'nuevo'}
+                    onChange={e => cambiarDocumento(e.target.value)}
+                    disabled={cargandoComentario || guardandoBorrador || cambiosBorrador}>
+                    {documentosTipo.map(doc => (
+                      <option key={doc.id} value={doc.id}>
+                        {doc.codigo}
+                      </option>
+                    ))}
+                    <option value="nuevo">+ Nuevo borrador</option>
+                  </select>
+                </label>
+                {cambiosBorrador && !cargandoComentario && (
+                  <p className={styles.sublabel}>Guardá el borrador antes de cambiar de documento.</p>
+                )}
+              </div>
+            )}
             <div className={styles.section}>
               <div className={styles.sectionTitle}>Datos</div>
               <div className={styles.dataGrid}>
@@ -968,7 +1015,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
           </span>
           {persistenciaDisponible && (
             <button type="button" className={styles.btnSecondary} onClick={handleGuardarBorrador}
-              disabled={cargandoComentario || guardandoBorrador || !cambiosBorrador}>
+              disabled={cargandoComentario || guardandoBorrador || (!cambiosBorrador && documento !== null)}>
               {guardandoBorrador ? 'Guardando…' : 'Guardar borrador'}
             </button>
           )}
