@@ -1,0 +1,97 @@
+{
+  "testedAt": "2026-09-23T02:35:51.757Z",
+  "sha256": "7e64a0c039f2f5fa3de0daa21bd7a60feb3bb04816d5ebc5dcf5cb2bda2a1908",
+  "photoMigrationSha256": "5064f67e029f88e358a19a1cca311b930e807250a8a745298cc557b7e3eca770",
+  "passed": 22,
+  "total": 22,
+  "results": [
+    {
+      "name": "backfill conserva hechos previos sin inventar actividad",
+      "ok": true
+    },
+    {
+      "name": "directorio compartido y nombres idempotentes",
+      "ok": true
+    },
+    {
+      "name": "lector no agrega; técnico no agrega a otra empresa",
+      "ok": true
+    },
+    {
+      "name": "otra empresa no lee directorio ni historial",
+      "ok": true
+    },
+    {
+      "name": "creador administra destino explícito",
+      "ok": true
+    },
+    {
+      "name": "no se puede insertar/modificar/borrar evidencia directamente",
+      "ok": true
+    },
+    {
+      "name": "edición registra todos los cambios, autor real y asignación atómica",
+      "ok": true
+    },
+    {
+      "name": "guardar sin cambios no genera ruido",
+      "ok": true
+    },
+    {
+      "name": "costo visible solo a supervisor, incluso via paginación",
+      "ok": true
+    },
+    {
+      "name": "estado y comentario quedan en misma transacción",
+      "ok": true
+    },
+    {
+      "name": "foto, descripción y anotación quedan auditadas sin URLs privadas",
+      "ok": true
+    },
+    {
+      "name": "original inmutable y protegido frente a borrado por clientes anteriores",
+      "ok": true
+    },
+    {
+      "name": "fecha inicial usa día civil de Paraguay",
+      "ok": true
+    },
+    {
+      "name": "comentarios y su eliminación conservan texto y autor",
+      "ok": true
+    },
+    {
+      "name": "borrar OT no borra historial",
+      "ok": true
+    },
+    {
+      "name": "exportación idempotente y semántica solicitada",
+      "ok": true
+    },
+    {
+      "name": "exportación ajena denegada",
+      "ok": true
+    },
+    {
+      "name": "lecturas propias persistentes, idempotentes y aisladas",
+      "ok": true
+    },
+    {
+      "name": "revocar membresía retira eventos y lecturas",
+      "ok": true
+    },
+    {
+      "name": "paginación sin duplicados y sin pérdida",
+      "ok": true
+    },
+    {
+      "name": "anónimo no accede a tablas ni funciones",
+      "ok": true
+    },
+    {
+      "name": "reversión conserva evidencia y retira acceso",
+      "ok": true
+    }
+  ]
+}

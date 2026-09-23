@@ -4,11 +4,12 @@ import styles from './Marcador.module.css'
 
 interface MarcadorProps {
   orden: OrdenLocal
+  movible?: boolean
   isSelected: boolean
   onClick: () => void
 }
 
-export default function Marcador({ orden, isSelected, onClick }: MarcadorProps) {
+export default function Marcador({ orden, isSelected, onClick, movible = false }: MarcadorProps) {
   // OTs sin ubicar no se renderizan en el plano
   if (orden.pos_x == null || orden.pos_y == null) return null
 
@@ -28,7 +29,7 @@ export default function Marcador({ orden, isSelected, onClick }: MarcadorProps) 
       data-marcador="true"
       // Drag-to-move: el dataTransfer "text/ot-move" lo diferencia del
       // "text/ot-id" que viene del ToolPanel (placement de OTs sin ubicar).
-      draggable={true}
+      draggable={movible}
       onDragStart={(e) => {
         e.stopPropagation()
         e.dataTransfer.setData('text/ot-move', orden.id)

@@ -1,0 +1,53 @@
+{
+  "testedAt": "2026-09-23T02:34:28.074Z",
+  "fieldSnapshot": {
+    "projects": 1,
+    "orders": 1,
+    "photos": 2,
+    "hash": "b49a03d0890b01b82b86ba9ac9135e67029e72d873d62fa59af17b64c0a1c54d"
+  },
+  "passed": 10,
+  "total": 10,
+  "results": [
+    {
+      "name": "directorio compartido entre sesiones y aislado por empresa",
+      "ok": true
+    },
+    {
+      "name": "fecha civil de Paraguay asignada por el servidor",
+      "ok": true
+    },
+    {
+      "name": "original protegido, capas persistentes y conflicto de revisión en fotos",
+      "ok": true
+    },
+    {
+      "name": "autor, creación, edición y estado se conservan en servidor",
+      "ok": true
+    },
+    {
+      "name": "costos no se filtran al técnico por historial",
+      "ok": true
+    },
+    {
+      "name": "lectura persiste en nueva sesión y no afecta a otros usuarios",
+      "ok": true
+    },
+    {
+      "name": "exportación registrada una sola vez por solicitud",
+      "ok": true
+    },
+    {
+      "name": "anónimo sin acceso a historial ni directorio",
+      "ok": true
+    },
+    {
+      "name": "eliminar solo la OT ficticia conserva su evidencia",
+      "ok": true
+    },
+    {
+      "name": "proyecto, OT y fotos de campo permanecen intactos",
+      "ok": true
+    }
+  ]
+}

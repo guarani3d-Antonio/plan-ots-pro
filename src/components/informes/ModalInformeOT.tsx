@@ -1,3 +1,4 @@
+import { registrarExportacion } from '../../services/trustService';
 // src/components/informes/ModalInformeOT.tsx
 //
 // Modal fullscreen para previsualizar/exportar informes de OT. Soporta 5
@@ -314,6 +315,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
     setGenerandoPreview(true);
     try {
       const result = await hacerInformePortable(construirHtml(observaciones));
+      await registrarExportacion(orden.id, tipo, 'HTML');
       const blob = new Blob([result.html], { type: 'text/html;charset=utf-8' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -329,11 +331,12 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
   const handleExportarPDF = async () => {
     if (cargandoComentario) return;
     const w = window.open('', '_blank');
-    if (!w) return;
+    if (!w) { setErrorInforme('El navegador bloqueó la ventana del PDF. Permití las ventanas emergentes para este sitio.'); return; }
     w.document.write('<p style="font-family:Arial;padding:24px">Preparando informe portable…</p>');
     setGenerandoPreview(true);
     try {
       const result = await hacerInformePortable(construirHtml(observaciones));
+      await registrarExportacion(orden.id, tipo, 'PDF');
       w.document.open(); w.document.write(result.html); w.document.close();
       w.onload = () => { w.document.title = cfg.tituloDoc; setTimeout(() => w.print(), 250); };
       setErrorInforme(result.missingImages ? `${result.missingImages} imagen(es) no estaban disponibles para el PDF.` : null);

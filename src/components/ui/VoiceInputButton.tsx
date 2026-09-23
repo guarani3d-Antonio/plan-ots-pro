@@ -52,7 +52,7 @@ export function VoiceInputButton({ value, onChange, disabled = false, maxLength,
   const detener = () => recognitionRef.current?.stop();
 
   const comenzar = () => {
-    if (!SpeechRecognition || disabled) return;
+    if (!SpeechRecognition || disabled || recognitionRef.current) return;
     setErrorDictado('');
     const recognition = new SpeechRecognition();
     recognitionRef.current = recognition;
@@ -79,6 +79,7 @@ export function VoiceInputButton({ value, onChange, disabled = false, maxLength,
       setEscuchando(false);
     };
     recognition.onend = () => {
+      if (recognitionRef.current !== recognition) return;
       recognitionRef.current = null;
       setEscuchando(false);
     };
@@ -86,6 +87,7 @@ export function VoiceInputButton({ value, onChange, disabled = false, maxLength,
       recognition.start();
       setEscuchando(true);
     } catch {
+      recognitionRef.current = null;
       setErrorDictado('No se pudo iniciar el dictado. Revisá el permiso del micrófono.');
       setEscuchando(false);
     }
@@ -106,6 +108,7 @@ export function VoiceInputButton({ value, onChange, disabled = false, maxLength,
       </svg>
       {!compact && <span>{escuchando ? 'Escuchando…' : 'Dictar'}</span>}
     </button>
+    {!disponible && <span className={styles.error}>Dictado no disponible. Usá el teclado o su micrófono.</span>}
     {errorDictado && <span role="alert" className={styles.error}>{errorDictado}</span>}
   </span>);
 }

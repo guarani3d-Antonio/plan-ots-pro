@@ -815,10 +815,10 @@ export function generarInformeCierre(
   const otLabel = orden.ot ?? 'Sin código';
 
   // Campos de fecha — buscar en campos si no está en columna directa
-  const fechaInicio = (orden as any).fecha_inicio_trabajos
-    ?? (orden.campos as any)?.fecha_inicio_trabajos ?? null;
-  const fechaCierre = (orden as any).fecha_cierre
-    ?? (orden.campos as any)?.fecha_cierre ?? null;
+  const fechaInicio = orden.fecha_inicio_trabajos
+    ?? (typeof orden.campos?.fecha_inicio_trabajos === 'string' ? orden.campos.fecha_inicio_trabajos : null);
+  const fechaCierre = orden.fecha_fin_trabajos
+    ?? (typeof orden.campos?.fecha_cierre === 'string' ? orden.campos.fecha_cierre : null);
 
   return `<!DOCTYPE html>
 <html class="light" lang="es">
@@ -992,6 +992,7 @@ tailwind.config = {
       ESTADO: CERRADO
     </div>
     <div class="text-body-sm font-mono-technical text-on-surface-variant">ID DE ORDEN: ${escapeHtml(otLabel)}</div>
+    <div class="text-body-sm">Proyecto: ${escapeHtml(proyectoNombre)} · Versión OT: ${escapeHtml(orden.updated_at || 'No registrada')}</div>
   </div>
 </header>
 <div class="mb-8">
@@ -1005,9 +1006,9 @@ tailwind.config = {
     <h3 class="font-section-header text-[10px] text-primary uppercase tracking-widest">Datos del Cliente</h3>
   </div>
   <div class="flex flex-col gap-1"><span class="text-[10px] font-bold text-outline uppercase tracking-wider">Obra</span>
-    <span class="text-body-md text-on-surface">${escapeHtml(proyectoNombre)}</span></div>
+    <span class="text-body-md text-on-surface">${escapeHtml(orden.obra || 'No especificado')}</span></div>
   <div class="flex flex-col gap-1"><span class="text-[10px] font-bold text-outline uppercase tracking-wider">Unidad o Sector</span>
-    <span class="text-body-md text-on-surface">${escapeHtml(orden.ubicacion || 'No especificado')}</span></div>
+    <span class="text-body-md text-on-surface">${escapeHtml(orden.unidad_amenities || 'No especificado')}</span></div>
   <div class="flex flex-col gap-1"><span class="text-[10px] font-bold text-outline uppercase tracking-wider">Nombre y Apellido</span>
     <span class="text-body-md text-on-surface">${escapeHtml(orden.responsable || 'No asignado')}</span></div>
 </section>

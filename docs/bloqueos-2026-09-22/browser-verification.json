@@ -1,0 +1,16 @@
+{
+  "testedAt": "2026-09-23T02:45:30.667Z",
+  "url": "http://127.0.0.1:5173/",
+  "account": "e1-supervisor (ficticio)",
+  "checks": [
+    "Contratista QA creado mediante UI y recuperado tras nueva sesión",
+    "Aviso de OT eliminada abre historial conservado y explica que la OT ya no existe",
+    "Plano abre en modo navegar con Nueva OT y Mover OT desactivados",
+    "OT QA-REST-a1000000 guardó obra y unidad ficticias; estado Guardado con hora",
+    "Editor cargó fuente privada; flecha dibujada con mouse, guardada y recuperada como capa al reabrir"
+  ],
+  "limitations": [
+    "No prueba física de tablet, lápiz ni micrófono",
+    "La sesión ficticia se volvió a autenticar después de pruebas REST que habían cerrado sesiones de esa cuenta"
+  ]
+}

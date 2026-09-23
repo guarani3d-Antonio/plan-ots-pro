@@ -382,6 +382,8 @@
    ZOOM CONTROLS
 ══════════════════════════════════════════════════════════════ */
 .zoomCtrl {
+  max-width: calc(100% - 32px);
+  flex-wrap: wrap;
   position: absolute;
   bottom: 16px;
   right: 16px;
@@ -396,6 +398,10 @@
   padding: 4px;
   z-index: var(--z-zoom);
 }
+
+.zoomCtrl > button { min-height: 44px; padding-inline: 10px; }
+.zoomCtrl > button[aria-pressed="true"] { outline: 2px solid var(--text-primary); }
+.zoomCtrl > span[role="status"] { padding: 4px 8px; font-size: 14px; }
 
 .zbtn {
   display: flex;

@@ -252,16 +252,23 @@ export default function VistaPlano({ fullscreen = false, onToggleFullscreen }: V
   }, [doZoom]);
 
   // ── Pan ──────────────────────────────────────────────────
-  const panRef     = useRef({ active: false, sx: 0, sy: 0, ox: 0, oy: 0 });
+  const [modoPlano, setModoPlano] = useState<'navegar' | 'crear' | 'mover'>('navegar');
+  const [ordenAMover, setOrdenAMover] = useState<string | null>(null);
+  const accionPlanoRef = useRef(false);
+  const panRef = useRef({ active: false, pointerId: -1, sx: 0, sy: 0, ox: 0, oy: 0 });
   const pointersRef = useRef(new Map<number, { x: number; y: number }>());
   const pinchRef = useRef<{ distance: number; scale: number; tx: number; ty: number; cx: number; cy: number } | null>(null);
   const didDragRef = useRef(false);
+  const gestoBloqueadoRef = useRef(false);
   const [isPanning, setIsPanning] = useState(false);
 
   const onPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement;
+    if (target.closest('[data-no-pan]') || (e.pointerType === 'mouse' && e.button !== 0)) return;
     if (pointersRef.current.size === 0) didDragRef.current = false;
     if (e.pointerType !== 'mouse') {
       pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pointersRef.current.size > 2) { gestoBloqueadoRef.current = true; return; }
       if (pointersRef.current.size === 2) {
         e.currentTarget.setPointerCapture(e.pointerId);
         const [a, b] = [...pointersRef.current.values()];
@@ -278,13 +285,15 @@ export default function VistaPlano({ fullscreen = false, onToggleFullscreen }: V
       }
     }
     const t = e.target as HTMLElement;
+    if (e.pointerType !== 'mouse' && t.closest('[data-marcador]')) t.setPointerCapture(e.pointerId);
     if (t.closest('[data-marcador]') || t.closest('[data-no-pan]')) return;
-    panRef.current = { active: true, sx: e.clientX, sy: e.clientY, ox: txRef.current, oy: tyRef.current };
+    panRef.current = { active: true, pointerId: e.pointerId, sx: e.clientX, sy: e.clientY, ox: txRef.current, oy: tyRef.current };
     (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
     setIsPanning(true);
   }, []);
 
   const onPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (gestoBloqueadoRef.current) return;
     if (pointersRef.current.has(e.pointerId)) {
       pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (pinchRef.current && pointersRef.current.size >= 2) {
@@ -301,17 +310,16 @@ export default function VistaPlano({ fullscreen = false, onToggleFullscreen }: V
         return;
       }
     }
-    if (e.buttons > 0 && (Math.abs(e.movementX) + Math.abs(e.movementY)) > 1) {
-      didDragRef.current = true;
-    }
     const p = panRef.current;
-    if (!p.active) return;
+    if (!p.active || e.pointerId !== p.pointerId || pinchRef.current) return;
     const dx = e.clientX - p.sx, dy = e.clientY - p.sy;
+    if (Math.hypot(dx, dy) > 4) didDragRef.current = true;
     applyTransform(scRef.current, p.ox + dx, p.oy + dy);
   }, [applyTransform]);
 
   const onPointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     pointersRef.current.delete(e.pointerId);
+    if (pointersRef.current.size === 0) gestoBloqueadoRef.current = false;
     if (pinchRef.current) {
       panRef.current.active = false;
       if (pointersRef.current.size === 0) { pinchRef.current = null; setIsPanning(false); }
@@ -321,9 +329,19 @@ export default function VistaPlano({ fullscreen = false, onToggleFullscreen }: V
     setIsPanning(false);
   }, []);
 
+  useEffect(() => {
+    const reset = () => {
+      pointersRef.current.clear(); pinchRef.current = null;
+      panRef.current.active = false; gestoBloqueadoRef.current = false;
+      didDragRef.current = true; setIsPanning(false);
+    };
+    window.addEventListener('resize', reset);
+    return () => window.removeEventListener('resize', reset);
+  }, []);
+
   // ── Click → crear OT ─────────────────────────────────────
   const onPlanClick = useCallback(async (e: React.MouseEvent<HTMLDivElement>) => {
-    if (didDragRef.current || !puedeEditar) return;
+    if (accionPlanoRef.current || didDragRef.current || !puedeEditar || modoPlano === 'navegar' || (modoPlano === 'mover' && !ordenAMover)) return;
     const t = e.target as HTMLElement;
     if (t.closest('[data-marcador]') || t.closest('[data-no-pan]')) return;
     if (!planoListo || !planoDims.w || !proyecto) return;
@@ -332,11 +350,19 @@ export default function VistaPlano({ fullscreen = false, onToggleFullscreen }: V
     const posX = (e.clientX - rect.left - txRef.current) / scRef.current / planoDims.w;
     const posY = (e.clientY - rect.top  - tyRef.current) / scRef.current / planoDims.h;
     if (posX < 0 || posX > 1 || posY < 0 || posY > 1) return;
+    accionPlanoRef.current = true;
     try {
+      if (modoPlano === 'mover' && ordenAMover) {
+        if (!ordenes.some(o => o.id === ordenAMover && o.proyecto_id === proyecto.id)) return;
+        await actualizarOrden(ordenAMover, { pos_x: posX, pos_y: posY });
+        setOrdenAMover(null); setModoPlano('navegar'); setErrorAccion(null); return;
+      }
       const nueva = await crearOrdenEnPosicion(proyecto.id, posX, posY);
+      setModoPlano('navegar');
       setOrdenSeleccionada(nueva); setEsNuevaOT(true); setErrorAccion(null);
-    } catch(e) { setErrorAccion(e instanceof Error ? e.message : 'No se pudo crear la orden.'); }
-  }, [planoListo, planoDims, proyecto, crearOrdenEnPosicion, puedeEditar]);
+    } catch(e) { setErrorAccion(e instanceof Error ? e.message : 'No se pudo completar la acción en el plano.'); }
+    finally { accionPlanoRef.current = false; }
+  }, [planoListo, planoDims, proyecto, crearOrdenEnPosicion, puedeEditar, modoPlano, ordenAMover, actualizarOrden, ordenes]);
 
   const handleSeleccionar = useCallback((orden: OrdenLocal) => {
     setOrdenSeleccionada(orden);
@@ -355,12 +381,14 @@ export default function VistaPlano({ fullscreen = false, onToggleFullscreen }: V
     const pos_y = Math.max(0.01, Math.min(0.99, (e.clientY - rect.top)  / rect.height));
     const moveId = e.dataTransfer.getData('text/ot-move');
     if (moveId) {
+      if (modoPlano !== 'mover' || !ordenes.some(o => o.id === moveId && o.proyecto_id === proyecto?.id)) return;
       try{await actualizarOrden(moveId,{pos_x,pos_y});setErrorAccion(null);}
       catch(err){setErrorAccion(err instanceof Error?err.message:'No se pudo mover la orden.');}
       return;
     }
     const placeId = e.dataTransfer.getData('text/ot-id');
     if (placeId) {
+      if (!ordenes.some(o => o.id === placeId && o.proyecto_id === proyecto?.id)) return;
       try{
         const ordenObjetivo=await actualizarOrden(placeId,{pos_x,pos_y});setErrorAccion(null);
         if(ordenObjetivo){setOrdenSeleccionada(ordenObjetivo);
@@ -369,7 +397,7 @@ export default function VistaPlano({ fullscreen = false, onToggleFullscreen }: V
       }catch(err){setErrorAccion(err instanceof Error?err.message:'No se pudo ubicar la orden.');}
       return;
     }
-  }, [actualizarOrden, puedeEditar]);
+  }, [actualizarOrden, puedeEditar, modoPlano, ordenes, proyecto?.id]);
 
   if (!proyecto) return null;
 
@@ -511,7 +539,7 @@ export default function VistaPlano({ fullscreen = false, onToggleFullscreen }: V
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
-          onPointerCancel={onPointerUp}
+          onPointerCancel={e => { didDragRef.current = true; onPointerUp(e); }}
           onClick={onPlanClick}
         >
           {!planoListo && !errorPlano && (
@@ -559,14 +587,18 @@ export default function VistaPlano({ fullscreen = false, onToggleFullscreen }: V
               <Marcador
                 key={orden.id}
                 orden={orden}
-                isSelected={ordenSeleccionada?.id === orden.id}
-                onClick={() => handleSeleccionar(orden)}
+                isSelected={ordenSeleccionada?.id === orden.id || ordenAMover === orden.id}
+                movible={puedeEditar && modoPlano === 'mover'}
+                onClick={() => { if (didDragRef.current) return; if (modoPlano === 'mover') setOrdenAMover(orden.id); else handleSeleccionar(orden); }}
               />
             ))}
           </div>
 
           {/* Zoom controls */}
           <div className={styles.zoomCtrl} data-no-pan>
+            {puedeEditar && <button type="button" aria-pressed={modoPlano === 'crear'} onClick={() => { setModoPlano(modoPlano === 'crear' ? 'navegar' : 'crear'); setOrdenAMover(null); }}>Nueva OT</button>}
+            {puedeEditar && <button type="button" aria-pressed={modoPlano === 'mover'} onClick={() => { setModoPlano(modoPlano === 'mover' ? 'navegar' : 'mover'); setOrdenAMover(null); }}>Mover OT</button>}
+            {modoPlano !== 'navegar' && <span role="status">{modoPlano === 'crear' ? 'Tocá el lugar de la nueva OT' : ordenAMover ? 'Tocá el destino' : 'Seleccioná un pin'}</span>}
             <button
               className={styles.zbtn}
               onClick={() => {

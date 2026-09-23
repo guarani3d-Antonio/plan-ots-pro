@@ -254,6 +254,7 @@ export function _paginaHeader(orden: OrdenLocal, titulo: string, subtitulo: stri
         ESTADO: ${badge.texto}
       </div>
       <div class="text-body-sm font-mono-technical text-on-surface-variant">ID DE ORDEN: ${escapeHtml(otLabel)}</div>
+      <div class="text-body-sm">Versión OT: ${escapeHtml(orden.updated_at || 'No registrada')}</div>
     </div>
   </header>
   <div class="mb-8">

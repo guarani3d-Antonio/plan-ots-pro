@@ -293,3 +293,12 @@
 .clearBtn:hover {
   color: #ef4444;
 }
+.eventButton { width: 100%; border: 0; background: var(--bg-surface); color: var(--text-primary); text-align: left; font: inherit; cursor: pointer; }
+.eventButton .notifContent { display: flex; flex-direction: column; gap: 4px; }
+.historyBackdrop { position: fixed; inset: 0; z-index: 4000; background: rgb(0 0 0 / .4); display: grid; place-items: center; }
+.historyDialog { width: min(900px, 94vw); max-height: 90dvh; overflow: auto; padding: 20px; border-radius: 16px; background: var(--bg-surface); color: var(--text-primary); }
+.historyDialog header { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.historyDialog button, .panel button { min-height: 44px; }
+.panel { max-width: calc(100vw - 90px); max-height: 70dvh; }
+.panelFooter { flex-wrap: wrap; }
+@media (max-width: 600px) { .panel { left: 76px; } }

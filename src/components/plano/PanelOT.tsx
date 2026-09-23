@@ -1,10 +1,10 @@
-import { LEGACY_OFFLINE_ENABLED, scopedKey } from '../../security/sessionScope';
+import { LEGACY_OFFLINE_ENABLED } from '../../security/sessionScope';
 import { usePermisoObra } from '../../stores/accessStore';
-import { ORDEN_SELECT } from '../../data/ordenMapper';
+import { cargarContratistas } from '../../services/trustService';
 // src/components/plano/PanelOT.tsx
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { OrdenLocal, EstadoOT, PrioridadOT } from '../../types/orden';
-import { useOrdenesStore, rowToOrden } from '../../stores/ordenesStore';
+import { useOrdenesStore } from '../../stores/ordenesStore';
 import { supabase } from '../../db/supabase';
 import { useAuthStore } from '../../stores/authStore';
 import { useProyectosStore } from '../../stores/proyectosStore';
@@ -243,12 +243,12 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
   const [filtroFotos, setFiltroFotos] = useState<'TODAS' | CategoriaFoto>('TODAS');
   const [form,            setForm]            = useState<FormState>(() => ordenToForm(ordenFresca));
   const baseEdicion = useRef<OrdenLocal | null>(ordenFresca);
+  const [baseVisible, setBaseVisible] = useState<OrdenLocal | null>(ordenFresca);
+  const saveLock = useRef(false);
   const [inputContratista, setInputContratista] = useState('');
   const [dropdownContratistasOpen, setDropdownContratistasOpen] = useState(false);
-  const [contratistasGlobales, setContratistasGlobales] = useState<string[]>(() => {
-    try { return JSON.parse(localStorage.getItem(scopedKey('plan_ots_contratistas')) ?? '[]'); }
-    catch { return []; }
-  });
+  const [contratistasGlobales, setContratistasGlobales] = useState<string[]>([]);
+  const [errorDirectorio, setErrorDirectorio] = useState<string | null>(null);
   const [confirmEliminar, setConfirmEliminar] = useState(false);
   const [guardando,       setGuardando]       = useState(false);
   const [guardadoEn,      setGuardadoEn]      = useState<Date | null>(null);
@@ -257,10 +257,10 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
   const [tipoInforme,     setTipoInforme]     = useState<TipoInformeModal>('cierre');
 
   // ── Rol del usuario en el proyecto ──────────────────────
-  const permiso = usePermisoObra(proyectoActivo?.id);
+  const permiso = usePermisoObra(ordenFresca?.proyecto_id);
   const esSupervisor = !!permiso?.administrar;
   const puedeEditar = !!permiso?.editar;
-  const puedeVerCostos = usePuedeVerCostos(proyectoActivo?.id ?? null);
+  const puedeVerCostos = usePuedeVerCostos(ordenFresca?.proyecto_id ?? null);
 
   // ── Fotos ────────────────────────────────────────────────
   const [fotosAntes,   setFotosAntes]   = useState<FotoConId[]>([]);
@@ -450,12 +450,33 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
     onConfirmar: ((comentario: string) => void) | null;
     onCancelar: (() => void) | null;
   }>({ abierto: false, estadoAnterior: '', estadoNuevo: '', esPorFoto: false, onConfirmar: null, onCancelar: null });
+  useEffect(() => {
+    let active = true;
+    if (permiso?.tenant_id) cargarContratistas(permiso.tenant_id).then(rows => {
+      if (active) { setContratistasGlobales(rows.map(r => r.nombre)); setErrorDirectorio(null); }
+    }).catch(e => { if (active) { setContratistasGlobales([]); setErrorDirectorio(e.message); } });
+    return () => { active = false; };
+  }, [permiso?.tenant_id]);
+  const cambiosSinGuardar = JSON.stringify(form) !== JSON.stringify(ordenToForm(baseVisible)) || !!inputContratista.trim()
+    || JSON.stringify(valoresCampos) !== JSON.stringify(baseVisible?.campos ?? {});
+  useEffect(() => {
+    if (!cambiosSinGuardar) return;
+    const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [cambiosSinGuardar]);
+  const cerrarConAviso = () => {
+    if (saveLock.current) return;
+    if (!cambiosSinGuardar || window.confirm('Hay cambios sin guardar. ¿Querés descartarlos y cerrar?')) onCerrar();
+  };
   const [historialRefresh, setHistorialRefresh] = useState(0);
   const [tabActivo, setTabActivo] = useState<'detalle' | 'historial'>('detalle');
 
   useEffect(() => {
     if (!ordenFresca) return;
     baseEdicion.current=ordenFresca;
+    setBaseVisible(ordenFresca);
+    setGuardadoEn(null); setErrorGuardado(false);
     setForm(ordenToForm(ordenFresca));
     setValoresCampos(
       ordenFresca.campos && typeof ordenFresca.campos === 'object' ? ordenFresca.campos : {}
@@ -464,16 +485,6 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
 
   useEffect(() => {
     if (!ordenProp?.id) return;
-    const capturedId = ordenProp.id;
-    supabase.from('ordenes').select(ORDEN_SELECT).eq('id', capturedId).single().then(({ data, error }) => {
-      if (!error && data && ordenProp?.id === capturedId) {
-        const fresh = rowToOrden(data as Record<string, unknown>);
-        useOrdenesStore.getState().agregarOActualizarOrden(fresh);
-        baseEdicion.current=fresh;
-        setForm(ordenToForm(fresh));
-        setValoresCampos(fresh.campos && typeof fresh.campos === 'object' ? fresh.campos : {});
-      }
-    });
     setTab(modoForzadoFotos ? 'fotos' : 'datos');
     setConfirmEliminar(false);
     setErrorFotos(null);
@@ -508,22 +519,6 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
       revocarObjectUrls();
     };
   }, [ordenProp?.id]);
-
-  const horaActualDefault = useMemo(
-    () => new Date().toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit', hour12: false }),
-    [ordenFresca?.id],
-  );
-  useEffect(() => {
-    if (!ordenFresca) return;
-    setValoresCampos(prev => {
-      if (prev.hora_inicio_trabajos != null && prev.hora_fin_trabajos != null) return prev;
-      return {
-        ...prev,
-        hora_inicio_trabajos: prev.hora_inicio_trabajos ?? horaActualDefault,
-        hora_fin_trabajos:    prev.hora_fin_trabajos    ?? horaActualDefault,
-      };
-    });
-  }, [ordenFresca?.id, valoresCampos, horaActualDefault]);
 
   if (!ordenFresca) return null;
 
@@ -593,6 +588,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
       if (estadoNuevo && comentarioAuto !== null) {
         const actualizada=await cambiarEstado(ordenFresca.id,estadoNuevo,comentarioAuto,null,baseEdicion.current??ordenFresca);
         baseEdicion.current=actualizada;
+        setBaseVisible(actualizada);
         set('estado', estadoNuevo);
         setHistorialRefresh(prev => prev + 1);
       }
@@ -661,7 +657,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
   };
 
   const handleGuardar = async () => {
-    if (!ordenFresca) return;
+    if (!ordenFresca || saveLock.current) return;
     const contratistaPendiente = inputContratista.trim();
     const contratistasFinales = contratistaPendiente && !form.contratistas?.includes(contratistaPendiente)
       ? [...(form.contratistas ?? []), contratistaPendiente] : (form.contratistas ?? []);
@@ -691,6 +687,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
       ? fechaLocalHoy()
       : form.fecha_fin_trabajos;
 
+    saveLock.current = true;
     setGuardando(true);
     try {
       const base=baseEdicion.current??ordenFresca;
@@ -725,7 +722,9 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
       const actualizada=Object.keys(cambios).length?await actualizarOrden(ordenFresca.id,cambios,base):base;
       if (actualizada) {
         baseEdicion.current=actualizada;
+        setBaseVisible(actualizada);
         setForm(ordenToForm(actualizada));
+        setValoresCampos(actualizada.campos ?? {});
       } else {
         const fromStore = useOrdenesStore.getState().ordenes.find(o => o.id === ordenFresca.id);
         if (fromStore) setForm(ordenToForm(fromStore));
@@ -742,11 +741,13 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
       setInputContratista('');
       setErrorGuardado(false);
       setGuardadoEn(new Date());
+      setHistorialRefresh(r => r + 1);
       if (modoForzadoFotos) onCerrar();
     } catch(err) {
       setErrorGuardado(true);
       mostrar(err instanceof Error?err.message:'No se pudieron guardar los cambios.','error');
     } finally {
+      saveLock.current = false;
       setGuardando(false);
     }
   };
@@ -909,11 +910,6 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
     if (!form.contratistas?.includes(trimmed)) {
       setForm(prev => ({ ...prev, contratistas: [...(prev.contratistas ?? []), trimmed] }));
     }
-    if (!contratistasGlobales.includes(trimmed)) {
-      const nueva = [...contratistasGlobales, trimmed].sort((a, b) => a.localeCompare(b));
-      setContratistasGlobales(nueva);
-      try { localStorage.setItem(scopedKey('plan_ots_contratistas'), JSON.stringify(nueva)); } catch (e) { console.error('[PanelOT] localStorage contratistas:', e); }
-    }
     setInputContratista('');
     setDropdownContratistasOpen(false);
   };
@@ -951,6 +947,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
     try{
       const actualizada=await cambiarEstado(ordenFresca.id,nuevoEstado,comentario,extraFields.fecha_fin_trabajos??null,baseEdicion.current??ordenFresca);
       baseEdicion.current=actualizada;
+        setBaseVisible(actualizada);
       if(extraFields.fecha_fin_trabajos)set('fecha_fin_trabajos',extraFields.fecha_fin_trabajos);
       set('estado',nuevoEstado);
       setHistorialRefresh(prev => prev + 1);
@@ -971,7 +968,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
 
   return (
     <>
-      <div className={styles.backdrop} onClick={modoForzadoFotos ? undefined : onCerrar}>
+      <div className={styles.backdrop} onClick={modoForzadoFotos ? undefined : cerrarConAviso}>
         <div className={styles.workspace} onClick={e => e.stopPropagation()}>
         <div className={styles.panel} onClick={e => e.stopPropagation()}>
 
@@ -993,7 +990,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
                 <span aria-hidden="true">💬</span>
                 <span>{comentariosVisibles ? 'Ocultar conversación' : 'Mostrar conversación'}</span>
               </button>
-              {!modoForzadoFotos && <button className={styles.closeBtn} onClick={onCerrar} aria-label="Cerrar panel">✕</button>}
+              {!modoForzadoFotos && <button className={styles.closeBtn} onClick={cerrarConAviso} aria-label="Cerrar panel">✕</button>}
             </div>
           </div>
 
@@ -1022,7 +1019,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
             ))}
           </div>
 
-          <fieldset disabled={!puedeEditar} className={`${styles.body} ${tab === 'fotos' ? styles.bodyFotos : styles.bodyFormulario}`} style={{ border: 0, margin: 0, minWidth: 0 }}>
+          <fieldset disabled={!puedeEditar || guardando} className={`${styles.body} ${tab === 'fotos' ? styles.bodyFotos : styles.bodyFormulario}`} style={{ border: 0, margin: 0, minWidth: 0 }}>
 
             {tab === 'datos' && <>
               <div className={styles.section}>
@@ -1124,12 +1121,13 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
                       ))}
                     </div>
                   )}
+                  {errorDirectorio && <p role="alert">No se pudo cargar el directorio: {errorDirectorio}. Podés escribir el nombre y guardarlo con la OT.</p>}
                   <div className={styles.contratistaInputWrap}>
-                    <input className={styles.input} value={inputContratista} placeholder="Nombre del contratista..." onChange={e => setInputContratista(e.target.value)} onFocus={() => setDropdownContratistasOpen(true)} onBlur={() => setTimeout(() => setDropdownContratistasOpen(false), 150)} onKeyDown={e => { if (e.key === 'Enter' && inputContratista.trim()) { e.preventDefault(); agregarContratista(inputContratista); } }} />
+                    <input maxLength={160} className={styles.input} value={inputContratista} placeholder="Nombre del contratista..." onChange={e => setInputContratista(e.target.value)} onFocus={() => setDropdownContratistasOpen(true)} onBlur={() => setTimeout(() => setDropdownContratistasOpen(false), 150)} onKeyDown={e => { if (e.key === 'Enter' && inputContratista.trim()) { e.preventDefault(); agregarContratista(inputContratista); } }} />
                     <button type="button" className={styles.contratistaAddBtn} onClick={() => agregarContratista(inputContratista)} disabled={!inputContratista.trim()}>Agregar</button>
                     {dropdownContratistasOpen && sugerenciasContratistas.length > 0 && (
                       <div className={styles.contratistaDropdown}>
-                        {sugerenciasContratistas.map(c => <button key={c} type="button" className={styles.contratistaDropdownItem} onMouseDown={e => { e.preventDefault(); agregarContratista(c); }}>{c}</button>)}
+                        {sugerenciasContratistas.map(c => <button key={c} type="button" className={styles.contratistaDropdownItem} onPointerDown={e => { e.preventDefault(); agregarContratista(c); }}>{c}</button>)}
                       </div>
                     )}
                   </div>
@@ -1139,7 +1137,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
                     <label className={styles.label}>Fecha inicio trabajos</label>
                     <div style={{ display: 'flex', gap: 6 }}>
                       <input className={styles.input} style={{ flex: 1 }} type="date" value={toDateInput(form.fecha_inicio_trabajos)} onChange={e => set('fecha_inicio_trabajos', e.target.value)} />
-                      <input className={styles.input} style={{ flex: '0 0 100px' }} type="time" value={(valoresCampos.hora_inicio_trabajos as string | undefined) ?? horaActualDefault} onChange={e => setValorCampo('hora_inicio_trabajos', e.target.value)} />
+                      <input className={styles.input} style={{ flex: '0 0 100px' }} type="time" value={(valoresCampos.hora_inicio_trabajos as string | undefined) ?? ''} onChange={e => setValorCampo('hora_inicio_trabajos', e.target.value)} />
                     </div>
                   </div>
                 )}
@@ -1148,7 +1146,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
                     <label className={styles.label}>Fecha fin trabajos</label>
                     <div style={{ display: 'flex', gap: 6 }}>
                       <input className={styles.input} style={{ flex: 1 }} type="date" value={toDateInput(form.fecha_fin_trabajos)} onChange={e => set('fecha_fin_trabajos', e.target.value)} />
-                      <input className={styles.input} style={{ flex: '0 0 100px' }} type="time" value={(valoresCampos.hora_fin_trabajos as string | undefined) ?? horaActualDefault} onChange={e => setValorCampo('hora_fin_trabajos', e.target.value)} />
+                      <input className={styles.input} style={{ flex: '0 0 100px' }} type="time" value={(valoresCampos.hora_fin_trabajos as string | undefined) ?? ''} onChange={e => setValorCampo('hora_fin_trabajos', e.target.value)} />
                     </div>
                   </div>
                 )}
@@ -1259,7 +1257,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
                         </div>
                         <span className={`${styles.informeEstado} ${disponible ? styles.informeOk : styles.informeNo}`}>{disponible ? 'Disponible' : 'No disponible'}</span>
                       </div>
-                      <button className={styles.btnGenerar} onClick={() => { const tipoModal: TipoInformeModal = tipo === 'ficha_visita' ? 'ficha' : tipo === 'acta_conformidad' ? 'acta' : tipo; setTipoInforme(tipoModal); setModalCierre(true); }} disabled={!disponible} type="button">🖨️ Generar</button>
+                      <button className={styles.btnGenerar} onClick={() => { if (cambiosSinGuardar) { mostrar('Guardá los cambios de la OT antes de generar el informe.', 'info'); return; } const tipoModal: TipoInformeModal = tipo === 'ficha_visita' ? 'ficha' : tipo === 'acta_conformidad' ? 'acta' : tipo; setTipoInforme(tipoModal); setModalCierre(true); }} disabled={!disponible} type="button">🖨️ Generar</button>
                     </div>
                   );
                 })}
@@ -1290,15 +1288,15 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
           <div className={styles.footer}>
             <span role="status" aria-live="polite" style={{ marginRight: 'auto', color: errorGuardado ? 'var(--color-danger, #B42318)' : 'var(--text-secondary)', fontSize: 13 }}>
               {guardando ? 'Guardando…' : errorGuardado ? 'No guardado · reintentá' :
-                (JSON.stringify(form) !== JSON.stringify(ordenToForm(baseEdicion.current ?? ordenFresca)) || inputContratista.trim())
+                cambiosSinGuardar
                   ? 'Cambios sin guardar' : guardadoEn ? `Guardado · ${guardadoEn.toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit' })}` : ''}
             </span>
             {modoForzadoFotos ? (
               <button className={styles.cancelUbicacionBtn} onClick={handleCancelarUbicacion} disabled={guardando} type="button">Cancelar ubicación</button>
             ) : esNueva ? (
-              <button className={styles.cancelUbicacionBtn} onClick={handleCancelarNueva} type="button">Cancelar</button>
+              <button className={styles.cancelUbicacionBtn} onClick={handleCancelarNueva} disabled={guardando} type="button">Cancelar</button>
             ) : esSupervisor ? (
-              <button className={styles.deleteBtn} onClick={handleEliminar} type="button">
+              <button className={styles.deleteBtn} onClick={handleEliminar} disabled={guardando} type="button">
                 {confirmEliminar ? '¿Confirmar?' : 'Borrar'}
               </button>
             ) : null}

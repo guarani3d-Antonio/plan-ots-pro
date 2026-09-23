@@ -6,15 +6,12 @@ import React, {
 } from 'react';
 import styles from './EditorFoto.module.css';
 import { resolverArchivo } from '../../services/storageService';
-import { useArchivoPrivado } from '../../hooks/useArchivoPrivado';
+import { useArchivoPrivadoEstado } from '../../hooks/useArchivoPrivado';
 import {
   cargarEdicionFoto,
-  guardarEdicionFoto,
   subirImagenAnotada,
 } from '../../services/editorFotoService';
 import type { AnotacionGuardada } from '../../services/editorFotoService';
-import { supabase } from '../../db/supabase';
-import { actualizarDescripcionFoto } from '../../services/fotosService';
 import { VoiceInputButton } from '../ui/VoiceInputButton';
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
@@ -160,7 +157,14 @@ function drawAnotacion(ctx: CanvasRenderingContext2D, ann: Anotacion) {
 export default function EditorFoto({ foto, ordenCodigo, todasLasFotos, onClose, onGuardado }: EditorFotoProps) {
   const [indice, setIndice] = useState(() => Math.max(0, todasLasFotos.findIndex(f => f.id === foto.id)));
   const fotoActual = todasLasFotos[indice] ?? foto;
-  const fotoPrivada = useArchivoPrivado(fotoActual.file_url);
+  const [original, setOriginal] = useState('');
+  const [revisionFoto, setRevisionFoto] = useState<number | null>(null);
+  const [errorCarga, setErrorCarga] = useState<string | null>(null);
+  const [marcasIntegradas, setMarcasIntegradas] = useState(false);
+  const { url: fotoPrivada, error: errorArchivo } = useArchivoPrivadoEstado(original);
+  const [aspectoFoto, setAspectoFoto] = useState(1);
+  const [imagenCargada, setImagenCargada] = useState('');
+  const saveLock = useRef(false);
 
   const [anotaciones,  setAnotaciones]  = useState<Anotacion[]>([]);
   const [historial,    setHistorial]    = useState<Anotacion[][]>([]);
@@ -234,7 +238,7 @@ export default function EditorFoto({ foto, ordenCodigo, todasLasFotos, onClose, 
     canvas.style.height = `${h}px`;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    ctx.scale(dpr, dpr);
+    ctx.scale(dpr * w / 1000, dpr * w / 1000);
     ctxRef.current = ctx;
   }, []);
 
@@ -243,10 +247,17 @@ export default function EditorFoto({ foto, ordenCodigo, todasLasFotos, onClose, 
     const ctx = ctxRef.current;
     const canvas = canvasRef.current;
     if (!ctx || !canvas) return;
-    const dpr = window.devicePixelRatio || 1;
-    ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
+    ctx.save(); ctx.resetTransform(); ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.restore();
     anns.forEach(a => drawAnotacion(ctx, a));
   }, []);
+
+  useEffect(() => {
+    const img = imgRef.current;
+    if (!img) return;
+    const observer = new ResizeObserver(() => { setupCanvas(); dibujarTodo(anotacionesRef.current); });
+    observer.observe(img);
+    return () => observer.disconnect();
+  }, [setupCanvas, dibujarTodo]);
 
   // ── Cargar al cambiar foto — lee fotos.descripcion ───────────────────────
   useEffect(() => {
@@ -255,18 +266,18 @@ export default function EditorFoto({ foto, ordenCodigo, todasLasFotos, onClose, 
     applyZoom(1);
     setCargando(true);
 
-    Promise.all([
-      cargarEdicionFoto(fotoActual.id),
-      supabase.from('fotos').select('descripcion').eq('id', fotoActual.id).single(),
-    ])
-      .then(([edicion, { data: fotoData }]) => {
-        const anns = (edicion.anotaciones ?? []) as unknown as Anotacion[];
-        setAnotaciones(anns);
-        // Usa fotos.descripcion como fuente única de verdad
-        setDescripcion(fotoData?.descripcion ?? '');
-      })
-      .catch(console.error)
-      .finally(() => setCargando(false));
+    let active = true;
+    setRevisionFoto(null); setErrorCarga(null); setOriginal('');
+    cargarEdicionFoto(fotoActual.id).then(edicion => {
+      if (!active) return;
+      setOriginal(edicion.original); setRevisionFoto(edicion.revision);
+      setAnotaciones(edicion.anotaciones as Anotacion[]); setDescripcion(edicion.descripcion);
+      setBrillo(edicion.ajustes.brillo); setContraste(edicion.ajustes.contraste);
+      setMarcasIntegradas(edicion.marcasAnterioresIntegradas);
+    }).catch(e => { if (active) setErrorCarga(e.message); })
+      .finally(() => { if (active) setCargando(false); });
+    return () => { active = false; };
+
   }, [fotoActual.id, applyZoom]);
 
   useEffect(() => { dibujarTodo(anotaciones); }, [anotaciones, dibujarTodo]);
@@ -274,8 +285,7 @@ export default function EditorFoto({ foto, ordenCodigo, todasLasFotos, onClose, 
   function getCoords(e: { clientX: number; clientY: number }): Punto {
     const canvas = canvasRef.current!;
     const rect   = canvas.getBoundingClientRect();
-    const cssW   = canvas.offsetWidth;
-    const scale  = cssW / rect.width;
+    const scale = 1000 / rect.width;
     return {
       x: (e.clientX - rect.left) * scale,
       y: (e.clientY - rect.top)  * scale,
@@ -285,7 +295,7 @@ export default function EditorFoto({ foto, ordenCodigo, todasLasFotos, onClose, 
   // Un mismo flujo para dedo, lápiz y mouse; el canvas conserva el puntero
   // hasta terminar el trazo aunque salga momentáneamente de la foto.
   function handlePointerDown(e: React.PointerEvent<HTMLCanvasElement>) {
-    if (punteroActivoRef.current !== null) return;
+    if (punteroActivoRef.current !== null || cargando || errorCarga || errorArchivo || imagenCargada !== fotoPrivada || saveLock.current) return;
     if (herramienta === 'cursor') return;
     punteroActivoRef.current = e.pointerId;
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -319,6 +329,7 @@ export default function EditorFoto({ foto, ordenCodigo, todasLasFotos, onClose, 
     dibujandoRef.current = false;
     const ann = annEnCursoRef.current;
     annEnCursoRef.current = null;
+    dibujarTodo(anotaciones);
     if (ann.tipo === 'lapiz' && ann.puntos.length < 3) return;
     if ((ann.tipo === 'flecha' || ann.tipo === 'circulo') && ann.puntos.length < 2) return;
     if (ann.tipo === 'flecha' || ann.tipo === 'circulo') {
@@ -363,6 +374,7 @@ export default function EditorFoto({ foto, ordenCodigo, todasLasFotos, onClose, 
   // ── Keyboard ─────────────────────────────────────────────────────────────
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (saveLock.current) { e.preventDefault(); return; }
       if (textoPos) return;
       if (e.key === 'Escape') { onClose(); return; }
       if (e.ctrlKey || e.metaKey) {
@@ -374,8 +386,7 @@ export default function EditorFoto({ foto, ordenCodigo, todasLasFotos, onClose, 
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [textoPos, undo, redo, applyZoom]);
+  });
 
   function toggleVisible(id: string) {
     setAnotaciones(prev => prev.map(a => a.id === id ? { ...a, visible: !a.visible } : a));
@@ -386,6 +397,7 @@ export default function EditorFoto({ foto, ordenCodigo, todasLasFotos, onClose, 
     setAnotaciones(nuevas);
   }
   function navegar(dir: -1 | 1) {
+    if (saveLock.current) return;
     const nuevo = indice + dir;
     if (nuevo < 0 || nuevo >= todasLasFotos.length) return;
     setIndice(nuevo);
@@ -402,10 +414,10 @@ export default function EditorFoto({ foto, ordenCodigo, todasLasFotos, onClose, 
     const dH = displayImg.offsetHeight;
     if (!nW || !nH || !dW || !dH) throw new Error('Dimensiones inválidas');
 
-    const sx = nW / dW;
-    const sy = nH / dH;
+    const sx = nW / 1000;
+    const sy = sx;
 
-    const response = await fetch(await resolverArchivo(fotoActual.file_url), { cache: 'no-store' });
+    const response = await fetch(await resolverArchivo(original), { cache: 'no-store' });
     if (!response.ok) throw new Error('No se pudo descargar la imagen original');
     const imageBlob = await response.blob();
     const blobUrl = URL.createObjectURL(imageBlob);
@@ -445,30 +457,14 @@ export default function EditorFoto({ foto, ordenCodigo, todasLasFotos, onClose, 
 
   // ── Guardar — siempre actualiza fotos.descripcion ────────────────────────
   async function handleGuardar() {
-    setGuardando(true);
+    if (saveLock.current || cargando || revisionFoto === null || !original || errorCarga || errorArchivo || imagenCargada !== fotoPrivada) return;
+    saveLock.current = true; setGuardando(true);
     try {
-      const tieneAnnotaciones = anotaciones.length > 0;
-      const tieneModificaciones = tieneAnnotaciones || brillo !== 0 || contraste !== 0;
-
-      if (tieneModificaciones) {
-        // Burn-in: generar imagen compuesta y subir a Storage
-        const blob = await generarImagenAnotada();
-        await subirImagenAnotada(
-          fotoActual.id,
-          fotoActual.orden_id,
-          fotoActual.proyecto_id,
-          blob,
-          anotaciones as unknown as AnotacionGuardada[],
-          descripcion,
-        );
-      } else {
-        // Solo anotaciones vacías
-        await guardarEdicionFoto(fotoActual.id, { anotaciones: [], descripcion_observacion: descripcion });
-      }
-
-      // ── Siempre actualizar fotos.descripcion (fuente única de verdad) ──
-      await actualizarDescripcionFoto(fotoActual.id,descripcion);
-
+      const blob = await generarImagenAnotada();
+      const revision = await subirImagenAnotada(fotoActual.id, fotoActual.orden_id, fotoActual.proyecto_id,
+        blob, anotaciones as AnotacionGuardada[], descripcion,
+        { espacio: 'ancho1000', brillo, contraste }, revisionFoto);
+      setRevisionFoto(revision);
       setToast('✓ Guardado correctamente');
       setTimeout(() => setToast(null), 2500);
       onGuardado?.();
@@ -476,7 +472,7 @@ export default function EditorFoto({ foto, ordenCodigo, todasLasFotos, onClose, 
       console.error(err);
       alert(`Error al guardar: ${err instanceof Error ? err.message : 'Error desconocido'}`);
     } finally {
-      setGuardando(false);
+      saveLock.current = false; setGuardando(false);
     }
   }
 
@@ -495,20 +491,20 @@ export default function EditorFoto({ foto, ordenCodigo, todasLasFotos, onClose, 
 
       {/* ── TOPBAR ── */}
       <div className={styles.topbar}>
-        <button className={styles.btnClose} onClick={onClose} title="Salir (Esc)">✕</button>
+        <button className={styles.btnClose} onClick={onClose} disabled={guardando} title="Salir (Esc)">✕</button>
         <div className={styles.topbarTitle}>
           <div className={styles.topbarMain}>Editor de Evidencia Fotográfica</div>
           <div className={styles.topbarSub}># {ordenCodigo}</div>
         </div>
         <div className={styles.topbarActions}>
-          <button className={styles.btnCancelar} onClick={onClose}>Cancelar</button>
-          <button className={styles.btnGuardar} onClick={handleGuardar} disabled={guardando}>
+          <button className={styles.btnCancelar} onClick={onClose} disabled={guardando}>Cancelar</button>
+          <button className={styles.btnGuardar} onClick={handleGuardar} disabled={guardando || cargando || revisionFoto === null || !!errorCarga || !!errorArchivo || imagenCargada !== fotoPrivada}>
             {guardando ? '⏳ Guardando…' : '💾 Guardar Cambios'}
           </button>
         </div>
       </div>
 
-      <div className={styles.body}>
+      <div className={styles.body} inert={guardando}>
 
         {/* ── TOOLBAR ── */}
         <div className={styles.toolbar}>
@@ -556,7 +552,10 @@ export default function EditorFoto({ foto, ordenCodigo, todasLasFotos, onClose, 
                 className={styles.photoImg}
                 style={{ filter: imgFilter }}
                 draggable={false}
-                onLoad={() => {
+                onError={() => setErrorCarga('No se pudo cargar la imagen original.')}
+                onLoad={e => {
+                  setAspectoFoto(e.currentTarget.naturalHeight / e.currentTarget.naturalWidth);
+                  setImagenCargada(fotoPrivada ?? '');
                   setupCanvas();
                   setTimeout(() => dibujarTodo(anotaciones), 0);
                 }}
@@ -567,14 +566,14 @@ export default function EditorFoto({ foto, ordenCodigo, todasLasFotos, onClose, 
                 onPointerDown={handlePointerDown}
                 onPointerMove={handlePointerMove}
                 onPointerUp={handlePointerUp}
-                onPointerCancel={() => { punteroActivoRef.current = null; dibujandoRef.current = false; annEnCursoRef.current = null; dibujarTodo(anotaciones); }}
+                onPointerCancel={e => { if (e.pointerId !== punteroActivoRef.current) return; punteroActivoRef.current = null; dibujandoRef.current = false; annEnCursoRef.current = null; dibujarTodo(anotaciones); }}
                 style={{ touchAction: herramienta === 'cursor' ? 'auto' : 'none' }}
               />
               {textoPos && (
                 <input
                   ref={textoRef}
                   className={styles.textoInput}
-                  style={{ left: textoPos.x, top: Math.max(0, textoPos.y - 34) }}
+                  style={{ left: `${textoPos.x / 10}%`, top: `max(0px, calc(${textoPos.y / (10 * aspectoFoto)}% - 34px))` }}
                   value={textoValor}
                   onChange={e => setTextoValor(e.target.value)}
                   onKeyDown={e => {
@@ -605,6 +604,10 @@ export default function EditorFoto({ foto, ordenCodigo, todasLasFotos, onClose, 
 
         {/* ── PANEL DERECHO ── */}
         <div className={styles.rightPanel}>
+          {(errorCarga || errorArchivo || marcasIntegradas) && <div className={styles.panelSection}>
+            {(errorCarga || errorArchivo) && <p role="alert">No se puede editar esta foto: {errorCarga || errorArchivo}</p>}
+            {marcasIntegradas && <p role="status">Las marcas antiguas ya forman parte de la imagen conservada. Las nuevas se guardan como capas editables.</p>}
+          </div>}
           <div className={styles.panelSection}>
             <div className={styles.sectionTitle}>ℹ Detalles de Evidencia</div>
             <label className={styles.fieldLabel}>Categoría (Fase)</label>

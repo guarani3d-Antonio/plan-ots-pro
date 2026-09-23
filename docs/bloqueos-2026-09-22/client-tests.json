@@ -1,0 +1,32 @@
+{
+  "testedAt": "2026-09-23T02:44:23.372Z",
+  "scope": "Handlers reales con eventos simulados; no sustituye la prueba física de tablet.",
+  "passed": 6,
+  "total": 6,
+  "results": [
+    {
+      "name": "20 ciclos de pinch conservan el punto focal y no crean taps accidentales",
+      "ok": true
+    },
+    {
+      "name": "tercer dedo y controles no provocan saltos; arrastre táctil sin movementX",
+      "ok": true
+    },
+    {
+      "name": "coordenadas de anotación iguales tras zoom y cambio de tamaño",
+      "ok": true
+    },
+    {
+      "name": "navegación no crea OTs y un doble toque crea una sola",
+      "ok": true
+    },
+    {
+      "name": "informes usan obra y unidad de la OT y preservan fecha civil",
+      "ok": true
+    },
+    {
+      "name": "respuesta ambigua de guardado no borra una imagen posiblemente confirmada",
+      "ok": true
+    }
+  ]
+}

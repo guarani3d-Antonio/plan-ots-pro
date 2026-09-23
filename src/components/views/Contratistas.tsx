@@ -1,4 +1,5 @@
-import { scopedKey } from '../../security/sessionScope';
+import { useAccessStore } from '../../stores/accessStore';
+import { cargarContratistas, agregarContratistaCompartido } from '../../services/trustService';
 import { useEffect, useMemo, useState } from 'react';
 import { useOrdenesStore } from '../../stores/ordenesStore';
 import { useProyectosStore } from '../../stores/proyectosStore';
@@ -7,7 +8,7 @@ import { ModalDetalleOT } from '../grilla/ModalDetalleOT';
 import type { OrdenLocal } from '../../types/orden';
 import { FiltroProyecto } from './Dashboard';
 
-const LS_KEY = 'plan_ots_contratistas';
+
 const PALETTE = ['#1E40AF', '#15803D', '#C2410C', '#7C3AED', '#0E7490', '#BE123C', '#B45309'];
 
 function colorFromName(n: string): string {
@@ -17,15 +18,6 @@ function colorFromName(n: string): string {
   return PALETTE[h % PALETTE.length];
 }
 const inicial = (n: string) => n ? n.trim().charAt(0).toUpperCase() : '?';
-
-function cargarLista(): string[] {
-  try { return JSON.parse(localStorage.getItem(scopedKey(LS_KEY)) ?? '[]'); }
-  catch { return []; }
-}
-function guardarLista(lista: string[]): void {
-  try { localStorage.setItem(scopedKey(LS_KEY), JSON.stringify(lista)); }
-  catch (e) { console.error('[Contratistas] localStorage:', e); }
-}
 
 const ESTADOS = ['Pendiente', 'En proceso', 'Cerrada', 'No aplica'] as const;
 
@@ -44,9 +36,17 @@ export default function Contratistas() {
   const proyectos = useProyectosStore(s => s.proyectos);
   const cargarProyectos = useProyectosStore(s => s.cargarProyectos);
 
+  const contexto = useAccessStore(s => s.contexto);
+  const empresaActiva = useAccessStore(s => s.empresaId);
+  const [empresaElegida, setEmpresaElegida] = useState('');
+  const empresaId = empresaElegida || empresaActiva || (contexto?.empresas.length === 1 ? contexto.empresas[0].id : '');
+  const [errorDirectorio, setErrorDirectorio] = useState<string | null>(null);
+  const [guardandoDirectorio, setGuardandoDirectorio] = useState(false);
+  const [directorioEmpresa, setDirectorioEmpresa] = useState('');
+  const puedeAgregar = !!empresaId && !!contexto && (contexto.creador || contexto.empresas.some(e => e.id === empresaId && e.rol === 'administrador') || contexto.obras.some(o => o.tenant_id === empresaId && o.editar));
   const [filtroProyecto, setFiltroProyecto] = useState('');
   const [nuevoNombre, setNuevoNombre]       = useState('');
-  const [directorio, setDirectorio]         = useState<string[]>(() => cargarLista().sort((a, b) => a.localeCompare(b)));
+  const [directorio, setDirectorio]         = useState<string[]>([]);
   const [expandido, setExpandido]           = useState<string | null>(null);
   const [modalOrden, setModalOrden]         = useState<OrdenLocal | null>(null);
 
@@ -55,9 +55,18 @@ export default function Contratistas() {
     cargarTodasLasOrdenes();
   }, [cargarProyectos, cargarTodasLasOrdenes]);
 
+  useEffect(() => {
+    let active = true;
+    if (empresaId) cargarContratistas(empresaId).then(rows => {
+      if (active) { setDirectorio(rows.map(r => r.nombre)); setDirectorioEmpresa(empresaId); setErrorDirectorio(null); }
+    }).catch(e => { if (active) { setDirectorio([]); setErrorDirectorio(e.message); } });
+    return () => { active = false; };
+  }, [empresaId]);
+
   const ordenesFiltradas = useMemo(
-    () => filtroProyecto ? ordenes.filter(o => o.proyecto_id === filtroProyecto) : ordenes,
-    [ordenes, filtroProyecto],
+    () => ordenes.filter(o => (!filtroProyecto || o.proyecto_id === filtroProyecto) && !!empresaId
+      && contexto?.obras.some(p => p.id === o.proyecto_id && p.tenant_id === empresaId)),
+    [ordenes, filtroProyecto, empresaId, contexto],
   );
 
   // Mapa contratista → OTs en que aparece (iterando contratistas[]).
@@ -70,7 +79,7 @@ export default function Contratistas() {
       }
     }
     // Incluir contratistas del directorio aunque no tengan OTs aún.
-    for (const c of directorio) if (!map.has(c)) map.set(c, []);
+    for (const c of directorioEmpresa === empresaId ? directorio : []) if (!map.has(c)) map.set(c, []);
     return [...map.entries()].map(([nombre, ots]) => {
       const porEstado: Record<string, number> = { Pendiente: 0, 'En proceso': 0, Cerrada: 0, 'No aplica': 0 };
       for (const o of ots) porEstado[o.estado] = (porEstado[o.estado] ?? 0) + 1;
@@ -82,15 +91,18 @@ export default function Contratistas() {
         ots,
       };
     }).sort((a, b) => b.total - a.total || a.nombre.localeCompare(b.nombre));
-  }, [ordenesFiltradas, directorio]);
+  }, [ordenesFiltradas, directorio, directorioEmpresa, empresaId]);
 
-  const agregar = () => {
-    const trimmed = nuevoNombre.trim();
-    if (!trimmed || directorio.includes(trimmed)) return;
-    const nueva = [...directorio, trimmed].sort((a, b) => a.localeCompare(b));
-    setDirectorio(nueva);
-    guardarLista(nueva);
-    setNuevoNombre('');
+  const agregar = async () => {
+    const nombre = nuevoNombre.trim();
+    if (!nombre || guardandoDirectorio || !puedeAgregar || directorioEmpresa !== empresaId) return;
+    setGuardandoDirectorio(true);
+    try {
+      const saved = await agregarContratistaCompartido(empresaId, nombre);
+      setDirectorio(prev => [...new Set([...prev, saved.nombre])].sort((a,b) => a.localeCompare(b)));
+      setDirectorioEmpresa(empresaId); setNuevoNombre(''); setErrorDirectorio(null);
+    } catch (e) { setErrorDirectorio(e instanceof Error ? e.message : 'No se pudo guardar el contratista.'); }
+    finally { setGuardandoDirectorio(false); }
   };
 
   return (
@@ -99,19 +111,24 @@ export default function Contratistas() {
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 800, color: '#0F172A', margin: 0 }}>Contratistas</h1>
           <p style={{ fontSize: 13, color: '#6B7280', margin: '4px 0 0' }}>
-            Directorio global + carga de trabajo asignada.
+            Directorio compartido de la empresa y carga de trabajo asignada.
           </p>
         </div>
         <FiltroProyecto value={filtroProyecto} onChange={setFiltroProyecto} proyectos={proyectos} />
       </header>
 
+      <label>Empresa del directorio <select aria-label="Empresa del directorio" value={empresaId} disabled={guardandoDirectorio} onChange={e => { setEmpresaElegida(e.target.value); setFiltroProyecto(''); }}>
+        <option value="">Seleccioná una empresa</option>
+        {contexto?.empresas.map(e => <option key={e.id} value={e.id}>{e.nombre}</option>)}
+      </select></label>
+      {errorDirectorio && <p role="alert">No se pudo consultar o guardar el directorio: {errorDirectorio}</p>}
       {/* Agregar */}
       <section style={{
         background: '#fff', border: '1px solid #E5E7EB', borderRadius: 12,
         padding: 16, marginBottom: 14, display: 'flex', gap: 8, alignItems: 'center',
       }}>
         <input
-          type="text"
+          type="text" maxLength={160} disabled={guardandoDirectorio || !puedeAgregar || directorioEmpresa !== empresaId}
           placeholder="Nombre del nuevo contratista..."
           value={nuevoNombre}
           onChange={e => setNuevoNombre(e.target.value)}
@@ -123,7 +140,7 @@ export default function Contratistas() {
           }}
         />
         <button
-          type="button" onClick={agregar} disabled={!nuevoNombre.trim()}
+          type="button" onClick={agregar} disabled={!nuevoNombre.trim() || guardandoDirectorio || !puedeAgregar || directorioEmpresa !== empresaId}
           style={{
             height: 34, padding: '0 16px',
             background: '#1E3A5F', color: '#fff', border: 'none',
@@ -132,7 +149,7 @@ export default function Contratistas() {
             opacity: nuevoNombre.trim() ? 1 : 0.45,
             fontFamily: 'inherit',
           }}
-        >+ Agregar contratista</button>
+        >{guardandoDirectorio ? 'Guardando…' : '+ Agregar contratista'}</button>
       </section>
 
       {/* Cards */}

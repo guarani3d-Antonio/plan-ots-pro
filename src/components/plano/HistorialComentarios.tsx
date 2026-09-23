@@ -1,84 +1,71 @@
-import { useEffect, useState } from 'react';
-import { fetchComentariosOrden } from '../../services/comentariosService';
-import type { OtComentario } from '../../services/comentariosService';
+import { useCallback, useEffect, useState } from 'react';
+import { cargarEventos, tituloEvento, type EventoOT } from '../../services/trustService';
 import styles from './HistorialComentarios.module.css';
 
-interface Props {
-  ordenId: string;
-  proyectoId: string;
-  refreshTrigger?: number;  // incrementar para forzar re-fetch
+interface Props { ordenId: string; proyectoId: string; refreshTrigger?: number }
+function valor(v: unknown): string {
+  if (v === null || v === undefined || v === '') return 'Sin valor';
+  if (typeof v === 'boolean') return v ? 'Sí' : 'No';
+  return typeof v === 'object' ? JSON.stringify(v) : String(v);
 }
-
-function formatearFecha(iso: string): string {
-  const d = new Date(iso);
-  const dia  = d.getDate().toString().padStart(2, '0');
-  const mes  = (d.getMonth()+1).toString().padStart(2, '0');
-  const año  = d.getFullYear();
-  const hora = d.getHours().toString().padStart(2, '0');
-  const min  = d.getMinutes().toString().padStart(2, '0');
-  return `${dia}/${mes}/${año} ${hora}:${min}`;
-}
-
-const COLORES_ESTADO: Record<string, string> = {
-  'Pendiente':  '#DC2626',
-  'En proceso': '#2563EB',
-  'Cerrada':    '#16A34A',
-  'No aplica':  '#6B7280',
+const campos: Record<string, string> = {
+  pos_x: 'Posición horizontal', pos_y: 'Posición vertical', fecha_ingreso: 'Fecha de ingreso',
+  fecha_inicio_trabajos: 'Inicio de trabajos', fecha_fin_trabajos: 'Fin de trabajos',
+  porcentaje_avance: 'Avance', descripcion: 'Descripción', anotaciones: 'Anotaciones',
+  descripcion_observacion: 'Observación de la evidencia', estado_anterior: 'Estado anterior', estado_nuevo: 'Estado nuevo',
 };
-
-export function HistorialComentarios({ ordenId, proyectoId: _proyectoId, refreshTrigger = 0 }: Props) {
-  const [comentarios, setComentarios] = useState<OtComentario[]>([]);
-  const [cargando, setCargando] = useState(true);
-
+export function HistorialComentarios(props: Props) {
+  return <HistorialRegistro key={props.ordenId} {...props} />;
+}
+function HistorialRegistro({ ordenId, refreshTrigger = 0 }: Props) {
+  const [eventos, setEventos] = useState<EventoOT[]>([]);
+  const [hayMas, setHayMas] = useState(false);
+  const [cargando, setCargando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [revision, setRevision] = useState(0);
+  const [inicial, setInicial] = useState(true);
   useEffect(() => {
+    let active = true;
+    cargarEventos(ordenId).then(p => {
+      if (active) { setEventos(p.eventos); setHayMas(p.hayMas); setError(null); }
+    }).catch(e => { if (active) { setEventos([]); setError(e.message); } })
+      .finally(() => { if (active) setInicial(false); });
+    return () => { active = false; };
+  }, [ordenId, refreshTrigger, revision]);
+  const mas = useCallback(async () => {
+    if (cargando) return;
     setCargando(true);
-    fetchComentariosOrden(ordenId)
-      .then(setComentarios)
-      .finally(() => setCargando(false));
-  }, [ordenId, refreshTrigger]);
-
-  if (cargando) return (
-    <div className={styles.skeletonWrap}>
-      {[1,2,3].map(i => <div key={i} className={styles.skeletonItem} />)}
-    </div>
-  );
-
-  if (comentarios.length === 0) return (
-    <div className={styles.vacio}>
-      <span className={styles.vacioIcon}>📋</span>
-      <p>Sin comentarios registrados</p>
-      <p className={styles.vacioSub}>Los comentarios aparecerán aquí cada vez que se cambie el estado de esta OT.</p>
-    </div>
-  );
-
-  return (
-    <div className={styles.lista}>
-      {comentarios.map(c => (
-        <div key={c.id} className={styles.item}>
-          <div className={styles.itemHeader}>
-            <span className={styles.fecha}>{formatearFecha(c.created_at)}</span>
-            <span className={styles.usuario}>{c.user_email ?? 'Usuario desconocido'}</span>
-          </div>
-
-          {c.estado_anterior && c.estado_nuevo && (
-            <div className={styles.transicion}>
-              <span className={styles.chip}
-                style={{ color: COLORES_ESTADO[c.estado_anterior] ?? '#6B7280',
-                         borderColor: (COLORES_ESTADO[c.estado_anterior] ?? '#6B7280') + '55' }}>
-                {c.estado_anterior}
-              </span>
-              <span className={styles.flecha}>→</span>
-              <span className={styles.chip}
-                style={{ color: COLORES_ESTADO[c.estado_nuevo] ?? '#6B7280',
-                         borderColor: (COLORES_ESTADO[c.estado_nuevo] ?? '#6B7280') + '55' }}>
-                {c.estado_nuevo}
-              </span>
-            </div>
-          )}
-
-          <p className={styles.texto}>{c.comentario}</p>
-        </div>
-      ))}
-    </div>
-  );
+    try {
+      const p = await cargarEventos(ordenId, eventos.at(-1));
+      setEventos(prev => [...prev, ...p.eventos.filter(e => !prev.some(v => v.id === e.id))]);
+      setHayMas(p.hayMas); setError(null);
+    } catch (e) { setError(e instanceof Error ? e.message : 'No se pudo cargar el historial.'); }
+    finally { setCargando(false); }
+  }, [ordenId, eventos, cargando]);
+  return <div className={styles.lista}>
+    <p>Actividad registrada en el servidor. Cada cambio indica quién lo hizo y cuándo.</p>
+    <button type="button" onClick={() => setRevision(r => r + 1)}>Actualizar historial</button>
+    {error && <p role="alert">No se pudo consultar el historial: {error}</p>}
+    {inicial && <p role="status">Cargando historial…</p>}
+    {!inicial && !error && !eventos.length && <p>Sin actividad disponible. Los cambios anteriores a la activación solo aparecen si ya estaban registrados.</p>}
+    {eventos.map(e => <article key={e.id} className={styles.item}>
+      <div className={styles.itemHeader}>
+        <time className={styles.fecha} dateTime={e.created_at}>{new Date(e.created_at).toLocaleString('es-PY')}</time>
+        <span className={styles.usuario}>{e.actor_email ?? (e.actor_id ? 'Usuario registrado' : 'Operación del sistema')}</span>
+      </div>
+      <strong>{tituloEvento(e)}{e.restringido ? ' · Acceso de supervisor' : ''}</strong>
+      {e.legado && <p>Registro histórico conservado.</p>}
+      {e.tipo === 'informe.solicitado' && <p>La solicitud no confirma que el archivo se haya descargado o impreso.</p>}
+      <details open={Object.keys(e.cambios).length <= 6}>
+      <summary>Ver cambios ({Object.keys(e.cambios).length})</summary>
+      <dl style={{ overflowWrap: 'anywhere' }}>
+        {Object.entries(e.cambios).map(([key, cambio]) => <div key={key} style={{ marginTop: 8 }}>
+          <dt style={{ fontWeight: 600 }}>{campos[key] ?? key.replaceAll('_', ' ')}</dt>
+          <dd style={{ margin: '4px 0' }}>{valor(cambio.antes)} → {valor(cambio.despues)}</dd>
+        </div>)}
+      </dl>
+      </details>
+    </article>)}
+    {hayMas && <button type="button" disabled={cargando} onClick={mas}>{cargando ? 'Cargando…' : 'Ver actividad anterior'}</button>}
+  </div>;
 }

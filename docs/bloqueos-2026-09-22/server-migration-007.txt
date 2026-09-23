@@ -1,0 +1,6 @@
+Browser tab: 7, Title: "Users | Authentication | Plan-ots-2 | Guarani3d | Supabase", URL: "https://supabase.com/dashboard/project/iqgbyqyoovzvhhdjawnt/auth/users".
+There has been no change in the accessibility tree.
+The focused UI element is 155 editor (settable) Description: Editor content, Value: uuid),public.plan_eventos_pagina(uuid,timestamptz,uuid) from public,anon,authenticated;
+grant execute on function public.plan_agregar_contratista(uuid,text),public.plan_solicitar_exportacion(uuid,text,text,uuid),public.plan_eventos_pagina(uuid,timestamptz,uuid) to authenticated;
+notify pgrst,'reload schema';
+commit;

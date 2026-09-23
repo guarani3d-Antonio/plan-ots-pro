@@ -1,0 +1,32 @@
+Browser tab: 7, Title: "Users | Authentication | Plan-ots-2 | Guarani3d | Supabase", URL: "https://supabase.com/dashboard/project/iqgbyqyoovzvhhdjawnt/auth/users".
+0 AXWebArea Users | Authentication | Plan-ots-2 | Guarani3d | Supabase, URL: supabase.com/dashboard/project/iqgbyqyoovzvhhdjawnt/auth/users
+	1 container
+		141 text Users | Authentication | Supabase
+		142 container mobile-sheet-content
+			143 text SQL Editor
+			144 combo box (collapsed) Secondary Actions: Expand
+			145 button Open in SQL editor
+			146 button
+			154 container
+				155 editor (settable) Description: Editor content, Value:  end if;
+ return null;
+end $$;
+
+notify pgrst,'reload schema';
+commit;
+
+				156 container
+					159 text 45
+					158 content list
+						160 text begin
+			161 text Success. No rows returned.
+			151 container
+				152 button Save as snippet
+				153 button Run
+
+The focused UI element is 155 editor (settable) Description: Editor content, Value:  end if;
+ return null;
+end $$;
+
+notify pgrst,'reload schema';
+commit;
