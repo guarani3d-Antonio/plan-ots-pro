@@ -6,21 +6,17 @@ import {
   escapeHtml,
   formatearFechaCorta,
   generarGridFotos,
-  _estadoBadgeCfg,
   _paginaHeader,
   _envolverInforme,
   _bloqueDatosCliente,
-  _bloqueDatosOT,
   _bloqueNaranjaIzquierdo,
 } from './reportTemplates';
 
-// Identificadores de interfaz heredados. La ficha ahora es una orden de servicio;
-// el cambio del identificador interno se hará junto con el contrato de auditoría.
-export type TipoInforme = 'ficha_visita' | 'relevamiento' | 'avance' | 'cierre' | 'acta_conformidad';
+export type TipoInforme = 'orden_servicio' | 'relevamiento' | 'avance' | 'cierre' | 'acta_conformidad';
 
 export function informeDisponible(tipo: TipoInforme, estadoOT: string): boolean {
   switch (tipo) {
-    case 'ficha_visita':
+    case 'orden_servicio':
     case 'relevamiento': return true;
     case 'avance': return estadoOT === 'En proceso' || estadoOT === 'Cerrada';
     case 'cierre':
@@ -78,21 +74,18 @@ ${_bloqueDatosCliente(orden)}
 <section class="grid grid-cols-2 gap-4 mb-6 no-break">
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Fecha de ingreso de OT</strong><p>${escapeHtml(formatearFechaCorta(orden.fecha_ingreso))}</p></div>
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Canal de solicitud</strong><p>${escapeHtml(dato('canal_solicitud'))}</p></div>
-  <div class="p-4 border border-outline-variant rounded-lg"><strong>Fecha y hora recibida · Paraguay</strong><p>${escapeHtml(dato('fecha_solicitud'))}</p></div>
+  <div class="p-4 border border-outline-variant rounded-lg"><strong>Fecha y hora de recepción declarada</strong><p>${escapeHtml(dato('fecha_solicitud').replace('T', ' '))}</p></div>
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Solicitante</strong><p>${escapeHtml(dato('solicitante'))}</p></div>
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Referencia de origen</strong><p>${escapeHtml(dato('referencia_solicitud'))}</p></div>
 </section>
-${_bloqueNaranjaIzquierdo('Solicitud original', orden.descripcion ?? '', 'No se ha registrado el reclamo original.')}
-${aclaracion.trim() ? _bloqueNaranjaIzquierdo('Aclaración posterior', aclaracion, '') : ''}
+${_bloqueNaranjaIzquierdo('Solicitud original', orden.descripcion ?? '', 'No se ha registrado el reclamo original.', '')}
+${_bloqueNaranjaIzquierdo('Aclaración posterior', aclaracion, 'Sin aclaraciones posteriores.')}
 <section class="p-4 border border-outline-variant rounded-lg no-break"><strong>Clasificación inicial</strong><p>${escapeHtml(orden.rubro || 'Sin clasificar')} · Prioridad ${escapeHtml(orden.prioridad || 'No registrada')} · Responsable ${escapeHtml(orden.responsable || 'No asignado')}</p></section>
 <p class="mt-6 text-xs text-on-surface-variant">La evidencia aportada por el cliente debe vincularse con su mensaje de origen. Los datos faltantes impiden considerar completa esta orden.</p>
 </div>`;
 
   return _envolverInforme('Orden de servicio — borrador', contenido);
 }
-
-// Compatibilidad con llamadas antiguas mientras se migra el identificador interno.
-export const generarInformeFichaVisita = generarInformeOrdenServicio;
 
 // ─────────────────────────────────────────── Informe de Relevamiento ──
 //
@@ -113,89 +106,47 @@ export function generarInformeRelevamiento(
   const contenido = `<div class="a4-page">
 ${_paginaHeader(orden, 'INFORME DE RELEVAMIENTO', 'Diagnóstico técnico inicial y detección del alcance de la intervención requerida.')}
 ${_bloqueDatosCliente(orden)}
-${_bloqueDatosOT(orden)}
 ${_bloqueNaranjaIzquierdo('Diagnóstico Inicial', comentarioInicial, 'Sin diagnóstico registrado.')}
 <section class="grid grid-cols-3 gap-4 mb-8 no-break">
   ${bloquesAlcance}
 </section>
 <p class="text-xs text-on-surface-variant">Alcance y autorización: pendientes de registrar en una revisión vinculada.</p>
 </div>
-<div class="a4-page">
+${fotosAntes.length ? `<div class="a4-page">
 <div>
   <div class="flex items-center gap-2.5 mb-5 border-b border-outline-variant pb-2">
-    <h3 class="font-section-header text-section-header text-primary uppercase tracking-widest">Evidencia del relevamiento (Antes)</h3>
+    <h3 class="font-section-header text-section-header text-primary uppercase tracking-widest">Fotografías previas vinculadas a la OT</h3>
   </div>
+  <p class="text-xs text-on-surface-variant">El origen, autor, fecha y relación con cada hallazgo deben verificarse antes de emitir. Una foto previa no acredita por sí sola una visita técnica.</p>
   ${generarGridFotos(fotosAntes)}
 </div>
-</div>`;
+</div>` : ''}`;
 
   return _envolverInforme('Informe de relevamiento — borrador', contenido);
 }
 
-// ───────────────────────────────────────── Informe de Avance de Obra ──
-//
-// Página 1: datos OT + estado actual + métricas (% completado con barra,
-// días en ejecución, estado, prioridad) + observaciones + firmas.
-// Página 2: filmografía ANTES + DURANTE juntas (sin break entre ellas).
+// El indicador operativo no se presenta como avance aprobado.
 
 export function generarInformeAvance(
   orden: OrdenLocal,
   comentarioAvance: string,
-  fotosAntes: { file_url: string; descripcion?: string | null; descripcion_observacion?: string | null }[],
+  _fotosAntes: { file_url: string; descripcion?: string | null; descripcion_observacion?: string | null }[],
   fotosDurante: { file_url: string; descripcion?: string | null; descripcion_observacion?: string | null }[],
 ): string {
-  const porcentaje = Math.max(0, Math.min(100, orden.porcentaje_avance ?? 0));
-  const diasEnEjecucion = orden.fecha_inicio_trabajos
-    ? Math.floor((Date.now() - new Date(orden.fecha_inicio_trabajos + 'T00:00:00').getTime()) / 86400000)
-    : null;
-  const badge = _estadoBadgeCfg(orden.estado);
-
+  const porcentaje = orden.porcentaje_avance == null
+    ? null : Math.max(0, Math.min(100, orden.porcentaje_avance));
   const contenido = `<div class="a4-page">
-${_paginaHeader(orden, 'INFORME DE AVANCE DE OBRA', 'Progreso de ejecución de los trabajos, métricas y estado actual de la obra.')}
-${_bloqueDatosCliente(orden)}
-${_bloqueDatosOT(orden)}
-${_bloqueNaranjaIzquierdo('Estado Actual del Trabajo', comentarioAvance, 'Sin observación de estado registrada.')}
-<section class="grid grid-cols-2 gap-4 mb-8 no-break">
-  <div style="background: #fffbf5; border: 1px solid #f0e0c0; padding: 14px; border-radius: 8px;">
-    <h4 style="font-size: 10px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">% Completado</h4>
-    <div style="font-size: 28px; font-weight: 700; color: #CC7A00; margin-bottom: 6px;">${porcentaje}%</div>
-    <div style="width: 100%; height: 8px; background: #f0e0c0; border-radius: 4px; overflow: hidden;">
-      <div style="width: ${porcentaje}%; height: 100%; background: #CC7A00;"></div>
-    </div>
-  </div>
-  <div style="background: #fffbf5; border: 1px solid #f0e0c0; padding: 14px; border-radius: 8px;">
-    <h4 style="font-size: 10px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">Días en ejecución</h4>
-    <div style="font-size: 28px; font-weight: 700; color: #003366;">${diasEnEjecucion !== null ? `${diasEnEjecucion} día${diasEnEjecucion === 1 ? '' : 's'}` : 'No registrado'}</div>
-  </div>
-  <div style="background: ${badge.bg}; border: 1px solid ${badge.border}33; padding: 14px; border-radius: 8px;">
-    <h4 style="font-size: 10px; font-weight: 700; color: ${badge.text}; opacity: 0.7; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">Estado</h4>
-    <div style="font-size: 20px; font-weight: 700; color: ${badge.text};">${badge.texto}</div>
-  </div>
-  <div style="background: #eef2ff; border: 1px solid #c7d2fe; padding: 14px; border-radius: 8px;">
-    <h4 style="font-size: 10px; font-weight: 700; color: #4338ca; opacity: 0.7; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">Prioridad</h4>
-    <div style="font-size: 20px; font-weight: 700; color: #4338ca;">${escapeHtml((orden.prioridad ?? 'Media').toUpperCase())}</div>
-  </div>
+${_paginaHeader(orden, 'INFORME DE AVANCE', 'Estado de la ejecución durante un período determinado. El corte y su revisión deberán quedar identificados al emitir.')}
+${_bloqueNaranjaIzquierdo('Trabajo observado en este corte', comentarioAvance, 'Sin avance técnico registrado para este corte.')}
+<section class="grid grid-cols-2 gap-4 mb-6 no-break">
+  <div class="p-4 border border-outline-variant rounded-lg"><strong>Período y fecha de corte</strong><p>Pendientes de registrar</p></div>
+  <div class="p-4 border border-outline-variant rounded-lg"><strong>Avance operativo de la OT</strong><p>${porcentaje === null ? 'No registrado' : `${porcentaje}%`}</p></div>
 </section>
-<section class="mb-8 no-break">
-  <div class="flex items-center gap-2.5 mb-3 border-b border-outline-variant pb-2">
-    <span class="material-symbols-outlined text-secondary text-xl">edit_note</span>
-    <h3 class="font-section-header text-xs text-primary uppercase tracking-widest">Observaciones de Avance</h3>
-  </div>
-  <p class="text-xs text-on-surface-variant">No se agregaron observaciones adicionales.</p>
-</section>
-<p class="text-xs text-on-surface-variant">Avance informado en borrador; pendiente de revisión y autorización.</p>
-</div>
-<div class="a4-page">
-<div>
-  ${fotosAntes.length ? `<p class="text-xs text-on-surface-variant">Evidencia inicial: consultar relevamiento; ${fotosAntes.length} foto(s) vinculadas a la OT.</p>` : ''}
-  <div class="flex items-center gap-2.5 mb-5 border-b border-outline-variant pb-2" style="margin-top: 20px;">
-    <span class="material-symbols-outlined text-secondary" style="font-variation-settings:'FILL' 1;">construction</span>
-    <h3 class="font-section-header text-section-header text-primary uppercase tracking-widest">Evidencia fotográfica: Trabajo en Ejecución (Durante)</h3>
-  </div>
-  ${generarGridFotos(fotosDurante)}
-</div>
+<p class="text-xs text-on-surface-variant">El porcentaje proviene de la OT y es provisional: falta vincular base de cálculo, hitos del alcance aprobado y verificador. No acredita finalización ni recepción.</p>
+<section class="p-4 border border-outline-variant rounded-lg mb-6 no-break"><h3>Desvíos y siguiente paso</h3><p>Pendientes de documentar para este corte. Consultar el relevamiento para el diagnóstico y las fotografías iniciales.</p></section>
+<h3 class="font-section-header text-section-header text-primary uppercase tracking-widest">Evidencia de ejecución (durante)</h3>
+${generarGridFotos(fotosDurante)}
 </div>`;
-
   return _envolverInforme('Informe de avance — borrador', contenido);
 }
 

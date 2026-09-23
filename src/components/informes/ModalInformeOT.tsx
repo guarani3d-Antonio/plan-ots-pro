@@ -2,21 +2,17 @@ import { registrarExportacion } from '../../services/trustService';
 // src/components/informes/ModalInformeOT.tsx
 //
 // Modal fullscreen para previsualizar/exportar informes de OT. Soporta 5
-// tipos: 'cierre' | 'ficha' | 'relevamiento' | 'avance' | 'acta'.
+// tipos: 'cierre' | 'orden_servicio' | 'relevamiento' | 'avance' | 'acta'.
 //
 // Layout: panel izquierdo (datos read-only + observaciones editable + opciones),
 // panel derecho (iframe srcdoc con el HTML generado).
 //
-// Carga inicial varía según tipo:
-//   cierre       → comentario "En proceso → Cerrada" + fotos ANTES y DESPUÉS.
-//   ficha        → orden.comentarios (sin fetch) + sin fotos.
-//   relevamiento → comentario "Pendiente → En proceso" + fotos ANTES.
-//   avance       → comentario "Pendiente → En proceso" + fotos ANTES + DURANTE.
-//   acta         → sin texto editable + sin fotos.
+// Cada borrador empieza con su texto propio; los comentarios de transición
+// permanecen en el historial y no se incorporan como hechos aprobados.
+// Las fotos se muestran solo en la fase que corresponde a su categoría.
 //
 // Estrategia de actualización del preview:
-// - Tipeo en observaciones → parche directo del <p> dentro del DOM del iframe
-//   (sin recargar). Cero parpadeo, latencia inmediata.
+// - Tipeo en observaciones → parche del bloque editable del iframe.
 // - Cambio de opciones (incluirFotos), carga inicial, cambio de OT/tipo → regen
 //   completa del HTML y reload del iframe via srcDoc.
 //
@@ -38,7 +34,7 @@ import { colorEstado } from '../../utils/calculos';
 import styles from './ModalInformeOT.module.css';
 import { VoiceInputButton } from '../ui/VoiceInputButton';
 
-export type TipoInforme = 'cierre' | 'ficha' | 'relevamiento' | 'avance' | 'acta';
+export type TipoInforme = 'cierre' | 'orden_servicio' | 'relevamiento' | 'avance' | 'acta';
 
 interface Props {
   isOpen: boolean;
@@ -77,7 +73,7 @@ const TIPO_CFG: Record<TipoInforme, TipoCfg> = {
     necesitaFotosDespues: true,
     necesitaFotosDurante: false,
   },
-  ficha: {
+  orden_servicio: {
     titulo: 'Orden de Servicio',
     tituloDoc: 'Orden de Servicio - borrador',
     fileSlug: 'Orden_Servicio_Borrador',
@@ -232,7 +228,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
     switch (tipo) {
       case 'cierre':
         return generarInformeCierre(orden, proyectoNombre, textoActual, fa, fd);
-      case 'ficha':
+      case 'orden_servicio':
         return generarInformeOrdenServicio(orden, textoActual);
       case 'relevamiento':
         return generarInformeRelevamiento(orden, textoActual, fa);
@@ -270,7 +266,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
               .map(f => ({
                 file_url: f.url,
                 descripcion: f.descripcion ?? null,
-                descripcion_observacion: (f as any).descripcion_observacion ?? null,
+                descripcion_observacion: f.descripcion_observacion ?? null,
               })),
           );
         }
@@ -281,7 +277,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
               .map(f => ({
                 file_url: f.url,
                 descripcion: f.descripcion ?? null,
-                descripcion_observacion: (f as any).descripcion_observacion ?? null,
+                descripcion_observacion: f.descripcion_observacion ?? null,
               })),
           );
         }
@@ -292,7 +288,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
               .map(f => ({
                 file_url: f.url,
                 descripcion: f.descripcion ?? null,
-                descripcion_observacion: (f as any).descripcion_observacion ?? null,
+                descripcion_observacion: f.descripcion_observacion ?? null,
               })),
           );
         }
@@ -451,7 +447,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
                       setObservaciones(nuevoTexto);
                       const doc = iframeRef.current?.contentDocument;
                       const el = doc?.getElementById('antecedentes-texto') ?? doc?.getElementById('bloque-texto-naranja');
-                      if (el) el.textContent = nuevoTexto || 'Sin observaciones registradas.';
+                      if (el) el.textContent = nuevoTexto || (tipo === 'orden_servicio' ? 'Sin aclaraciones posteriores.' : 'Sin observaciones registradas.');
                       else setHtmlPreview(construirHtml(nuevoTexto));
                     }}
                     maxLength={MAX_OBSERVACIONES}
@@ -483,7 +479,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
                           doc?.getElementById('bloque-texto-naranja');
                         if (el) {
                           el.textContent =
-                            nuevoTexto || 'Sin observaciones registradas.';
+                            nuevoTexto || (tipo === 'orden_servicio' ? 'Sin aclaraciones posteriores.' : 'Sin observaciones registradas.');
                           return;
                         }
 

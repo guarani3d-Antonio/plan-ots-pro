@@ -29,6 +29,11 @@ const html = reports.generarInformeRelevamiento(orden, 'Diagnóstico de prueba. 
 assert.equal((html.match(/class="evidencia-bloque"/g) ?? []).length, 8);
 assert.doesNotMatch(html, /<div class="page-break"><\/div>/);
 assert.doesNotMatch(html, /break-before: page; page-break-before: always/);
+const apertura = reports.generarInformeOrdenServicio(orden, 'Aclaración posterior.');
+assert.equal((apertura.match(/id="bloque-texto-naranja"/g) ?? []).length, 1);
+assert.match(apertura, /Solicitud original\./);
+assert.match(apertura, /Aclaración posterior\./);
+assert.doesNotMatch(apertura, /CHECKLIST DE VERIFICACIÓN PRE-TRABAJO/i);
 await mkdir('tmp/report-layout', { recursive: true });
 await writeFile('tmp/report-layout/relevamiento-8-fotos.html', html);
 console.log('Fixture de 8 imágenes y texto largo generado para revisión visual.');

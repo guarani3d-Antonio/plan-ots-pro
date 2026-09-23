@@ -41,7 +41,8 @@ export function generarGridFotos(
 
   return `<div class="evidencias-secuenciales">${fotos.map((f, idx) => {
       const desc = (f.descripcion ?? '').trim();
-      const obs  = (f.descripcion_observacion ?? '').trim();
+      const observacion = (f.descripcion_observacion ?? '').trim();
+      const obs = observacion === desc ? '' : observacion;
       const descripcionHtml = desc
         ? escapeHtml(desc)
         : '<span style="color:#bbb">Sin descripción registrada</span>';
@@ -280,12 +281,12 @@ export function _bloqueDatosOT(orden: OrdenLocal): string {
 
 // Sección de bloque con borde naranja izquierdo (Antecedentes / Diagnóstico /
 // Estado Actual / Garantía / Declaración / Descripción de Trabajo).
-export function _bloqueNaranjaIzquierdo(titulo: string, contenido: string, vacioPlaceholder: string): string {
+export function _bloqueNaranjaIzquierdo(titulo: string, contenido: string, vacioPlaceholder: string, id = 'bloque-texto-naranja'): string {
   const tieneContenido = contenido.trim().length > 0;
   const textoFinal = tieneContenido ? contenido : vacioPlaceholder;
   return `<section class="mb-8 no-break" style="border-left: 4px solid #CC7A00; background: #fffbf5; padding: 16px 20px; border-radius: 0 8px 8px 0;">
     <h3 class="font-section-header text-xs text-primary uppercase tracking-widest mb-3">${escapeHtml(titulo)}</h3>
-    <p id="bloque-texto-naranja" class="text-body-md leading-relaxed text-justify" style="color: ${tieneContenido ? '#1a1c1f' : '#888'}; ${tieneContenido ? '' : 'font-style: italic;'}">${escapeHtml(textoFinal)}</p>
+    <p ${id ? `id="${escapeHtml(id)}"` : ''} class="text-body-md leading-relaxed text-justify" style="color: ${tieneContenido ? '#1a1c1f' : '#888'}; ${tieneContenido ? '' : 'font-style: italic;'}">${escapeHtml(textoFinal)}</p>
   </section>`;
 }
 

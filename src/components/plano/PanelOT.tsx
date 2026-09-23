@@ -827,7 +827,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
   const totalFotos = fotosAntes.length + fotosDurante.length + fotosDespues.length;
 
   const INFORMES_CONFIG: { tipo: TipoInforme; icono: string; nombre: string; codigo?: string; subtitulo: string }[] = [
-    { tipo: 'ficha_visita',     icono: '📋', nombre: 'Orden de Servicio',        subtitulo: 'Solicitud y apertura de OT' },
+    { tipo: 'orden_servicio',   icono: '📋', nombre: 'Orden de Servicio',        subtitulo: 'Solicitud y apertura de OT' },
     { tipo: 'relevamiento',     icono: '🔍', nombre: 'Informe de Relevamiento',                      subtitulo: 'Diagnóstico técnico' },
     { tipo: 'avance',           icono: '📊', nombre: 'Informe de Avance',                            subtitulo: 'Progreso de ejecución' },
     { tipo: 'cierre',           icono: '✅', nombre: 'Informe de Cierre',                            subtitulo: 'Resultado y verificación técnica' },
@@ -1095,7 +1095,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
                   </select>
                 </div>
                 <div className={styles.field}>
-                  <label className={styles.label}>Fecha y hora de recepción · Paraguay</label>
+                  <label className={styles.label}>Fecha y hora de recepción declarada</label>
                   <input className={styles.input} type="datetime-local" value={String(valoresCampos.fecha_solicitud ?? '')} onChange={e => setValorCampo('fecha_solicitud', e.target.value)} />
                 </div>
                 <div className={styles.field}>
@@ -1306,7 +1306,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
                         </div>
                         <span className={`${styles.informeEstado} ${disponible ? styles.informeOk : styles.informeNo}`}>{disponible ? 'Disponible' : 'No disponible'}</span>
                       </div>
-                      <button className={styles.btnGenerar} onClick={() => { if (cambiosSinGuardar) { mostrar('Guardá los cambios de la OT antes de generar el informe.', 'info'); return; } const tipoModal: TipoInformeModal = tipo === 'ficha_visita' ? 'ficha' : tipo === 'acta_conformidad' ? 'acta' : tipo; setTipoInforme(tipoModal); setModalCierre(true); }} disabled={!disponible} type="button">🖨️ Generar</button>
+                      <button className={styles.btnGenerar} onClick={() => { if (cambiosSinGuardar) { mostrar('Guardá los cambios de la OT antes de generar el informe.', 'info'); return; } const tipoModal: TipoInformeModal = tipo === 'acta_conformidad' ? 'acta' : tipo; setTipoInforme(tipoModal); setModalCierre(true); }} disabled={!disponible} type="button">🖨️ Generar</button>
                     </div>
                   );
                 })}

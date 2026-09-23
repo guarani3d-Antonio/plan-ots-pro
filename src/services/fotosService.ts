@@ -17,6 +17,7 @@ export interface FotoSubida {
   file_type:   string;
   nombre:      string;
   descripcion?: string | null;
+  descripcion_observacion?: string | null;
 }
 
 /**
@@ -146,7 +147,7 @@ export async function cargarFotosDeOrden(
 ): Promise<(FotoSubida & { id: string })[]> {
   const { data, error } = await supabase
     .from('fotos')
-    .select('id, orden_id, proyecto_id, categoria, file_url, file_path, file_type, descripcion')
+    .select('id, orden_id, proyecto_id, categoria, file_url, file_path, file_type, descripcion, descripcion_observacion')
     .eq('orden_id', ordenId);
 
   if (error) throw new Error(`Error al cargar fotos: ${error.message}`);
@@ -161,6 +162,7 @@ export async function cargarFotosDeOrden(
     file_type:   row.file_type  as string,
     nombre:      (row.file_path as string).split('/').pop() ?? '',
     descripcion: (row.descripcion as string | null) ?? null,
+    descripcion_observacion: (row.descripcion_observacion as string | null) ?? null,
   })));
 }
 
