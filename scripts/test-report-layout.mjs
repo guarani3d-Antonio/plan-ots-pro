@@ -47,6 +47,17 @@ assert.equal((apertura.match(/id="bloque-texto-naranja"/g) ?? []).length, 1);
 assert.match(apertura, /Solicitud original\./);
 assert.match(apertura, /Aclaración posterior\./);
 assert.doesNotMatch(apertura, /CHECKLIST DE VERIFICACIÓN PRE-TRABAJO/i);
+const origen = {
+  canal: 'WhatsApp', fechaRecepcion: '2026-09-23T09:30',
+  solicitante: 'Cliente de prueba', contacto: '+595 000 000',
+  referencia: '<mensaje #42>', urgencia: 'Alta', proximoPaso: 'Agendar relevamiento',
+};
+const aperturaConOrigen = reports.generarInformeOrdenServicio(orden, '', origen);
+assert.match(aperturaConOrigen, /id="os-canal">WhatsApp<\/p>/);
+assert.match(aperturaConOrigen, /id="os-fechaRecepcion">2026-09-23 09:30<\/p>/);
+assert.match(aperturaConOrigen, /id="os-referencia">&lt;mensaje #42&gt;<\/p>/);
+assert.match(aperturaConOrigen, /id="os-proximoPaso">Agendar relevamiento<\/p>/);
+assert.doesNotMatch(aperturaConOrigen, /<mensaje #42>|diagnóstico técnico inicial/i);
 const cierre = reports.generarInformeCierre(orden, 'Obra de prueba', 'Resultado técnico.', [], []);
 assert.doesNotMatch(cierre, /<h3>Recepción<\/h3>|Evidencia final \(después\)/);
 const portable = await hacerInformePortable(html);

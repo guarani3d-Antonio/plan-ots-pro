@@ -14,6 +14,16 @@ import {
 
 export type TipoInforme = 'orden_servicio' | 'relevamiento' | 'avance' | 'cierre' | 'acta_conformidad';
 
+export interface OrigenOrdenServicio {
+  canal: string;
+  fechaRecepcion: string;
+  solicitante: string;
+  contacto: string;
+  referencia: string;
+  urgencia: string;
+  proximoPaso: string;
+}
+
 export function informeDisponible(tipo: TipoInforme, estadoOT: string): boolean {
   switch (tipo) {
     case 'orden_servicio':
@@ -59,9 +69,10 @@ ${generarGridFotos(fotosDespues)}` : ''}
 export function generarInformeOrdenServicio(
   orden: OrdenLocal,
   aclaracion: string,
+  origen?: OrigenOrdenServicio,
 ): string {
-  const dato = (clave: string) => {
-    const valor = orden.campos?.[clave];
+  const dato = (clave: keyof OrigenOrdenServicio, legado: string) => {
+    const valor = origen ? origen[clave] : orden.campos?.[legado];
     return typeof valor === 'string' && valor.trim() ? valor.trim() : 'No registrado';
   };
 
@@ -70,14 +81,17 @@ ${_paginaHeader(orden, 'ORDEN DE SERVICIO', 'Registro de apertura de la orden de
 ${_bloqueDatosCliente(orden)}
 <section class="grid grid-cols-2 gap-4 mb-6 no-break">
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Fecha de ingreso de OT</strong><p>${escapeHtml(formatearFechaCorta(orden.fecha_ingreso))}</p></div>
-  <div class="p-4 border border-outline-variant rounded-lg"><strong>Canal de solicitud</strong><p>${escapeHtml(dato('canal_solicitud'))}</p></div>
-  <div class="p-4 border border-outline-variant rounded-lg"><strong>Fecha y hora de recepción declarada</strong><p>${escapeHtml(dato('fecha_solicitud').replace('T', ' '))}</p></div>
-  <div class="p-4 border border-outline-variant rounded-lg"><strong>Solicitante</strong><p>${escapeHtml(dato('solicitante'))}</p></div>
-  <div class="p-4 border border-outline-variant rounded-lg"><strong>Referencia de origen</strong><p>${escapeHtml(dato('referencia_solicitud'))}</p></div>
+  <div class="p-4 border border-outline-variant rounded-lg"><strong>Canal de solicitud</strong><p id="os-canal">${escapeHtml(dato('canal', 'canal_solicitud'))}</p></div>
+  <div class="p-4 border border-outline-variant rounded-lg"><strong>Fecha y hora de recepción declarada</strong><p id="os-fechaRecepcion">${escapeHtml(dato('fechaRecepcion', 'fecha_solicitud').replace('T', ' '))}</p></div>
+  <div class="p-4 border border-outline-variant rounded-lg"><strong>Solicitante</strong><p id="os-solicitante">${escapeHtml(dato('solicitante', 'solicitante'))}</p></div>
+  <div class="p-4 border border-outline-variant rounded-lg"><strong>Contacto de origen</strong><p id="os-contacto">${escapeHtml(dato('contacto', 'contacto_solicitante'))}</p></div>
+  <div class="p-4 border border-outline-variant rounded-lg"><strong>Referencia del mensaje</strong><p id="os-referencia">${escapeHtml(dato('referencia', 'referencia_solicitud'))}</p></div>
+  <div class="p-4 border border-outline-variant rounded-lg"><strong>Urgencia manifestada</strong><p id="os-urgencia">${escapeHtml(dato('urgencia', 'urgencia_solicitada'))}</p></div>
 </section>
 ${_bloqueNaranjaIzquierdo('Solicitud original', orden.descripcion ?? '', 'No se ha registrado el reclamo original.', '')}
 ${_bloqueNaranjaIzquierdo('Aclaración posterior', aclaracion, 'Sin aclaraciones posteriores.')}
 <section class="p-4 border border-outline-variant rounded-lg no-break"><strong>Clasificación inicial</strong><p>${escapeHtml(orden.rubro || 'Sin clasificar')} · Prioridad ${escapeHtml(orden.prioridad || 'No registrada')} · Responsable ${escapeHtml(orden.responsable || 'No asignado')}</p></section>
+<section class="p-4 border border-outline-variant rounded-lg no-break mt-4"><strong>Próximo paso acordado</strong><p id="os-proximoPaso">${escapeHtml(dato('proximoPaso', 'proximo_paso'))}</p></section>
 <p class="mt-6 text-xs text-on-surface-variant">La evidencia aportada por el cliente debe vincularse con su mensaje de origen. Los datos faltantes impiden considerar completa esta orden.</p>
 </div>`;
 

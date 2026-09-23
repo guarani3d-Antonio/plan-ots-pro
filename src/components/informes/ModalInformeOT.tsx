@@ -28,6 +28,7 @@ import {
   generarInformeAvance,
   generarInformeActaConformidad,
 } from '../../services/reportService';
+import type { OrigenOrdenServicio } from '../../services/reportService';
 import { cargarFotosDeOrden } from '../../services/fotosService';
 import { hacerInformePortable } from '../../services/portableReportService';
 import {
@@ -131,6 +132,27 @@ function fechaCorta(fecha: string | null | undefined): string {
 const DEBOUNCE_MS = 150;
 const MAX_OBSERVACIONES = 2000;
 
+function origenInicial(orden: OrdenLocal): OrigenOrdenServicio {
+  const campo = (clave: string) => typeof orden.campos?.[clave] === 'string'
+    ? String(orden.campos[clave]) : '';
+  return {
+    canal: campo('canal_solicitud'), fechaRecepcion: campo('fecha_solicitud'),
+    solicitante: campo('solicitante'), contacto: campo('contacto_solicitante'),
+    referencia: campo('referencia_solicitud'), urgencia: campo('urgencia_solicitada'),
+    proximoPaso: campo('proximo_paso'),
+  };
+}
+
+function origenGuardado(valor: unknown, inicial: OrigenOrdenServicio): OrigenOrdenServicio {
+  if (!valor || typeof valor !== 'object' || Array.isArray(valor)) return inicial;
+  const objeto = valor as Record<string, unknown>;
+  const resultado = { ...inicial };
+  for (const clave of Object.keys(resultado) as (keyof OrigenOrdenServicio)[]) {
+    if (typeof objeto[clave] === 'string') resultado[clave] = objeto[clave];
+  }
+  return resultado;
+}
+
 export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }: Props) {
   const cfg = TIPO_CFG[tipo];
   const necesitaFotos =
@@ -138,6 +160,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
   const muestraTextarea = cfg.labelTextarea !== null;
 
   const [observaciones, setObservaciones] = useState('');
+  const [origenServicio, setOrigenServicio] = useState<OrigenOrdenServicio>(() => origenInicial(orden));
   const [cargandoComentario, setCargandoComentario] = useState(true);
   const [htmlPreview, setHtmlPreview] = useState('');
   const [generandoPreview, setGenerandoPreview] = useState(false);
@@ -227,6 +250,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
     setHtmlPreview('');
     setPreviewAlto(1123);
     setObservaciones('');
+    setOrigenServicio(origenInicial(orden));
     setFotosAntes([]);
     setFotosDespues([]);
     setFotosDurante([]);
@@ -248,7 +272,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
       case 'cierre':
         return generarInformeCierre(orden, proyectoNombre, textoActual, fa, fd);
       case 'orden_servicio':
-        return generarInformeOrdenServicio(orden, textoActual);
+        return generarInformeOrdenServicio(orden, textoActual, origenServicio);
       case 'relevamiento':
         return generarInformeRelevamiento(orden, textoActual, fa);
       case 'avance':
@@ -279,11 +303,14 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
         const datos = resultado?.borrador?.datos;
         const texto = typeof datos?.observaciones === 'string'
           ? datos.observaciones.slice(0, MAX_OBSERVACIONES) : '';
+        const origen = origenGuardado(datos?.origen, origenInicial(orden));
         setObservaciones(texto);
+        setOrigenServicio(origen);
         setIncluirFotos(typeof datos?.incluirFotos === 'boolean' ? datos.incluirFotos : true);
         setDocumento(resultado?.vigente ?? null);
         setVersionBorrador(resultado?.borrador?.version ?? 0);
-        setGuardado(resultado?.borrador ? JSON.stringify({ observaciones: texto, incluirFotos: datos?.incluirFotos !== false }) : null);
+        setGuardado(resultado?.borrador ? JSON.stringify({ observaciones: texto,
+          incluirFotos: datos?.incluirFotos !== false, ...(tipo === 'orden_servicio' ? { origen } : {}) }) : null);
         setPersistenciaDisponible(resultado !== null);
 
         // S33: mapeo incluye descripcion_observacion además de descripcion
@@ -382,12 +409,13 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
     } finally { setGenerandoPreview(false); }
   };
 
-  const datosBorrador = { observaciones, incluirFotos };
+  const datosBorrador = { observaciones, incluirFotos,
+    ...(tipo === 'orden_servicio' ? { origen: origenServicio } : {}) };
   const cambiosBorrador = guardado !== JSON.stringify(datosBorrador);
 
   const handleGuardarBorrador = async () => {
     if (cargandoComentario || guardandoBorrador || !persistenciaDisponible) return;
-    const datos = { observaciones, incluirFotos };
+    const datos = datosBorrador;
     const contenido = JSON.stringify(datos);
     const intento = solicitudGuardadoRef.current;
     const solicitud = intento?.datos === contenido && intento.version === versionBorrador
@@ -492,6 +520,33 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
                 <div className={styles.dataVal}>{orden.reincidencia ? 'Sí' : 'No'}</div>
               </div>
             </div>
+
+            {tipo === 'orden_servicio' && (
+              <div className={styles.section}>
+                <div className={styles.sectionTitle}>Procedencia de la solicitud</div>
+                <div className={styles.originGrid}>
+                  {([
+                    ['canal', 'Canal'], ['fechaRecepcion', 'Fecha y hora de recepción'],
+                    ['solicitante', 'Solicitante'], ['contacto', 'Contacto'],
+                    ['referencia', 'Referencia del mensaje'], ['urgencia', 'Urgencia manifestada'],
+                    ['proximoPaso', 'Próximo paso'],
+                  ] as [keyof OrigenOrdenServicio, string][]).map(([clave, etiqueta]) => (
+                    <label className={styles.originField} key={clave}>
+                      <span>{etiqueta}</span>
+                      <input type="text" value={origenServicio[clave]} disabled={cargandoComentario}
+                        onChange={e => {
+                          const valor = e.target.value.slice(0, 300);
+                          setOrigenServicio(actual => ({ ...actual, [clave]: valor }));
+                          const el = iframeRef.current?.contentDocument?.getElementById(`os-${clave}`);
+                          if (el) el.textContent = (clave === 'fechaRecepcion' ? valor.replace('T', ' ') : valor) || 'No registrado';
+                        }}
+                        maxLength={300} placeholder="No registrado" />
+                    </label>
+                  ))}
+                </div>
+                <p className={styles.sublabel}>Son datos del pedido recibido; no acreditan una visita ni un diagnóstico.</p>
+              </div>
+            )}
 
             {muestraTextarea && (
               <div className={styles.section}>
