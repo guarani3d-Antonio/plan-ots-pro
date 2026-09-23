@@ -44,6 +44,7 @@ import { HistorialComentarios } from './HistorialComentarios';
 import { ModalFotoDetalle } from './ModalFotoDetalle';
 import { ModalInformeOT, type TipoInforme as TipoInformeModal } from '../../components/informes/ModalInformeOT';
 import { useToast } from '../ui/Toast';
+import { fechaLocalHoy } from '../../utils/fechaCivil';
 import { VoiceInputButton } from '../ui/VoiceInputButton';
 import styles from './PanelOT.module.css';
 import TooltipAyuda from '../ayuda/TooltipAyuda';
@@ -250,6 +251,8 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
   });
   const [confirmEliminar, setConfirmEliminar] = useState(false);
   const [guardando,       setGuardando]       = useState(false);
+  const [guardadoEn,      setGuardadoEn]      = useState<Date | null>(null);
+  const [errorGuardado,    setErrorGuardado]   = useState(false);
   const [modalCierre,     setModalCierre]     = useState(false);
   const [tipoInforme,     setTipoInforme]     = useState<TipoInformeModal>('cierre');
 
@@ -659,6 +662,9 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
 
   const handleGuardar = async () => {
     if (!ordenFresca) return;
+    const contratistaPendiente = inputContratista.trim();
+    const contratistasFinales = contratistaPendiente && !form.contratistas?.includes(contratistaPendiente)
+      ? [...(form.contratistas ?? []), contratistaPendiente] : (form.contratistas ?? []);
     const v = validarFotosParaEstado(fotosAntes, fotosDurante, fotosDespues, estado);
     // Opción A de C-2. Con la lista de fotos en duda NO se bloquea el guardado,
     // salvo que el técnico esté subiendo de estado. Bloquear todo por un requisito
@@ -682,7 +688,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
     }
 
     const fechaFinFinal = (estado === 'No aplica' && !form.fecha_fin_trabajos)
-      ? new Date().toISOString().slice(0, 10)
+      ? fechaLocalHoy()
       : form.fecha_fin_trabajos;
 
     setGuardando(true);
@@ -700,7 +706,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
         rubro_secundario:           form.rubro_secundario ?? [],
         nivel_riesgo:               form.nivel_riesgo ?? null,
         responsable:                form.responsable ?? '',
-        contratistas:               form.contratistas ?? [],
+        contratistas:               contratistasFinales,
         fecha_ingreso:              (form.fecha_ingreso || null) as unknown as string,
         fecha_inicio_trabajos:      (estado === 'No aplica' ? null : (form.fecha_inicio_trabajos || null)) as unknown as string,
         fecha_fin_trabajos:         (fechaFinFinal || null) as unknown as string,
@@ -733,8 +739,12 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
       if (guardadoSinVerificar) {
         mostrar('Guardado. Las fotos obligatorias no se verificaron — sin conexión con el servidor.', 'info');
       }
+      setInputContratista('');
+      setErrorGuardado(false);
+      setGuardadoEn(new Date());
       if (modoForzadoFotos) onCerrar();
     } catch(err) {
+      setErrorGuardado(true);
       mostrar(err instanceof Error?err.message:'No se pudieron guardar los cambios.','error');
     } finally {
       setGuardando(false);
@@ -1278,6 +1288,11 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
           )}
 
           <div className={styles.footer}>
+            <span role="status" aria-live="polite" style={{ marginRight: 'auto', color: errorGuardado ? 'var(--color-danger, #B42318)' : 'var(--text-secondary)', fontSize: 13 }}>
+              {guardando ? 'Guardando…' : errorGuardado ? 'No guardado · reintentá' :
+                (JSON.stringify(form) !== JSON.stringify(ordenToForm(baseEdicion.current ?? ordenFresca)) || inputContratista.trim())
+                  ? 'Cambios sin guardar' : guardadoEn ? `Guardado · ${guardadoEn.toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit' })}` : ''}
+            </span>
             {modoForzadoFotos ? (
               <button className={styles.cancelUbicacionBtn} onClick={handleCancelarUbicacion} disabled={guardando} type="button">Cancelar ubicación</button>
             ) : esNueva ? (

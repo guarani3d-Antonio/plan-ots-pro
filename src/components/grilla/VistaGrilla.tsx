@@ -8,6 +8,7 @@ import { getCamposDeProyecto, type CampoDefinicion } from '../../services/campos
 import { colorEstado, diasAbierto } from '../../utils/calculos';
 import { usePuedeVerCostos } from '../../hooks/usePuedeVerCostos';
 import { scopedKey } from '../../security/sessionScope';
+import { fechaParaMostrar } from '../../utils/fechaCivil';
 
 type EstadoOT    = 'Pendiente' | 'En proceso' | 'Cerrada' | 'No aplica';
 type PrioridadOT = 'Alta' | 'Media' | 'Baja';
@@ -175,10 +176,7 @@ function colorFromName(nombre: string): string {
 const inicial = (n: string) => n ? n.trim().charAt(0).toUpperCase() : '?';
 
 function formatFecha(iso?: string): string {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString('es-PY', { day: '2-digit', month: '2-digit', year: '2-digit' });
+  return fechaParaMostrar(iso, { year: '2-digit' });
 }
 
 function formatFechaHora(iso?: string): string {
@@ -896,7 +894,7 @@ export const VistaGrilla: React.FC<Props> = ({ proyectoId, proyectoNombre, onSwi
                           {(camposTarjeta.has('porcentaje_avance') || (camposTarjeta.has('fecha_ingreso') && o.fecha_ingreso)) && (
                             <div style={{ borderTop: '1px solid #F3F4F6', paddingTop: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                               {camposTarjeta.has('porcentaje_avance') && (<><div style={{ flex: 1, marginRight: 10 }}><div style={{ background: '#E2E2E7', borderRadius: 4, height: 4, overflow: 'hidden' }}><div style={{ width: `${o.porcentaje_avance ?? 0}%`, background: colorEstado(o.estado), height: '100%', borderRadius: 4 }} /></div></div><span style={{ fontSize: 10, color: '#9CA3AF', fontWeight: 600, flexShrink: 0 }}>{o.porcentaje_avance ?? 0}%</span></>)}
-                              {camposTarjeta.has('fecha_ingreso') && o.fecha_ingreso && <span style={{ fontSize: 10, color: '#9CA3AF', marginLeft: camposTarjeta.has('porcentaje_avance') ? 10 : 0, flexShrink: 0 }}>{new Date(o.fecha_ingreso).toLocaleDateString('es-PY', { day: '2-digit', month: '2-digit' })}</span>}
+                              {camposTarjeta.has('fecha_ingreso') && o.fecha_ingreso && <span style={{ fontSize: 10, color: '#9CA3AF', marginLeft: camposTarjeta.has('porcentaje_avance') ? 10 : 0, flexShrink: 0 }}>{fechaParaMostrar(o.fecha_ingreso, { year: undefined })}</span>}
                             </div>
                           )}
                         </div>

@@ -253,11 +253,30 @@ export default function VistaPlano({ fullscreen = false, onToggleFullscreen }: V
 
   // ── Pan ──────────────────────────────────────────────────
   const panRef     = useRef({ active: false, sx: 0, sy: 0, ox: 0, oy: 0 });
+  const pointersRef = useRef(new Map<number, { x: number; y: number }>());
+  const pinchRef = useRef<{ distance: number; scale: number; tx: number; ty: number; cx: number; cy: number } | null>(null);
   const didDragRef = useRef(false);
   const [isPanning, setIsPanning] = useState(false);
 
   const onPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    didDragRef.current = false;
+    if (pointersRef.current.size === 0) didDragRef.current = false;
+    if (e.pointerType !== 'mouse') {
+      pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pointersRef.current.size === 2) {
+        e.currentTarget.setPointerCapture(e.pointerId);
+        const [a, b] = [...pointersRef.current.values()];
+        const rect = e.currentTarget.getBoundingClientRect();
+        pinchRef.current = {
+          distance: Math.hypot(a.x - b.x, a.y - b.y), scale: scRef.current,
+          tx: txRef.current, ty: tyRef.current,
+          cx: (a.x + b.x) / 2 - rect.left, cy: (a.y + b.y) / 2 - rect.top,
+        };
+        panRef.current.active = false;
+        didDragRef.current = true;
+        setIsPanning(true);
+        return;
+      }
+    }
     const t = e.target as HTMLElement;
     if (t.closest('[data-marcador]') || t.closest('[data-no-pan]')) return;
     panRef.current = { active: true, sx: e.clientX, sy: e.clientY, ox: txRef.current, oy: tyRef.current };
@@ -266,6 +285,22 @@ export default function VistaPlano({ fullscreen = false, onToggleFullscreen }: V
   }, []);
 
   const onPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (pointersRef.current.has(e.pointerId)) {
+      pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pinchRef.current && pointersRef.current.size >= 2) {
+        const [a, b] = [...pointersRef.current.values()];
+        const pinch = pinchRef.current;
+        const rect = e.currentTarget.getBoundingClientRect();
+        const ratio = Math.hypot(a.x - b.x, a.y - b.y) / Math.max(1, pinch.distance);
+        const scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, pinch.scale * ratio));
+        const zoomRatio = scale / pinch.scale;
+        applyTransform(scale,
+          (a.x + b.x) / 2 - rect.left - (pinch.cx - pinch.tx) * zoomRatio,
+          (a.y + b.y) / 2 - rect.top - (pinch.cy - pinch.ty) * zoomRatio);
+        didDragRef.current = true;
+        return;
+      }
+    }
     if (e.buttons > 0 && (Math.abs(e.movementX) + Math.abs(e.movementY)) > 1) {
       didDragRef.current = true;
     }
@@ -275,7 +310,13 @@ export default function VistaPlano({ fullscreen = false, onToggleFullscreen }: V
     applyTransform(scRef.current, p.ox + dx, p.oy + dy);
   }, [applyTransform]);
 
-  const onPointerUp = useCallback(() => {
+  const onPointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    pointersRef.current.delete(e.pointerId);
+    if (pinchRef.current) {
+      panRef.current.active = false;
+      if (pointersRef.current.size === 0) { pinchRef.current = null; setIsPanning(false); }
+      return;
+    }
     panRef.current.active = false;
     setIsPanning(false);
   }, []);
@@ -470,7 +511,7 @@ export default function VistaPlano({ fullscreen = false, onToggleFullscreen }: V
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
-          onPointerLeave={onPointerUp}
+          onPointerCancel={onPointerUp}
           onClick={onPlanClick}
         >
           {!planoListo && !errorPlano && (

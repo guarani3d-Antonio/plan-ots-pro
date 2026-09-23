@@ -15,7 +15,7 @@ interface SpeechRecognitionLike {
   continuous: boolean;
   interimResults: boolean;
   onresult: ((event: SpeechRecognitionEventLike) => void) | null;
-  onerror: (() => void) | null;
+  onerror: ((event: { error?: string }) => void) | null;
   onend: (() => void) | null;
   start: () => void;
   stop: () => void;
@@ -41,6 +41,7 @@ export function VoiceInputButton({ value, onChange, disabled = false, maxLength,
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const baseValueRef = useRef('');
   const [escuchando, setEscuchando] = useState(false);
+  const [errorDictado, setErrorDictado] = useState('');
   const SpeechRecognition = typeof window === 'undefined'
     ? undefined
     : ((window as VoiceWindow).SpeechRecognition ?? (window as VoiceWindow).webkitSpeechRecognition);
@@ -52,6 +53,7 @@ export function VoiceInputButton({ value, onChange, disabled = false, maxLength,
 
   const comenzar = () => {
     if (!SpeechRecognition || disabled) return;
+    setErrorDictado('');
     const recognition = new SpeechRecognition();
     recognitionRef.current = recognition;
     baseValueRef.current = value.trimEnd();
@@ -66,7 +68,16 @@ export function VoiceInputButton({ value, onChange, disabled = false, maxLength,
       const nuevoValor = typeof maxLength === 'number' ? textoCompleto.slice(0, maxLength) : textoCompleto;
       onChange(nuevoValor);
     };
-    recognition.onerror = () => setEscuchando(false);
+    recognition.onerror = event => {
+      const motivo = event.error;
+      setErrorDictado(motivo === 'not-allowed' || motivo === 'service-not-allowed'
+        ? 'Permiso de micrófono denegado. Revisá los permisos del navegador.'
+        : motivo === 'no-speech' ? 'No se detectó voz. Volvé a intentarlo.'
+        : motivo === 'network' ? 'El dictado necesita conexión en este navegador.'
+        : motivo === 'audio-capture' ? 'No se encontró un micrófono disponible.'
+        : 'No se pudo iniciar el dictado. Podés escribir el texto.');
+      setEscuchando(false);
+    };
     recognition.onend = () => {
       recognitionRef.current = null;
       setEscuchando(false);
@@ -75,18 +86,19 @@ export function VoiceInputButton({ value, onChange, disabled = false, maxLength,
       recognition.start();
       setEscuchando(true);
     } catch {
+      setErrorDictado('No se pudo iniciar el dictado. Revisá el permiso del micrófono.');
       setEscuchando(false);
     }
   };
 
-  return (
+  return (<span className={styles.wrap}>
     <button
       type="button"
       className={`${styles.button} ${compact ? styles.compact : ''} ${escuchando ? styles.active : ''}`}
       onClick={escuchando ? detener : comenzar}
       disabled={disabled || !disponible}
       aria-pressed={escuchando}
-      title={disponible ? (escuchando ? 'Detener dictado' : 'Escribir mediante voz') : 'El dictado no está disponible en este navegador'}
+      title={errorDictado || (disponible ? (escuchando ? 'Detener dictado' : 'Escribir mediante voz') : 'El dictado no está disponible en este navegador')}
     >
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M12 15a3.5 3.5 0 0 0 3.5-3.5v-5a3.5 3.5 0 1 0-7 0v5A3.5 3.5 0 0 0 12 15Z" />
@@ -94,5 +106,6 @@ export function VoiceInputButton({ value, onChange, disabled = false, maxLength,
       </svg>
       {!compact && <span>{escuchando ? 'Escuchando…' : 'Dictar'}</span>}
     </button>
-  );
+    {errorDictado && <span role="alert" className={styles.error}>{errorDictado}</span>}
+  </span>);
 }

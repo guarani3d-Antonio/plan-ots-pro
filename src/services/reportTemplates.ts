@@ -273,19 +273,17 @@ ${_FOOTER_INFORME.replace('__YEAR__', String(new Date().getFullYear()))}
 
 // Bloque "Datos del Cliente" (Obra / Unidad / Responsable).
 export function _bloqueDatosCliente(orden: OrdenLocal): string {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const proyectoNombre = (orden as any).proyecto_nombre ?? '';
   return `<section class="grid grid-cols-3 gap-6 bg-surface-container-lowest p-6 rounded-xl border border-outline-variant mb-6 shadow-sm no-break">
     <div class="col-span-3 border-b border-outline-variant/30 pb-2 mb-2">
       <h3 class="font-section-header text-[10px] text-primary uppercase tracking-widest">Datos del Cliente</h3>
     </div>
     <div class="flex flex-col gap-1">
       <span class="text-[10px] font-bold text-outline uppercase tracking-wider">Obra</span>
-      <span class="text-body-md text-on-surface">${escapeHtml(proyectoNombre || 'No especificado')}</span>
+      <span class="text-body-md text-on-surface">${escapeHtml(orden.obra || 'No especificado')}</span>
     </div>
     <div class="flex flex-col gap-1">
       <span class="text-[10px] font-bold text-outline uppercase tracking-wider">Unidad o Sector</span>
-      <span class="text-body-md text-on-surface">${escapeHtml(orden.ubicacion || 'No especificado')}</span>
+      <span class="text-body-md text-on-surface">${escapeHtml(orden.unidad_amenities || 'No especificado')}</span>
     </div>
     <div class="flex flex-col gap-1">
       <span class="text-[10px] font-bold text-outline uppercase tracking-wider">Responsable</span>

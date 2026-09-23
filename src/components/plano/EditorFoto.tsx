@@ -186,6 +186,7 @@ export default function EditorFoto({ foto, ordenCodigo, todasLasFotos, onClose, 
   const photoWrapperRef = useRef<HTMLDivElement>(null);
   const zoomRef         = useRef(1);
   const dibujandoRef    = useRef(false);
+  const punteroActivoRef = useRef<number | null>(null);
   const annEnCursoRef   = useRef<Anotacion | null>(null);
   const anotacionesRef  = useRef<Anotacion[]>([]);
   const brilloRef       = useRef(0);
@@ -270,7 +271,7 @@ export default function EditorFoto({ foto, ordenCodigo, todasLasFotos, onClose, 
 
   useEffect(() => { dibujarTodo(anotaciones); }, [anotaciones, dibujarTodo]);
 
-  function getCoords(e: React.MouseEvent): Punto {
+  function getCoords(e: { clientX: number; clientY: number }): Punto {
     const canvas = canvasRef.current!;
     const rect   = canvas.getBoundingClientRect();
     const cssW   = canvas.offsetWidth;
@@ -281,9 +282,13 @@ export default function EditorFoto({ foto, ordenCodigo, todasLasFotos, onClose, 
     };
   }
 
-  // ── Mouse handlers ───────────────────────────────────────────────────────
-  function handleMouseDown(e: React.MouseEvent) {
+  // Un mismo flujo para dedo, lápiz y mouse; el canvas conserva el puntero
+  // hasta terminar el trazo aunque salga momentáneamente de la foto.
+  function handlePointerDown(e: React.PointerEvent<HTMLCanvasElement>) {
+    if (punteroActivoRef.current !== null) return;
     if (herramienta === 'cursor') return;
+    punteroActivoRef.current = e.pointerId;
+    e.currentTarget.setPointerCapture(e.pointerId);
     if (herramienta === 'texto') {
       setTextoPos(getCoords(e)); setTextoValor('');
       setTimeout(() => textoRef.current?.focus(), 0);
@@ -296,7 +301,8 @@ export default function EditorFoto({ foto, ordenCodigo, todasLasFotos, onClose, 
     };
   }
 
-  function handleMouseMove(e: React.MouseEvent) {
+  function handlePointerMove(e: React.PointerEvent<HTMLCanvasElement>) {
+    if (e.pointerId !== punteroActivoRef.current) return;
     if (!dibujandoRef.current || !annEnCursoRef.current) return;
     const coords = getCoords(e);
     const ann = annEnCursoRef.current;
@@ -306,7 +312,9 @@ export default function EditorFoto({ foto, ordenCodigo, todasLasFotos, onClose, 
     if (ctxRef.current) drawAnotacion(ctxRef.current, ann);
   }
 
-  function handleMouseUp() {
+  function handlePointerUp(e: React.PointerEvent<HTMLCanvasElement>) {
+    if (e.pointerId !== punteroActivoRef.current) return;
+    punteroActivoRef.current = null;
     if (!dibujandoRef.current || !annEnCursoRef.current) return;
     dibujandoRef.current = false;
     const ann = annEnCursoRef.current;
@@ -556,10 +564,11 @@ export default function EditorFoto({ foto, ordenCodigo, todasLasFotos, onClose, 
               <canvas
                 ref={canvasRef}
                 className={`${styles.photoCanvas} ${canvasCursor}`}
-                onMouseDown={handleMouseDown}
-                onMouseMove={handleMouseMove}
-                onMouseUp={handleMouseUp}
-                onMouseLeave={handleMouseUp}
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={handlePointerUp}
+                onPointerCancel={() => { punteroActivoRef.current = null; dibujandoRef.current = false; annEnCursoRef.current = null; dibujarTodo(anotaciones); }}
+                style={{ touchAction: herramienta === 'cursor' ? 'auto' : 'none' }}
               />
               {textoPos && (
                 <input

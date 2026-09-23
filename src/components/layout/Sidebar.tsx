@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import styles from './Sidebar.module.css';
 import { useAuthStore } from '../../stores/authStore';
+import { useAccessStore } from '../../stores/accessStore';
 import { Notificaciones } from '../ui/Notificaciones';
 import { usePantallaCompleta } from '../../hooks/usePantallaCompleta';
 import type { TemaTablet } from '../../hooks/useTemaTablet';
@@ -87,6 +88,8 @@ export function Sidebar({
     catch { return false; }
   });
   const user = useAuthStore(s => s.user);
+  const contexto = useAccessStore(s => s.contexto);
+  const empresaId = useAccessStore(s => s.empresaId);
   // S37-T · Pantalla completa real (Fullscreen API). Exclusiva de modo tablet:
   // en notebook el F11 del sistema ya cumple esa función y duplicarla solo
   // ensuciaría una UI que debe quedar intacta.
@@ -98,6 +101,7 @@ export function Sidebar({
   }, [collapsed]);
 
   const userName = user?.email?.split('@')[0] ?? 'Usuario';
+  const userRole = contexto?.creador ? 'Creador' : contexto?.empresas.find(e => e.id === empresaId)?.rol ?? 'Sin acceso';
 
   if (hidden) return null;
 
@@ -212,14 +216,14 @@ export function Sidebar({
           <div
             className={styles.userAvatar}
             style={{ background: colorFromName(userName) }}
-            title={collapsed ? `${userName} · Operador` : undefined}
+            title={collapsed ? `${userName} · ${userRole}` : undefined}
           >
             {inicial(userName)}
           </div>
           {!collapsed && (
             <div className={styles.userInfo}>
               <div className={styles.userName}>{userName}</div>
-              <div className={styles.userRole}>Operador</div>
+              <div className={styles.userRole}>{userRole}</div>
             </div>
           )}
         </div>

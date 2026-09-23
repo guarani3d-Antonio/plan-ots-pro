@@ -13,6 +13,7 @@ import { useOrdenesStore } from '../../stores/ordenesStore';
 import { useProyectosStore } from '../../stores/proyectosStore';
 import { ModalDetalleOT } from '../grilla/ModalDetalleOT';
 import type { OrdenLocal } from '../../types/orden';
+import { fechaCivil, diasEntreFechasCiviles } from '../../utils/fechaCivil';
 import { colorEstado } from '../../utils/calculos';
 
 const DAY_MS = 86400000;
@@ -154,7 +155,7 @@ function obtenerEstiloBarra(o: OrdenLocal, retrasada: boolean): EstiloBarra {
 function esRetrasada(o: OrdenLocal): boolean {
   if (o.estado !== 'En proceso') return false;
   if (!o.fecha_fin_trabajos) return false;
-  return Date.now() > new Date(o.fecha_fin_trabajos).getTime();
+  return new Date().setHours(0, 0, 0, 0) > fechaCivil(o.fecha_fin_trabajos).getTime();
 }
 
 // ─── Componente ─────────────────────────────────────────────────────────────
@@ -347,8 +348,7 @@ export default function Gantt() {
        'Fecha Inicio','Fecha Fin','Duración (días)','% Avance'],
       ...otConFechasFiltradas.map(o => {
         const dias = o.fecha_inicio_trabajos && o.fecha_fin_trabajos
-          ? Math.ceil((new Date(o.fecha_fin_trabajos).getTime()
-                      - new Date(o.fecha_inicio_trabajos).getTime()) / DAY_MS)
+          ? diasEntreFechasCiviles(o.fecha_inicio_trabajos, o.fecha_fin_trabajos)
           : '';
         return [
           o.ot, o.descripcion ?? '', o.estado, o.prioridad ?? '',
@@ -377,8 +377,7 @@ export default function Gantt() {
       ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] ?? c));
     const filas = otConFechasFiltradas.map(o => {
       const dias = o.fecha_inicio_trabajos && o.fecha_fin_trabajos
-        ? Math.ceil((new Date(o.fecha_fin_trabajos).getTime()
-                    - new Date(o.fecha_inicio_trabajos).getTime()) / DAY_MS)
+        ? diasEntreFechasCiviles(o.fecha_inicio_trabajos, o.fecha_fin_trabajos)
         : '—';
       const color = o.estado === 'Pendiente'  ? '#EF4444'
                   : o.estado === 'En proceso' ? '#3B82F6'
@@ -715,7 +714,7 @@ export default function Gantt() {
             >
               {otConFechasFiltradas.map(o => {
                 const retrasada = esRetrasada(o);
-                const dur = diffDays(new Date(o.fecha_fin_trabajos!), new Date(o.fecha_inicio_trabajos!)) + 1;
+                const dur = diasEntreFechasCiviles(o.fecha_inicio_trabajos!, o.fecha_fin_trabajos!) + 1;
                 return (
                   <div
                     key={o.id}
