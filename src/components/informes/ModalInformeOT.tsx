@@ -158,11 +158,21 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
   useEffect(() => {
     if (!isOpen || !previewRef.current) return;
     const panel = previewRef.current;
-    const medir = () => setPreviewAncho(Math.max(1, panel.clientWidth - 48));
+    let frame = 0;
+    const medir = () => {
+      const ancho = Math.max(1, panel.clientWidth - 48);
+      setPreviewAncho(actual => actual === ancho ? actual : ancho);
+    };
     medir();
-    const observer = new ResizeObserver(medir);
+    const observer = new ResizeObserver(() => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(medir);
+    });
     observer.observe(panel);
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      cancelAnimationFrame(frame);
+    };
   }, [isOpen]);
 
   useEffect(() => {
