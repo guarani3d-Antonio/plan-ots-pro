@@ -30,23 +30,16 @@ export function formatearFechaCorta(fecha: string | null | undefined): string {
   return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
 }
 
-// Renderiza el grid de fotos para una sección de filmografía.
-// - 2 columnas, gap 16px.
+// Renderiza evidencia fotográfica sin recortar detalles técnicos.
+// - Una foto ocupa todo el ancho; varias se distribuyen en 2 columnas.
 // - Cada celda con `.no-break` (la foto + caption + descripción no se corta).
-// - Imagen con aspect-ratio 4/3, object-fit cover (encaja sin ser cortada).
 // - Si hay más de 4 fotos: se parte en grupos de 4 y entre ellos se inserta
 //   un <div> separador con break-after:page (fuerza nueva página en print).
 export function generarGridFotos(
   fotos: { file_url: string; descripcion?: string | null; descripcion_observacion?: string | null }[],
 ): string {
-  const gridStyle = 'display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;';
-
   if (fotos.length === 0) {
-    return `<div style="${gridStyle}">
-      <div class="no-break" style="grid-column: span 2; aspect-ratio: 16/9; background: #eee; border: 1px solid #ddd; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
-        <span style="color: #888; font-size: 12px;">Sin fotos registradas</span>
-      </div>
-    </div>`;
+    return '<p class="no-break" style="padding:12px 16px; border:1px solid #ddd; border-radius:8px; color:#666; font-size:12px;">Sin fotografías registradas en esta etapa.</p>';
   }
 
   const PHOTOS_PER_PAGE = 4;
@@ -57,6 +50,8 @@ export function generarGridFotos(
 
   return chunks.map((chunk, chunkIdx) => {
     const start = chunkIdx * PHOTOS_PER_PAGE;
+    const unica = chunk.length === 1;
+    const gridStyle = `display:grid; grid-template-columns:${unica ? 'minmax(0,1fr)' : 'repeat(2,minmax(0,1fr))'}; gap:16px;`;
     const itemsHtml = chunk.map((f, j) => {
       const idx = start + j;
       const desc = (f.descripcion ?? '').trim();
@@ -66,8 +61,8 @@ export function generarGridFotos(
         : '<span style="color:#bbb">Sin descripción registrada</span>';
       return `<div class="no-break" style="break-inside: avoid; page-break-inside: avoid;">
         <div style="border: 1px solid #ddd; border-radius: 4px; overflow: hidden;">
-          <img src="${escapeHtml(f.file_url)}" alt="Foto ${idx + 1}" loading="lazy" onerror="this.style.display='none'; this.nextElementSibling && (this.nextElementSibling.style.display='flex')" style="width:100%; aspect-ratio:4/3; object-fit:cover; border-radius:4px; display:block;" />
-          <div style="display:none; width:100%; aspect-ratio:4/3; background:#f0f0f0; border-radius:4px; align-items:center; justify-content:center; color:#999; font-size:11px;">
+          <img src="${escapeHtml(f.file_url)}" alt="Evidencia fotográfica ${idx + 1}" loading="eager" onerror="this.style.display='none'; this.nextElementSibling && (this.nextElementSibling.style.display='flex')" style="max-width:100%; width:auto; height:auto; max-height:${unica ? '95mm' : '75mm'}; object-fit:contain; margin:0 auto; border-radius:4px; display:block;" />
+          <div style="display:none; width:100%; min-height:75mm; background:#f0f0f0; border-radius:4px; align-items:center; justify-content:center; color:#999; font-size:11px;">
             Imagen no disponible
           </div>
         </div>

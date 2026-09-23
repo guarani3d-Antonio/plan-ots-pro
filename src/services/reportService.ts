@@ -1042,12 +1042,12 @@ tailwind.config = {
 <div style="break-before: page; page-break-before: always;">
   <div class="flex items-center gap-2.5 mb-5 border-b border-outline-variant pb-2">
     <span class="material-symbols-outlined text-secondary">history</span>
-    <h3 class="font-section-header text-section-header text-primary uppercase tracking-widest">Filmografía: ESTADO INICIAL (ANTES)</h3>
+    <h3 class="font-section-header text-section-header text-primary uppercase tracking-widest">Evidencia fotográfica: ESTADO INICIAL (ANTES)</h3>
   </div>
   ${generarGridFotos(fotosAntes)}
   <div class="flex items-center gap-2.5 mb-5 border-b border-outline-variant pb-2" style="margin-top: 20px;">
     <span class="material-symbols-outlined text-secondary" style="font-variation-settings:'FILL' 1;">task_alt</span>
-    <h3 class="font-section-header text-section-header text-primary uppercase tracking-widest">Filmografía: TRABAJO CONCLUIDO (DESPUÉS)</h3>
+    <h3 class="font-section-header text-section-header text-primary uppercase tracking-widest">Evidencia fotográfica: TRABAJO CONCLUIDO (DESPUÉS)</h3>
   </div>
   ${generarGridFotos(fotosDespues)}
 </div>
@@ -1225,7 +1225,7 @@ ${_bloqueFirmas(['Responsable Plan-OTs', 'Representante BBC'])}
 <div style="break-before: page; page-break-before: always;">
   <div class="flex items-center gap-2.5 mb-5 border-b border-outline-variant pb-2">
     <span class="material-symbols-outlined text-secondary">history</span>
-    <h3 class="font-section-header text-section-header text-primary uppercase tracking-widest">Filmografía: Estado Inicial (Antes)</h3>
+    <h3 class="font-section-header text-section-header text-primary uppercase tracking-widest">Evidencia fotográfica: Estado Inicial (Antes)</h3>
   </div>
   ${generarGridFotos(fotosAntes)}
 </div>
@@ -1292,12 +1292,12 @@ ${_bloqueFirmas(['Responsable Plan-OTs', 'Representante BBC'])}
 <div style="break-before: page; page-break-before: always;">
   <div class="flex items-center gap-2.5 mb-5 border-b border-outline-variant pb-2">
     <span class="material-symbols-outlined text-secondary">history</span>
-    <h3 class="font-section-header text-section-header text-primary uppercase tracking-widest">Filmografía: Estado Inicial (Antes)</h3>
+    <h3 class="font-section-header text-section-header text-primary uppercase tracking-widest">Evidencia fotográfica: Estado Inicial (Antes)</h3>
   </div>
   ${generarGridFotos(fotosAntes)}
   <div class="flex items-center gap-2.5 mb-5 border-b border-outline-variant pb-2" style="margin-top: 20px;">
     <span class="material-symbols-outlined text-secondary" style="font-variation-settings:'FILL' 1;">construction</span>
-    <h3 class="font-section-header text-section-header text-primary uppercase tracking-widest">Filmografía: Trabajo en Ejecución (Durante)</h3>
+    <h3 class="font-section-header text-section-header text-primary uppercase tracking-widest">Evidencia fotográfica: Trabajo en Ejecución (Durante)</h3>
   </div>
   ${generarGridFotos(fotosDurante)}
 </div>
