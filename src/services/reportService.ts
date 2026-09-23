@@ -49,11 +49,8 @@ ${_bloqueNaranjaIzquierdo('Resultados y pendientes técnicos', observaciones, 'N
   <h3>Verificación y autorización</h3>
   <p>Las pruebas, sus criterios, resultados, responsable y autorización técnica están pendientes de registrar y vincular a una revisión documental. El estado operativo de la OT no sustituye esta verificación.</p>
 </section>
-<section class="p-4 border border-outline-variant rounded-lg mb-6 no-break">
-  <h3>Recepción</h3><p>Pendiente de decisión expresa del cliente en el acta de conformidad. Este borrador no acredita aceptación ni garantía contractual.</p>
-</section>
-<h3 class="font-section-header text-section-header text-primary uppercase tracking-widest">Evidencia final (después)</h3>
-${generarGridFotos(fotosDespues)}
+${fotosDespues.length ? `<h3 class="font-section-header text-section-header text-primary uppercase tracking-widest">Evidencia final (después)</h3>
+${generarGridFotos(fotosDespues)}` : ''}
 </div>`;
   return _envolverInforme('Informe de cierre técnico — borrador', contenido);
 }
@@ -144,8 +141,8 @@ ${_bloqueNaranjaIzquierdo('Trabajo observado en este corte', comentarioAvance, '
 </section>
 <p class="text-xs text-on-surface-variant">El porcentaje proviene de la OT y es provisional: falta vincular base de cálculo, hitos del alcance aprobado y verificador. No acredita finalización ni recepción.</p>
 <section class="p-4 border border-outline-variant rounded-lg mb-6 no-break"><h3>Desvíos y siguiente paso</h3><p>Pendientes de documentar para este corte. Consultar el relevamiento para el diagnóstico y las fotografías iniciales.</p></section>
-<h3 class="font-section-header text-section-header text-primary uppercase tracking-widest">Evidencia de ejecución (durante)</h3>
-${generarGridFotos(fotosDurante)}
+${fotosDurante.length ? `<h3 class="font-section-header text-section-header text-primary uppercase tracking-widest">Evidencia de ejecución (durante)</h3>
+${generarGridFotos(fotosDurante)}` : ''}
 </div>`;
   return _envolverInforme('Informe de avance — borrador', contenido);
 }

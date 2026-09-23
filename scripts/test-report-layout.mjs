@@ -27,6 +27,11 @@ const orden = {
 };
 const html = reports.generarInformeRelevamiento(orden, 'Diagnóstico de prueba. '.repeat(80), photos);
 assert.equal((html.match(/class="evidencia-bloque"/g) ?? []).length, 8);
+assert.equal((html.match(/break-inside: avoid; page-break-inside: avoid; margin: 0 0 18px/g) ?? []).length, 8);
+assert.deepEqual(
+  [...html.matchAll(/alt="Evidencia fotográfica (\d+)"/g)].map(match => Number(match[1])),
+  [1, 2, 3, 4, 5, 6, 7, 8],
+);
 assert.doesNotMatch(html, /<div class="page-break"><\/div>/);
 assert.doesNotMatch(html, /break-before: page; page-break-before: always/);
 const apertura = reports.generarInformeOrdenServicio(orden, 'Aclaración posterior.');
@@ -34,6 +39,8 @@ assert.equal((apertura.match(/id="bloque-texto-naranja"/g) ?? []).length, 1);
 assert.match(apertura, /Solicitud original\./);
 assert.match(apertura, /Aclaración posterior\./);
 assert.doesNotMatch(apertura, /CHECKLIST DE VERIFICACIÓN PRE-TRABAJO/i);
+const cierre = reports.generarInformeCierre(orden, 'Obra de prueba', 'Resultado técnico.', [], []);
+assert.doesNotMatch(cierre, /<h3>Recepción<\/h3>|Evidencia final \(después\)/);
 await mkdir('tmp/report-layout', { recursive: true });
 await writeFile('tmp/report-layout/relevamiento-8-fotos.html', html);
 console.log('Fixture de 8 imágenes y texto largo generado para revisión visual.');

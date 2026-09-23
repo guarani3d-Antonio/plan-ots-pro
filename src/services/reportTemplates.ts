@@ -46,9 +46,9 @@ export function generarGridFotos(
       const descripcionHtml = desc
         ? escapeHtml(desc)
         : '<span style="color:#bbb">Sin descripción registrada</span>';
-      return `<figure class="evidencia-bloque" style="break-inside: auto; page-break-inside: auto; margin: 0 0 18px;">
+      return `<figure class="evidencia-bloque" style="break-inside: avoid; page-break-inside: avoid; margin: 0 0 18px;">
         <div style="border: 1px solid #ddd; border-radius: 4px; overflow: hidden;">
-          <img src="${escapeHtml(f.file_url)}" alt="Evidencia fotográfica ${idx + 1}" loading="eager" onerror="this.style.display='none'; this.nextElementSibling && (this.nextElementSibling.style.display='flex')" style="max-width:100%; width:auto; height:auto; max-height:145mm; object-fit:contain; margin:0 auto; border-radius:4px; display:block;" />
+          <img src="${escapeHtml(f.file_url)}" alt="Evidencia fotográfica ${idx + 1}" loading="eager" onerror="this.style.display='none'; this.nextElementSibling && (this.nextElementSibling.style.display='flex')" style="max-width:100%; width:auto; height:auto; max-height:125mm; object-fit:contain; margin:0 auto; border-radius:4px; display:block;" />
           <div style="display:none; width:100%; min-height:75mm; background:#f0f0f0; border-radius:4px; align-items:center; justify-content:center; color:#999; font-size:11px;">
             Imagen no disponible
           </div>
@@ -175,6 +175,7 @@ tailwind.config = {
       background: white; padding-top: 4px;
     }
     img { break-inside: avoid; page-break-inside: avoid; max-width: 100%; }
+    .evidencia-bloque { break-inside: avoid; page-break-inside: avoid; }
     .aspect-\\[4\\/3\\], .aspect-\\[16\\/9\\], .aspect-video {
       break-inside: avoid; page-break-inside: avoid;
     }
@@ -233,11 +234,11 @@ ${_FOOTER_INFORME.replace('__YEAR__', String(new Date().getFullYear()))}
 </body></html>`;
 }
 
-// Bloque "Datos del Cliente" (Obra / Unidad / Responsable).
+// Identificación mínima de la OT (no atribuye el responsable al cliente).
 export function _bloqueDatosCliente(orden: OrdenLocal): string {
   return `<section class="grid grid-cols-3 gap-6 bg-surface-container-lowest p-6 rounded-xl border border-outline-variant mb-6 shadow-sm no-break">
     <div class="col-span-3 border-b border-outline-variant/30 pb-2 mb-2">
-      <h3 class="font-section-header text-[10px] text-primary uppercase tracking-widest">Datos del Cliente</h3>
+      <h3 class="font-section-header text-[10px] text-primary uppercase tracking-widest">Identificación de la OT</h3>
     </div>
     <div class="flex flex-col gap-1">
       <span class="text-[10px] font-bold text-outline uppercase tracking-wider">Obra</span>
@@ -248,7 +249,7 @@ export function _bloqueDatosCliente(orden: OrdenLocal): string {
       <span class="text-body-md text-on-surface">${escapeHtml(orden.unidad_amenities || 'No especificado')}</span>
     </div>
     <div class="flex flex-col gap-1">
-      <span class="text-[10px] font-bold text-outline uppercase tracking-wider">Responsable</span>
+      <span class="text-[10px] font-bold text-outline uppercase tracking-wider">Responsable asignado</span>
       <span class="text-body-md text-on-surface">${escapeHtml(orden.responsable || 'No asignado')}</span>
     </div>
   </section>`;
