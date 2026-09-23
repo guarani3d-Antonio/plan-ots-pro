@@ -81,6 +81,37 @@ assert.match(avance, /id="av-metodoPorcentaje"[^>]*>Unidades terminadas \/ 4<\/p
 assert.doesNotMatch(avance, /Avance operativo de la OT|>42%<|Diagnóstico Inicial/);
 const cierre = reports.generarInformeCierre(orden, 'Obra de prueba', 'Resultado técnico.', [], []);
 assert.doesNotMatch(cierre, /<h3>Recepción<\/h3>|Evidencia final \(después\)/);
+const cierreConDatos = reports.generarInformeCierre(
+  { ...orden, fecha_inicio_trabajos: '2026-10-01' }, 'Obra de prueba',
+  'Síntesis final.', [], [], {
+    alcanceReferencia: 'POT-2026-REL-00000002 R01', cambiosAprobados: 'Sin cambios aprobados',
+    inicioReal: '2026-09-21', finReal: '2026-09-23',
+    ejecucionPorItem: 'A-1: cuatro unidades ejecutadas',
+    verificacion: 'C-1: presión 3.2 bar; verificado por Técnica de prueba el 23/09',
+    pendientes: 'P-1: entregar manual; responsable: Técnica; plazo: 25/09',
+    entregables: 'Acta de prueba', conclusion: 'Con pendientes declarados',
+    autorizacionInterna: 'Pendiente de autorización',
+  },
+);
+assert.match(cierreConDatos, /id="cie-verificacion"[^>]*>C-1: presión 3.2 bar/);
+assert.match(cierreConDatos, /id="cie-pendientes"[^>]*>P-1: entregar manual/);
+assert.doesNotMatch(cierreConDatos, /2026-10-01|Aceptado por el cliente|Diagnóstico Inicial/);
+const acta = reports.generarInformeActaConformidad(orden, {
+  cierreReferencia: 'POT-2026-CIE-00000004 R01',
+  objetoEntrega: 'Sistema de climatización reparado', anexosEntregados: 'Manual M-1',
+  receptor: 'Representante de prueba', organizacion: 'Cliente de prueba',
+  cargo: 'Administración', facultad: 'Pendiente de verificar',
+  decisionPreparada: 'Aceptar con reservas', reservas: 'Revisar ruido el 25/09',
+  garantiaReferencia: 'Contrato C-1', garantiaCondiciones: 'Cobertura pendiente de confirmar',
+});
+assert.match(acta, /id="act-cierreReferencia"[^>]*>POT-2026-CIE-00000004 R01<\/p>/);
+assert.match(acta, /Opción preparada \(sin manifestación\)/);
+assert.match(acta, /no acredita aceptación, firma ni garantía nueva/);
+assert.doesNotMatch(acta, /Diagnóstico Inicial|pruebas finales|C-1: presión|firmado por el cliente/i);
+for (const documento of [aperturaConOrigen, relevamiento, avance, cierreConDatos, acta]) {
+  assert.doesNotMatch(documento, /cdn\.tailwindcss\.com|fonts\.googleapis\.com|<script\b|<link\b[^>]*stylesheet/i);
+  assert.match(documento, /@page\{/);
+}
 const portable = await hacerInformePortable(html);
 assert.equal(portable.embeddedImages, 8);
 assert.equal(portable.missingImages, 0);
@@ -88,4 +119,19 @@ assert.doesNotMatch(portable.html, /\.no-break,section,header/);
 await mkdir('tmp/report-layout', { recursive: true });
 await writeFile('tmp/report-layout/relevamiento-8-fotos.html', html);
 await writeFile('tmp/report-layout/relevamiento-8-fotos-portable.html', portable.html);
+await writeFile('tmp/report-layout/cierre-8-fotos.html', reports.generarInformeCierre(
+  orden, 'Obra de prueba', 'Síntesis final. '.repeat(30), [], photos, {
+    alcanceReferencia: 'POT-2026-REL-00000002 R01', cambiosAprobados: 'Sin cambios aprobados',
+    inicioReal: '2026-09-21', finReal: '2026-09-23',
+    ejecucionPorItem: 'A-1: cuatro unidades ejecutadas. '.repeat(15),
+    verificacion: 'C-1: presión 3.2 bar, conforme. '.repeat(18),
+    pendientes: 'Sin pendientes técnicos declarados', entregables: 'Manual M-1',
+    conclusion: 'Conforme técnicamente, pendiente de autorización',
+    autorizacionInterna: 'No registrada',
+  },
+));
+await writeFile('tmp/report-layout/acta-borrador.html', acta);
+await writeFile('tmp/report-layout/orden-servicio-borrador.html', aperturaConOrigen);
+await writeFile('tmp/report-layout/relevamiento-borrador.html', relevamiento);
+await writeFile('tmp/report-layout/avance-borrador.html', avance);
 console.log('Fixture de 8 imágenes y texto largo generado para revisión visual.');

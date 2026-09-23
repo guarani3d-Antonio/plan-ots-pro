@@ -5,6 +5,7 @@
 // Regla: todo contenido de usuario pasa por escapeHtml() antes de interpolarse.
 
 import type { OrdenLocal } from '../types/orden';
+import { REPORT_PRINT_CSS } from './reportPrintCss';
 
 // Escapa entidades HTML para inyectar texto del usuario sin romper el parseo.
 export function escapeHtml(s: string): string {
@@ -48,7 +49,7 @@ export function generarGridFotos(
         : '<span style="color:#bbb">Sin descripción registrada</span>';
       return `<figure class="evidencia-bloque" style="break-inside: avoid; page-break-inside: avoid; margin: 0 0 18px;">
         <div style="border: 1px solid #ddd; border-radius: 4px; overflow: hidden;">
-          <img src="${escapeHtml(f.file_url)}" alt="Evidencia fotográfica ${idx + 1}" loading="eager" onerror="this.style.display='none'; this.nextElementSibling && (this.nextElementSibling.style.display='flex')" style="max-width:100%; width:auto; height:auto; max-height:125mm; object-fit:contain; margin:0 auto; border-radius:4px; display:block;" />
+          <img src="${escapeHtml(f.file_url)}" alt="Evidencia fotográfica ${idx + 1}" loading="eager" onerror="this.style.display='none'; this.nextElementSibling && (this.nextElementSibling.style.display='flex')" style="max-width:100%; width:auto; height:auto; max-height:105mm; object-fit:contain; margin:0 auto; border-radius:4px; display:block;" />
           <div style="display:none; width:100%; min-height:75mm; background:#f0f0f0; border-radius:4px; align-items:center; justify-content:center; color:#999; font-size:11px;">
             Imagen no disponible
           </div>
@@ -80,7 +81,7 @@ export function _estadoBadgeCfg(estado: string): {
   }
 }
 
-// HEAD del documento HTML (DOCTYPE + html + meta + tailwind config + style).
+// HEAD del documento HTML (DOCTYPE + html + meta + estilos autocontenidos).
 // __TITLE__ se reemplaza con escapeHtml(titulo) al envolver.
 export const _HEAD_INFORME = `<!DOCTYPE html>
 <html class="light" lang="es">
@@ -88,44 +89,7 @@ export const _HEAD_INFORME = `<!DOCTYPE html>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>__TITLE__</title>
-<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@400;600;700&display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
-<script id="tailwind-config">
-tailwind.config = {
-  darkMode: "class",
-  theme: {
-    extend: {
-      colors: {
-        "primary": "#003366","on-primary": "#ffffff","secondary": "#416181",
-        "on-secondary": "#ffffff","background": "#f9f9fe","on-background": "#1a1c1f",
-        "surface": "#f9f9fe","on-surface": "#1a1c1f","surface-variant": "#e2e2e7",
-        "on-surface-variant": "#43474f","outline": "#737780","outline-variant": "#c3c6d1",
-        "primary-container": "#003366","on-primary-container": "#799dd6",
-        "surface-container-low": "#f4f3f8","surface-container": "#eeedf2",
-        "surface-container-high": "#e8e8ed","surface-container-highest": "#e2e2e7",
-        "surface-container-lowest": "#ffffff"
-      },
-      borderRadius: { "DEFAULT":"0.125rem","lg":"0.25rem","xl":"0.5rem","full":"0.75rem" },
-      fontFamily: {
-        "body-md": ["Inter","sans-serif"],"mono-technical": ["Inter","monospace"],
-        "section-header": ["Sora","sans-serif"],"body-sm": ["Inter","sans-serif"],
-        "headline-lg": ["Sora","sans-serif"],"headline-xl": ["Sora","sans-serif"],
-        "label-bold": ["Inter","sans-serif"]
-      },
-      fontSize: {
-        "body-md": ["14px",{"lineHeight":"22px","fontWeight":"400"}],
-        "mono-technical": ["11px",{"lineHeight":"14px","letterSpacing":"0.02em","fontWeight":"500"}],
-        "section-header": ["14px",{"lineHeight":"20px","letterSpacing":"0.05em","fontWeight":"700"}],
-        "body-sm": ["12px",{"lineHeight":"18px","fontWeight":"400"}],
-        "headline-lg": ["20px",{"lineHeight":"28px","fontWeight":"600"}],
-        "headline-xl": ["24px",{"lineHeight":"32px","letterSpacing":"-0.02em","fontWeight":"700"}],
-        "label-bold": ["12px",{"lineHeight":"16px","fontWeight":"600"}]
-      }
-    }
-  }
-}
-</script>
+
 <style>
   .material-symbols-outlined {
     font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
@@ -183,6 +147,7 @@ tailwind.config = {
     .no-break { break-inside: avoid; page-break-inside: avoid; }
     .no-print { display: none !important; }
   }
+${REPORT_PRINT_CSS}
 </style>
 </head>`;
 
@@ -212,7 +177,7 @@ export function _paginaHeader(orden: OrdenLocal, titulo: string, subtitulo: stri
     ${_LOGOS_HTML_INFORME}
     <div class="text-right">
       <div class="px-4 py-1.5 rounded-full font-label-bold text-xs flex items-center gap-1.5 inline-flex mb-2" style="background:${badge.bg}; color:${badge.text}; border:1px solid ${badge.border}33;">
-        <span class="material-symbols-outlined text-[16px]" style="font-variation-settings:'FILL' 1;">${badge.icon}</span>
+        <span aria-hidden="true" style="width:7px;height:7px;border-radius:50%;background:currentColor;display:inline-block"></span>
         ESTADO: ${badge.texto}
       </div>
       <div class="text-body-sm font-mono-technical text-on-surface-variant">ID DE ORDEN: ${escapeHtml(otLabel)}</div>

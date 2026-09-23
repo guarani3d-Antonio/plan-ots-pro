@@ -28,7 +28,7 @@ import {
   generarInformeAvance,
   generarInformeActaConformidad,
 } from '../../services/reportService';
-import type { DatosAvance, DatosRelevamiento, OrigenOrdenServicio } from '../../services/reportService';
+import type { DatosActa, DatosAvance, DatosCierre, DatosRelevamiento, OrigenOrdenServicio } from '../../services/reportService';
 import { cargarFotosDeOrden } from '../../services/fotosService';
 import { hacerInformePortable } from '../../services/portableReportService';
 import {
@@ -72,9 +72,9 @@ const TIPO_CFG: Record<TipoInforme, TipoCfg> = {
     titulo: 'Informe de Cierre',
     tituloDoc: 'Informe de Cierre - borrador',
     fileSlug: 'Informe_Cierre_Borrador',
-    labelTextarea: 'Resultado técnico y pendientes',
-    placeholderTextarea: 'Registrá resultados verificados y pendientes; no copies el relevamiento...',
-    necesitaFotosAntes: true,
+    labelTextarea: 'Síntesis del resultado técnico',
+    placeholderTextarea: 'Resumí el resultado final; detallá pruebas y pendientes en sus campos...',
+    necesitaFotosAntes: false,
     necesitaFotosDespues: true,
     necesitaFotosDurante: false,
   },
@@ -205,6 +205,61 @@ const CAMPOS_AVANCE: [keyof DatosAvance, string][] = [
   ['proximoPeriodo', 'Próximo período y dependencias'],
 ];
 
+const CIERRE_INICIAL: DatosCierre = {
+  alcanceReferencia: '', cambiosAprobados: '', inicioReal: '', finReal: '',
+  ejecucionPorItem: '', verificacion: '', pendientes: '', entregables: '',
+  conclusion: '', autorizacionInterna: '',
+};
+
+function cierreGuardado(valor: unknown): DatosCierre {
+  if (!valor || typeof valor !== 'object' || Array.isArray(valor)) return { ...CIERRE_INICIAL };
+  const objeto = valor as Record<string, unknown>;
+  const resultado = { ...CIERRE_INICIAL };
+  for (const clave of Object.keys(resultado) as (keyof DatosCierre)[]) {
+    if (typeof objeto[clave] === 'string') resultado[clave] = String(objeto[clave]).slice(0, 1200);
+  }
+  return resultado;
+}
+
+const CAMPOS_CIERRE: [keyof DatosCierre, string][] = [
+  ['alcanceReferencia', 'Alcance aprobado: código y revisión'],
+  ['cambiosAprobados', 'Cambios aprobados: referencias'],
+  ['inicioReal', 'Inicio real'], ['finReal', 'Fin real'],
+  ['ejecucionPorItem', 'Ejecución final por ítem'],
+  ['verificacion', 'Criterio, método, resultado, verificador y fecha'],
+  ['pendientes', 'Pendientes, restricciones y acciones'],
+  ['entregables', 'Entregables efectivamente entregados'],
+  ['conclusion', 'Conclusión técnica declarada'],
+  ['autorizacionInterna', 'Autorización interna: actor y referencia'],
+];
+
+const ACTA_INICIAL: DatosActa = {
+  cierreReferencia: '', objetoEntrega: '', anexosEntregados: '', receptor: '',
+  organizacion: '', cargo: '', facultad: '', decisionPreparada: '',
+  reservas: '', garantiaReferencia: '', garantiaCondiciones: '',
+};
+
+function actaGuardada(valor: unknown): DatosActa {
+  if (!valor || typeof valor !== 'object' || Array.isArray(valor)) return { ...ACTA_INICIAL };
+  const objeto = valor as Record<string, unknown>;
+  const resultado = { ...ACTA_INICIAL };
+  for (const clave of Object.keys(resultado) as (keyof DatosActa)[]) {
+    if (typeof objeto[clave] === 'string') resultado[clave] = String(objeto[clave]).slice(0, 1200);
+  }
+  return resultado;
+}
+
+const CAMPOS_ACTA: [keyof DatosActa, string][] = [
+  ['cierreReferencia', 'Cierre técnico: código y revisión'],
+  ['objetoEntrega', 'Objeto breve de la entrega'],
+  ['anexosEntregados', 'Documentos y anexos entregados'],
+  ['receptor', 'Receptor previsto'], ['organizacion', 'Organización'],
+  ['cargo', 'Cargo o calidad'], ['facultad', 'Facultad para recibir'],
+  ['reservas', 'Reservas propuestas y tratamiento'],
+  ['garantiaReferencia', 'Garantía: referencia contractual'],
+  ['garantiaCondiciones', 'Cobertura, inicio, duración y exclusiones'],
+];
+
 export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }: Props) {
   const cfg = TIPO_CFG[tipo];
   const necesitaFotos =
@@ -215,6 +270,8 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
   const [origenServicio, setOrigenServicio] = useState<OrigenOrdenServicio>(() => origenInicial(orden));
   const [datosRelevamiento, setDatosRelevamiento] = useState<DatosRelevamiento>({ ...RELEVAMIENTO_INICIAL });
   const [datosAvance, setDatosAvance] = useState<DatosAvance>({ ...AVANCE_INICIAL });
+  const [datosCierre, setDatosCierre] = useState<DatosCierre>({ ...CIERRE_INICIAL });
+  const [datosActa, setDatosActa] = useState<DatosActa>({ ...ACTA_INICIAL });
   const [cargandoComentario, setCargandoComentario] = useState(true);
   const [htmlPreview, setHtmlPreview] = useState('');
   const [generandoPreview, setGenerandoPreview] = useState(false);
@@ -307,6 +364,8 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
     setOrigenServicio(origenInicial(orden));
     setDatosRelevamiento({ ...RELEVAMIENTO_INICIAL });
     setDatosAvance({ ...AVANCE_INICIAL });
+    setDatosCierre({ ...CIERRE_INICIAL });
+    setDatosActa({ ...ACTA_INICIAL });
     setFotosAntes([]);
     setFotosDespues([]);
     setFotosDurante([]);
@@ -328,7 +387,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
     const fdu = incluirFotos ? fotosDurante : [];
     switch (tipo) {
       case 'cierre':
-        return generarInformeCierre(orden, proyectoNombre, textoActual, fa, fd);
+        return generarInformeCierre(orden, proyectoNombre, textoActual, fa, fd, datosCierre);
       case 'orden_servicio':
         return generarInformeOrdenServicio(orden, textoActual, origenServicio);
       case 'relevamiento':
@@ -336,7 +395,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
       case 'avance':
         return generarInformeAvance(orden, textoActual, fa, fdu, datosAvance);
       case 'acta':
-        return generarInformeActaConformidad(orden);
+        return generarInformeActaConformidad(orden, datosActa);
     }
   };
 
@@ -364,10 +423,14 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
         const origen = origenGuardado(datos?.origen, origenInicial(orden));
         const relevamiento = relevamientoGuardado(datos?.relevamiento);
         const avance = avanceGuardado(datos?.avance);
+        const cierre = cierreGuardado(datos?.cierre);
+        const acta = actaGuardada(datos?.acta);
         setObservaciones(texto);
         setOrigenServicio(origen);
         setDatosRelevamiento(relevamiento);
         setDatosAvance(avance);
+        setDatosCierre(cierre);
+        setDatosActa(acta);
         setIncluirFotos(typeof datos?.incluirFotos === 'boolean' ? datos.incluirFotos : true);
         setDocumento(resultado?.vigente ?? null);
         setVersionBorrador(resultado?.borrador?.version ?? 0);
@@ -375,7 +438,9 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
           incluirFotos: datos?.incluirFotos !== false,
           ...(tipo === 'orden_servicio' ? { origen } : {}),
           ...(tipo === 'relevamiento' ? { relevamiento } : {}),
-          ...(tipo === 'avance' ? { avance } : {}) }) : null);
+          ...(tipo === 'avance' ? { avance } : {}),
+          ...(tipo === 'cierre' ? { cierre } : {}),
+          ...(tipo === 'acta' ? { acta } : {}) }) : null);
         setPersistenciaDisponible(resultado !== null);
 
         // S33: mapeo incluye descripcion_observacion además de descripcion
@@ -479,7 +544,9 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
   const datosBorrador = { observaciones, incluirFotos,
     ...(tipo === 'orden_servicio' ? { origen: origenServicio } : {}),
     ...(tipo === 'relevamiento' ? { relevamiento: datosRelevamiento } : {}),
-    ...(tipo === 'avance' ? { avance: datosAvance } : {}) };
+    ...(tipo === 'avance' ? { avance: datosAvance } : {}),
+    ...(tipo === 'cierre' ? { cierre: datosCierre } : {}),
+    ...(tipo === 'acta' ? { acta: datosActa } : {}) };
   const cambiosBorrador = guardado !== JSON.stringify(datosBorrador);
 
   const handleGuardarBorrador = async () => {
@@ -557,6 +624,20 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
     const recortado = valor.slice(0, 1200);
     setDatosAvance(actual => ({ ...actual, [clave]: recortado }));
     const el = iframeRef.current?.contentDocument?.getElementById(`av-${clave}`);
+    if (el) el.textContent = recortado.trim() || 'No registrado';
+  };
+
+  const actualizarCierre = (clave: keyof DatosCierre, valor: string) => {
+    const recortado = valor.slice(0, 1200);
+    setDatosCierre(actual => ({ ...actual, [clave]: recortado }));
+    const el = iframeRef.current?.contentDocument?.getElementById(`cie-${clave}`);
+    if (el) el.textContent = recortado.trim() || 'No registrado';
+  };
+
+  const actualizarActa = (clave: keyof DatosActa, valor: string) => {
+    const recortado = valor.slice(0, 1200);
+    setDatosActa(actual => ({ ...actual, [clave]: recortado }));
+    const el = iframeRef.current?.contentDocument?.getElementById(`act-${clave}`);
     if (el) el.textContent = recortado.trim() || 'No registrado';
   };
 
@@ -691,6 +772,71 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
               </div>
             )}
 
+            {tipo === 'cierre' && (
+              <div className={styles.section}>
+                <div className={styles.sectionTitle}>Ejecución y verificación final</div>
+                <div className={styles.originGrid}>
+                  {CAMPOS_CIERRE.slice(0, 4).map(([clave, etiqueta]) => (
+                    <label className={styles.originField} key={clave}>
+                      <span>{etiqueta}</span>
+                      <input type="text" value={datosCierre[clave]}
+                        onChange={e => actualizarCierre(clave, e.target.value)}
+                        disabled={cargandoComentario} maxLength={1200} placeholder="No registrado" />
+                    </label>
+                  ))}
+                </div>
+                {CAMPOS_CIERRE.slice(4).map(([clave, etiqueta]) => (
+                  <label className={styles.originField} key={clave}>
+                    <span>{etiqueta}</span>
+                    <textarea value={datosCierre[clave]}
+                      onChange={e => actualizarCierre(clave, e.target.value)}
+                      disabled={cargandoComentario} maxLength={1200} rows={2}
+                      placeholder="No registrado" />
+                  </label>
+                ))}
+                <p className={styles.sublabel}>El cierre técnico no implica aceptación del cliente. La autorización interna debe vincularse a la revisión emitida.</p>
+              </div>
+            )}
+
+            {tipo === 'acta' && (
+              <div className={styles.section}>
+                <div className={styles.sectionTitle}>Recepción propuesta</div>
+                <div className={styles.originGrid}>
+                  {CAMPOS_ACTA.filter(([clave]) => ['cierreReferencia', 'receptor', 'organizacion', 'cargo', 'facultad', 'garantiaReferencia'].includes(clave))
+                    .map(([clave, etiqueta]) => (
+                      <label className={styles.originField} key={clave}>
+                        <span>{etiqueta}</span>
+                        <input type="text" value={datosActa[clave]}
+                          onChange={e => actualizarActa(clave, e.target.value)}
+                          disabled={cargandoComentario} maxLength={1200} placeholder="No registrado" />
+                      </label>
+                    ))}
+                </div>
+                {CAMPOS_ACTA.filter(([clave]) => !['cierreReferencia', 'receptor', 'organizacion', 'cargo', 'facultad', 'garantiaReferencia'].includes(clave))
+                  .map(([clave, etiqueta]) => (
+                    <label className={styles.originField} key={clave}>
+                      <span>{etiqueta}</span>
+                      <textarea value={datosActa[clave]}
+                        onChange={e => actualizarActa(clave, e.target.value)}
+                        disabled={cargandoComentario} maxLength={1200} rows={2}
+                        placeholder="No registrado" />
+                    </label>
+                  ))}
+                <label className={styles.originField}>
+                  <span>Opción preparada para decisión</span>
+                  <select value={datosActa.decisionPreparada}
+                    onChange={e => actualizarActa('decisionPreparada', e.target.value)}
+                    disabled={cargandoComentario}>
+                    <option value="">Sin preparar</option>
+                    <option value="Aceptar">Aceptar</option>
+                    <option value="Aceptar con reservas">Aceptar con reservas</option>
+                    <option value="Rechazar">Rechazar</option>
+                  </select>
+                </label>
+                <p className={styles.sublabel}>Esta opción no registra una decisión. Solo el receptor autorizado podrá manifestarla y firmar la revisión exacta.</p>
+              </div>
+            )}
+
             {muestraTextarea && (
               <div className={styles.section}>
                 <div className={styles.voiceLabelRow}>
@@ -820,7 +966,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
               ? `${documento.codigo} · borrador v${versionBorrador}${cambiosBorrador ? ' · cambios sin guardar' : ''}`
               : 'Descargas de borrador. No son documentos emitidos ni aprobados.')}
           </span>
-          {persistenciaDisponible && tipo !== 'acta' && (
+          {persistenciaDisponible && (
             <button type="button" className={styles.btnSecondary} onClick={handleGuardarBorrador}
               disabled={cargandoComentario || guardandoBorrador || !cambiosBorrador}>
               {guardandoBorrador ? 'Guardando…' : 'Guardar borrador'}

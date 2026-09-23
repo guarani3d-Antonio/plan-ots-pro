@@ -184,7 +184,8 @@
 }
 
 .originField input,
-.originField textarea {
+.originField textarea,
+.originField select {
   box-sizing: border-box;
   width: 100%;
   min-height: 38px;
@@ -203,7 +204,8 @@
 }
 
 .originField input:focus-visible,
-.originField textarea:focus-visible {
+.originField textarea:focus-visible,
+.originField select:focus-visible {
   outline: 2px solid var(--accent, #CC7A00);
   outline-offset: 1px;
 }

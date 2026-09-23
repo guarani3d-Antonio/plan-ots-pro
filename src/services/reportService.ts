@@ -49,6 +49,33 @@ export interface DatosAvance {
   proximoPeriodo: string;
 }
 
+export interface DatosCierre {
+  alcanceReferencia: string;
+  cambiosAprobados: string;
+  inicioReal: string;
+  finReal: string;
+  ejecucionPorItem: string;
+  verificacion: string;
+  pendientes: string;
+  entregables: string;
+  conclusion: string;
+  autorizacionInterna: string;
+}
+
+export interface DatosActa {
+  cierreReferencia: string;
+  objetoEntrega: string;
+  anexosEntregados: string;
+  receptor: string;
+  organizacion: string;
+  cargo: string;
+  facultad: string;
+  decisionPreparada: string;
+  reservas: string;
+  garantiaReferencia: string;
+  garantiaCondiciones: string;
+}
+
 export function informeDisponible(tipo: TipoInforme, estadoOT: string): boolean {
   switch (tipo) {
     case 'orden_servicio':
@@ -59,12 +86,7 @@ export function informeDisponible(tipo: TipoInforme, estadoOT: string): boolean 
   }
 }
 
-// ───────────────────────────────────────── Informe de Cierre (preview) ──
-//
-// Template A4 de dos páginas (estado inicial / trabajo concluido + firma).
-// Usa Tailwind por CDN + fuentes Inter/Sora + Material Symbols. Pensado para
-// renderizarse dentro de un iframe srcdoc en ModalInformeOT y para impresión
-// via window.print en una nueva ventana.
+// Cierre técnico: resultados finales frente al alcance aprobado, sin recepción.
 
 export function generarInformeCierre(
   orden: OrdenLocal & { proyecto_nombre?: string },
@@ -72,18 +94,29 @@ export function generarInformeCierre(
   observaciones: string,
   _fotosAntes: { file_url: string; descripcion?: string | null; descripcion_observacion?: string | null }[],
   fotosDespues: { file_url: string; descripcion?: string | null; descripcion_observacion?: string | null }[],
+  datos?: DatosCierre,
 ): string {
+  const campo = (clave: keyof DatosCierre) =>
+    `<p id="cie-${clave}" style="white-space:pre-line">${escapeHtml(datos?.[clave]?.trim() || 'No registrado')}</p>`;
+  const bloque = (titulo: string, clave: keyof DatosCierre) =>
+    `<section class="p-4 border border-outline-variant rounded-lg mb-4"><strong>${titulo}</strong>${campo(clave)}</section>`;
   const contenido = `<div class="a4-page">
 ${_paginaHeader(orden, 'INFORME DE CIERRE TÉCNICO', 'Resultados de la intervención y pendientes de verificación. La recepción del cliente corresponde al acta.')}
-<section class="grid grid-cols-2 gap-4 mb-6 no-break">
+<section class="grid grid-cols-2 gap-4 mb-6">
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Proyecto</strong><p>${escapeHtml(proyectoNombre)}</p></div>
-  <div class="p-4 border border-outline-variant rounded-lg"><strong>Orden de trabajo</strong><p>${escapeHtml(orden.ot || 'Sin código')}</p></div>
+  <div class="p-4 border border-outline-variant rounded-lg"><strong>Alcance aprobado de referencia</strong>${campo('alcanceReferencia')}</div>
+  <div class="p-4 border border-outline-variant rounded-lg"><strong>Inicio real declarado</strong>${campo('inicioReal')}</div>
+  <div class="p-4 border border-outline-variant rounded-lg"><strong>Fin real declarado</strong>${campo('finReal')}</div>
 </section>
-${_bloqueNaranjaIzquierdo('Resultados y pendientes técnicos', observaciones, 'No se registraron resultados técnicos verificables.')}
-<section class="p-4 border border-outline-variant rounded-lg mb-6 no-break">
-  <h3>Verificación y autorización</h3>
-  <p>Las pruebas, sus criterios, resultados, responsable y autorización técnica están pendientes de registrar y vincular a una revisión documental. El estado operativo de la OT no sustituye esta verificación.</p>
-</section>
+${bloque('Cambios de alcance aprobados (referencias)', 'cambiosAprobados')}
+${_bloqueNaranjaIzquierdo('Síntesis del resultado técnico', observaciones, 'No se registró una síntesis técnica.')}
+${bloque('Ejecución final por ítem del alcance', 'ejecucionPorItem')}
+${bloque('Pruebas finales: criterio, método, resultado, verificador y fecha', 'verificacion')}
+${bloque('Pendientes, restricciones y acciones acordadas', 'pendientes')}
+${bloque('Entregables técnicos efectivamente entregados', 'entregables')}
+${bloque('Conclusión técnica declarada', 'conclusion')}
+${bloque('Autorización interna: actor y referencia', 'autorizacionInterna')}
+<p class="text-xs text-on-surface-variant">El estado de la OT no acredita pruebas ni autorización. Este borrador no equivale a conformidad del cliente.</p>
 ${fotosDespues.length ? `<h3 class="font-section-header text-section-header text-primary uppercase tracking-widest">Evidencia final (después)</h3>
 ${generarGridFotos(fotosDespues)}` : ''}
 </div>`;
@@ -101,7 +134,7 @@ export function generarInformeOrdenServicio(
     return typeof valor === 'string' && valor.trim() ? valor.trim() : 'No registrado';
   };
 
-  const contenido = `<div class="a4-page">
+  const contenido = `<div class="a4-page os-page">
 ${_paginaHeader(orden, 'ORDEN DE SERVICIO', 'Registro de apertura de la orden de trabajo y procedencia de la solicitud. No certifica una visita ni un diagnóstico.')}
 ${_bloqueDatosCliente(orden)}
 <section class="grid grid-cols-2 gap-4 mb-6 no-break">
@@ -142,7 +175,7 @@ export function generarInformeRelevamiento(
   const bloque = (titulo: string, clave: keyof DatosRelevamiento) =>
     `<section class="p-4 border border-outline-variant rounded-lg mb-4"><strong>${titulo}</strong>${campo(clave)}</section>`;
 
-  const contenido = `<div class="a4-page">
+  const contenido = `<div class="a4-page relevamiento-page">
 ${_paginaHeader(orden, 'INFORME DE RELEVAMIENTO', 'Diagnóstico técnico inicial y detección del alcance de la intervención requerida.')}
 ${_bloqueDatosCliente(orden)}
 <section class="grid grid-cols-2 gap-4 mb-6">
@@ -212,15 +245,34 @@ ${generarGridFotos(fotosDurante)}` : ''}
 // Acta sin decisión/firma: siempre borrador. La recepción vinculante requerirá
 // una revisión emitida y la manifestación verificable del receptor autorizado.
 
-export function generarInformeActaConformidad(orden: OrdenLocal): string {
-  const otLabel = orden.ot ?? 'Sin código';
-  const contenido = `<div class="a4-page">
-${_paginaHeader(orden, 'ACTA DE CONFORMIDAD · BORRADOR', 'Instrumento de recepción pendiente de decisión expresa del cliente.')}
+export function generarInformeActaConformidad(orden: OrdenLocal, datos?: DatosActa): string {
+  const campo = (clave: keyof DatosActa) =>
+    `<p id="act-${clave}" style="white-space:pre-line">${escapeHtml(datos?.[clave]?.trim() || 'No registrado')}</p>`;
+  const bloque = (titulo: string, clave: keyof DatosActa) =>
+    `<section class="p-4 border border-outline-variant rounded-lg mb-4"><strong>${titulo}</strong>${campo(clave)}</section>`;
+  const contenido = `<div class="a4-page acta-page">
+${_paginaHeader(orden, 'ACTA DE CONFORMIDAD', 'Instrumento de recepción pendiente de decisión expresa del cliente.')}
 ${_bloqueDatosCliente(orden)}
-<section class="p-5 border border-outline-variant rounded-xl mb-6"><h3 class="font-section-header text-xs text-primary uppercase">Objeto de recepción</h3><p>Servicio referido a la OT ${escapeHtml(otLabel)}. La revisión exacta del cierre técnico debe vincularse antes de formalizar el acta.</p></section>
-<section class="p-5 border border-outline-variant rounded-xl mb-6"><h3 class="font-section-header text-xs text-primary uppercase">Decisión del cliente</h3><p>Pendiente: aceptar, aceptar con reservas o rechazar. No hay manifestación registrada.</p></section>
-<section class="p-5 border border-outline-variant rounded-xl mb-6"><h3 class="font-section-header text-xs text-primary uppercase">Reservas y condiciones</h3><p>Sin decisión registrada. La garantía contractual requiere referencia y aprobación propias; no se presume a partir de la OT.</p></section>
-<section class="p-5 border border-outline-variant rounded-xl mb-6"><h3 class="font-section-header text-xs text-primary uppercase">Formalización</h3><p>Receptor, autoridad, método de firma, fecha y revisión exacta: pendientes de registrar y verificar.</p></section>
+${bloque('Objeto breve de la entrega', 'objetoEntrega')}
+<section class="grid grid-cols-2 gap-4 mb-6">
+  <div class="p-4 border border-outline-variant rounded-lg"><strong>Cierre técnico (código y revisión)</strong>${campo('cierreReferencia')}</div>
+  <div class="p-4 border border-outline-variant rounded-lg"><strong>Anexos entregados</strong>${campo('anexosEntregados')}</div>
+</section>
+<section class="grid grid-cols-2 gap-4 mb-6">
+  <div class="p-4 border border-outline-variant rounded-lg"><strong>Receptor previsto</strong>${campo('receptor')}</div>
+  <div class="p-4 border border-outline-variant rounded-lg"><strong>Organización</strong>${campo('organizacion')}</div>
+  <div class="p-4 border border-outline-variant rounded-lg"><strong>Cargo o calidad</strong>${campo('cargo')}</div>
+  <div class="p-4 border border-outline-variant rounded-lg"><strong>Facultad para recibir (referencia)</strong>${campo('facultad')}</div>
+</section>
+<section class="grid grid-cols-2 gap-4 mb-6">
+  <div class="p-4 border border-outline-variant rounded-lg"><strong>Opción preparada (sin manifestación)</strong>${campo('decisionPreparada')}</div>
+  <div class="p-4 border border-outline-variant rounded-lg"><strong>Reservas propuestas y tratamiento</strong>${campo('reservas')}</div>
+</section>
+<section class="grid grid-cols-2 gap-4 mb-6">
+  <div class="p-4 border border-outline-variant rounded-lg"><strong>Garantía contractual de referencia</strong>${campo('garantiaReferencia')}</div>
+  <div class="p-4 border border-outline-variant rounded-lg"><strong>Cobertura y condiciones acordadas</strong>${campo('garantiaCondiciones')}</div>
+</section>
+<section class="p-4 border border-outline-variant rounded-lg mb-4"><strong>Decisión y formalización</strong><p>Pendientes de manifestación expresa del receptor autorizado y vínculo con la revisión exacta del acta. Este borrador no acredita aceptación, firma ni garantía nueva.</p></section>
 </div>`;
 
   return _envolverInforme('Acta de Conformidad — borrador', contenido);
