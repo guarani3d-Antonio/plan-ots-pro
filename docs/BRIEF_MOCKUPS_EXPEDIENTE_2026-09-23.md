@@ -1,6 +1,6 @@
 # Encargo de mockups para Sol Alto
 
-Fecha: 23/09/2026. Estado: preparación terminada; mockups pendientes. Leer primero `ESPECIFICACION_EXPEDIENTE_2026-09-23.md`. La auditoría previa solo se consulta para rastrear un hallazgo; no rehacerla.
+Fecha: 23/09/2026. Estado: cinco mockups A4 y vista del menú Creador generados; revisión visual del usuario pendiente. Leer primero `ESPECIFICACION_EXPEDIENTE_2026-09-23.md`. La auditoría previa solo se consulta para rastrear un hallazgo; no rehacerla.
 
 ## Objetivo y límites de esta entrega
 
@@ -84,6 +84,8 @@ Garantía: no inventar cobertura/plazo. En el mockup principal indicar “Condic
 Los objetivos de páginas son guías, no límites que justifiquen omitir datos o reducir la letra. Adjuntar una prueba visual larga con cinco fotos y una tabla multipágina para detectar defectos de paginación.
 
 ## Revisión con el usuario
+
+Los artefactos de esta primera ronda están en `docs/mockups/expediente-2026-09-23/`: `vista_conjunta.png`, cinco vistas `vista-1.png` a `vista-5.png`, `menu_creador_politicas.png` y `variantes_estados.png`. Los cinco PDF individuales y `00_expediente_completo.pdf` se entregan en `output/pdf/expediente-2026-09-23/`. Los generadores se conservan en el directorio de mockups para ajustes de diseño. La pantalla del Creador es conceptual y no está implementada en la app.
 
 Mostrar primero cinco vistas principales con enlaces claros y una tabla de contenido que explique qué aporta cada una. No abrumar inicialmente con todas las variantes; dejarlas disponibles para comprobar casos críticos. Recoger ajustes de contenido, jerarquía y densidad antes de implementación.
 

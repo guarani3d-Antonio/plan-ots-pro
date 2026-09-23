@@ -1,6 +1,6 @@
 # Especificación del expediente documental de Plan-OTs
 
-Fecha: 23/09/2026. Estado: diseño propuesto para revisión mediante mockups; aún no implementado.
+Fecha: 23/09/2026. Estado: especificación aprobada por el usuario; mockups visuales preparados para revisión; aún no implementado.
 
 Base: auditoría `AUDITORIA_EXPEDIENTE_INFORMES_2026-09-23.md`, código `98ee86c` y estructuras actuales de acceso, almacenamiento, fotos e historial. Alcance: visita, relevamiento, avances, cierre técnico y acta de conformidad de una OT. El usuario solicita completar este análisis con Astra y realizar los mockups con Sol Alto antes de implementar.
 
@@ -197,6 +197,25 @@ Responsable de calidad de BBC debe vincular cada control con su procedimiento y 
 Para Paraguay, el artículo 39 de la Ley 6822 distingue firma electrónica y firma electrónica cualificada; esta última tiene equivalencia con la manuscrita, y una firma no cualificada no pierde efectos por ese solo motivo. Fuente: [Ley 6822 publicada por el MIC, artículo 39](https://www.mic.gov.py/wp-content/uploads/2023/11/Ley-Nro-6822-2021pdf-1.pdf). Esto no permite prometer que cualquier dibujo o clic satisface cada contrato. BBC debe definir mecanismo, autoridad del receptor y requisitos contractuales con su asesoría; el diseño conserva la evidencia necesaria sin anticipar esa conclusión jurídica.
 
 Opciones que el modelo debe admitir: firma electrónica con proveedor y validación; aceptación autenticada con manifestación y evidencias según política aprobada; firma manuscrita en papel con digitalización íntegra enlazada al ID/revisión y conservación del original según política. Quien carga un escaneo certifica la carga, no se convierte en firmante. Un hash, un correo, una foto de firma o un log aislado no se rotulan como firma cualificada.
+
+### 8.1 Políticas configurables desde el menú Creador
+
+El menú **Administración del Creador** ya administra empresas y accesos, pero todavía no dispone de políticas documentales. Se propone agregar una sección por empresa, con posibles excepciones por proyecto, para registrar decisiones institucionales de BBC o de cualquier otro cliente. Plan-OTs no debe llevar el nombre de BBC, sus códigos, su firma o sus reglas como constantes del producto.
+
+Cada decisión configurable tendrá estado **pendiente / aprobada / no aprobada / suspendida**, responsable y autoridad que decidió, fecha de vigencia, evidencia o procedimiento que la respalda, versión de política y explicación visible. Un simple checkbox no equivale a aprobación externa: el Creador registra la decisión y su respaldo. La plataforma verifica su capacidad para administrarla, pero no se atribuye la autoridad de calidad o la representación legal de la empresa. Cuando está pendiente o no aprobada, la función dependiente queda deshabilitada o permanece como borrador, con motivo claro; nunca se muestra falsamente como validada.
+
+| Módulo configurable | Ejemplos de opciones | Efecto de no aprobación |
+|---|---|---|
+| Identidad documental | Emisor legal, marca autorizada, código/revisión de formulario, edición ISO adoptada y texto de alcance certificado comprobado | Usar identidad neutra aprobada por tenant; ocultar código o leyenda no autorizados. Nunca imprimir certificación supuesta. |
+| Flujo de revisión | Revisores, separación de funciones, aprobadores de alcance, cierre y excepción | Aplicar política mínima del producto; no atribuir aprobación a personas sin capacidad. |
+| Reglas por tipo de trabajo | Checklists, evidencias exigidas, criterios adicionales, fase omitible, urgencias | No activar excepción; conservar requisitos de integridad y campos base. |
+| Firma y recepción | Método habilitado, proveedor, representantes, nivel de identidad, firma manuscrita/escaneo, condiciones de rechazo/reservas | Acta como borrador o pendiente de firma; no formalizar aceptación. |
+| Garantía y condiciones comerciales | Plantilla contractual aprobada, cobertura/plazo, anexo de costos, audiencia autorizada | No prometer garantía ni publicar datos comerciales. |
+| Conservación y entrega | Plazos, destinatarios, anexos, canales, restricciones, política de respaldo | Usar configuración segura provisional y bloquear operación que requiera un plazo o canal aún no definido. |
+
+La política se versiona y se vincula por ID/hash a cada candidato y emitido; cambios posteriores solo rigen hacia adelante. La interfaz muestra diferencia entre **habilitar un módulo** y **aprobar un documento concreto**. La elección del Creador nunca firma automáticamente un informe o acta. El servidor valida estado, vigencia, tenant, permisos y pruebas al guardar la política y de nuevo al usarla. Las reglas de inmutabilidad, aislamiento, trazabilidad, no falsificación y conservación de versiones emitidas son invariantes del producto: no aparecen como casillas que puedan desmarcarse.
+
+Para escalar, almacenar definición de capacidad/validadores por módulo y versión, políticas por tenant y alcance, y eventos de decisión anexables. Evitar columnas individuales por cada cliente o formularios BBC codificados. La UI usa una lista de módulos con estado y efecto, más un panel de detalles para evidencias y vigencia; los futuros módulos se añaden sin modificar el contrato documental existente. Verificar en mockup aparte el estado pendiente/aprobado y el texto de por qué una opción sigue deshabilitada.
 
 ## 9. Criterios gráficos y de uso
 
