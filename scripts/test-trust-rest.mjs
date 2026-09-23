@@ -46,12 +46,15 @@ try{
   const updated=ok(await t.from('fotos').update({file_path:derivative,file_url:`storage://fotos/${derivative}`,anotaciones:annotations,descripcion:'QA capas',edicion:{espacio:'ancho1000',brillo:10,contraste:5}}).eq('id',photo).eq('revision',0).select('revision').single());assert.equal(updated.revision,1);
   const stale=ok(await s.from('fotos').update({descripcion:'sobrescritura obsoleta'}).eq('id',photo).eq('revision',0).select('id'));assert.equal(stale.length,0);
   const reopened=ok(await s.from('fotos').select('anotaciones,descripcion,edicion').eq('id',photo).single());assert.deepEqual(reopened.anotaciones,annotations);assert.equal(reopened.descripcion,'QA capas');assert.equal(reopened.edicion.brillo,10);
-  await t.storage.from('fotos').remove([path]); // Simulate the old client's deletion attempt.
+  await s.storage.from('fotos').remove([path]); // Supervisor may delete ordinary images; original must still be protected.
   const downloaded=ok(await t.storage.from('fotos').download(path));assert.deepEqual(Buffer.from(await downloaded.arrayBuffer()),bytes);
   assert.equal(ok(await other.from('plan_foto_originales').select('foto_id').eq('foto_id',photo)).length,0);
   ok(await t.from('fotos').update({anotaciones:[],edicion:{espacio:'ancho1000',brillo:0,contraste:0}}).eq('id',photo).eq('revision',1));
   assert.equal(ok(await t.from('fotos').select('anotaciones').eq('id',photo).single()).anotaciones.length,0);
   assert.equal(ok(await t.from('plan_foto_originales').select('file_path').eq('foto_id',photo).single()).file_path,path);
+  ok(await s.from('fotos').delete().eq('id',photo));
+  const removed=ok(await s.storage.from('fotos').remove([path,derivative]));assert.equal(removed.length,2);
+  storagePaths.splice(storagePaths.indexOf(path),1);storagePaths.splice(storagePaths.indexOf(derivative),1);
  });
  await test('autor, creación, edición y estado se conservan en servidor',async()=>{
   ok(await t.from('ordenes').update({descripcion:'QA historial persistente',contratistas:['QA Contratista compartido']}).eq('id',id));
@@ -85,8 +88,11 @@ try{
  await test('proyecto, OT y fotos de campo permanecen intactos',async()=>assert.deepEqual(await snapshot(),before));
 }catch(e){results.push({name:'preparación',ok:false,error:e.message});}
 finally{
- if(ids.length&&clients['e1-supervisor']){const r=await clients['e1-supervisor'].from('ordenes').delete().in('id',ids);if(r.error)results.push({name:'limpieza de OTs ficticias',ok:false,error:r.error.message});}
- if(storagePaths.length&&clients['e1-supervisor']){const r=await clients['e1-supervisor'].storage.from('fotos').remove(storagePaths);if(r.error)results.push({name:'limpieza de imágenes ficticias',ok:false,error:r.error.message});}
+ if(ids.length&&clients['e1-supervisor']){
+  const s=clients['e1-supervisor'];await s.from('fotos').delete().in('orden_id',ids);
+  if(storagePaths.length){const r=await s.storage.from('fotos').remove(storagePaths);if(r.error||r.data.length!==storagePaths.length)results.push({name:'limpieza de imágenes ficticias',ok:false,error:r.error?.message??'El servidor no confirmó todos los archivos'});}
+  const r=await s.from('ordenes').delete().in('id',ids);if(r.error)results.push({name:'limpieza de OTs ficticias',ok:false,error:r.error.message});
+ }
  for(const c of Object.values(clients))await c.auth.signOut({scope:'local'});
  const report={testedAt:new Date().toISOString(),fieldSnapshot:before,passed:results.filter(r=>r.ok).length,total:results.length,results};await writeFile('docs/bloqueos-2026-09-22/rest-tests.json',JSON.stringify(report,null,2)+'\n');console.log(JSON.stringify({passed:report.passed,total:report.total}));if(results.some(r=>!r.ok))process.exitCode=1;
 }

@@ -41,3 +41,11 @@ La compilación conserva avisos conocidos de tamaño de bundle, importaciones y 
 En la Samsung: repetir los 20 gestos en modo normal y pantalla completa, rotación/cancelación, dibujo con dedo/lápiz, dictado con permiso concedido/denegado y actualización de una PWA previamente instalada. Las pruebas simuladas y de escritorio no certifican hardware ni motores de voz. El borrador se conserva en el formulario abierto; no se promete recuperación tras cerrar el navegador ni sincronización offline.
 
 Agente recomendado para los siguientes ajustes visuales acotados: **Sol Alto**. Reservar **Astra Alto** para nuevos cambios de seguridad, concurrencia o revisión de hitos.
+
+## Publicación confirmada
+
+- Producción: https://plan-ots-pro.pages.dev
+- Despliegue: https://5b6260db.plan-ots-pro.pages.dev
+- Código publicado: `3e8586b`, incluye el lote inicial `a2c416e`; rama `tablet-v1` actualizada sin forzar historia.
+- HTML, JavaScript principal, CSS y service worker descargados por HTTPS y comparados por SHA-256 con `dist`. Política comprobada: `camera=(self), microphone=(self), geolocation=()`. Evidencia: `deployment.json`.
+- Se reforzó la prueba REST para intentar borrar el original con un supervisor (que sí puede borrar archivos ordinarios) y exigir confirmación de la limpieza binaria. La repetición pasó 10/10. Dos PNG ficticios de la primera ejecución quedaron inicialmente inaccesibles al borrar antes su OT; se identificaron por evento/fecha y bytes exactos, se retiraron y se eliminó la OT temporal de limpieza. Evidencia: `storage-cleanup.json`. No se amplió ninguna política para limpiarlos.

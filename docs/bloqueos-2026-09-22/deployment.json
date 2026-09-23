@@ -1,0 +1,29 @@
+{
+  "verifiedAt": "2026-09-23T02:49:33.390Z",
+  "url": "https://plan-ots-pro.pages.dev",
+  "deploymentUrl": "https://5b6260db.plan-ots-pro.pages.dev",
+  "sourceCommit": "3e8586b",
+  "microphonePolicy": "self",
+  "files": [
+    {
+      "path": "index.html",
+      "status": 200,
+      "sha256": "eab4d39777fcaeb812888a347de2dcb03f728171c68f0638f844528e333c2bb9"
+    },
+    {
+      "path": "assets/index-DOlRS5VL.js",
+      "status": 200,
+      "sha256": "3a48e7e77438716247145b0892b6491742dc5b01ecac0d1e2c9aac7fa6c47dc0"
+    },
+    {
+      "path": "assets/index-CeNrxgR5.css",
+      "status": 200,
+      "sha256": "20e87540cc3024aa789181cfddb3abc01d5165a7b7154dbd7c6847e4070057ca"
+    },
+    {
+      "path": "sw.js",
+      "status": 200,
+      "sha256": "5a0bba13f9fe4136ca75f57ed4c59e00afdd31e9a2d9ef768a460d8f0deba359"
+    }
+  ]
+}
