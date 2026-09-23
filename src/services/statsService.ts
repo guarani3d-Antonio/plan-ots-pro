@@ -20,7 +20,7 @@ export async function cargarStatsProyectos(
     .select('proyecto_id, estado')
     .in('proyecto_id', proyectoIds)
 
-  if (error || !data) return {}
+  if (error || !data) throw new Error(error?.message ?? 'No se pudieron cargar los indicadores de proyectos')
 
   // Agrupar en memoria por proyecto_id
   const mapa: Record<string, ProyectoStats> = {}

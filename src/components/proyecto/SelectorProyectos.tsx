@@ -6,7 +6,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { ModalNuevoProyecto } from './ModalNuevoProyecto';
 import { ImagenPrivada } from './ImagenPrivada';
 import { cargarStatsProyectos, type ProyectoStats } from '../../services/statsService';
-import { generarThumbnailPDF } from '../../services/pdfThumbnailService';
+import { generarThumbnailPDF, obtenerThumbnailPDFCache } from '../../services/pdfThumbnailService';
 import styles from './SelectorProyectos.module.css';
 
 // Stats por defecto cuando un proyecto aún no fue cargado en statsMap.
@@ -19,12 +19,11 @@ const STATS_VACIO: ProyectoStats = {
   total:       0,
   pct_cerrada: 0,
 };
+const statsCache = new Map<string, ProyectoStats>();
 
 interface SelectorProyectosProps {
   onOpenDashboard?: () => void;
-  /** Si está presente, se usa en lugar de setProyectoActivo directo —
-   *  permite a App.tsx envolver la transición en navigate() para evitar
-   *  el flash de layout shift al abrir un proyecto. */
+  /** Permite que App.tsx abra el proyecto y cambie a la vista de plano juntos. */
   onAbrirProyecto?: (proyecto: Proyecto) => void;
 }
 
@@ -51,18 +50,21 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
   const [confirmDelete,  setConfirmDelete]  = useState<Proyecto | null>(null);
   const [accionError,    setAccionError]    = useState<string | null>(null);
   const [busqueda,       setBusqueda]       = useState('');
-  const [statsMap,       setStatsMap]       = useState<Record<string, ProyectoStats>>({});
+  const [statsMap,       setStatsMap]       = useState<Record<string, ProyectoStats>>(() => Object.fromEntries(statsCache));
   const [thumbnails,     setThumbnails]     = useState<Record<string, string>>({});
   const menuRef    = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { setStatsMap({}); setThumbnails({}); void cargarProyectos(); }, [cargarProyectos, empresaId]);
+  useEffect(() => { void cargarProyectos(); }, [cargarProyectos, empresaId]);
 
   // Cargar conteos reales de OTs por proyecto desde Supabase.
   // Una sola query con .in() agrupa todas las stats en memoria.
   useEffect(() => {
     if (proyectos.length === 0) return;
     const ids = proyectos.map(p => p.id);
-    cargarStatsProyectos(ids).then(setStatsMap);
+    cargarStatsProyectos(ids).then(stats => {
+      ids.forEach(id => statsCache.set(id, stats[id] ?? { ...STATS_VACIO, proyecto_id: id }));
+      setStatsMap(Object.fromEntries(statsCache));
+    }).catch(err => console.error('[SelectorProyectos] indicadores:', err));
   }, [proyectos]);
 
   // Generar thumbnails PNG de los planos PDF para mostrarlos como portada
@@ -106,12 +108,13 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
   // Filtro por nombre o cliente (case-insensitive)
   const proyectosFiltrados = useMemo(() => {
     const q = busqueda.toLowerCase();
-    if (!q) return proyectos;
-    return proyectos.filter(p =>
+    const visibles = empresaId ? proyectos.filter(p => p.tenant_id === empresaId) : proyectos;
+    if (!q) return visibles;
+    return visibles.filter(p =>
       p.nombre.toLowerCase().includes(q) ||
       (p.cliente ?? '').toLowerCase().includes(q)
     );
-  }, [proyectos, busqueda]);
+  }, [proyectos, busqueda, empresaId]);
 
   async function handleEliminar(proyecto: Proyecto) {
     try {
@@ -201,7 +204,7 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
 
         {/* Grid de proyectos */}
         <div className={styles.grid}>
-          {loading ? (
+          {loading && proyectosFiltrados.length === 0 ? (
             <div className={styles.empty}>Cargando proyectos…</div>
           ) : proyectosFiltrados.length === 0 ? (
             <div className={styles.empty}>
@@ -211,7 +214,7 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
             </div>
           ) : proyectosFiltrados.map(proyecto => {
             const stats    = statsMap[proyecto.id] ?? STATS_VACIO;
-            const thumbUrl = thumbnails[proyecto.id];
+            const thumbUrl = thumbnails[proyecto.id] ?? obtenerThumbnailPDFCache(proyecto.plano_url);
             const planoUrl = proyecto.plano_url ?? '';
             const esPdf    = planoUrl.toLowerCase().includes('.pdf');
             const esImg    = !esPdf && (

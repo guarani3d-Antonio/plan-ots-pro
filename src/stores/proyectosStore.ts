@@ -5,6 +5,7 @@ import { assertSession, sessionTicket } from '../security/sessionScope';
 import { useAccessStore, exigirPermiso } from './accessStore';
 import { useOrdenesStore } from './ordenesStore';
 let loadSequence = 0;
+let loadedEmpresa: string | null = null;
 import { resolverArchivo, subirArchivo } from '../services/storageService';
 
 export interface Proyecto {
@@ -60,7 +61,7 @@ interface ProyectosState {
   setProyectoActivo: (proyecto: Proyecto | null) => void;
 }
 
-export const useProyectosStore = create<ProyectosState>((set, _get) => ({
+export const useProyectosStore = create<ProyectosState>((set, get) => ({
   proyectos: [],
   proyectoActivo: null,
   loading: false,
@@ -68,16 +69,17 @@ export const useProyectosStore = create<ProyectosState>((set, _get) => ({
 
   cargarProyectos: async () => {
     const request=++loadSequence;
-    set({proyectos:[],loading:true,error:null});
+    const empresa=useAccessStore.getState().empresaId;
+    const proyectosPrevios=loadedEmpresa===empresa?get().proyectos:[];
+    set({proyectos:proyectosPrevios,loading:true,error:null});
     try{
       const ticket=sessionTicket();
-      const empresa=useAccessStore.getState().empresaId;
       let query=supabase.from('proyectos').select('*').is('deleted_at',null).order('updated_at',{ascending:false});
       if(empresa)query=query.eq('tenant_id',empresa);
       const {data,error}=await query;assertSession(ticket);
       if(error)throw new Error(error.message);
-      if(request===loadSequence)set({proyectos:data as Proyecto[],loading:false});
-    }catch(e){if(request===loadSequence)set({proyectos:[],loading:false,error:e instanceof Error?e.message:'No se pudo cargar las obras.'});}
+      if(request===loadSequence){loadedEmpresa=empresa;set({proyectos:data as Proyecto[],loading:false});}
+    }catch(e){if(request===loadSequence)set({proyectos:proyectosPrevios,loading:false,error:e instanceof Error?e.message:'No se pudo cargar las obras.'});}
   },
 
   crearProyecto: async ({ nombre, cliente, descripcion, planoFile }) => {
