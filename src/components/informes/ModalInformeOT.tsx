@@ -28,7 +28,7 @@ import {
   generarInformeAvance,
   generarInformeActaConformidad,
 } from '../../services/reportService';
-import type { OrigenOrdenServicio } from '../../services/reportService';
+import type { DatosRelevamiento, OrigenOrdenServicio } from '../../services/reportService';
 import { cargarFotosDeOrden } from '../../services/fotosService';
 import { hacerInformePortable } from '../../services/portableReportService';
 import {
@@ -153,6 +153,33 @@ function origenGuardado(valor: unknown, inicial: OrigenOrdenServicio): OrigenOrd
   return resultado;
 }
 
+const RELEVAMIENTO_INICIAL: DatosRelevamiento = {
+  modalidad: '', fechaIntervencion: '', tecnico: '', participantes: '',
+  condiciones: '', hallazgos: '', pruebas: '', alcance: '',
+  exclusiones: '', criterios: '', decisionAlcance: '',
+};
+
+function relevamientoGuardado(valor: unknown): DatosRelevamiento {
+  if (!valor || typeof valor !== 'object' || Array.isArray(valor)) return { ...RELEVAMIENTO_INICIAL };
+  const objeto = valor as Record<string, unknown>;
+  const resultado = { ...RELEVAMIENTO_INICIAL };
+  for (const clave of Object.keys(resultado) as (keyof DatosRelevamiento)[]) {
+    if (typeof objeto[clave] === 'string') resultado[clave] = String(objeto[clave]).slice(0, 1200);
+  }
+  return resultado;
+}
+
+const CAMPOS_RELEVAMIENTO: [keyof DatosRelevamiento, string][] = [
+  ['modalidad', 'Modalidad: visita o remota'], ['fechaIntervencion', 'Fecha de intervención'],
+  ['tecnico', 'Técnico interviniente'], ['participantes', 'Participantes'],
+  ['condiciones', 'Condiciones y límites de observación'],
+  ['hallazgos', 'Hallazgos y evidencia relacionada'],
+  ['pruebas', 'Pruebas y mediciones realizadas'],
+  ['alcance', 'Alcance propuesto'], ['exclusiones', 'Exclusiones y supuestos'],
+  ['criterios', 'Criterios de aceptación propuestos'],
+  ['decisionAlcance', 'Estado declarado del alcance'],
+];
+
 export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }: Props) {
   const cfg = TIPO_CFG[tipo];
   const necesitaFotos =
@@ -161,6 +188,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
 
   const [observaciones, setObservaciones] = useState('');
   const [origenServicio, setOrigenServicio] = useState<OrigenOrdenServicio>(() => origenInicial(orden));
+  const [datosRelevamiento, setDatosRelevamiento] = useState<DatosRelevamiento>({ ...RELEVAMIENTO_INICIAL });
   const [cargandoComentario, setCargandoComentario] = useState(true);
   const [htmlPreview, setHtmlPreview] = useState('');
   const [generandoPreview, setGenerandoPreview] = useState(false);
@@ -251,6 +279,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
     setPreviewAlto(1123);
     setObservaciones('');
     setOrigenServicio(origenInicial(orden));
+    setDatosRelevamiento({ ...RELEVAMIENTO_INICIAL });
     setFotosAntes([]);
     setFotosDespues([]);
     setFotosDurante([]);
@@ -262,6 +291,8 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
     setErrorBorrador(null);
     solicitudGuardadoRef.current = null;
     solicitudReservaRef.current = null;
+    // Se reinicia solo al cambiar la identidad de la OT o el tipo de documento.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orden.id, tipo]);
 
   const construirHtml = (textoActual: string): string => {
@@ -274,7 +305,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
       case 'orden_servicio':
         return generarInformeOrdenServicio(orden, textoActual, origenServicio);
       case 'relevamiento':
-        return generarInformeRelevamiento(orden, textoActual, fa);
+        return generarInformeRelevamiento(orden, textoActual, fa, datosRelevamiento);
       case 'avance':
         return generarInformeAvance(orden, textoActual, fa, fdu);
       case 'acta':
@@ -304,13 +335,17 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
         const texto = typeof datos?.observaciones === 'string'
           ? datos.observaciones.slice(0, MAX_OBSERVACIONES) : '';
         const origen = origenGuardado(datos?.origen, origenInicial(orden));
+        const relevamiento = relevamientoGuardado(datos?.relevamiento);
         setObservaciones(texto);
         setOrigenServicio(origen);
+        setDatosRelevamiento(relevamiento);
         setIncluirFotos(typeof datos?.incluirFotos === 'boolean' ? datos.incluirFotos : true);
         setDocumento(resultado?.vigente ?? null);
         setVersionBorrador(resultado?.borrador?.version ?? 0);
         setGuardado(resultado?.borrador ? JSON.stringify({ observaciones: texto,
-          incluirFotos: datos?.incluirFotos !== false, ...(tipo === 'orden_servicio' ? { origen } : {}) }) : null);
+          incluirFotos: datos?.incluirFotos !== false,
+          ...(tipo === 'orden_servicio' ? { origen } : {}),
+          ...(tipo === 'relevamiento' ? { relevamiento } : {}) }) : null);
         setPersistenciaDisponible(resultado !== null);
 
         // S33: mapeo incluye descripcion_observacion además de descripcion
@@ -356,6 +391,8 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
     return () => {
       cancelado = true;
     };
+    // No volver a cargar al recibir actualizaciones de la misma OT: preserva lo editado.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, orden.id, tipo, necesitaFotos, cfg.necesitaFotosAntes, cfg.necesitaFotosDespues, cfg.necesitaFotosDurante]);
 
   // Regeneración del preview ante cambios que requieren rebuild completo
@@ -410,7 +447,8 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
   };
 
   const datosBorrador = { observaciones, incluirFotos,
-    ...(tipo === 'orden_servicio' ? { origen: origenServicio } : {}) };
+    ...(tipo === 'orden_servicio' ? { origen: origenServicio } : {}),
+    ...(tipo === 'relevamiento' ? { relevamiento: datosRelevamiento } : {}) };
   const cambiosBorrador = guardado !== JSON.stringify(datosBorrador);
 
   const handleGuardarBorrador = async () => {
@@ -476,6 +514,13 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
     } finally { setGenerandoPreview(false); }
   };
 
+  const actualizarRelevamiento = (clave: keyof DatosRelevamiento, valor: string) => {
+    const recortado = valor.slice(0, 1200);
+    setDatosRelevamiento(actual => ({ ...actual, [clave]: recortado }));
+    const el = iframeRef.current?.contentDocument?.getElementById(`rel-${clave}`);
+    if (el) el.textContent = recortado.trim() || 'No registrado';
+  };
+
   // ── Render ───────────────────────────────────────────────────────────────
   return (
     <div className={styles.backdrop} onClick={onClose}>
@@ -512,12 +557,12 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
                 <div className={styles.dataVal}>{orden.rubro || '—'}</div>
                 <div className={styles.dataKey}>Responsable</div>
                 <div className={styles.dataVal}>{orden.responsable || '—'}</div>
-                <div className={styles.dataKey}>Fecha inicio</div>
-                <div className={styles.dataVal}>{fechaCorta(orden.fecha_inicio_trabajos)}</div>
-                <div className={styles.dataKey}>Fecha cierre</div>
-                <div className={styles.dataVal}>{fechaCorta(orden.fecha_fin_trabajos)}</div>
-                <div className={styles.dataKey}>Reincidente</div>
-                <div className={styles.dataVal}>{orden.reincidencia ? 'Sí' : 'No'}</div>
+                {tipo === 'orden_servicio' && (
+                  <>
+                    <div className={styles.dataKey}>Ingreso OT</div>
+                    <div className={styles.dataVal}>{fechaCorta(orden.fecha_ingreso)}</div>
+                  </>
+                )}
               </div>
             </div>
 
@@ -545,6 +590,32 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
                   ))}
                 </div>
                 <p className={styles.sublabel}>Son datos del pedido recibido; no acreditan una visita ni un diagnóstico.</p>
+              </div>
+            )}
+
+            {tipo === 'relevamiento' && (
+              <div className={styles.section}>
+                <div className={styles.sectionTitle}>Hechos y alcance del relevamiento</div>
+                <div className={styles.originGrid}>
+                  {CAMPOS_RELEVAMIENTO.slice(0, 4).map(([clave, etiqueta]) => (
+                    <label className={styles.originField} key={clave}>
+                      <span>{etiqueta}</span>
+                      <input type="text" value={datosRelevamiento[clave]}
+                        onChange={e => actualizarRelevamiento(clave, e.target.value)}
+                        disabled={cargandoComentario} maxLength={1200} placeholder="No registrado" />
+                    </label>
+                  ))}
+                </div>
+                {CAMPOS_RELEVAMIENTO.slice(4).map(([clave, etiqueta]) => (
+                  <label className={styles.originField} key={clave}>
+                    <span>{etiqueta}</span>
+                    <textarea value={datosRelevamiento[clave]}
+                      onChange={e => actualizarRelevamiento(clave, e.target.value)}
+                      disabled={cargandoComentario} maxLength={1200} rows={2}
+                      placeholder="No registrado" />
+                  </label>
+                ))}
+                <p className={styles.sublabel}>La aprobación del alcance requiere una decisión vinculada a una revisión; este campo solo describe el estado declarado.</p>
               </div>
             )}
 

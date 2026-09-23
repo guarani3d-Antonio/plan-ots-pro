@@ -24,6 +24,20 @@ export interface OrigenOrdenServicio {
   proximoPaso: string;
 }
 
+export interface DatosRelevamiento {
+  modalidad: string;
+  fechaIntervencion: string;
+  tecnico: string;
+  participantes: string;
+  condiciones: string;
+  hallazgos: string;
+  pruebas: string;
+  alcance: string;
+  exclusiones: string;
+  criterios: string;
+  decisionAlcance: string;
+}
+
 export function informeDisponible(tipo: TipoInforme, estadoOT: string): boolean {
   switch (tipo) {
     case 'orden_servicio':
@@ -108,20 +122,33 @@ export function generarInformeRelevamiento(
   orden: OrdenLocal,
   comentarioInicial: string,
   fotosAntes: { file_url: string; descripcion?: string | null; descripcion_observacion?: string | null }[],
+  datos?: DatosRelevamiento,
 ): string {
-  const bloquesAlcance = ['Trabajos requeridos', 'Materiales estimados', 'Tiempo estimado'].map(titulo => `<div style="background: #fffbf5; border-top: 3px solid #CC7A00; padding: 12px; border-radius: 4px;">
-    <h4 style="font-size: 11px; font-weight: 700; color: #CC7A00; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">${escapeHtml(titulo)}</h4>
-    <p style="font-size:11px;color:#64748b">Pendiente de documentar</p>
-  </div>`).join('');
+  const campo = (clave: keyof DatosRelevamiento) => {
+    const valor = datos?.[clave]?.trim();
+    return `<p id="rel-${clave}" style="white-space:pre-line">${escapeHtml(valor || 'No registrado')}</p>`;
+  };
+  const bloque = (titulo: string, clave: keyof DatosRelevamiento) =>
+    `<section class="p-4 border border-outline-variant rounded-lg mb-4"><strong>${titulo}</strong>${campo(clave)}</section>`;
 
   const contenido = `<div class="a4-page">
 ${_paginaHeader(orden, 'INFORME DE RELEVAMIENTO', 'Diagnóstico técnico inicial y detección del alcance de la intervención requerida.')}
 ${_bloqueDatosCliente(orden)}
-${_bloqueNaranjaIzquierdo('Diagnóstico Inicial', comentarioInicial, 'Sin diagnóstico registrado.')}
-<section class="grid grid-cols-3 gap-4 mb-8 no-break">
-  ${bloquesAlcance}
+<section class="grid grid-cols-2 gap-4 mb-6">
+  <div class="p-4 border border-outline-variant rounded-lg"><strong>Modalidad (visita o remota)</strong>${campo('modalidad')}</div>
+  <div class="p-4 border border-outline-variant rounded-lg"><strong>Fecha de intervención declarada</strong>${campo('fechaIntervencion')}</div>
+  <div class="p-4 border border-outline-variant rounded-lg"><strong>Técnico interviniente</strong>${campo('tecnico')}</div>
+  <div class="p-4 border border-outline-variant rounded-lg"><strong>Participantes</strong>${campo('participantes')}</div>
 </section>
-<p class="text-xs text-on-surface-variant">Alcance y autorización: pendientes de registrar en una revisión vinculada.</p>
+${bloque('Condiciones, acceso y límites de observación', 'condiciones')}
+${bloque('Hallazgos y evidencia relacionada', 'hallazgos')}
+${bloque('Pruebas y mediciones realizadas', 'pruebas')}
+${_bloqueNaranjaIzquierdo('Diagnóstico Inicial', comentarioInicial, 'Sin diagnóstico registrado.')}
+${bloque('Alcance propuesto', 'alcance')}
+${bloque('Exclusiones y supuestos', 'exclusiones')}
+${bloque('Criterios de aceptación propuestos', 'criterios')}
+${bloque('Estado declarado del alcance', 'decisionAlcance')}
+<p class="text-xs text-on-surface-variant">Este borrador no acredita aprobación del alcance. La autorización debe vincularse a una revisión y a su actor con facultades.</p>
 </div>
 ${fotosAntes.length ? `<div class="a4-page">
 <div>

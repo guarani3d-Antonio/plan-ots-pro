@@ -42,6 +42,18 @@ assert.deepEqual(
 );
 assert.doesNotMatch(html, /<div class="page-break"><\/div>/);
 assert.doesNotMatch(html, /break-before: page; page-break-before: always/);
+const relevamiento = reports.generarInformeRelevamiento(orden, 'Causa probable: filtro obstruido.', [], {
+  modalidad: 'Remota', fechaIntervencion: '2026-09-23', tecnico: 'Técnica de prueba',
+  participantes: 'Cliente', condiciones: 'Acceso limitado',
+  hallazgos: 'H-1: presión baja', pruebas: 'Medición informada: 2 bar',
+  alcance: 'A-1: reemplazar filtro', exclusiones: 'Sin pintura',
+  criterios: 'C-1: presión ≥ 3 bar', decisionAlcance: 'Propuesto',
+});
+assert.match(relevamiento, /id="rel-modalidad"[^>]*>Remota<\/p>/);
+assert.match(relevamiento, /id="rel-hallazgos"[^>]*>H-1: presión baja<\/p>/);
+assert.match(relevamiento, /id="rel-criterios"[^>]*>C-1: presión ≥ 3 bar<\/p>/);
+assert.doesNotMatch(relevamiento, /Trabajos requeridos|Materiales estimados|Tiempo estimado/);
+assert.doesNotMatch(relevamiento, /Solicitud original\./);
 const apertura = reports.generarInformeOrdenServicio(orden, 'Aclaración posterior.');
 assert.equal((apertura.match(/id="bloque-texto-naranja"/g) ?? []).length, 1);
 assert.match(apertura, /Solicitud original\./);

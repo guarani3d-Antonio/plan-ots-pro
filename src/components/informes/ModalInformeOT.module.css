@@ -183,7 +183,8 @@
   color: var(--text-secondary, #374151);
 }
 
-.originField input {
+.originField input,
+.originField textarea {
   box-sizing: border-box;
   width: 100%;
   min-height: 38px;
@@ -195,7 +196,14 @@
   font: inherit;
 }
 
-.originField input:focus-visible {
+.originField textarea {
+  min-height: 60px;
+  resize: vertical;
+  line-height: 1.4;
+}
+
+.originField input:focus-visible,
+.originField textarea:focus-visible {
   outline: 2px solid var(--accent, #CC7A00);
   outline-offset: 1px;
 }
