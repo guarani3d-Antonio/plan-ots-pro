@@ -1,10 +1,17 @@
 -- Los valores reales se comprueban con usuario de prueba y transacción ROLLBACK.
 select relname,relrowsecurity from pg_class
 where relname in ('plan_documentos','plan_documento_revisiones');
+select relname,relrowsecurity from pg_class
+where relname in ('plan_documento_borradores','plan_documento_borrador_intentos');
 select conname,contype from pg_constraint
-where conrelid in ('public.plan_documentos'::regclass,'public.plan_documento_revisiones'::regclass)
+where conrelid in ('public.plan_documentos'::regclass,'public.plan_documento_revisiones'::regclass,
+  'public.plan_documento_borradores'::regclass,'public.plan_documento_borrador_intentos'::regclass)
 order by conrelid,conname;
 select grantee,privilege_type from information_schema.role_table_grants
-where table_schema='public' and table_name in ('plan_documentos','plan_documento_revisiones')
+where table_schema='public' and table_name in ('plan_documentos','plan_documento_revisiones',
+  'plan_documento_borradores','plan_documento_borrador_intentos')
 and grantee in ('anon','authenticated');
 select last_value,is_called from public.plan_documento_folio_seq;
+select indexname,indexdef from pg_indexes
+where schemaname='public' and tablename='plan_documentos'
+  and indexname='plan_documentos_fases_unicas';
