@@ -29,11 +29,8 @@ export default function MultiSelectRubro({
   // scroll/resize mientras está abierto. useLayoutEffect (no useEffect) para que
   // el primer posicionamiento ocurra antes del paint y no haya frame de parpadeo.
   //
-  // ADVERTENCIA: este fixed depende de que ningún ancestro (.backdrop/.panel/.body/.section
-  // en PanelOT) cree containing block para position:fixed. Si el rollout del tema Vidrio
-  // (ver tablet.css:198, .vidrio-panel con backdrop-filter) le agrega la clase vidrio-panel
-  // a .panel de PanelOT, este dropdown se ancla a .panel en vez del viewport y el bug de
-  // recorte vuelve — solo en modo Vidrio. Revisar este archivo si eso pasa.
+  // Este fixed depende de que ningún ancestro del dropdown cree un containing
+  // block para position:fixed; si cambia esa condición, revisar el anclaje.
   useLayoutEffect(() => {
     if (!abierto) return;
     const actualizar = () => {

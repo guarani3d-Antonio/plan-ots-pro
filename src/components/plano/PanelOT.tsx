@@ -239,7 +239,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
 
   const [tab,             setTab]             = useState<Tab>('datos');
   const [comentariosVisibles, setComentariosVisibles] = useState(false);
-  const [vistaFotos, setVistaFotos] = useState<'agenda' | 'galeria'>('agenda');
+  const comentariosToggleRef = useRef<HTMLButtonElement>(null);
   const [filtroFotos, setFiltroFotos] = useState<'TODAS' | CategoriaFoto>('TODAS');
   const [form,            setForm]            = useState<FormState>(() => ordenToForm(ordenFresca));
   const baseEdicion = useRef<OrdenLocal | null>(ordenFresca);
@@ -831,7 +831,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
             </span>
           )}
         </div>
-        <div className={`${styles.fotosGridAmplia} ${vistaFotos === 'galeria' ? styles.fotosGridGaleria : ''}`}>
+        <div className={styles.fotosGridAmplia}>
           {fotos.map((foto) => {
             const badgeColor = categoria === 'ANTES' ? 'rgba(220,50,50,0.9)' : categoria === 'DURANTE' ? 'rgba(37,99,235,0.9)' : categoria === 'DESPUES' ? 'rgba(22,163,74,0.9)' : 'rgba(100,116,139,0.9)';
             const badgeLabel = categoria === 'DESPUES' ? 'DESPUÉS' : categoria;
@@ -969,7 +969,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
   return (
     <>
       <div className={styles.backdrop} onClick={modoForzadoFotos ? undefined : cerrarConAviso}>
-        <div className={styles.workspace} onClick={e => e.stopPropagation()}>
+        <div className={`${styles.workspace} ${comentariosVisibles ? styles.workspaceWithComments : ''}`} onClick={e => e.stopPropagation()}>
         <div className={styles.panel} onClick={e => e.stopPropagation()}>
 
           <div className={styles.header}>
@@ -980,6 +980,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
             </div>
             <div className={styles.headerActions}>
               <button
+                ref={comentariosToggleRef}
                 className={styles.commentsToggle}
                 onClick={() => setComentariosVisibles(v => !v)}
                 type="button"
@@ -1022,7 +1023,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
           <fieldset disabled={!puedeEditar || guardando} className={`${styles.body} ${tab === 'fotos' ? styles.bodyFotos : styles.bodyFormulario}`} style={{ border: 0, margin: 0, minWidth: 0 }}>
 
             {tab === 'datos' && <>
-              <div className={styles.section}>
+              <div className={`${styles.section} ${styles.formSection}`}>
                 <div className={styles.sectionTitle}>Identificación</div>
                 <div className={styles.field}>
                   <label className={styles.label}>Código OT</label>
@@ -1040,26 +1041,22 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
                   <label className={styles.label}>Unidad / Amenities</label>
                   <input className={styles.input} value={form.unidad_amenities ?? ''} onChange={e => set('unidad_amenities', e.target.value)} placeholder="ej: Dpto 401 / Gym" />
                 </div>
-                <div className={styles.field}>
+                <div className={`${styles.field} ${styles.fieldWide}`}>
                   <div className={styles.labelRow}>
                     <label className={styles.label}>Descripción del reclamo</label>
                     <VoiceInputButton value={form.descripcion ?? ''} onChange={value => set('descripcion', value)} />
                   </div>
                   <textarea className={styles.textarea} rows={3} placeholder="Descripción del problema según el cliente..." value={form.descripcion ?? ''} onChange={e => set('descripcion', e.target.value)} />
                 </div>
-                <div className={styles.field}>
-                  <label className={styles.label}>Creado por</label>
-                  <input className={styles.input} readOnly value={creadoPor} />
-                </div>
-                <div className={styles.field}>
-                  <label className={styles.label}>Días abierto</label>
-                  <input className={styles.input} readOnly value={`${diasAb} ${diasAb === 1 ? 'día' : 'días'}`} />
+                <div className={styles.metadataRow}>
+                  <span><strong>Creado por</strong> {creadoPor}</span>
+                  <span><strong>Días abierto</strong> {diasAb} {diasAb === 1 ? 'día' : 'días'}</span>
                 </div>
               </div>
 
-              <div className={styles.section}>
+              <div className={`${styles.section} ${styles.formSection}`}>
                 <div className={styles.sectionTitle}>Clasificación</div>
-                <div className={styles.field}>
+                <div className={`${styles.field} ${styles.fieldWide}`}>
                   <label className={styles.label}>
                     Estado{' '}
                     <TooltipAyuda titulo="Estado y fotos obligatorias" texto="Pendiente exige 1 foto ANTES · En proceso exige ANTES + DURANTE · Cerrada exige ANTES + DURANTE + DESPUÉS." posicion="top" />
@@ -1106,7 +1103,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
                 {toggleRow('asiste_facility',            'Asiste Facility Services')}
               </div>
 
-              <div className={styles.section}>
+              <div className={`${styles.section} ${styles.formSection}`}>
                 <div className={styles.sectionTitle}>Ejecución</div>
                 <div className={styles.field}>
                   <label className={styles.label}>Supervisor / Responsable</label>
@@ -1183,16 +1180,12 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
             </>}
 
             {tab === 'fotos' && (
-              <div className={`${styles.section} ${styles.photosWorkspace} ${vistaFotos === 'galeria' ? styles.photosGallery : ''}`}>
+              <div className={`${styles.section} ${styles.photosWorkspace}`}>
                 <div className={styles.photosToolbar}>
                   <div className={styles.photosTitle}>
                     <strong>Evidencia fotográfica</strong>
                     <span>{totalFotos} {totalFotos === 1 ? 'foto' : 'fotos'}</span>
                     <TooltipAyuda titulo="Reglas de fotos" texto="No podés cerrar una OT sin sus fotos. No podés borrar la única foto que el estado exige — bajá primero el estado." posicion="bottom" />
-                  </div>
-                  <div className={styles.viewSwitch} aria-label="Vista de fotos">
-                    <button type="button" className={vistaFotos === 'agenda' ? styles.viewSwitchActive : ''} onClick={() => setVistaFotos('agenda')}>Agenda</button>
-                    <button type="button" className={vistaFotos === 'galeria' ? styles.viewSwitchActive : ''} onClick={() => setVistaFotos('galeria')}>Galería</button>
                   </div>
                 </div>
                 <div className={styles.photoFilters}>
@@ -1244,7 +1237,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
 
             {tab === 'informes' && (
               <div className={styles.section}>
-                <p style={{ fontSize: '11px', color: '#94A3B8', marginBottom: '8px' }}>Los informes se generan con los datos y fotos de esta OT.</p>
+                <p className={styles.informesIntro}>Los informes se generan con los datos y fotos de esta OT.</p>
                 {INFORMES_CONFIG.map(({ tipo, icono, nombre, codigo, subtitulo }) => {
                   const disponible = informeDisponible(tipo, estado);
                   return (
@@ -1253,7 +1246,8 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
                         <span className={styles.informeIcono}>{icono}</span>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div className={styles.informeNombre}>{nombre}{codigo && <span className={styles.informeCodigo}>{codigo}</span>}</div>
-                          <div style={{ fontSize: 10, color: '#94A3B8', marginTop: 1 }}>{subtitulo}</div>
+                          <div className={styles.informeSubtitulo}>{subtitulo}</div>
+                          {!disponible && <div className={styles.informeRequisito}>Requiere OT {tipo === 'avance' ? 'En proceso o Cerrada' : 'Cerrada'}.</div>}
                         </div>
                         <span className={`${styles.informeEstado} ${disponible ? styles.informeOk : styles.informeNo}`}>{disponible ? 'Disponible' : 'No disponible'}</span>
                       </div>
@@ -1315,7 +1309,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
           className={`${styles.commentsPane} ${comentariosVisibles ? '' : styles.commentsPaneClosed}`}
           aria-hidden={!comentariosVisibles}
         >
-          <PanelComentarios ordenId={ordenFresca.id} proyectoId={ordenFresca.proyecto_id} onCerrar={() => setComentariosVisibles(false)} />
+          <PanelComentarios ordenId={ordenFresca.id} proyectoId={ordenFresca.proyecto_id} onCerrar={() => { setComentariosVisibles(false); requestAnimationFrame(() => comentariosToggleRef.current?.focus()); }} />
         </fieldset>
         </div>
       </div>

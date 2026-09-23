@@ -76,7 +76,7 @@ export default function PanelComentarios({ ordenId, proyectoId, onCerrar }: Prop
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleEnviar(); }
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); void handleEnviar(); }
   }
 
   async function handleEliminar(id: string) {
@@ -88,7 +88,7 @@ export default function PanelComentarios({ ordenId, proyectoId, onCerrar }: Prop
       <div className={styles.header}>
         <span className={styles.headerTitle}>💬 Comentarios</span>
         <span className={styles.headerCount}>{comentarios.length}</span>
-        {onCerrar && <button type="button" className={styles.closeBtn} onClick={onCerrar} aria-label="Ocultar conversación">✕</button>}
+        {onCerrar && <button type="button" className={styles.closeBtn} onClick={onCerrar} aria-label="Volver a OT"><span aria-hidden="true">✕</span><span className={styles.backLabel}>Volver a OT</span></button>}
       </div>
       <div className={styles.lista}>
         {comentarios.length === 0 ? (
@@ -110,9 +110,9 @@ export default function PanelComentarios({ ordenId, proyectoId, onCerrar }: Prop
       </div>
       {error && <div className={styles.error}>{error}</div>}
       <div className={styles.inputWrap}>
-        <textarea ref={textareaRef} className={styles.input} placeholder="Comentar... (Enter envía, Shift+Enter nueva línea)" value={texto} onChange={e => setTexto(e.target.value)} onKeyDown={handleKeyDown} rows={2} disabled={enviando} />
+        <textarea ref={textareaRef} className={styles.input} placeholder="Escribí un comentario…" aria-label="Escribí un comentario; Ctrl+Enter para enviar" value={texto} onChange={e => setTexto(e.target.value)} onKeyDown={handleKeyDown} rows={2} disabled={enviando} />
         <VoiceInputButton value={texto} onChange={setTexto} disabled={enviando} compact />
-        <button className={styles.btnEnviar} onClick={handleEnviar} disabled={!texto.trim() || enviando}>{enviando ? '…' : '↑'}</button>
+        <button className={styles.btnEnviar} onClick={handleEnviar} disabled={!texto.trim() || enviando}>{enviando ? 'Enviando…' : 'Enviar'}</button>
       </div>
     </div>
   );

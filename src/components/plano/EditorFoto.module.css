@@ -524,22 +524,6 @@
 }
 .slider::-webkit-slider-thumb:hover { transform: scale(1.2); }
 
-.btnRecortar {
-  width: 100%;
-  height: 34px;
-  background: #F9FAFB;
-  border: 1px solid #E5E7EB;
-  border-radius: 6px;
-  color: #D1D5DB;
-  font-size: 12px;
-  cursor: not-allowed;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  margin-top: 12px;
-}
-
 /* ── Toast ───────────────────────────────────────────────────────────────── */
 .toast {
   position: fixed;

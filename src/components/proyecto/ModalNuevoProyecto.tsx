@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import styles from './ModalNuevoProyecto.module.css';
 import { useProyectosStore } from '../../stores/proyectosStore';
 import { procesarPlanoCanvas, esPDFFile } from '../../utils/planoScanner';
@@ -53,6 +53,9 @@ interface Props {
 }
 
 export const ModalNuevoProyecto: React.FC<Props> = ({ onCerrar }) => {
+  const tituloRef = useRef<HTMLSpanElement>(null);
+  const entradaTactil = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
+  useEffect(() => { if (entradaTactil) tituloRef.current?.focus(); }, [entradaTactil]);
   const [nombre, setNombre]   = useState('');
   const [cliente, setCliente] = useState('');
   const [archivo, setArchivo] = useState<File | null>(null);
@@ -155,7 +158,7 @@ export const ModalNuevoProyecto: React.FC<Props> = ({ onCerrar }) => {
 
         {/* ─ Header ─ */}
         <div className={styles.modalHeader}>
-          <span className={styles.modalTitle}>Nuevo Proyecto</span>
+          <span className={styles.modalTitle} tabIndex={-1} ref={tituloRef}>Nuevo Proyecto</span>
           <button className={styles.btnCerrar} onClick={onCerrar} disabled={cargando}>✕</button>
         </div>
 
@@ -172,7 +175,7 @@ export const ModalNuevoProyecto: React.FC<Props> = ({ onCerrar }) => {
               onKeyDown={e => e.key === 'Enter' && handleSubmit()}
               placeholder="Ej: Edificio Torre Norte — Planta 3"
               disabled={cargando}
-              autoFocus
+              autoFocus={!entradaTactil}
             />
           </div>
 

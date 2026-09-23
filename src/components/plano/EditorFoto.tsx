@@ -672,7 +672,6 @@ export default function EditorFoto({ foto, ordenCodigo, todasLasFotos, onClose, 
               </div>
               <input type="range" min={-100} max={100} value={contraste} onChange={e => setContraste(Number(e.target.value))} className={styles.slider} />
             </div>
-            <button className={styles.btnRecortar} disabled>✂ Recortar <span style={{ fontSize: 10 }}>(próximamente)</span></button>
           </div>
         </div>
       </div>

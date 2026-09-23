@@ -17,7 +17,6 @@ import Calendario     from './components/views/Calendario';
 import Contratistas   from './components/views/Contratistas';
 import Configuracion  from './components/views/Configuracion';
 import { useModoTablet } from './hooks/useModoTablet';
-import { useTemaTablet } from './hooks/useTemaTablet';
 import { useHeartbeat } from './hooks/useHeartbeat';
 import ModalImportPendiente, { type OTPendienteResumen } from './components/plano/ModalImportPendiente';
 import VisorPlano3D from './components/plano3d/VisorPlano3D';
@@ -70,7 +69,6 @@ function ContenidoApp() {
   // cada arranque de la app y no solo después del login: el usuario que vuelve
   // con sesión guardada también entra ya en el modo correcto.
   const { modoTablet, orientacion } = useModoTablet();
-  const { tema, setTema }           = useTemaTablet();
   useHeartbeat(proyectoActivo?.id ?? null);
 
   useEffect(() => {
@@ -80,10 +78,9 @@ function ContenidoApp() {
     b.classList.toggle('modo-tablet', modoTablet);
     b.classList.toggle('orient-h',    orientacion === 'h');
     b.classList.toggle('orient-v',    orientacion === 'v');
-    // El vidrio solo existe dentro del modo tablet: si el modo está apagado la
-    // clase nunca se aplica, pase lo que pase en localStorage.
-    b.classList.toggle('tema-vidrio', modoTablet && tema === 'vidrio');
-  }, [modoTablet, orientacion, tema]);
+    b.classList.remove('tema-vidrio');
+    try { localStorage.removeItem('planots_tema_tablet'); } catch { /* almacenamiento no disponible */ }
+  }, [modoTablet, orientacion]);
 
   useEffect(() => {
     if (!user) return;
@@ -220,8 +217,6 @@ function ContenidoApp() {
           onCambiarVista={cambiarVista}
           hidden={fullscreen}
           modoTablet={modoTablet}
-          tema={tema}
-          onCambiarTema={setTema}
         />
 
         <main style={{
