@@ -14,7 +14,7 @@ const PORTABLE_CSS = `
 .bg-surface,.bg-surface-container-lowest{background:#fff}.bg-surface-container-low{background:#f4f3f8}.bg-surface-container-highest{background:#e2e2e7}.bg-primary{background:#003366}.text-white,.text-on-primary{color:#fff}.text-primary{color:#003366}.text-secondary{color:#416181}.text-on-surface{color:#1a1c1f}.text-on-surface-variant{color:#43474f}.text-outline{color:#737780}
 .font-bold{font-weight:700}.font-label-bold{font-weight:600}.uppercase{text-transform:uppercase}.italic{font-style:italic}.text-right{text-align:right}.text-center{text-align:center}.text-justify{text-align:justify}.tracking-widest{letter-spacing:.12em}.leading-relaxed{line-height:1.65}
 .text-\\[9px\\]{font-size:9px}.text-\\[10px\\],.text-xs{font-size:10px}.text-\\[11px\\],.text-body-sm{font-size:12px}.text-body-md{font-size:14px}.text-xl{font-size:20px}.text-2xl,.text-headline-xl{font-size:24px}.shadow-sm,.shadow-md{box-shadow:0 1px 4px rgba(0,0,0,.1)}
-.page-break{break-after:page;page-break-after:always}.no-break,section,header,footer,figure{break-inside:avoid;page-break-inside:avoid}img{max-width:100%;height:auto}
+.page-break{break-after:page;page-break-after:always}.no-break,header,footer,figure{break-inside:avoid;page-break-inside:avoid}img{max-width:100%;height:auto}
 table{max-width:100%}h1,h2,h3,h4,p{margin-top:0}.material-symbols-outlined{font-family:Arial,sans-serif;font-size:0}.material-symbols-outlined:after{content:'•';font-size:14px}
 @page{size:A4 portrait;margin:16mm}@media print{body{background:#fff}.a4-page{width:100%;min-height:0;margin:0;padding:8mm 10mm 20mm;box-shadow:none}.no-print{display:none!important}.page-footer{margin-top:auto}}
 `;

@@ -9,7 +9,15 @@ await build({
     outDir: 'tmp/report-layout', emptyOutDir: false, minify: false,
   },
 });
+await build({
+  configFile: false,
+  build: {
+    lib: { entry: 'src/services/portableReportService.ts', formats: ['es'], fileName: 'portable-report-fixture' },
+    outDir: 'tmp/report-layout', emptyOutDir: false, minify: false,
+  },
+});
 const reports = await import('../tmp/report-layout/report-service-fixture.js');
+const { hacerInformePortable } = await import('../tmp/report-layout/portable-report-fixture.js');
 const image = (index) => `data:image/svg+xml;base64,${Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900"><rect width="1200" height="900" fill="#eef3f9"/><text x="90" y="460" font-family="Arial" font-size="100">Evidencia ${index}</text></svg>`).toString('base64')}`;
 const photos = Array.from({ length: 8 }, (_, index) => ({
   file_url: image(index + 1),
@@ -41,6 +49,11 @@ assert.match(apertura, /Aclaración posterior\./);
 assert.doesNotMatch(apertura, /CHECKLIST DE VERIFICACIÓN PRE-TRABAJO/i);
 const cierre = reports.generarInformeCierre(orden, 'Obra de prueba', 'Resultado técnico.', [], []);
 assert.doesNotMatch(cierre, /<h3>Recepción<\/h3>|Evidencia final \(después\)/);
+const portable = await hacerInformePortable(html);
+assert.equal(portable.embeddedImages, 8);
+assert.equal(portable.missingImages, 0);
+assert.doesNotMatch(portable.html, /\.no-break,section,header/);
 await mkdir('tmp/report-layout', { recursive: true });
 await writeFile('tmp/report-layout/relevamiento-8-fotos.html', html);
+await writeFile('tmp/report-layout/relevamiento-8-fotos-portable.html', portable.html);
 console.log('Fixture de 8 imágenes y texto largo generado para revisión visual.');
