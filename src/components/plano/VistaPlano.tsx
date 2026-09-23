@@ -569,6 +569,7 @@ export default function VistaPlano({ fullscreen = false, onToggleFullscreen, vis
             className={styles.planWrap}
             style={{
               transform: `translate(${transform.tx}px,${transform.ty}px) scale(${transform.sc})`,
+              visibility: planoListo ? 'visible' : 'hidden',
             }}
           >
             <canvas

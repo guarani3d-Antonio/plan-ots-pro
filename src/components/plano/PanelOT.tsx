@@ -2,7 +2,7 @@ import { LEGACY_OFFLINE_ENABLED } from '../../security/sessionScope';
 import { usePermisoObra } from '../../stores/accessStore';
 import { cargarContratistas } from '../../services/trustService';
 // src/components/plano/PanelOT.tsx
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import type { OrdenLocal, EstadoOT, PrioridadOT } from '../../types/orden';
 import { useOrdenesStore } from '../../stores/ordenesStore';
 import { supabase } from '../../db/supabase';
@@ -245,6 +245,10 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
   const baseEdicion = useRef<OrdenLocal | null>(ordenFresca);
   const [baseVisible, setBaseVisible] = useState<OrdenLocal | null>(ordenFresca);
   const saveLock = useRef(false);
+  const onCerrarRef = useRef(onCerrar);
+  const cambiosRef = useRef(false);
+  const omitirAvisoBackRef = useRef(false);
+  useLayoutEffect(() => { onCerrarRef.current = onCerrar; }, [onCerrar]);
   const [inputContratista, setInputContratista] = useState('');
   const [dropdownContratistasOpen, setDropdownContratistasOpen] = useState(false);
   const [contratistasGlobales, setContratistasGlobales] = useState<string[]>([]);
@@ -459,6 +463,31 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
   }, [permiso?.tenant_id]);
   const cambiosSinGuardar = JSON.stringify(form) !== JSON.stringify(ordenToForm(baseVisible)) || !!inputContratista.trim()
     || JSON.stringify(valoresCampos) !== JSON.stringify(baseVisible?.campos ?? {});
+  useLayoutEffect(() => { cambiosRef.current = cambiosSinGuardar; }, [cambiosSinGuardar]);
+  useEffect(() => {
+    if (!ordenProp?.id) return;
+    const marcador = `ot:${ordenProp.id}`;
+    history.pushState({ ...history.state, planotsOT: marcador }, '');
+    const alVolver = (event: PopStateEvent) => {
+      if (event.state?.planotsOT === marcador) return;
+      const omitirAviso = omitirAvisoBackRef.current;
+      omitirAvisoBackRef.current = false;
+      if (saveLock.current || (!omitirAviso && cambiosRef.current &&
+        !window.confirm('Hay cambios sin guardar. ¿Querés descartarlos y cerrar?'))) {
+        history.pushState({ ...history.state, planotsOT: marcador }, '');
+        return;
+      }
+      onCerrarRef.current();
+    };
+    window.addEventListener('popstate', alVolver);
+    return () => window.removeEventListener('popstate', alVolver);
+  }, [ordenProp?.id]);
+  const cerrarPanel = () => {
+    if (history.state?.planotsOT === `ot:${ordenProp?.id}`) {
+      omitirAvisoBackRef.current = true;
+      history.back();
+    } else onCerrar();
+  };
   useEffect(() => {
     if (!cambiosSinGuardar) return;
     const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
@@ -467,7 +496,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
   }, [cambiosSinGuardar]);
   const cerrarConAviso = () => {
     if (saveLock.current) return;
-    if (!cambiosSinGuardar || window.confirm('Hay cambios sin guardar. ¿Querés descartarlos y cerrar?')) onCerrar();
+    if (!cambiosSinGuardar || window.confirm('Hay cambios sin guardar. ¿Querés descartarlos y cerrar?')) cerrarPanel();
   };
   const [historialRefresh, setHistorialRefresh] = useState(0);
   const [tabActivo, setTabActivo] = useState<'detalle' | 'historial'>('detalle');
@@ -742,7 +771,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
       setErrorGuardado(false);
       setGuardadoEn(new Date());
       setHistorialRefresh(r => r + 1);
-      if (modoForzadoFotos) onCerrar();
+      if (modoForzadoFotos) cerrarPanel();
     } catch(err) {
       setErrorGuardado(true);
       mostrar(err instanceof Error?err.message:'No se pudieron guardar los cambios.','error');
@@ -755,15 +784,15 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
   const handleEliminar = async () => {
     if (!confirmEliminar) { setConfirmEliminar(true); return; }
     setGuardando(true);
-    try{await eliminarOrden(ordenFresca.id);onCerrar();}
+    try{await eliminarOrden(ordenFresca.id);cerrarPanel();}
     catch(err){mostrar(err instanceof Error?err.message:'No se pudo eliminar la orden.','error');}
     finally{setGuardando(false);}
   };
 
   const handleCancelarNueva = async () => {
-    if (!ordenFresca) { onCerrar(); return; }
+    if (!ordenFresca) { cerrarPanel(); return; }
     setGuardando(true);
-    try{await cancelarOrdenNueva(ordenFresca.id);onCerrar();}
+    try{await cancelarOrdenNueva(ordenFresca.id);cerrarPanel();}
     catch(err){mostrar(err instanceof Error?err.message:'La orden ya existe y no pudo eliminarse.','error');}
     finally{setGuardando(false);}
   };
@@ -771,7 +800,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
   const handleCancelarUbicacion = async () => {
     if (!ordenFresca) return;
     setGuardando(true);
-    try{await moverOrden(ordenFresca.id,null,null);onCerrar();}
+    try{await moverOrden(ordenFresca.id,null,null);cerrarPanel();}
     catch(err){mostrar(err instanceof Error?err.message:'No se pudo quitar la ubicación.','error');}
     finally{setGuardando(false);}
   };

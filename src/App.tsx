@@ -1,7 +1,7 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import type { CSSProperties } from 'react';
 import { useAuthStore } from './stores/authStore';
-import { useProyectosStore } from './stores/proyectosStore';
+import { useProyectosStore, type Proyecto } from './stores/proyectosStore';
 import { useOrdenesStore } from './stores/ordenesStore';
 import { AuthForm } from './components/ui/AuthForm';
 import { SelectorProyectos } from './components/proyecto/SelectorProyectos';
@@ -24,6 +24,9 @@ import TourGuiado from './components/ayuda/TourGuiado';
 import { SessionGate } from './components/ui/SessionGate';
 
 const VISTAS_CON_PROYECTO = new Set<Vista>(['grilla', 'plano']);
+type RutaApp = { planots: true; vista: Vista; proyectoId: string | null };
+const esRutaApp = (value: unknown): value is RutaApp =>
+  !!value && typeof value === 'object' && (value as RutaApp).planots === true;
 
 export default function App() {
   return <SessionGate><ContenidoApp /></SessionGate>;
@@ -35,6 +38,8 @@ function ContenidoApp() {
   const setProyectoActivo             = useProyectosStore(s => s.setProyectoActivo);
   const [vista, setVista]             = useState<Vista>('proyectos');
   const [fullscreen, setFullscreen]   = useState(false);
+  const [accionPendiente, setAccionPendiente] = useState<(() => void) | null>(null);
+  const rutaActual = useRef<RutaApp>({ planots: true, vista: 'proyectos', proyectoId: null });
 
   const navigate = useCallback((action: () => void) => action(), []);
 
@@ -62,11 +67,44 @@ function ContenidoApp() {
     return cleanup;
   }, [user]);
 
+  const aplicarRuta = useCallback((ruta: RutaApp, proyecto?: Proyecto | null) => {
+    const estado = useProyectosStore.getState();
+    const destino = proyecto === undefined
+      ? estado.proyectos.find(p => p.id === ruta.proyectoId) ?? null
+      : proyecto;
+    const vistaDestino = VISTAS_CON_PROYECTO.has(ruta.vista) && !destino ? 'proyectos' : ruta.vista;
+    rutaActual.current = { planots: true, vista: vistaDestino, proyectoId: destino?.id ?? null };
+    if (estado.proyectoActivo?.id !== destino?.id) setProyectoActivo(destino);
+    setVista(vistaDestino);
+  }, [setProyectoActivo]);
+
+  const navegarARuta = useCallback((vistaDestino: Vista, proyecto?: Proyecto | null) => {
+    const activo = proyecto === undefined ? useProyectosStore.getState().proyectoActivo : proyecto;
+    const ruta: RutaApp = { planots: true, vista: vistaDestino, proyectoId: activo?.id ?? null };
+    if (ruta.vista === rutaActual.current.vista && ruta.proyectoId === rutaActual.current.proyectoId) return;
+    history.pushState(ruta, '');
+    aplicarRuta(ruta, activo);
+  }, [aplicarRuta]);
+
   useEffect(() => {
-    if (proyectoActivo && !VISTAS_CON_PROYECTO.has(vista)) {
-      setVista('plano');
-    }
-  }, [proyectoActivo?.id]);
+    if (!user) return;
+    history.replaceState(rutaActual.current, '');
+    const volver = (event: PopStateEvent) => {
+      const destino: RutaApp = esRutaApp(event.state)
+        ? event.state
+        : { planots: true, vista: 'proyectos', proyectoId: null };
+      const cambiaRuta = destino.vista !== rutaActual.current.vista ||
+        destino.proyectoId !== rutaActual.current.proyectoId;
+      if (cambiaRuta && useOrdenesStore.getState().otsPendientesImport.length > 0) {
+        history.pushState(rutaActual.current, '');
+        setAccionPendiente(() => () => history.back());
+        return;
+      }
+      aplicarRuta(destino);
+    };
+    window.addEventListener('popstate', volver);
+    return () => window.removeEventListener('popstate', volver);
+  }, [user, aplicarRuta]);
 
   // Seguridad: si salimos de la vista plano, nunca dejar el Sidebar oculto.
   useEffect(() => {
@@ -78,7 +116,6 @@ function ContenidoApp() {
   const completarOtImport      = useOrdenesStore(s => s.completarOtImport);
   const eliminarOrdenStore     = useOrdenesStore(s => s.eliminarOrden);
   const setOtsPendientesImport = useOrdenesStore(s => s.setOtsPendientesImport);
-  const [accionPendiente, setAccionPendiente] = useState<(() => void) | null>(null);
 
   const pendientesResumen: OTPendienteResumen[] = otsPendientesImport.flatMap(id => {
     const o = ordenes.find(x => x.id === id);
@@ -111,8 +148,8 @@ function ContenidoApp() {
 
   const cambiarVista = useCallback((v: Vista) => {
     if (v === vista) return;
-    intentarNavegar(() => setVista(v));
-  }, [intentarNavegar, vista]);
+    intentarNavegar(() => navegarARuta(v));
+  }, [intentarNavegar, navegarARuta, vista]);
 
   if (!user) {
     return (
@@ -149,7 +186,7 @@ function ContenidoApp() {
             <VistaGrilla
               proyectoId={proyectoActivo.id}
               proyectoNombre={proyectoActivo.nombre}
-              onBack={() => navigate(() => setProyectoActivo(null))}
+              onBack={() => intentarNavegar(() => navegarARuta('proyectos', null))}
               onSwitchToPlano={() => cambiarVista('plano')}
             />
           )}
@@ -163,10 +200,7 @@ function ContenidoApp() {
         return (
           <SelectorProyectos
             onOpenDashboard={() => cambiarVista('dashboard')}
-            onAbrirProyecto={(p) => navigate(() => {
-              setProyectoActivo(p);
-              setVista('plano');
-            })}
+            onAbrirProyecto={(p) => navegarARuta('plano', p)}
           />
         );
       case 'responsables':  return <Responsables />;
@@ -208,10 +242,7 @@ function ContenidoApp() {
               vista={vista}
               onIrAPlano={() => cambiarVista('plano')}
               onIrAGrilla={() => cambiarVista('grilla')}
-              onSalir={() => intentarNavegar(() => {
-                setProyectoActivo(null);
-                setVista('proyectos');
-              })}
+              onSalir={() => intentarNavegar(() => navegarARuta('proyectos', null))}
             />
           )}
           {renderContenido()}

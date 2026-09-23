@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import styles from './ModalDetalleOT.module.css';
 import {
   emojiRubro,
@@ -159,6 +159,24 @@ export const ModalDetalleOT: React.FC<Props> = ({
 }) => {
   const [fotos, setFotos] = useState<FotoConId[]>([]);
   const puedeVerCostos = usePuedeVerCostos(orden?.proyecto_id ?? null);
+  const onCloseRef = useRef(onClose);
+  useLayoutEffect(() => { onCloseRef.current = onClose; }, [onClose]);
+
+  useEffect(() => {
+    if (!orden?.id) return;
+    const marcador = `detalle:${orden.id}`;
+    history.pushState({ ...history.state, planotsOT: marcador }, '');
+    const alVolver = (event: PopStateEvent) => {
+      if (event.state?.planotsOT !== marcador) onCloseRef.current();
+    };
+    window.addEventListener('popstate', alVolver);
+    return () => window.removeEventListener('popstate', alVolver);
+  }, [orden?.id]);
+
+  const cerrar = () => {
+    if (history.state?.planotsOT === `detalle:${orden?.id}`) history.back();
+    else onClose();
+  };
 
   useEffect(() => {
     if (!orden) return;
@@ -187,7 +205,7 @@ export const ModalDetalleOT: React.FC<Props> = ({
   const horaFin    = orden.campos?.hora_fin_trabajos    as string | undefined;
 
   const handleOverlayClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) onClose();
+    if (e.target === e.currentTarget) cerrar();
   };
 
   const colorEst = colorEstado(orden.estado);
@@ -220,7 +238,7 @@ export const ModalDetalleOT: React.FC<Props> = ({
                 ✎ Editar
               </button>
             )}
-            <button className={styles.btnCerrar} onClick={onClose} title="Cerrar">
+            <button className={styles.btnCerrar} onClick={cerrar} title="Cerrar">
               ✕
             </button>
           </div>
