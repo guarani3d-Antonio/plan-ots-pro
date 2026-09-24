@@ -67,6 +67,9 @@ const origen = {
   referencia: '<mensaje #42>', urgencia: 'Alta', proximoPaso: 'Agendar relevamiento',
 };
 const aperturaConOrigen = reports.generarInformeOrdenServicio(orden, '', origen);
+const aperturaConFoto = reports.generarInformeOrdenServicio(orden, '', origen, undefined, [photos[0]]);
+assert.match(aperturaConFoto, /os-evidence-body/);
+assert.match(aperturaConFoto, /Evidencia 1/);
 const aperturaCodificada = reports.generarInformeOrdenServicio(orden, '', origen, 'POT-2026-OS-00000001');
 assert.match(aperturaCodificada, /DOCUMENTO: POT-2026-OS-00000001/);
 assert.match(aperturaConOrigen, /DOCUMENTO: Borrador sin reservar/);
@@ -137,6 +140,7 @@ await writeFile('tmp/report-layout/cierre-8-fotos.html', reports.generarInformeC
 ));
 await writeFile('tmp/report-layout/acta-borrador.html', acta);
 await writeFile('tmp/report-layout/orden-servicio-borrador.html', aperturaConOrigen);
+await writeFile('tmp/report-layout/orden-servicio-con-foto.html', aperturaConFoto);
 await writeFile('tmp/report-layout/relevamiento-borrador.html', relevamiento);
 await writeFile('tmp/report-layout/avance-borrador.html', avance);
 console.log('Fixture de 8 imágenes y texto largo generado para revisión visual.');

@@ -2,7 +2,6 @@ import { useAccessStore } from '../../stores/accessStore';
 import { AdministracionCreador } from './AdministracionCreador';
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { useProyectosStore, type Proyecto } from '../../stores/proyectosStore';
-import { useAuthStore } from '../../stores/authStore';
 import { ModalNuevoProyecto } from './ModalNuevoProyecto';
 import { ImagenPrivada } from './ImagenPrivada';
 import { cargarStatsProyectos, type ProyectoStats } from '../../services/statsService';
@@ -43,7 +42,6 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
   const abrirProyecto = onAbrirProyecto ?? setProyectoActivo;
   const { contexto, empresaId } = useAccessStore();
   const puedeCrear = !!contexto?.empresas.find(e=>e.id===empresaId)?.puede_crear;
-  const { user } = useAuthStore();
 
   const [modalAbierto,   setModalAbierto]   = useState(false);
   const [menuAbierto,    setMenuAbierto]    = useState<string | null>(null);
@@ -100,11 +98,6 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Iniciales y nombre del usuario logueado
-  const userMeta    = (user?.user_metadata ?? {}) as { name?: string; full_name?: string };
-  const nombreUsuario = userMeta.name ?? userMeta.full_name ?? user?.email ?? 'Usuario';
-  const iniciales   = (nombreUsuario.trim()[0] ?? '?').toUpperCase();
-
   // Filtro por nombre o cliente (case-insensitive)
   const proyectosFiltrados = useMemo(() => {
     const q = busqueda.toLowerCase();
@@ -136,25 +129,6 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
 
   return (
     <div className={styles.page}>
-
-      {/* ── Topbar ── */}
-      <nav className={styles.topbar}>
-        <div className={styles.brand}>
-          <div className={styles.brandIcon}>P</div>
-          <span className={styles.brandName}>Plan-<span>OTs</span></span>
-        </div>
-        <div className={styles.userInfo}>
-          <div className={styles.avatar}>{iniciales}</div>
-          <div className={styles.userText}>
-            <span className={styles.userName}>{nombreUsuario}</span>
-            {contexto?.creador && <span className={styles.userRole}>Creador</span>}
-          </div>
-          <button className={styles.signOutBtn} onClick={()=>void useAuthStore.getState().signOut()}>
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 5H6.5A1.5 1.5 0 0 0 5 6.5v11A1.5 1.5 0 0 0 6.5 19H10m4-4 3-3-3-3m3 3H9" /></svg>
-            <span>Cerrar sesión</span>
-          </button>
-        </div>
-      </nav>
 
       {/* ── Área scrollable — full width para que el scrollbar quede al
               borde derecho del viewport, no centrado por el max-width del

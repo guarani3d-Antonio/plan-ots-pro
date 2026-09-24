@@ -85,7 +85,7 @@ const TIPO_CFG: Record<TipoInforme, TipoCfg> = {
     fileSlug: 'Orden_Servicio_Borrador',
     labelTextarea: 'Aclaración posterior de la solicitud',
     placeholderTextarea: 'Solo si el pedido original fue aclarado después de recibirlo...',
-    necesitaFotosAntes: false,
+    necesitaFotosAntes: true,
     necesitaFotosDespues: false,
     necesitaFotosDurante: false,
   },
@@ -297,6 +297,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
   const prevIncluirFotosRef = useRef(incluirFotos);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
+  const editorRef = useRef<HTMLDivElement>(null);
   const [previewAncho, setPreviewAncho] = useState(794);
   const [previewAlto, setPreviewAlto] = useState(1123);
 
@@ -398,7 +399,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
       case 'cierre':
         return generarInformeCierre(orden, proyectoNombre, textoActual, fa, fd, datosCierre, codigoDocumento);
       case 'orden_servicio':
-        return generarInformeOrdenServicio(orden, textoActual, origenServicio, codigoDocumento);
+        return generarInformeOrdenServicio(orden, textoActual, origenServicio, codigoDocumento, fa);
       case 'relevamiento':
         return generarInformeRelevamiento(orden, textoActual, fa, datosRelevamiento, codigoDocumento);
       case 'avance':
@@ -722,10 +723,17 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
           </button>
         </div>
 
+        <nav className={styles.quickNav} aria-label="Navegación del informe">
+          <button type="button" onClick={() => editorRef.current?.scrollTo({ top: 0, behavior: 'smooth' })}>Datos</button>
+          {muestraTextarea && <button type="button" onClick={() => editorRef.current?.querySelector('[data-report-section="texto"]')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>Texto</button>}
+          {necesitaFotos && <button type="button" onClick={() => editorRef.current?.querySelector('[data-report-section="fotos"]')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>Fotos</button>}
+          <button type="button" onClick={() => previewRef.current?.scrollTo({ top: 0, behavior: 'smooth' })}>Inicio de la vista previa</button>
+        </nav>
+
         {/* BODY */}
         <div className={styles.body}>
           {/* IZQUIERDA */}
-          <div className={styles.left}>
+          <div className={styles.left} ref={editorRef}>
             {tipoRepetible && (
               <div className={styles.section}>
                 <label className={styles.originField}>
@@ -914,7 +922,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
             )}
 
             {muestraTextarea && (
-              <div className={styles.section}>
+              <div className={styles.section} data-report-section="texto">
                 <div className={styles.voiceLabelRow}>
                   <label className={styles.label} htmlFor="obs-informe">{cfg.labelTextarea}</label>
                   <VoiceInputButton
@@ -976,7 +984,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
             )}
 
             {necesitaFotos && (
-              <div className={styles.section}>
+              <div className={styles.section} data-report-section="fotos">
                 <div className={styles.sectionTitle}>Opciones</div>
                 <label className={styles.checkboxRow}>
                   <input

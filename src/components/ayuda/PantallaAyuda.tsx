@@ -33,7 +33,7 @@ const MODULOS: ModuloAyuda[] = [
         texto: 'Subí el plano referencial (PDF o imagen).',
         nota: 'Las imágenes deben ser mínimo 1800×1200 px. Los PDF no tienen restricción de dimensión.',
       },
-      { texto: 'Guardá. El proyecto queda disponible offline y se sincroniza al reconectar.' },
+      { texto: 'Guardá con conexión. Verificá la confirmación antes de seguir trabajando en campo.' },
     ],
   },
   {

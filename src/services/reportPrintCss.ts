@@ -83,13 +83,52 @@ strong{font-weight:700;color:#243954}
 .relevamiento-page section[style*="border-left"]{padding:10px 13px!important}
 .page-footer{padding-top:10px;border-top:3px solid #cc7a00;color:#566476;font-size:10px}
 .footer-pagina{color:#566476!important;opacity:1!important}
+
+/* Diseno compartido del expediente: jerarquia y bloques de los cinco mockups. */
+.a4-page{font-family:Arial,Helvetica,sans-serif;color:#162a45}
+.a4-page>header{padding:0 0 11px;margin-bottom:16px;border-bottom:1px solid #d7e1ec}
+.a4-page>header>div:first-child strong{display:inline-flex;align-items:center;gap:9px;color:#173455!important;font-size:12px!important}
+.a4-page>header>div:first-child strong::before{content:"P";display:inline-grid;place-items:center;width:25px;height:25px;background:#193757;color:white;border-radius:5px;font-size:14px}
+.a4-page>header>div:last-child{font-size:9px;line-height:1.35}
+.a4-page>header+div{margin-bottom:14px}
+.a4-page .report-kicker{display:flex;justify-content:space-between;gap:8px;margin:0 0 7px;color:#244b80;font-size:9px;font-weight:700;letter-spacing:.05em;text-transform:uppercase}
+.a4-page .report-kicker span{color:#6a7482;font-weight:500;text-transform:none;letter-spacing:0}
+.a4-page h1{font-size:20px;color:#173455;border-left:4px solid #244b80;padding-left:11px;margin-bottom:5px}
+.a4-page .report-section-title{display:flex;align-items:center;gap:8px;border-bottom:1px solid #c8d9ec;margin:13px 0 8px;padding-bottom:4px;color:#173455;font-size:11px;font-weight:700;line-height:1.2;text-transform:uppercase;letter-spacing:.025em;break-after:avoid;page-break-after:avoid}
+.a4-page .report-section-title span{display:grid;place-items:center;width:21px;height:21px;flex:none;border-radius:50%;background:#244b80;color:#fff;font-size:10px}
+.a4-page>header+div>p{font-size:10px;color:#506178}
+.a4-page section{margin-bottom:10px!important}
+.a4-page section.grid{background:#f4f8fd;border:1px solid #d6e3f0;border-radius:7px;padding:12px 14px!important;gap:9px 13px!important}
+.a4-page section.grid>div{background:white;border:1px solid #dbe5ef;border-radius:5px;padding:8px 10px!important}
+.a4-page section.grid>div:first-child.col-span-3{border:0;border-bottom:1px solid #d6e3f0;background:transparent;border-radius:0;padding:0 0 5px!important}
+.a4-page section:not(.grid)[class*="border"]{border-color:#d6e3f0;background:#f7faff;border-radius:7px;padding:10px 13px!important}
+.a4-page section[style*="border-left"]{background:#fff7e9!important;border-left:4px solid #c98517!important;padding:10px 13px!important}
+.a4-page section[style*="border-left"] p{white-space:pre-line}
+.a4-page section>strong,.a4-page section h3{color:#244b80;font-size:9px!important;letter-spacing:.045em}
+.a4-page .os-evidence{background:#eef5fc;border:1px solid #d6e3f0;border-radius:7px;padding:10px 12px}
+.a4-page .os-evidence>strong{display:block;color:#244b80;font-size:9px;text-transform:uppercase;margin-bottom:6px}
+.a4-page .os-evidence-body{display:flex;align-items:flex-start;gap:10px}
+.a4-page .os-evidence-body img{display:block;max-width:35%;max-height:42mm;object-fit:contain;border-radius:4px}
+.a4-page .os-evidence-body p{flex:1;margin:0;white-space:pre-line}
+.a4-page .os-evidence-body small{display:block;color:#5d6d80;margin-top:7px}
+.a4-page .evidencia-bloque{background:#eef5fc;border:1px solid #d6e3f0;border-radius:7px;padding:8px!important}
+.a4-page .evidencia-bloque img{max-height:86mm!important}
+.a4-page p{font-size:10px;line-height:1.35}
+.a4-page .grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.a4-page .grid-cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.a4-page.os-page section.os-meta{grid-template-columns:repeat(4,minmax(0,1fr))}
+.a4-page.os-page section.os-meta>div{padding:6px 7px!important}
+.a4-page.os-page section.os-meta>div>strong{font-size:8px;line-height:1.1}
+.a4-page.os-page section.os-meta>div>p{font-size:9px;line-height:1.2}
+.page-break{break-after:page;page-break-after:always}
+@media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
 @media screen{
   .a4-page{margin:0 auto 24px;min-height:297mm;width:210mm;padding:18mm 18mm 16mm;background:#fff}
   .page-footer{width:210mm;margin:0 auto 24px;padding:10px 18mm 18mm;background:#fff}
 }
 @media print{
   @page{
-    size:A4 portrait;margin:16mm 17mm 19mm;
+    size:A4 portrait;margin:13mm 15mm 15mm;
     @bottom-left{content:"Plan-OTs · BORRADOR · SIN EMISIÓN NI APROBACIÓN";font:8px Arial,sans-serif;color:#566476}
     @bottom-right{content:counter(page) " / " counter(pages);font:8px Arial,sans-serif;color:#566476}
   }

@@ -9,6 +9,7 @@ import VistaPlano from './components/plano/VistaPlano';
 import { iniciarSyncManager } from './sync/SyncManager';
 import { VistaGrilla } from './components/grilla/VistaGrilla';
 import { Sidebar, type Vista } from './components/layout/Sidebar';
+import { ApplicationTopBar } from './components/layout/ApplicationTopBar';
 import Dashboard      from './components/views/Dashboard';
 import Responsables   from './components/views/Responsables';
 import Gantt          from './components/views/Gantt';
@@ -236,6 +237,7 @@ function ContenidoApp() {
           flexDirection: 'column',
           overflow: 'auto',
         }}>
+          {!fullscreen && !(proyectoActivo && VISTAS_CON_PROYECTO.has(vista)) && <ApplicationTopBar vista={vista} />}
           {!fullscreen && proyectoActivo && (vista === 'plano' || vista === 'grilla') && (
             <ProyectoTopBar
               nombreProyecto={proyectoActivo.nombre}

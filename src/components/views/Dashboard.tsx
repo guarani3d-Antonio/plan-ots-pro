@@ -7,11 +7,12 @@ import { useProyectosStore } from '../../stores/proyectosStore';
 import { useAuthStore } from '../../stores/authStore';
 import { ESTADO_COLOR } from '../../constants/estados';
 import {
-  getWidgetConfig, saveWidgetConfig, DEFAULT_WIDGETS,
-  type WidgetConfig, type WidgetId,
+  getWidgetConfig, saveWidgetConfig, getManagedWidgetConfig, saveManagedWidgetConfig, listarUsuariosDashboard, DEFAULT_WIDGETS,
+  type WidgetConfig, type WidgetId, type UsuarioDashboard,
 } from '../../services/dashboardConfigService';
 import { ModalConfigWidgets } from '../dashboard/ModalConfigWidgets';
 import { usePuedeVerCostosMultiple } from '../../hooks/usePuedeVerCostos';
+import { useAccessStore } from '../../stores/accessStore';
 
 const ESTADOS = ['Pendiente', 'En proceso', 'Cerrada', 'No aplica'] as const;
 
@@ -49,11 +50,17 @@ export default function Dashboard() {
   const proyectos             = useProyectosStore(s => s.proyectos);
   const cargarProyectos       = useProyectosStore(s => s.cargarProyectos);
   const user                  = useAuthStore(s => s.user);
+  const esCreador             = useAccessStore(s => s.disponible && s.contexto?.creador === true);
 
   const [filtroProyecto, setFiltroProyecto] = useState<string>('');
   const [colapsado, setColapsado]           = useState(false);
   const [widgetConfig, setWidgetConfig]     = useState<WidgetConfig[]>(DEFAULT_WIDGETS);
   const [showWidgetPanel, setShowWidgetPanel] = useState(false);
+  const [usuariosDashboard, setUsuariosDashboard] = useState<UsuarioDashboard[]>([]);
+  const [usuarioObjetivo, setUsuarioObjetivo] = useState('');
+  const [configObjetivo, setConfigObjetivo] = useState<WidgetConfig[]>(DEFAULT_WIDGETS);
+  const [errorConfig, setErrorConfig] = useState('');
+  const [cargandoConfig, setCargandoConfig] = useState(false);
   const configBtnWrapperRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -67,6 +74,26 @@ export default function Dashboard() {
       getWidgetConfig(user.id).then(setWidgetConfig);
     }
   }, [user?.id]);
+
+  useEffect(() => {
+    if (!esCreador || !showWidgetPanel) return;
+    let activo = true;
+    void listarUsuariosDashboard().then(rows => {
+      if (activo) { setUsuariosDashboard(rows); setErrorConfig(''); setUsuarioObjetivo(id => id || user?.id || rows[0]?.user_id || ''); }
+    }).catch(err => { if (activo) setErrorConfig(err instanceof Error ? err.message : 'No se pudieron cargar usuarios'); });
+    return () => { activo = false; };
+  }, [esCreador, showWidgetPanel, user?.id]);
+
+  useEffect(() => {
+    if (!showWidgetPanel || !usuarioObjetivo) return;
+    let activo = true;
+    setCargandoConfig(true);
+    void getManagedWidgetConfig(usuarioObjetivo).then(config => {
+      if (activo) { setConfigObjetivo(config); setErrorConfig(''); }
+    }).catch(err => { if (activo) setErrorConfig(err instanceof Error ? err.message : 'No se pudo cargar la configuración'); })
+      .finally(() => { if (activo) setCargandoConfig(false); });
+    return () => { activo = false; };
+  }, [showWidgetPanel, usuarioObjetivo]);
 
   const userName = user?.email?.split('@')[0] ?? 'Usuario';
 
@@ -141,12 +168,18 @@ export default function Dashboard() {
 
   const sortedWidgetIds = [...widgetConfig]
     .sort((a, b) => a.orden - b.orden)
-    .map(w => w.id);
+    .map(w => w.id)
+    .filter(id => !id.startsWith('kpi_'));
 
   const handleSaveWidgetConfig = useCallback(async (newConfig: WidgetConfig[]) => {
-    setWidgetConfig(newConfig);
-    if (user?.id) await saveWidgetConfig(user.id, newConfig);
-  }, [user?.id]);
+    if (!usuarioObjetivo) throw new Error('Seleccioná un usuario');
+    if (usuarioObjetivo === user?.id) {
+      await saveManagedWidgetConfig(usuarioObjetivo, newConfig);
+      await saveWidgetConfig(usuarioObjetivo, newConfig);
+      setWidgetConfig(newConfig);
+    } else await saveManagedWidgetConfig(usuarioObjetivo, newConfig);
+    setConfigObjetivo(newConfig);
+  }, [usuarioObjetivo, user?.id]);
 
   // ── Export CSV ─────────────────────────────────────────────────────────────
 
@@ -394,10 +427,10 @@ body{background:#888;font-family:Arial,sans-serif}
       case 'kpis':
         return (
           <div key="kpis" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, marginBottom: 14 }}>
-            <KPICard label="Total OTs" valor={total} subtitle={modificadasUltSem > 0 ? `${modificadasUltSem} actualizadas última semana` : 'Sin cambios esta semana'} />
-            <KPICard label="Avance general" valor={`${avancePromedio}%`} color={avancePromedio >= 80 ? '#15803D' : '#2563EB'} bar={avancePromedio} />
-            <KPICard label="OTs en riesgo" valor={riesgo} color={riesgo > 0 ? '#DC2626' : '#15803D'} badge={riesgo > 0 ? { text: 'Crítico', color: '#DC2626' } : { text: 'OK', color: '#15803D' }} />
-            {puedeVerCostos && <KPICard label="Costo total" valor={formatGs(costoTotal)} fontSize={20} />}
+            {isVisible('kpi_total') && <KPICard label="Total OTs" valor={total} subtitle={modificadasUltSem > 0 ? `${modificadasUltSem} actualizadas última semana` : 'Sin cambios esta semana'} />}
+            {isVisible('kpi_avance') && <KPICard label="Avance general" valor={`${avancePromedio}%`} color={avancePromedio >= 80 ? '#15803D' : '#2563EB'} bar={avancePromedio} />}
+            {isVisible('kpi_riesgo') && <KPICard label="OTs en riesgo" valor={riesgo} color={riesgo > 0 ? '#DC2626' : '#15803D'} badge={riesgo > 0 ? { text: 'Crítico', color: '#DC2626' } : { text: 'OK', color: '#15803D' }} />}
+            {puedeVerCostos && isVisible('kpi_costo') && <KPICard label="Costo total" valor={formatGs(costoTotal)} fontSize={20} />}
           </div>
         );
 
@@ -512,7 +545,7 @@ body{background:#888;font-family:Arial,sans-serif}
             <button type="button" onClick={handleExportHTML} style={btnSecundario}>HTML</button>
             <button type="button" onClick={handleExportPDF} style={btnPrimario}>🖨 PDF</button>
             {/* Botón configurar widgets */}
-            <div ref={configBtnWrapperRef} style={{ position: 'relative' }}>
+            {esCreador && <div ref={configBtnWrapperRef} style={{ position: 'relative' }}>
               <button
                 type="button"
                 onClick={() => setShowWidgetPanel(v => !v)}
@@ -526,14 +559,20 @@ body{background:#888;font-family:Arial,sans-serif}
               >
                 ⚙ Widgets
               </button>
-              {showWidgetPanel && (
+              {showWidgetPanel && errorConfig && <span role="alert" style={{ position: 'absolute', top: '100%', right: 0, zIndex: 9001, background: 'var(--bg-surface)', color: 'var(--color-danger, #b91c1c)', padding: 8, minWidth: 280 }}>{errorConfig}</span>}
+              {showWidgetPanel && !errorConfig && usuarioObjetivo && (
                 <ModalConfigWidgets
-                  widgets={widgetConfig}
+                  key={usuarioObjetivo}
+                  widgets={configObjetivo}
                   onSave={handleSaveWidgetConfig}
                   onClose={() => setShowWidgetPanel(false)}
+                  usuarios={usuariosDashboard}
+                  usuarioId={usuarioObjetivo}
+                  onUsuarioChange={setUsuarioObjetivo}
+                  loading={cargandoConfig}
                 />
               )}
-            </div>
+            </div>}
           </div>
           <FiltroProyecto value={filtroProyecto} onChange={setFiltroProyecto} proyectos={proyectos} />
         </div>

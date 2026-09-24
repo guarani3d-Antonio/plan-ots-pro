@@ -92,62 +92,6 @@ export const _HEAD_INFORME = `<!DOCTYPE html>
 <title>__TITLE__</title>
 
 <style>
-  .material-symbols-outlined {
-    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
-  }
-  @media screen {
-    body { background-color: #f0f2f5; padding: 40px 0; }
-    .a4-page {
-      background: white;
-      box-shadow: 0 0 20px rgba(0,0,0,0.08);
-      margin: 0 auto 40px auto;
-    }
-  }
-  .a4-page {
-    width: 210mm;
-    min-height: 297mm;
-    padding: 18mm 20mm 18mm 20mm;
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    box-sizing: border-box;
-    overflow: visible;
-  }
-  header, footer, .no-break {
-    break-inside: avoid;
-    page-break-inside: avoid;
-  }
-  .page-footer {
-    margin-top: auto;
-    break-inside: avoid;
-    page-break-inside: avoid;
-  }
-  .page-break {
-    break-after: page;
-    page-break-after: always;
-  }
-  @media print {
-    body { background: none; padding: 0; margin: 0; counter-reset: pagina; }
-    .a4-page {
-      box-shadow: none; margin: 0; width: 100%; min-height: 0; display: block;
-      padding: 8mm 16mm 28mm 16mm; overflow: visible;
-      counter-increment: pagina;
-    }
-    .footer-pagina::after { content: "Página " counter(pagina); }
-    @page { size: A4 portrait; margin: 20mm 15mm 25mm 15mm; }
-    .page-footer {
-      position: fixed; bottom: 0; left: 16mm; right: 16mm;
-      background: white; padding-top: 4px;
-    }
-    img { break-inside: avoid; page-break-inside: avoid; max-width: 100%; }
-    .evidencia-bloque { break-inside: avoid; page-break-inside: avoid; }
-    .aspect-\\[4\\/3\\], .aspect-\\[16\\/9\\], .aspect-video {
-      break-inside: avoid; page-break-inside: avoid;
-    }
-    h1, h2, h3 { break-after: avoid; page-break-after: avoid; }
-    .no-break { break-inside: avoid; page-break-inside: avoid; }
-    .no-print { display: none !important; }
-  }
 ${REPORT_PRINT_CSS}
 </style>
 </head>`;
@@ -174,6 +118,13 @@ export const _LOGOS_HTML_INFORME = `<div class="flex items-center gap-4"><strong
 export function _paginaHeader(orden: OrdenLocal, titulo: string, subtitulo: string, codigoDocumento?: string): string {
   const badge = _estadoBadgeCfg(orden.estado);
   const otLabel = orden.ot ?? 'Sin código';
+  const etapa: Record<string, string> = {
+    'ORDEN DE SERVICIO': '01 / APERTURA',
+    'INFORME DE RELEVAMIENTO': '02 / DIAGNÓSTICO',
+    'INFORME DE AVANCE': '03 / EJECUCIÓN',
+    'INFORME DE CIERRE TÉCNICO': '04 / VERIFICACIÓN',
+    'ACTA DE CONFORMIDAD': '05 / RECEPCIÓN',
+  };
   return `<header class="flex justify-between items-start mb-10 border-b border-outline-variant pb-6">
     ${_LOGOS_HTML_INFORME}
     <div class="text-right">
@@ -186,10 +137,15 @@ export function _paginaHeader(orden: OrdenLocal, titulo: string, subtitulo: stri
       <div class="text-body-sm">Revisión documental: sin emitir</div>
     </div>
   </header>
-  <div class="mb-8">
+  <div class="report-title mb-8">
+    <div class="report-kicker">${escapeHtml(etapa[titulo] ?? 'EXPEDIENTE TÉCNICO')} <span>Documento de trabajo · sin emitir</span></div>
     <h1 class="font-headline-xl text-headline-xl text-primary border-l-[6px] border-primary pl-5 mb-3">${escapeHtml(titulo)} · BORRADOR</h1>
     <p class="text-on-surface-variant text-body-md max-w-3xl leading-relaxed">${escapeHtml(subtitulo)}</p>
   </div>`;
+}
+
+export function _seccionInforme(numero: number, titulo: string): string {
+  return `<h2 class="report-section-title"><span>${numero}</span>${escapeHtml(titulo)}</h2>`;
 }
 
 // Wrap del contenido en el documento HTML completo.

@@ -10,6 +10,7 @@ import {
   _envolverInforme,
   _bloqueDatosCliente,
   _bloqueNaranjaIzquierdo,
+  _seccionInforme,
 } from './reportTemplates';
 
 export type TipoInforme = 'orden_servicio' | 'relevamiento' | 'avance' | 'cierre' | 'acta_conformidad';
@@ -103,6 +104,7 @@ export function generarInformeCierre(
     `<section class="p-4 border border-outline-variant rounded-lg mb-4"><strong>${titulo}</strong>${campo(clave)}</section>`;
   const contenido = `<div class="a4-page">
 ${_paginaHeader(orden, 'INFORME DE CIERRE TÉCNICO', 'Resultados de la intervención y pendientes de verificación. La recepción del cliente corresponde al acta.', codigoDocumento)}
+${_seccionInforme(1, 'Base y ejecución final')}
 <section class="grid grid-cols-2 gap-4 mb-6">
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Proyecto</strong><p>${escapeHtml(proyectoNombre)}</p></div>
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Alcance aprobado de referencia</strong>${campo('alcanceReferencia')}</div>
@@ -111,10 +113,12 @@ ${_paginaHeader(orden, 'INFORME DE CIERRE TÉCNICO', 'Resultados de la intervenc
 </section>
 ${bloque('Cambios de alcance aprobados (referencias)', 'cambiosAprobados')}
 ${_bloqueNaranjaIzquierdo('Síntesis del resultado técnico', observaciones, 'No se registró una síntesis técnica.')}
+${_seccionInforme(2, 'Comprobación de criterios')}
 ${bloque('Ejecución final por ítem del alcance', 'ejecucionPorItem')}
 ${bloque('Pruebas finales: criterio, método, resultado, verificador y fecha', 'verificacion')}
 ${bloque('Pendientes, restricciones y acciones acordadas', 'pendientes')}
 ${bloque('Entregables técnicos efectivamente entregados', 'entregables')}
+${_seccionInforme(3, 'Pendientes y decisión técnica')}
 ${bloque('Conclusión técnica declarada', 'conclusion')}
 ${bloque('Autorización interna: actor y referencia', 'autorizacionInterna')}
 <p class="text-xs text-on-surface-variant">El estado de la OT no acredita pruebas ni autorización. Este borrador no equivale a conformidad del cliente.</p>
@@ -130,6 +134,7 @@ export function generarInformeOrdenServicio(
   aclaracion: string,
   origen?: OrigenOrdenServicio,
   codigoDocumento?: string,
+  fotosCliente: { file_url: string; descripcion?: string | null; descripcion_observacion?: string | null }[] = [],
 ): string {
   const dato = (clave: keyof OrigenOrdenServicio, legado: string) => {
     const valor = origen ? origen[clave] : orden.campos?.[legado];
@@ -139,7 +144,8 @@ export function generarInformeOrdenServicio(
   const contenido = `<div class="a4-page os-page">
 ${_paginaHeader(orden, 'ORDEN DE SERVICIO', 'Registro de apertura de la orden de trabajo y procedencia de la solicitud. No certifica una visita ni un diagnóstico.', codigoDocumento)}
 ${_bloqueDatosCliente(orden)}
-<section class="grid grid-cols-2 gap-4 mb-6 no-break">
+${_seccionInforme(1, 'Origen y solicitud')}
+<section class="grid grid-cols-2 os-meta gap-4 mb-6 no-break">
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Fecha de ingreso de OT</strong><p>${escapeHtml(formatearFechaCorta(orden.fecha_ingreso))}</p></div>
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Canal de solicitud</strong><p id="os-canal">${escapeHtml(dato('canal', 'canal_solicitud'))}</p></div>
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Fecha y hora de recepción declarada</strong><p id="os-fechaRecepcion">${escapeHtml(dato('fechaRecepcion', 'fecha_solicitud').replace('T', ' '))}</p></div>
@@ -149,10 +155,14 @@ ${_bloqueDatosCliente(orden)}
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Urgencia manifestada</strong><p id="os-urgencia">${escapeHtml(dato('urgencia', 'urgencia_solicitada'))}</p></div>
 </section>
 ${_bloqueNaranjaIzquierdo('Solicitud original', orden.descripcion ?? '', 'No se ha registrado el reclamo original.', '')}
+${fotosCliente.length ? `<section class="os-evidence no-break"><strong>Evidencia aportada al ingreso · ${fotosCliente.length} foto(s)</strong>
+  <div class="os-evidence-body"><img src="${escapeHtml(fotosCliente[0].file_url)}" alt="Evidencia aportada al ingreso" />
+  <p>${escapeHtml(fotosCliente[0].descripcion_observacion || fotosCliente[0].descripcion || 'Sin descripción de origen')}
+  <small>La imagen aportada no acredita por sí sola una visita técnica.</small></p></div></section>` : ''}
 ${_bloqueNaranjaIzquierdo('Aclaración posterior', aclaracion, 'Sin aclaraciones posteriores.')}
+${_seccionInforme(2, 'Clasificación y derivación')}
 <section class="p-4 border border-outline-variant rounded-lg no-break"><strong>Clasificación inicial</strong><p>${escapeHtml(orden.rubro || 'Sin clasificar')} · Prioridad ${escapeHtml(orden.prioridad || 'No registrada')} · Responsable ${escapeHtml(orden.responsable || 'No asignado')}</p></section>
 <section class="p-4 border border-outline-variant rounded-lg no-break mt-4"><strong>Próximo paso acordado</strong><p id="os-proximoPaso">${escapeHtml(dato('proximoPaso', 'proximo_paso'))}</p></section>
-<p class="mt-6 text-xs text-on-surface-variant">La evidencia aportada por el cliente debe vincularse con su mensaje de origen. Los datos faltantes impiden considerar completa esta orden.</p>
 </div>`;
 
   return _envolverInforme('Orden de servicio — borrador', contenido);
@@ -181,6 +191,7 @@ export function generarInformeRelevamiento(
   const contenido = `<div class="a4-page relevamiento-page">
 ${_paginaHeader(orden, 'INFORME DE RELEVAMIENTO', 'Diagnóstico técnico inicial y detección del alcance de la intervención requerida.', codigoDocumento)}
 ${_bloqueDatosCliente(orden)}
+${_seccionInforme(1, 'Hallazgo y diagnóstico')}
 <section class="grid grid-cols-2 gap-4 mb-6">
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Modalidad (visita o remota)</strong>${campo('modalidad')}</div>
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Fecha de intervención declarada</strong>${campo('fechaIntervencion')}</div>
@@ -191,6 +202,7 @@ ${bloque('Condiciones, acceso y límites de observación', 'condiciones')}
 ${bloque('Hallazgos y evidencia relacionada', 'hallazgos')}
 ${bloque('Pruebas y mediciones realizadas', 'pruebas')}
 ${_bloqueNaranjaIzquierdo('Diagnóstico Inicial', comentarioInicial, 'Sin diagnóstico registrado.')}
+${_seccionInforme(2, 'Alcance y criterios propuestos')}
 ${bloque('Alcance propuesto', 'alcance')}
 ${bloque('Exclusiones y supuestos', 'exclusiones')}
 ${bloque('Criterios de aceptación propuestos', 'criterios')}
@@ -226,6 +238,7 @@ export function generarInformeAvance(
     `<section class="p-4 border border-outline-variant rounded-lg mb-4"><strong>${titulo}</strong>${campo(clave)}</section>`;
   const contenido = `<div class="a4-page">
 ${_paginaHeader(orden, 'INFORME DE AVANCE', 'Estado de la ejecución durante un período determinado. El corte y su revisión deberán quedar identificados al emitir.', codigoDocumento)}
+${_seccionInforme(1, 'Resultado del período')}
 <section class="grid grid-cols-2 gap-4 mb-6">
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Período desde</strong>${campo('periodoDesde')}</div>
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Corte hasta</strong>${campo('periodoHasta')}</div>
@@ -233,11 +246,13 @@ ${_paginaHeader(orden, 'INFORME DE AVANCE', 'Estado de la ejecución durante un 
 ${bloque('Alcance aprobado de referencia (código y revisión)', 'alcanceReferencia')}
 ${_bloqueNaranjaIzquierdo('Trabajo observado en este corte', comentarioAvance, 'Sin avance técnico registrado para este corte.')}
 ${bloque('Avance acumulado y saldo por ítem', 'acumulado')}
+${_seccionInforme(2, 'Previsto frente a realizado')}
 <section class="grid grid-cols-2 gap-4 mb-6">
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Porcentaje declarado al corte</strong>${campo('porcentaje')}</div>
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Método y base de cálculo</strong>${campo('metodoPorcentaje')}</div>
 </section>
 ${bloque('Desvíos, impacto y acciones', 'desvios')}
+${_seccionInforme(3, 'Desvíos y siguiente decisión')}
 ${bloque('Objetivos y dependencias del próximo período', 'proximoPeriodo')}
 <p class="text-xs text-on-surface-variant">Un porcentaje sin método, base y alcance aprobado no acredita el progreso. Este borrador no certifica ejecución ni recepción.</p>
 ${fotosDurante.length ? `<h3 class="font-section-header text-section-header text-primary uppercase tracking-widest">Evidencia de ejecución (durante)</h3>
@@ -257,6 +272,7 @@ export function generarInformeActaConformidad(orden: OrdenLocal, datos?: DatosAc
   const contenido = `<div class="a4-page acta-page">
 ${_paginaHeader(orden, 'ACTA DE CONFORMIDAD', 'Instrumento de recepción pendiente de decisión expresa del cliente.', codigoDocumento)}
 ${_bloqueDatosCliente(orden)}
+${_seccionInforme(1, 'Objeto de recepción')}
 ${bloque('Objeto breve de la entrega', 'objetoEntrega')}
 <section class="grid grid-cols-2 gap-4 mb-6">
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Cierre técnico (código y revisión)</strong>${campo('cierreReferencia')}</div>
@@ -268,10 +284,12 @@ ${bloque('Objeto breve de la entrega', 'objetoEntrega')}
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Cargo o calidad</strong>${campo('cargo')}</div>
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Facultad para recibir (referencia)</strong>${campo('facultad')}</div>
 </section>
+${_seccionInforme(2, 'Decisión y reservas')}
 <section class="grid grid-cols-2 gap-4 mb-6">
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Opción preparada (sin manifestación)</strong>${campo('decisionPreparada')}</div>
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Reservas propuestas y tratamiento</strong>${campo('reservas')}</div>
 </section>
+${_seccionInforme(3, 'Condiciones y formalización')}
 <section class="grid grid-cols-2 gap-4 mb-6">
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Garantía contractual de referencia</strong>${campo('garantiaReferencia')}</div>
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Cobertura y condiciones acordadas</strong>${campo('garantiaCondiciones')}</div>

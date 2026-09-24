@@ -2,12 +2,12 @@ import type { OrdenLocal } from '../types/orden';
 export const ORDEN_SELECT = '*,orden_costos(costo)';
 
 const MUTABLE_COLUMNS: readonly (keyof OrdenLocal)[] = [
-  'ot',
   'ubicacion',
   'comentarios',
   'estado',
   'prioridad',
   'responsable',
+  'responsable_id',
   'rubro',
   'pos_x',
   'pos_y',
@@ -58,6 +58,7 @@ export function rowToOrden(row: Record<string, unknown>): OrdenLocal {
     estado:                     (row.estado as OrdenLocal['estado']) ?? 'Pendiente',
     prioridad:                  (row.prioridad as OrdenLocal['prioridad']) ?? 'Media',
     responsable:                (row.responsable as string) ?? '',
+    responsable_id:             (row.responsable_id as string) ?? null,
     rubro:                      (row.rubro as string) ?? '',
     pos_x:                      nullablePosition(row.pos_x),
     pos_y:                      nullablePosition(row.pos_y),
@@ -107,6 +108,7 @@ export function ordenToRow(o: OrdenLocal): Record<string, unknown> {
     estado:                     o.estado,
     prioridad:                  o.prioridad,
     responsable:                o.responsable,
+    responsable_id:             o.responsable_id ?? null,
     rubro:                      o.rubro,
     pos_x:                      o.pos_x,
     pos_y:                      o.pos_y,

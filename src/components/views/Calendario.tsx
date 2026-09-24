@@ -62,6 +62,11 @@ function capitalizar(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
+function inicioSemana(fecha: Date): Date {
+  const dia = (fecha.getDay() + 6) % 7;
+  return new Date(fecha.getFullYear(), fecha.getMonth(), fecha.getDate() - dia);
+}
+
 // ─── Componente ──────────────────────────────────────────────────────────────
 export default function Calendario() {
   const ordenes               = useOrdenesStore(s => s.ordenes);
@@ -143,8 +148,16 @@ export default function Calendario() {
   }, [ordenesFiltradas, mesActual]);
 
   // Navegación
-  const mesAnterior  = () => setMesActual(new Date(mesActual.getFullYear(), mesActual.getMonth() - 1, 1));
-  const mesSiguiente = () => setMesActual(new Date(mesActual.getFullYear(), mesActual.getMonth() + 1, 1));
+  const navegarPeriodo = (delta: number) => {
+    if (vistaCalendario === 'mes') {
+      setMesActual(new Date(mesActual.getFullYear(), mesActual.getMonth() + delta, 1));
+      return;
+    }
+    const dias = vistaCalendario === 'semana' ? 7 : 1;
+    const siguiente = new Date(diaSeleccionado.getFullYear(), diaSeleccionado.getMonth(), diaSeleccionado.getDate() + delta * dias);
+    setDiaSeleccionado(siguiente);
+    setMesActual(new Date(siguiente.getFullYear(), siguiente.getMonth(), 1));
+  };
   const irHoy = () => {
     const h = new Date();
     setMesActual(new Date(h.getFullYear(), h.getMonth(), 1));
@@ -163,7 +176,7 @@ export default function Calendario() {
     const pendientes  = ordenesFiltradas.filter(o => o.estado === 'Pendiente');
     const cerradas    = ordenesFiltradas.filter(o => o.estado === 'Cerrada');
 
-    const filaOT = (o: any, tipo: string, color: string) => `
+    const filaOT = (o: OrdenLocal, tipo: string, color: string) => `
       <tr style="border-bottom:1px solid #F3F4F6;">
         <td style="padding:8px 12px;font-weight:700;color:#001E40;">${o.ot}</td>
         <td style="padding:8px 12px;"><span style="background:${color}22;color:${color};
@@ -175,7 +188,7 @@ export default function Calendario() {
       </tr>`;
 
     // Combinar todos los eventos del mes sin duplicar OTs
-    const todasOTs = new Map<string, any>();
+    const todasOTs = new Map<string, OrdenLocal & { _tipo: TipoEvento; _color: string }>();
     ingresosMes.forEach(o => todasOTs.set(o.id, { ...o, _tipo: 'INGRESO', _color: '#001E40' }));
     iniciosMes.forEach(o  => todasOTs.set(o.id, { ...o, _tipo: 'INICIO',  _color: '#D97706' }));
     cierresMes.forEach(o  => todasOTs.set(o.id, { ...o, _tipo: 'CIERRE',  _color: '#DC2626' }));
@@ -304,6 +317,11 @@ export default function Calendario() {
   const eventosSel = eventosDelDia(diaSeleccionado);
   const fechaSelLabel = `${capitalizar(DIAS_NOMBRE[diaSeleccionado.getDay()])}, ${diaSeleccionado.getDate()} de ${MESES[diaSeleccionado.getMonth()]}`;
   const mesLabel = `${MESES[mesActual.getMonth()]} de ${mesActual.getFullYear()}`;
+  const semanaInicio = inicioSemana(diaSeleccionado);
+  const diasSemana = Array.from({ length: 7 }, (_, i) => new Date(semanaInicio.getFullYear(), semanaInicio.getMonth(), semanaInicio.getDate() + i));
+  const periodoLabel = vistaCalendario === 'mes' ? mesLabel : vistaCalendario === 'dia'
+    ? `${diaSeleccionado.getDate()} de ${MESES[diaSeleccionado.getMonth()]} de ${diaSeleccionado.getFullYear()}`
+    : `${diasSemana[0].getDate()} ${MESES[diasSemana[0].getMonth()]} – ${diasSemana[6].getDate()} ${MESES[diasSemana[6].getMonth()]} ${diasSemana[6].getFullYear()}`;
 
   return (
     <div style={{
@@ -337,13 +355,13 @@ export default function Calendario() {
         gap: 12, marginBottom: 16, flexWrap: 'wrap',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button type="button" style={navBtn} onClick={mesAnterior} title="Mes anterior">‹</button>
+          <button type="button" style={navBtn} onClick={() => navegarPeriodo(-1)} title="Período anterior">‹</button>
           <button type="button" style={{ ...navBtn, fontWeight: 700 }} onClick={irHoy}>Hoy</button>
-          <button type="button" style={navBtn} onClick={mesSiguiente} title="Mes siguiente">›</button>
+          <button type="button" style={navBtn} onClick={() => navegarPeriodo(1)} title="Período siguiente">›</button>
           <span style={{
             fontSize: 18, fontWeight: 800, color: '#0F172A',
             textTransform: 'capitalize', marginLeft: 8,
-          }}>{mesLabel}</span>
+          }}>{periodoLabel}</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <span style={{
@@ -475,13 +493,29 @@ export default function Calendario() {
                 ))}
               </div>
             </>
+          ) : vistaCalendario === 'semana' ? (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', minHeight: 360 }}>
+              {diasSemana.map((dia, i) => <div key={ymd(dia)} onClick={() => setDiaSeleccionado(dia)}
+                style={{ padding: 10, borderRight: i < 6 ? '1px solid #E2E2E7' : undefined, background: esSeleccionado(dia) ? '#EFF6FF' : '#fff', cursor: 'pointer', minWidth: 0 }}>
+                <div style={{ fontSize: 11, color: '#64748B', fontWeight: 700 }}>{DIAS_SEMANA[i]}</div>
+                <div style={{ fontSize: 18, color: '#0F172A', fontWeight: 800, margin: '4px 0 12px' }}>{dia.getDate()}</div>
+                {eventosDelDia(dia).map((ev, j) => <button key={`${ev.orden.id}-${ev.tipo}-${j}`} type="button"
+                  onClick={e => { e.stopPropagation(); setDiaSeleccionado(dia); setModalOrden(ev.orden); }}
+                  style={{ display: 'block', width: '100%', textAlign: 'left', marginBottom: 6, padding: '8px 6px', border: 0, borderLeft: `3px solid ${COLORES[ev.tipo]}`, borderRadius: 4, background: PILL_BG[ev.tipo], color: '#0F172A', fontSize: 11, cursor: 'pointer', overflowWrap: 'anywhere' }}>
+                  <strong>{ev.ot}</strong><br />{ev.tipo}
+                </button>)}
+              </div>)}
+            </div>
           ) : (
-            <div style={{
-              padding: '60px 20px', textAlign: 'center', color: '#9CA3AF',
-              fontSize: 13,
-            }}>
-              Vista {vistaCalendario === 'semana' ? 'semanal' : 'diaria'}: próximamente.
-              <div style={{ marginTop: 6, fontSize: 11 }}>Usá la vista <strong>Mes</strong> por ahora.</div>
+            <div style={{ padding: 18, minHeight: 340 }}>
+              <h2 style={{ margin: '0 0 16px', fontSize: 17, color: '#0F172A' }}>{fechaSelLabel}</h2>
+              {eventosSel.length === 0 ? <p style={{ color: '#64748B' }}>Sin ingresos, inicios ni cierres registrados para este día.</p> :
+                <div style={{ display: 'grid', gap: 10 }}>
+                  {eventosSel.map((ev, i) => <button key={`${ev.orden.id}-${ev.tipo}-${i}`} type="button" onClick={() => setModalOrden(ev.orden)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 16, width: '100%', padding: 14, textAlign: 'left', background: PILL_BG[ev.tipo], border: `1px solid ${COLORES[ev.tipo]}`, borderRadius: 8, cursor: 'pointer', color: '#0F172A', font: 'inherit' }}>
+                    <strong style={{ color: COLORES[ev.tipo], minWidth: 70 }}>{ev.tipo}</strong><span><strong>{ev.ot}</strong> · {ev.obra || 'Obra sin nombre'} · {ev.rubro || 'Sin rubro'}</span>
+                  </button>)}
+                </div>}
             </div>
           )}
         </div>

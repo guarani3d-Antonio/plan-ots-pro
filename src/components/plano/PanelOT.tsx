@@ -64,6 +64,7 @@ interface PanelOTProps {
 
 type Tab = 'datos' | 'fotos' | 'informes' | 'campos';
 type NivelRiesgo = 'Bajo' | 'Medio' | 'Alto' | 'Extremo';
+type ResponsableCuenta = { user_id: string; nombre: string; rol: string };
 
 const RUBROS_LISTA = [
   'Impermeabilización', 'Eléctrica', 'Plomería',
@@ -253,6 +254,8 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
   const [dropdownContratistasOpen, setDropdownContratistasOpen] = useState(false);
   const [contratistasGlobales, setContratistasGlobales] = useState<string[]>([]);
   const [errorDirectorio, setErrorDirectorio] = useState<string | null>(null);
+  const [responsablesCuenta, setResponsablesCuenta] = useState<ResponsableCuenta[]>([]);
+  const [errorResponsables, setErrorResponsables] = useState<string | null>(null);
   const [confirmEliminar, setConfirmEliminar] = useState(false);
   const [guardando,       setGuardando]       = useState(false);
   const [guardadoEn,      setGuardadoEn]      = useState<Date | null>(null);
@@ -461,6 +464,17 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
     }).catch(e => { if (active) { setContratistasGlobales([]); setErrorDirectorio(e.message); } });
     return () => { active = false; };
   }, [permiso?.tenant_id]);
+  useEffect(() => {
+    const proyectoId = ordenFresca?.proyecto_id;
+    if (!proyectoId) return;
+    let activo = true;
+    void supabase.rpc('plan_responsables_proyecto', { p_proyecto: proyectoId }).then(({ data, error }) => {
+      if (!activo) return;
+      if (error) { setResponsablesCuenta([]); setErrorResponsables(error.message); }
+      else { setResponsablesCuenta((data ?? []) as ResponsableCuenta[]); setErrorResponsables(null); }
+    });
+    return () => { activo = false; };
+  }, [ordenFresca?.proyecto_id]);
   const cambiosSinGuardar = JSON.stringify(form) !== JSON.stringify(ordenToForm(baseVisible)) || !!inputContratista.trim()
     || JSON.stringify(valoresCampos) !== JSON.stringify(baseVisible?.campos ?? {});
   useLayoutEffect(() => { cambiosRef.current = cambiosSinGuardar; }, [cambiosSinGuardar]);
@@ -721,7 +735,6 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
     try {
       const base=baseEdicion.current??ordenFresca;
       const cambios=camposCambiados(base,{
-        ot:                         form.ot,
         descripcion:                form.descripcion ?? '',
         comentarios:                form.comentarios ?? '',
         obra:                       form.obra ?? '',
@@ -732,6 +745,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
         rubro_secundario:           form.rubro_secundario ?? [],
         nivel_riesgo:               form.nivel_riesgo ?? null,
         responsable:                form.responsable ?? '',
+        responsable_id:             form.responsable_id ?? null,
         contratistas:               contratistasFinales,
         fecha_ingreso:              (form.fecha_ingreso || null) as unknown as string,
         fecha_inicio_trabajos:      (estado === 'No aplica' ? null : (form.fecha_inicio_trabajos || null)) as unknown as string,
@@ -1056,7 +1070,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
                 <div className={styles.sectionTitle}>Identificación</div>
                 <div className={styles.field}>
                   <label className={styles.label}>Código OT</label>
-                  <input className={styles.input} value={form.ot ?? ''} onChange={e => set('ot', e.target.value)} />
+                  <input className={styles.input} value={form.ot ?? ''} readOnly aria-label="Código OT asignado por la plataforma" title="Código único asignado por la plataforma" />
                 </div>
                 <div className={styles.field}>
                   <label className={styles.label}>Fecha de ingreso</label>
@@ -1064,7 +1078,11 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
                 </div>
                 <div className={styles.field}>
                   <label className={styles.label}>Obra</label>
-                  <input className={styles.input} value={form.obra ?? ''} onChange={e => set('obra', e.target.value)} placeholder="Nombre de la obra" />
+                  <select className={styles.select} value={form.obra ?? ''} onChange={e => set('obra', e.target.value)}>
+                    <option value="">— Seleccionar obra —</option>
+                    {proyectoActivo?.id === ordenFresca.proyecto_id && <option value={proyectoActivo.nombre}>{proyectoActivo.nombre}</option>}
+                    {form.obra && form.obra !== proyectoActivo?.nombre && <option value={form.obra}>{form.obra} (registro anterior)</option>}
+                  </select>
                 </div>
                 <div className={styles.field}>
                   <label className={styles.label}>Unidad / Amenities</label>
@@ -1103,8 +1121,11 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
                   <input className={styles.input} value={String(valoresCampos.solicitante ?? '')} onChange={e => setValorCampo('solicitante', e.target.value)} placeholder="Nombre y organización" />
                 </div>
                 <div className={styles.field}>
-                  <label className={styles.label}>Referencia del mensaje</label>
-                  <input className={styles.input} value={String(valoresCampos.referencia_solicitud ?? '')} onChange={e => setValorCampo('referencia_solicitud', e.target.value)} placeholder="Correo, llamada o mensaje de origen" />
+                  <div className={styles.labelRow}>
+                    <label className={styles.label}>Referencia del contacto de origen</label>
+                    <VoiceInputButton value={String(valoresCampos.referencia_solicitud ?? '')} onChange={value => setValorCampo('referencia_solicitud', value)} />
+                  </div>
+                  <input className={styles.input} value={String(valoresCampos.referencia_solicitud ?? '')} onChange={e => setValorCampo('referencia_solicitud', e.target.value)} placeholder="Asunto del correo, WhatsApp o fecha de llamada" />
                 </div>
                 <p className={styles.metadataRow}>La orden registra lo declarado por el cliente. La visita y el diagnóstico se documentan en el relevamiento.</p>
               </div>
@@ -1162,7 +1183,15 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
                 <div className={styles.sectionTitle}>Ejecución</div>
                 <div className={styles.field}>
                   <label className={styles.label}>Supervisor / Responsable</label>
-                  <input className={styles.input} value={form.responsable ?? ''} onChange={e => set('responsable', e.target.value)} />
+                  <select className={styles.select} value={form.responsable_id ?? ''} onChange={e => {
+                    const cuenta = responsablesCuenta.find(r => r.user_id === e.target.value);
+                    setForm(f => ({ ...f, responsable_id: cuenta?.user_id ?? null, responsable: cuenta?.nombre ?? '' }));
+                  }}>
+                    <option value="">— Seleccionar cuenta de la obra —</option>
+                    {responsablesCuenta.map(r => <option key={r.user_id} value={r.user_id}>{r.nombre} · {r.rol}</option>)}
+                  </select>
+                  {!form.responsable_id && form.responsable && <small>Registro anterior: {form.responsable}. Seleccioná una cuenta para vincularlo.</small>}
+                  {errorResponsables && <small role="alert">No se pudieron cargar las cuentas: {errorResponsables}</small>}
                 </div>
                 <div className={styles.field}>
                   <label className={styles.label}>Contratista(s)</label>

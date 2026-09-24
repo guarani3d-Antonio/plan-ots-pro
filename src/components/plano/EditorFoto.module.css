@@ -278,19 +278,30 @@
 .cursorCross    { cursor: crosshair; }
 .cursorText     { cursor: text; }
 
-.textoInput {
+.textoEditor {
   position: absolute;
   z-index: 20;
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  max-width: min(360px, 90vw);
+  padding: 4px;
   background: rgba(255,255,255,0.98);
-  color: #111;
   border: 2px solid #3B599B;
-  border-radius: 5px;
+  border-radius: 7px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+}
+.textoEditor button { min-height: 36px; border: 0; border-radius: 5px; background: #3B599B; color: white; padding: 0 8px; cursor: pointer; }
+.textoEditor button:disabled { opacity: .45; cursor: default; }
+.textoInput {
+  color: #111;
+  border: 0;
   padding: 4px 10px;
   font-size: 13px;
   font-weight: 600;
   outline: none;
   min-width: 130px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  width: 170px;
 }
 
 .photoCounter {

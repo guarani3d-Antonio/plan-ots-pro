@@ -1,5 +1,6 @@
 ﻿.page {
-  height: 100vh;
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
   background: #EEF2F7;
   display: flex;

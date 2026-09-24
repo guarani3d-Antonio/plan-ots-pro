@@ -301,7 +301,6 @@ export default function EditorFoto({ foto, ordenCodigo, todasLasFotos, onClose, 
     e.currentTarget.setPointerCapture(e.pointerId);
     if (herramienta === 'texto') {
       setTextoPos(getCoords(e)); setTextoValor('');
-      setTimeout(() => textoRef.current?.focus(), 0);
       return;
     }
     dibujandoRef.current = true;
@@ -570,20 +569,22 @@ export default function EditorFoto({ foto, ordenCodigo, todasLasFotos, onClose, 
                 style={{ touchAction: herramienta === 'cursor' ? 'auto' : 'none' }}
               />
               {textoPos && (
+                <div className={styles.textoEditor} style={{ left: `${textoPos.x / 10}%`, top: `max(0px, calc(${textoPos.y / (10 * aspectoFoto)}% - 34px))` }}>
                 <input
                   ref={textoRef}
                   className={styles.textoInput}
-                  style={{ left: `${textoPos.x / 10}%`, top: `max(0px, calc(${textoPos.y / (10 * aspectoFoto)}% - 34px))` }}
                   value={textoValor}
                   onChange={e => setTextoValor(e.target.value)}
                   onKeyDown={e => {
                     if (e.key === 'Enter') confirmarTexto();
                     if (e.key === 'Escape') setTextoPos(null);
                   }}
-                  onBlur={confirmarTexto}
                   placeholder="Escribí el texto…"
                   maxLength={80}
                 />
+                <button type="button" onClick={confirmarTexto} disabled={!textoValor.trim()}>Añadir</button>
+                <button type="button" onClick={() => setTextoPos(null)} aria-label="Cancelar texto">✕</button>
+                </div>
               )}
             </div>
           </div>
