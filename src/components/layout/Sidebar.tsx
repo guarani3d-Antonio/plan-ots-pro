@@ -14,6 +14,7 @@ export type Vista =
   | 'gantt'
   | 'calendario'
   | 'contratistas'
+  | 'creador'
   | 'configuracion'
   | 'ayuda';
 
@@ -43,6 +44,7 @@ const ICONS = {
   proyectos: <NavIcon><path d="M3.75 6.75A1.75 1.75 0 0 1 5.5 5h4l1.65 2h7.35a1.75 1.75 0 0 1 1.75 1.75v8.75a1.75 1.75 0 0 1-1.75 1.75h-13a1.75 1.75 0 0 1-1.75-1.75V6.75Z" /></NavIcon>,
   responsables: <NavIcon><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 8a7 7 0 0 1 14 0H5Z" /></NavIcon>,
   contratistas: <NavIcon><path d="M4 20V7h6V4h4v3h6v13h-6v-4h-4v4H4Zm3-9h2V9H7v2Zm0 4h2v-2H7v2Zm8-4h2V9h-2v2Zm0 4h2v-2h-2v2Z" /></NavIcon>,
+  creador: <NavIcon><path d="m12 2 2.4 6.1 6.6.5-5 4.3 1.6 6.4-5.6-3.4-5.6 3.4 1.6-6.4-5-4.3 6.6-.5L12 2Z" /></NavIcon>,
   gantt: <NavIcon><path fill="none" d="M5 4v16M3 18h18M8 7h7v3H8V7Zm3 5h9v3h-9v-3Z" /></NavIcon>,
   calendario: <NavIcon><path fill="none" d="M6 3v3m12-3v3M4 9h16M5.5 5h13A1.5 1.5 0 0 1 20 6.5v12a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5v-12A1.5 1.5 0 0 1 5.5 5Z" /></NavIcon>,
   ayuda: <NavIcon><path fill="none" d="M9.4 9a2.75 2.75 0 1 1 4.35 2.24C12.7 12 12 12.55 12 14m0 4h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></NavIcon>,
@@ -63,6 +65,7 @@ const NAV_GLOBALES: NavItem[] = [
 
 const ITEM_AYUDA:  NavItem = { vista: 'ayuda', icon: ICONS.ayuda, label: 'Ayuda' };
 const ITEM_CONFIG: NavItem = { vista: 'configuracion', icon: ICONS.configuracion, label: 'Configuración' };
+const ITEM_CREADOR: NavItem = { vista: 'creador', icon: ICONS.creador, label: 'Creador' };
 
 const AVATAR_PALETTE = ['#1E40AF', '#15803D', '#C2410C', '#7C3AED', '#0E7490', '#BE123C', '#B45309'];
 
@@ -156,6 +159,11 @@ export function Sidebar({
 
         {renderSectionLabel('PRINCIPAL')}
         {NAV_PRINCIPAL.map(renderItem)}
+
+        {contexto?.creador && <>
+          {renderSectionLabel('PLATAFORMA')}
+          {renderItem(ITEM_CREADOR)}
+        </>}
 
         {renderSectionLabel('DATOS GLOBALES')}
         {NAV_GLOBALES.map(renderItem)}

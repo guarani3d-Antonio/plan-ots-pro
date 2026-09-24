@@ -9,6 +9,7 @@ const TITULOS: Partial<Record<Vista, string>> = {
   dashboard: 'Dashboard', proyectos: 'Proyectos', responsables: 'Responsables',
   contratistas: 'Contratistas', gantt: 'Gantt', calendario: 'Calendario',
   ayuda: 'Ayuda', configuracion: 'Configuración',
+  creador: 'Creador',
 };
 
 export function ApplicationTopBar({ vista }: { vista: Vista }) {
@@ -32,7 +33,7 @@ export function ApplicationTopBar({ vista }: { vista: Vista }) {
   return <header className={styles.bar}>
     <div className={styles.identity}><span className={styles.logo}>P</span><strong>Plan-OTs</strong><span className={styles.divider} /><span>{TITULOS[vista] ?? 'Plan-OTs'}</span></div>
     <div className={styles.account}>
-      {empresa && <span className={styles.company} title={empresa}>{empresa}</span>}
+      <span className={styles.company} title={empresa}>{empresa || '\u00a0'}</span>
       <span className={styles.avatar}>{avatar.path === avatarPath && avatar.url ? <img src={avatar.url} alt="" /> : inicial}</span>
       <span className={styles.name} title={nombre}>{nombre}</span>
       <button type="button" onClick={() => void useAuthStore.getState().signOut()}>Cerrar sesión</button>

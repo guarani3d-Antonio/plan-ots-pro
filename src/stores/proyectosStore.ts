@@ -102,7 +102,14 @@ export const useProyectosStore = create<ProyectosState>((set, get) => ({
     const {data,error}=await supabase.from('proyectos').update({deleted_at:new Date().toISOString()}).eq('id',id).select('id').single();
     assertSession(ticket);if(error||!data)throw new Error(error?.message??'No se confirmó el borrado.');
     set(state=>({proyectos:state.proyectos.filter(p=>p.id!==id)}));
-    await useAccessStore.getState().refresh();
+    // La obra ya está borrada en el servidor. Actualizar el contexto local evita
+    // que refresh interprete este cambio conocido de permisos como una sesión
+    // alterada y fuerce una recarga completa de la pantalla.
+    const access = useAccessStore.getState();
+    if (access.contexto) useAccessStore.setState({
+      contexto: { ...access.contexto, obras: access.contexto.obras.filter(p => p.id !== id) },
+    });
+    if (get().proyectoActivo?.id === id) set({ proyectoActivo: null });
   },
 
   duplicarProyecto: async (original: Proyecto) => {

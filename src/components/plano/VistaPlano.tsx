@@ -560,7 +560,10 @@ export default function VistaPlano({ fullscreen = false, onToggleFullscreen, vis
           )}
           {planoListo && ordenes.length === 0 && (
             <div className={styles.hintOverlay}>
-              Clic en el plano para colocar una OT
+              {modoPlano === 'crear' ? <span>Clic en el plano para colocar la nueva OT</span> : <>
+                <span>Para crear una OT, primero activa el modo de colocación.</span>
+                {puedeEditar && <button type="button" onPointerDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); setModoPlano('crear'); setOrdenAMover(null); }}>Nueva OT</button>}
+              </>}
             </div>
           )}
 

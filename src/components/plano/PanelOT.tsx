@@ -251,7 +251,6 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
   const omitirAvisoBackRef = useRef(false);
   useLayoutEffect(() => { onCerrarRef.current = onCerrar; }, [onCerrar]);
   const [inputContratista, setInputContratista] = useState('');
-  const [dropdownContratistasOpen, setDropdownContratistasOpen] = useState(false);
   const [contratistasGlobales, setContratistasGlobales] = useState<string[]>([]);
   const [errorDirectorio, setErrorDirectorio] = useState<string | null>(null);
   const [responsablesCuenta, setResponsablesCuenta] = useState<ResponsableCuenta[]>([]);
@@ -475,7 +474,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
     });
     return () => { activo = false; };
   }, [ordenFresca?.proyecto_id]);
-  const cambiosSinGuardar = JSON.stringify(form) !== JSON.stringify(ordenToForm(baseVisible)) || !!inputContratista.trim()
+  const cambiosSinGuardar = JSON.stringify(form) !== JSON.stringify(ordenToForm(baseVisible))
     || JSON.stringify(valoresCampos) !== JSON.stringify(baseVisible?.campos ?? {});
   useLayoutEffect(() => { cambiosRef.current = cambiosSinGuardar; }, [cambiosSinGuardar]);
   useEffect(() => {
@@ -532,7 +531,6 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
     setConfirmEliminar(false);
     setErrorFotos(null);
     setInputContratista('');
-    setDropdownContratistasOpen(false);
     // Las tres listas se vacían ANTES de pedir las nuevas. Sin esto sobreviven
     // las de la OT anterior mientras recargarFotos espera sus dos await, y el
     // cleanup de abajo ya revocó sus objectURL: React sigue renderizando
@@ -701,9 +699,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
 
   const handleGuardar = async () => {
     if (!ordenFresca || saveLock.current) return;
-    const contratistaPendiente = inputContratista.trim();
-    const contratistasFinales = contratistaPendiente && !form.contratistas?.includes(contratistaPendiente)
-      ? [...(form.contratistas ?? []), contratistaPendiente] : (form.contratistas ?? []);
+    const contratistasFinales = form.contratistas ?? [];
     const v = validarFotosParaEstado(fotosAntes, fotosDurante, fotosDespues, estado);
     // Opción A de C-2. Con la lista de fotos en duda NO se bloquea el guardado,
     // salvo que el técnico esté subiendo de estado. Bloquear todo por un requisito
@@ -830,8 +826,8 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
   );
 
   const creadoPor = ordenFresca.created_by
-    ? (ordenFresca.created_by === user?.id ? (user?.email ?? ordenFresca.created_by) : ordenFresca.created_by)
-    : (user?.email ?? '');
+    ? (ordenFresca.created_by === user?.id ? (user?.email ?? 'Cuenta actual') : 'Cuenta registrada')
+    : (user?.email ?? 'Cuenta registrada');
 
   const todasLasFotosParaEditor: FotoMinima[] = [
     ...fotosAntes.map(f   => ({ id: f.id, orden_id: ordenFresca.id, proyecto_id: ordenFresca.proyecto_id, categoria: 'ANTES'   as const, file_url: f.url })),
@@ -954,13 +950,11 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
       setForm(prev => ({ ...prev, contratistas: [...(prev.contratistas ?? []), trimmed] }));
     }
     setInputContratista('');
-    setDropdownContratistasOpen(false);
   };
 
   const sugerenciasContratistas = contratistasGlobales.filter(c => {
     if (form.contratistas?.includes(c)) return false;
-    if (!inputContratista.trim()) return true;
-    return c.toLowerCase().includes(inputContratista.trim().toLowerCase());
+    return true;
   });
 
   const handleCambiarEstado = async (nuevoEstado: EstadoOT) => {
@@ -1120,7 +1114,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
                   <label className={styles.label}>Solicitante</label>
                   <input className={styles.input} value={String(valoresCampos.solicitante ?? '')} onChange={e => setValorCampo('solicitante', e.target.value)} placeholder="Nombre y organización" />
                 </div>
-                <div className={styles.field}>
+                <div className={`${styles.field} ${styles.fieldWide}`}>
                   <div className={styles.labelRow}>
                     <label className={styles.label}>Referencia del contacto de origen</label>
                     <VoiceInputButton value={String(valoresCampos.referencia_solicitud ?? '')} onChange={value => setValorCampo('referencia_solicitud', value)} />
@@ -1202,16 +1196,13 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
                       ))}
                     </div>
                   )}
-                  {errorDirectorio && <p role="alert">No se pudo cargar el directorio: {errorDirectorio}. Podés escribir el nombre y guardarlo con la OT.</p>}
-                  <div className={styles.contratistaInputWrap}>
-                    <input maxLength={160} className={styles.input} value={inputContratista} placeholder="Nombre del contratista..." onChange={e => setInputContratista(e.target.value)} onFocus={() => setDropdownContratistasOpen(true)} onBlur={() => setTimeout(() => setDropdownContratistasOpen(false), 150)} onKeyDown={e => { if (e.key === 'Enter' && inputContratista.trim()) { e.preventDefault(); agregarContratista(inputContratista); } }} />
-                    <button type="button" className={styles.contratistaAddBtn} onClick={() => agregarContratista(inputContratista)} disabled={!inputContratista.trim()}>Agregar</button>
-                    {dropdownContratistasOpen && sugerenciasContratistas.length > 0 && (
-                      <div className={styles.contratistaDropdown}>
-                        {sugerenciasContratistas.map(c => <button key={c} type="button" className={styles.contratistaDropdownItem} onPointerDown={e => { e.preventDefault(); agregarContratista(c); }}>{c}</button>)}
-                      </div>
-                    )}
-                  </div>
+                  {errorDirectorio && <p role="alert">No se pudo cargar el directorio de contratistas: {errorDirectorio}. Volvé a intentarlo o avisá al Creador.</p>}
+                  <select className={styles.select} aria-label="Agregar contratista del directorio" value={inputContratista}
+                    onChange={e => { const valor = e.target.value; if (valor) agregarContratista(valor); }}>
+                    <option value="">— Seleccionar del directorio —</option>
+                    {sugerenciasContratistas.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                  {sugerenciasContratistas.length === 0 && <small>El directorio no tiene otras opciones para esta empresa. El Creador puede agregar contratistas desde su espacio.</small>}
                 </div>
                 {estado !== 'No aplica' && (
                   <div className={styles.field}>
@@ -1247,7 +1238,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
                     <input className={styles.input} value={form.costo != null && form.costo > 0 ? form.costo.toLocaleString('es-PY') : ''} onChange={e => set('costo', parsearGuaranies(e.target.value))} placeholder="0" />
                   </div>
                 )}
-                <div className={styles.field}>
+                <div className={`${styles.field} ${styles.fieldWide}`}>
                   <div className={styles.labelRow}>
                     <label className={styles.label}>Observaciones del técnico</label>
                     <VoiceInputButton value={form.comentarios ?? ''} onChange={value => set('comentarios', value)} />

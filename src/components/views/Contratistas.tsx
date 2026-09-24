@@ -43,7 +43,7 @@ export default function Contratistas() {
   const [errorDirectorio, setErrorDirectorio] = useState<string | null>(null);
   const [guardandoDirectorio, setGuardandoDirectorio] = useState(false);
   const [directorioEmpresa, setDirectorioEmpresa] = useState('');
-  const puedeAgregar = !!empresaId && !!contexto && (contexto.creador || contexto.empresas.some(e => e.id === empresaId && e.rol === 'administrador') || contexto.obras.some(o => o.tenant_id === empresaId && o.editar));
+  const puedeAgregar = !!empresaId && !!contexto?.creador;
   const [filtroProyecto, setFiltroProyecto] = useState('');
   const [nuevoNombre, setNuevoNombre]       = useState('');
   const [directorio, setDirectorio]         = useState<string[]>([]);
@@ -155,7 +155,7 @@ export default function Contratistas() {
       {/* Cards */}
       {grupos.length === 0 ? (
         <div style={{ background: '#fff', border: '1px solid #E5E7EB', borderRadius: 12, padding: 30, textAlign: 'center', color: '#94A3B8', fontSize: 14 }}>
-          Sin contratistas todavía. Agregá uno arriba o asigná desde una OT.
+          Sin contratistas en el directorio. El Creador puede agregarlos desde su espacio.
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 12 }}>

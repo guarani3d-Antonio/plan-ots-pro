@@ -5,6 +5,7 @@ import { useProyectosStore, type Proyecto } from './stores/proyectosStore';
 import { useOrdenesStore } from './stores/ordenesStore';
 import { AuthForm } from './components/ui/AuthForm';
 import { SelectorProyectos } from './components/proyecto/SelectorProyectos';
+import { AdministracionCreador } from './components/proyecto/AdministracionCreador';
 import VistaPlano from './components/plano/VistaPlano';
 import { iniciarSyncManager } from './sync/SyncManager';
 import { VistaGrilla } from './components/grilla/VistaGrilla';
@@ -208,6 +209,7 @@ function ContenidoApp() {
       case 'gantt':         return <Gantt />;
       case 'calendario':    return <Calendario />;
       case 'contratistas':  return <Contratistas />;
+      case 'creador':      return <AdministracionCreador />;
       case 'configuracion': return <Configuracion />;
       case 'ayuda':         return <PantallaAyuda />;
       case '3d-test' as Vista: return <VisorPlano3D />;

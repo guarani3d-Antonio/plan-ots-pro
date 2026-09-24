@@ -1,5 +1,4 @@
 import { useAccessStore } from '../../stores/accessStore';
-import { AdministracionCreador } from './AdministracionCreador';
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { useProyectosStore, type Proyecto } from '../../stores/proyectosStore';
 import { ModalNuevoProyecto } from './ModalNuevoProyecto';
@@ -164,7 +163,6 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
           </button>
         </div>
 
-        <AdministracionCreador />
         {/* Errores / loading */}
         {(error || accionError) && (
           <div style={{
