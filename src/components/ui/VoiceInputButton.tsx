@@ -1,40 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import styles from './VoiceInputButton.module.css';
-
-interface SpeechRecognitionResultLike {
-  isFinal: boolean;
-  [index: number]: { transcript: string };
-}
+import { joinSpeechResults, type SpeechRecognitionResultLike } from './speechResults';
 
 interface SpeechRecognitionEventLike extends Event {
   results: ArrayLike<SpeechRecognitionResultLike>;
-}
-
-// Android WebKit can report a growing phrase in successive result slots. Treat
-// a longer prefix as a replacement, not as another sentence to append.
-function joinResults(results: ArrayLike<SpeechRecognitionResultLike>): string {
-  let transcript = '';
-  for (let i = 0; i < results.length; i += 1) {
-    const part = (results[i][0]?.transcript ?? '').trim();
-    if (!part) continue;
-    if (transcript && part.toLocaleLowerCase().startsWith(transcript.toLocaleLowerCase())) {
-      transcript = part;
-    } else if (transcript.toLocaleLowerCase().endsWith(part.toLocaleLowerCase())) {
-      continue;
-    } else {
-      const prevWords = transcript.split(/\s+/);
-      const nextWords = part.split(/\s+/);
-      let overlap = 0;
-      for (let count = Math.min(prevWords.length, nextWords.length); count > 0; count -= 1) {
-        if (prevWords.slice(-count).join(' ').toLocaleLowerCase() === nextWords.slice(0, count).join(' ').toLocaleLowerCase()) {
-          overlap = count;
-          break;
-        }
-      }
-      transcript = [transcript, ...nextWords.slice(overlap)].filter(Boolean).join(' ');
-    }
-  }
-  return transcript;
 }
 
 interface SpeechRecognitionLike {
@@ -88,7 +57,7 @@ export function VoiceInputButton({ value, onChange, disabled = false, maxLength,
     recognition.continuous = true;
     recognition.interimResults = true;
     recognition.onresult = event => {
-      const dictado = joinResults(event.results);
+      const dictado = joinSpeechResults(event.results);
       const separador = baseValueRef.current ? ' ' : '';
       const textoCompleto = `${baseValueRef.current}${separador}${dictado}`;
       const nuevoValor = typeof maxLength === 'number' ? textoCompleto.slice(0, maxLength) : textoCompleto;

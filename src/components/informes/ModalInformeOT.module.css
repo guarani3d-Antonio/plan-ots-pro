@@ -16,16 +16,16 @@
 }
 
 .modal {
-  width: 95vw;
-  height: 95vh;
-  background: #FFFFFF;
+  width: min(1440px, calc(100vw - 32px));
+  height: min(920px, calc(100vh - 32px));
+  background: var(--bg-surface, #FFFFFF);
   border-radius: 12px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  color: #111827;
+  color: var(--text-primary, #111827);
 }
 
 /* ── Header (full width, light) ─────────────────────────────────────────── */
@@ -96,17 +96,18 @@
 .body {
   flex: 1;
   display: grid;
-  grid-template-columns: minmax(320px, 380px) minmax(0, 1fr);
+  grid-template-columns: minmax(350px, 31%) minmax(0, 1fr);
   overflow: hidden;
   min-height: 0;
 }
 
 /* ── Columna izquierda ──────────────────────────────────────────────────── */
 .left {
-  background: #FFFFFF;
-  border-right: 1px solid #E5E7EB;
-  padding: 28px 24px;
+  background: var(--bg-surface, #FFFFFF);
+  border-right: 1px solid var(--border-default, #E5E7EB);
+  padding: 20px;
   overflow-y: auto;
+  overscroll-behavior: contain;
   display: flex;
   flex-direction: column;
   gap: 20px;
@@ -315,28 +316,29 @@
 
 /* ── Columna derecha (preview) ──────────────────────────────────────────── */
 .right {
-  background: #F3F4F6;
+  background: var(--bg-subtle, #F3F4F6);
   display: flex;
   flex-direction: column;
   align-items: center;
   overflow-y: auto;
-  padding: 24px;
+  padding: 0 24px 24px;
+  overscroll-behavior: contain;
   position: relative;
   min-height: 0;
   min-width: 0;
 }
 
-/* Header "Vista previa del documento" — sticky para que quede visible al
-   scrollear. Lo inyectamos vía ::before para no tocar el TSX. */
-.right::before {
-  content: "Vista previa del documento";
-  display: none;
-  padding: 16px 24px;
-  background: #FFFFFF;
-  border-bottom: 1px solid #E5E7EB;
+/* El título pertenece al panel desplazable: permanece visible mientras se
+   revisa el inicio o el final del documento. */
+.previewHeading {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 14px 0 12px;
+  background: var(--bg-subtle, #F3F4F6);
+  border-bottom: 1px solid var(--border-default, #E5E7EB);
   font-size: 13px;
   font-weight: 600;
-  color: #6B7280;
+  color: var(--text-secondary, #6B7280);
   position: sticky;
   top: 0;
   z-index: 2;
@@ -350,6 +352,7 @@
   align-self: center;
   background: #fff;
   box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  margin-top: 20px;
 }
 
 .iframe {
@@ -404,9 +407,9 @@
 
 /* ── Footer (botones de acción) ─────────────────────────────────────────── */
 .footer {
-  background: #FFFFFF;
-  border-top: 1px solid #E5E7EB;
-  padding: 14px 24px;
+  background: var(--bg-surface, #FFFFFF);
+  border-top: 1px solid var(--border-default, #E5E7EB);
+  padding: 12px 20px;
   display: flex;
   justify-content: flex-end;
   gap: 12px;
@@ -497,19 +500,29 @@
     border-radius: 0;
   }
   .body {
-    display: block;
-    overflow-y: auto;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(240px, 42%) minmax(0, 1fr);
+    overflow: hidden;
   }
   .left {
     border-right: 0;
     border-bottom: 1px solid #E5E7EB;
-    overflow: visible;
-    padding: 18px 24px;
+    overflow-y: auto;
+    padding: 16px;
     gap: 14px;
   }
   .right {
-    overflow: visible;
-    min-height: 320px;
+    overflow-y: auto;
+    min-height: 0;
+    padding: 0 16px 16px;
+  }
+  .footer {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .avisoImpresion {
+    flex: 1 0 100%;
+    max-width: none;
   }
 }
 
@@ -525,18 +538,8 @@
   .btnCancelar, .btnSecondary, .btnPrimary { min-height: 44px; }
 }
 
-/* Navegación rápida del editor y vista previa en tablet. */
-.quickNav { display:flex; gap:8px; align-items:center; padding:8px 24px; border-bottom:1px solid var(--border-default,#e5e7eb); background:var(--bg-surface,#fff); overflow-x:auto; flex-shrink:0; }
+/* Navegación rápida del editor y vista previa. */
+.quickNav { display:flex; gap:8px; align-items:center; padding:8px 20px; border-bottom:1px solid var(--border-default,#e5e7eb); background:var(--bg-surface,#fff); overflow-x:auto; flex-shrink:0; }
 .quickNav button { white-space:nowrap; font:inherit; font-size:12px; font-weight:650; color:var(--text-secondary,#475569); background:var(--bg-surface,#fff); border:1px solid var(--border-default,#e5e7eb); border-radius:8px; padding:7px 12px; cursor:pointer; }
 .quickNav button:hover { color:var(--accent,#375a98); border-color:var(--accent,#375a98); }
 .section { scroll-margin-top:12px; }
-@media (min-width:901px) {
-  .body { grid-template-columns:minmax(350px,31%) minmax(0,1fr); }
-  .left { padding:18px 20px; gap:16px; }
-}
-@media (max-width:900px) {
-  .body { display:grid; grid-template-columns:minmax(0,1fr); grid-template-rows:minmax(240px,42%) minmax(0,1fr); overflow:hidden; }
-  .left { overflow-y:auto; padding:16px; }
-  .right { overflow-y:auto; min-height:0; }
-  .quickNav { padding:7px 14px; }
-}

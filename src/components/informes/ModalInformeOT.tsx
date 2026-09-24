@@ -1044,6 +1044,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo }:
 
           {/* DERECHA */}
           <div className={styles.right} ref={previewRef}>
+            <div className={styles.previewHeading}>Vista previa del documento</div>
             {htmlPreview ? (
               <div className={styles.previewSheet} style={{ width: 794 * escalaPreview, height: previewAlto * escalaPreview }}>
                 <iframe

@@ -15,6 +15,14 @@ revoke all on public.plan_notificaciones_rol from public, anon, authenticated;
 grant select on public.plan_notificaciones_rol to authenticated;
 create policy notificaciones_rol_creator_read on public.plan_notificaciones_rol
  for select to authenticated using (public.plan_es_creador());
+-- plan_eventos_pagina is SECURITY INVOKER: each member must be able to read
+-- their own role's settings for its notification filter to take effect.
+create policy notificaciones_rol_member_read on public.plan_notificaciones_rol
+ for select to authenticated using (exists (
+  select 1 from public.tenant_miembros m
+  where m.tenant_id=plan_notificaciones_rol.tenant_id
+    and m.user_id=auth.uid() and m.rol=plan_notificaciones_rol.rol and m.activo
+ ));
 
 create function public.plan_configurar_notificaciones(p_tenant uuid,p_rol text,p_tipos text[])
  returns void language plpgsql security definer set search_path=pg_catalog,pg_temp as $$
