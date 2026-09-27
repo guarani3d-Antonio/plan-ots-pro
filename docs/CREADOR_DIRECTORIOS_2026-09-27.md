@@ -20,7 +20,7 @@ La migración `202609270018` está aplicada en el proyecto Supabase `iqgbyqyoovz
 
 ## Pendiente para operación con clientes reales
 
-- Probar la invitación a `grupodiazvillaverde@gmail.com` como Técnico de Empresa de prueba 1, aceptación del enlace, ingreso y aislamiento de permisos. No se asignó ninguna obra todavía.
+- Se envió desde Supabase Auth la invitación a `grupodiazvillaverde@gmail.com` y se registró su membresía activa como Técnico de Empresa de prueba 1. Se verificó `invited_at`, que la cuenta aún no está confirmada y que tiene cero obras asignadas. Falta que la persona acepte el enlace y pruebe el ingreso y el aislamiento de permisos. Esta invitación se completó desde el panel de Supabase; el flujo autenticado de `invitar-usuario` desde la interfaz Creador aún requiere prueba de extremo a extremo.
 - Probar en la Samsung y en notebook cliente con una ubicación y con varias, guardado/reapertura e historial desde dos cuentas.
 - Definir con BBC campos obligatorios, deduplicación de clientes sin RUC y política de privacidad/retención. Los indicadores de conflictividad son históricos manuales; no existe un puntaje automático.
 - Completar las compuertas documentales, de seguridad y recuperación indicadas en `docs/CIERRE_PRODUCTO_2026-09-27.md` antes de operar con clientes reales.
