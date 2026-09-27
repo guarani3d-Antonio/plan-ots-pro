@@ -16,7 +16,7 @@ El Creador crea o edita su ficha con nombre o razón social, RUC/documento, cont
 
 ## Estado de este lote
 
-Migración, reversión conservadora, interfaz y función de invitación preparadas en el repositorio. La migración se probó con PostgreSQL embebido y datos ficticios, incluyendo aislamiento entre empresas, permisos, identificación duplicada y relación OT-ubicación. La función de invitación tiene verificación de sesión y del rol Creador; requiere despliegue y pruebas reales antes de usarla. El frontend debe publicarse después de la migración y la función, no antes.
+La migración `202609270018` está aplicada en el proyecto Supabase `iqgbyqyoovzvhhdjawnt` y registrada en `supabase_migrations.schema_migrations`. Se verificaron las tres tablas, la función de selección por obra y los disparadores de validación y bloqueo de reubicación. La reversión conservadora sigue disponible en el repositorio. Antes del despliegue se probó con PostgreSQL embebido y datos ficticios, incluyendo aislamiento entre empresas, permisos, identificación duplicada y relación OT-ubicación. La función de invitación tiene verificación de sesión y del rol Creador; requiere despliegue y pruebas reales antes de usarla. El frontend debe publicarse después de la función, no antes.
 
 ## Pendiente para operación con clientes reales
 
