@@ -16,11 +16,11 @@ El Creador crea o edita su ficha con nombre o razón social, RUC/documento, cont
 
 ## Estado de este lote
 
-La migración `202609270018` está aplicada en el proyecto Supabase `iqgbyqyoovzvhhdjawnt` y registrada en `supabase_migrations.schema_migrations`. Se verificaron las tres tablas, la función de selección por obra y los disparadores de validación y bloqueo de reubicación. La reversión conservadora sigue disponible en el repositorio. Antes del despliegue se probó con PostgreSQL embebido y datos ficticios, incluyendo aislamiento entre empresas, permisos, identificación duplicada y relación OT-ubicación. La función de invitación tiene verificación de sesión y del rol Creador; requiere despliegue y pruebas reales antes de usarla. El frontend debe publicarse después de la función, no antes.
+La migración `202609270018` está aplicada en el proyecto Supabase `iqgbyqyoovzvhhdjawnt` y registrada en `supabase_migrations.schema_migrations`. Se verificaron las tres tablas, la función de selección por obra y los disparadores de validación y bloqueo de reubicación. La reversión conservadora sigue disponible en el repositorio. Antes del despliegue se probó con PostgreSQL embebido y datos ficticios, incluyendo aislamiento entre empresas, permisos, identificación duplicada y relación OT-ubicación. La función `invitar-usuario` está desplegada con verificación JWT, sesión y rol Creador. Se comprobaron sus rechazos por origen no permitido y por falta de sesión; falta probar una invitación autenticada de extremo a extremo. El frontend se publicó en `tablet-v1` hasta el commit `26c1534`; el HTML público sirve el paquete `index-DQGlUbdI.js`, que contiene los nuevos directorios y la invitación. La PWA abierta en el navegador de prueba conservaba un paquete anterior en caché, así que esa sesión aún no demuestra el funcionamiento de la interfaz nueva.
 
 ## Pendiente para operación con clientes reales
 
-- Probar una invitación a una dirección de prueba controlada, aceptación del enlace, ingreso y aislamiento de permisos. El correo real del destinatario todavía no se solicitó.
+- Probar la invitación a `grupodiazvillaverde@gmail.com` como Técnico de Empresa de prueba 1, aceptación del enlace, ingreso y aislamiento de permisos. No se asignó ninguna obra todavía.
 - Probar en la Samsung y en notebook cliente con una ubicación y con varias, guardado/reapertura e historial desde dos cuentas.
 - Definir con BBC campos obligatorios, deduplicación de clientes sin RUC y política de privacidad/retención. Los indicadores de conflictividad son históricos manuales; no existe un puntaje automático.
 - Completar las compuertas documentales, de seguridad y recuperación indicadas en `docs/CIERRE_PRODUCTO_2026-09-27.md` antes de operar con clientes reales.
