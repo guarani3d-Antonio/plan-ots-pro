@@ -225,6 +225,14 @@ export default function VistaPlano({ fullscreen = false, onToggleFullscreen, vis
   useLayoutEffect(() => { if (visible && planoListo) fitView(); }, [visible, planoListo, fitView]);
 
   useEffect(() => {
+    const area = planAreaRef.current;
+    if (!visible || !planoListo || !area) return;
+    const observer = new ResizeObserver(() => fitView());
+    observer.observe(area);
+    return () => observer.disconnect();
+  }, [visible, planoListo, fitView]);
+
+  useEffect(() => {
     if (proyecto?.id) void asegurarOrdenes(proyecto.id);
   }, [proyecto?.id, asegurarOrdenes]);
 
@@ -435,6 +443,17 @@ export default function VistaPlano({ fullscreen = false, onToggleFullscreen, vis
           >
             <span aria-hidden="true">☷</span> Panel y filtros
           </button>
+          {puedeEditar && (
+            <button
+              type="button"
+              className={styles.btnNuevaOT}
+              aria-pressed={modoPlano === 'crear'}
+              onClick={() => { setModoPlano(modoPlano === 'crear' ? 'navegar' : 'crear'); setOrdenAMover(null); }}
+            >
+              <span aria-hidden="true">{modoPlano === 'crear' ? '×' : '+'}</span>
+              {modoPlano === 'crear' ? 'Cancelar ubicación' : 'Nueva OT'}
+            </button>
+          )}
           <div style={{ flex: 1 }} />
           <div className={styles.actionsMenuWrap} ref={accionesMenuRef}>
             <button type="button" className={styles.btnVolver} onClick={() => setAccionesVisibles(v => !v)} aria-expanded={accionesVisibles}>
@@ -558,12 +577,15 @@ export default function VistaPlano({ fullscreen = false, onToggleFullscreen, vis
               <p className={styles.errorMsg}>{errorPlano}</p>
             </div>
           )}
-          {planoListo && ordenes.length === 0 && (
+          {modoPlano === 'crear' && planoListo && (
+            <div className={styles.placementPrompt} role="status">
+              Ahora hacé clic en un punto libre del plano para ubicar la nueva OT
+            </div>
+          )}
+          {planoListo && ordenes.length === 0 && modoPlano === 'navegar' && (
             <div className={styles.hintOverlay}>
-              {modoPlano === 'crear' ? <span>Clic en el plano para colocar la nueva OT</span> : <>
-                <span>Para crear una OT, primero activa el modo de colocación.</span>
-                {puedeEditar && <button type="button" onPointerDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); setModoPlano('crear'); setOrdenAMover(null); }}>Nueva OT</button>}
-              </>}
+              <span>Para crear una OT, elegí Nueva OT y después un punto del plano.</span>
+              {puedeEditar && <button type="button" onPointerDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); setModoPlano('crear'); setOrdenAMover(null); }}>Nueva OT</button>}
             </div>
           )}
 
@@ -601,9 +623,9 @@ export default function VistaPlano({ fullscreen = false, onToggleFullscreen, vis
 
           {/* Zoom controls */}
           <div className={styles.zoomCtrl} data-no-pan>
-            {puedeEditar && <button type="button" aria-pressed={modoPlano === 'crear'} onClick={() => { setModoPlano(modoPlano === 'crear' ? 'navegar' : 'crear'); setOrdenAMover(null); }}>Nueva OT</button>}
+            {fullscreen && puedeEditar && <button type="button" className={styles.btnNuevaOT} aria-pressed={modoPlano === 'crear'} onClick={() => { setModoPlano(modoPlano === 'crear' ? 'navegar' : 'crear'); setOrdenAMover(null); }}>{modoPlano === 'crear' ? 'Cancelar ubicación' : '+ Nueva OT'}</button>}
             {puedeEditar && <button type="button" aria-pressed={modoPlano === 'mover'} onClick={() => { setModoPlano(modoPlano === 'mover' ? 'navegar' : 'mover'); setOrdenAMover(null); }}>Mover OT</button>}
-            {modoPlano !== 'navegar' && <span role="status">{modoPlano === 'crear' ? 'Tocá el lugar de la nueva OT' : ordenAMover ? 'Tocá el destino' : 'Seleccioná un pin'}</span>}
+            {modoPlano === 'mover' && <span role="status">{ordenAMover ? 'Tocá el destino' : 'Seleccioná un pin'}</span>}
             <button
               className={styles.zbtn}
               onClick={() => {

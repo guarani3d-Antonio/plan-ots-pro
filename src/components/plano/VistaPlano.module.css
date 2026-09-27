@@ -25,9 +25,10 @@
 .topBar {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: var(--sp-3);
-  height: 52px;
-  padding: 0 var(--sp-5);
+  min-height: 52px;
+  padding: 8px var(--sp-5);
   background: var(--bg-surface);
   border-bottom: 1px solid var(--border-default);
   box-shadow: var(--shadow-xs);
@@ -78,6 +79,30 @@
   border-color: var(--accent);
   background: var(--accent-subtle, #eff4ff);
 }
+
+.btnNuevaOT {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 0 14px;
+  border: 1px solid var(--accent);
+  border-radius: var(--r-md);
+  background: var(--accent);
+  color: var(--bg-surface);
+  font: 600 var(--text-sm)/1 var(--font-sans);
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: 0 1px 4px var(--accent-glow);
+}
+.btnNuevaOT:hover { background: var(--accent-hover); }
+.btnNuevaOT[aria-pressed="true"] {
+  background: var(--bg-surface);
+  color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-glow);
+}
+.btnNuevaOT:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 
 .actionsMenuWrap { position: relative; }
 .actionsMenu {
@@ -387,6 +412,23 @@
   font: inherit;
   font-weight: 600;
   cursor: pointer;
+}
+
+.placementPrompt {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  z-index: var(--z-float);
+  max-width: calc(100% - 32px);
+  transform: translateX(-50%);
+  padding: 10px 16px;
+  border-radius: var(--r-md);
+  background: var(--accent);
+  color: var(--bg-surface);
+  font: 600 var(--text-sm)/1.4 var(--font-sans);
+  text-align: center;
+  box-shadow: var(--shadow-md);
+  pointer-events: none;
 }
 @media(max-width:600px) { .hintOverlay { max-width: calc(100% - 24px); white-space: normal; text-align: center; flex-direction: column; gap: 7px; } }
 
