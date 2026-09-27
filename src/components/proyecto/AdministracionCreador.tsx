@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../db/supabase';
 import { useAccessStore } from '../../stores/accessStore';
-import { agregarContratistaCompartido, cargarContratistas } from '../../services/trustService';
 import { PoliticasDocumentales } from './PoliticasDocumentales';
+import { DirectoriosCreador } from './DirectoriosCreador';
+import { ModalNuevoProyecto } from './ModalNuevoProyecto';
 
 const panel: React.CSSProperties = { border: '1px solid var(--border-default)', borderRadius: 12, padding: 20, background: 'var(--bg-surface)' };
 const field: React.CSSProperties = { display: 'grid', gap: 6, minWidth: 0 };
@@ -21,22 +22,17 @@ export function AdministracionCreador() {
   const [activo, setActivo] = useState(true);
   const [obra, setObra] = useState('');
   const [rolObra, setRolObra] = useState('viewer');
-  const [nuevoContratista, setNuevoContratista] = useState('');
-  const [contratistas, setContratistas] = useState<string[]>([]);
   const [notificaciones, setNotificaciones] = useState<Record<string, string[]>>({});
   const [busy, setBusy] = useState(false);
   const [mensaje, setMensaje] = useState('');
+  const [crearObra, setCrearObra] = useState(false);
 
   useEffect(() => {
-    if (!contexto?.creador || !empresaId) { setContratistas([]); return; }
+    if (!contexto?.creador || !empresaId) return;
     let active = true;
-    Promise.all([
-      cargarContratistas(empresaId),
-      supabase.rpc('plan_notificaciones_config', { p_tenant: empresaId }),
-    ]).then(([rows, config]) => {
+    Promise.resolve(supabase.rpc('plan_notificaciones_config', { p_tenant: empresaId })).then(config => {
       if (!active) return;
       if (config.error) throw new Error(config.error.message);
-      setContratistas(rows.map(r => r.nombre));
       setNotificaciones(Object.fromEntries((config.data ?? []).map((r: { rol: string; tipos: string[] }) => [r.rol, r.tipos])));
     }).catch(e => { if (active) setMensaje(e instanceof Error ? e.message : 'No se pudo cargar la configuración.'); });
     return () => { active = false; };
@@ -55,18 +51,6 @@ export function AdministracionCreador() {
     finally { setBusy(false); }
   }
 
-  async function guardarContratista() {
-    const value = nuevoContratista.trim();
-    if (!empresaId || !value || busy) return;
-    setBusy(true); setMensaje('');
-    try {
-      const saved = await agregarContratistaCompartido(empresaId, value);
-      setContratistas(prev => [...new Set([...prev, saved.nombre])].sort((a, b) => a.localeCompare(b)));
-      setNuevoContratista(''); setMensaje('Contratista agregado al directorio.');
-    } catch (e) { setMensaje(e instanceof Error ? e.message : 'No se pudo guardar el contratista.'); }
-    finally { setBusy(false); }
-  }
-
   async function guardarNotificaciones() {
     if (!empresaId || busy) return;
     setBusy(true); setMensaje('');
@@ -82,6 +66,20 @@ export function AdministracionCreador() {
     finally { setBusy(false); }
   }
 
+  async function invitarUsuario() {
+    if (!empresaId || !email.trim() || busy) return;
+    setBusy(true); setMensaje('');
+    try {
+      const { error } = await supabase.functions.invoke('invitar-usuario', {
+        body: { tenantId: empresaId, email: email.trim(), rol },
+      });
+      if (error) throw new Error(error.message);
+      setMensaje(`Invitación enviada a ${email.trim()}. Su rol en la empresa quedó asignado.`);
+      await refresh();
+    } catch (e) { setMensaje(e instanceof Error ? e.message : 'No se pudo enviar la invitación.'); }
+    finally { setBusy(false); }
+  }
+
   const empresa = contexto.empresas.find(e => e.id === empresaId);
   return <div style={{ padding: '24px clamp(16px, 3vw, 36px)', display: 'grid', gap: 18, color: 'var(--text-primary)' }}>
     <header>
@@ -94,9 +92,10 @@ export function AdministracionCreador() {
         {contexto.empresas.map(e => <option key={e.id} value={e.id}>{e.nombre}</option>)}
       </select>
     </label>
+    <div><button style={button} disabled={!empresaId} onClick={() => setCrearObra(true)}>Crear obra en la empresa activa</button></div>
     <section style={panel}>
       <h2 style={{ margin: '0 0 14px', fontSize: 18 }}>Cuentas, roles y responsables</h2>
-      <p style={{ margin: '0 0 14px', color: 'var(--text-secondary)' }}>El correo debe pertenecer a una cuenta ya creada. El rol de supervisor o técnico habilita su asignación como responsable en las OTs.</p>
+      <p style={{ margin: '0 0 14px', color: 'var(--text-secondary)' }}>Invitá cuentas nuevas por correo; para una cuenta existente, guardá su rol. Después asignale las obras correspondientes. Supervisor y técnico pueden figurar como responsables de OTs.</p>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))', gap: 16 }}>
         <div style={{ display: 'grid', alignContent: 'start', gap: 10 }}>
           <label style={field}>Nombre de la nueva empresa<input style={control} value={nombre} onChange={e => setNombre(e.target.value)} /></label>
@@ -104,23 +103,18 @@ export function AdministracionCreador() {
         </div>
         <div style={{ display: 'grid', alignContent: 'start', gap: 10 }}>
           <p style={{ margin: 0, color: 'var(--text-secondary)' }}>{empresa ? `Empresa seleccionada: ${empresa.nombre}` : 'Elegí una empresa para administrar las cuentas.'}</p>
-          <label style={field}>Correo de una cuenta existente<input style={control} type="email" value={email} onChange={e => setEmail(e.target.value)} /></label>
+          <label style={field}>Correo del usuario<input style={control} type="email" value={email} onChange={e => setEmail(e.target.value)} /></label>
           <label style={field}>Rol en la empresa<select style={control} value={rol} onChange={e => setRol(e.target.value)}><option value="administrador">Administrador</option><option value="supervisor">Supervisor</option><option value="tecnico">Técnico</option><option value="viewer">Lector</option></select></label>
           <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}><input type="checkbox" checked={activo} onChange={e => setActivo(e.target.checked)} />Membresía activa</label>
           <button style={button} disabled={busy || !empresaId || !email.trim()} onClick={() => void ejecutar(() => supabase.rpc('plan_admin_miembro', { p_tenant: empresaId, p_email: email, p_rol: rol, p_activo: activo }))}>Guardar cuenta y rol</button>
+          <button style={{ ...button, background: 'var(--bg-surface)', color: 'var(--text-primary)' }} disabled={busy || !empresaId || !email.trim() || !activo} onClick={() => void invitarUsuario()}>Invitar cuenta nueva por correo</button>
           <label style={field}>Obra<select style={control} value={obra} onChange={e => setObra(e.target.value)}><option value="">Seleccionar obra</option>{contexto.obras.filter(p => p.tenant_id === empresaId).map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}</select></label>
           <label style={field}>Permiso en la obra<select style={control} value={rolObra} onChange={e => setRolObra(e.target.value)}><option value="supervisor">Supervisor</option><option value="tecnico">Técnico</option><option value="viewer">Lector</option><option value="sin_acceso">Retirar acceso</option></select></label>
           <button style={button} disabled={busy || !email.trim() || !contexto.obras.some(p => p.id === obra && p.tenant_id === empresaId)} onClick={() => void ejecutar(() => supabase.rpc('plan_admin_obra_miembro', { p_proyecto: obra, p_email: email, p_rol: rolObra }))}>Guardar acceso a obra</button>
         </div>
       </div>
     </section>
-    {empresaId && <section style={panel}>
-      <h2 style={{ margin: '0 0 14px', fontSize: 18 }}>Directorio de contratistas</h2>
-      <p style={{ margin: '0 0 12px', color: 'var(--text-secondary)' }}>Los usuarios asignan contratistas a las OTs desde este directorio.</p>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}><input style={{ ...control, flex: '1 1 260px' }} maxLength={160} placeholder="Nombre del contratista" value={nuevoContratista} onChange={e => setNuevoContratista(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') void guardarContratista(); }} /><button style={button} disabled={busy || !nuevoContratista.trim()} onClick={() => void guardarContratista()}>Agregar contratista</button></div>
-      <ul style={{ margin: '14px 0 0', paddingLeft: 20 }}>{contratistas.map(c => <li key={c}>{c}</li>)}</ul>
-      {!contratistas.length && <p style={{ color: 'var(--text-secondary)' }}>Todavía no hay contratistas registrados.</p>}
-    </section>}
+    {empresaId && <DirectoriosCreador key={empresaId} tenantId={empresaId} obras={contexto.obras} />}
     {empresaId && <section style={panel}>
       <h2 style={{ margin: '0 0 8px', fontSize: 18 }}>Notificaciones por rol</h2>
       <p style={{ margin: '0 0 14px', color: 'var(--text-secondary)' }}>Elegí qué avisos básicos recibe cada rol. Los cambios completos siguen disponibles en el historial de cada OT.</p>
@@ -135,5 +129,6 @@ export function AdministracionCreador() {
     </section>}
     {empresaId && <section style={panel}><h2 style={{ margin: '0 0 14px', fontSize: 18 }}>Documentos de la empresa</h2><PoliticasDocumentales tenantId={empresaId} /></section>}
     <p role="status" aria-live="polite" style={{ margin: 0 }}>{mensaje}</p>
+    {crearObra && <ModalNuevoProyecto onCerrar={() => { setCrearObra(false); void refresh(); }} />}
   </div>;
 }

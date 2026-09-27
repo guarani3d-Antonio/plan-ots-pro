@@ -65,6 +65,11 @@ interface PanelOTProps {
 type Tab = 'datos' | 'fotos' | 'informes' | 'campos';
 type NivelRiesgo = 'Bajo' | 'Medio' | 'Alto' | 'Extremo';
 type ResponsableCuenta = { user_id: string; nombre: string; rol: string };
+type ClienteObra = { cliente_id: string; ubicacion_id: string; nombre: string;
+  identificacion: string | null; contacto: string | null; telefono: string | null;
+  correo: string | null; domicilio: string | null; tipo_inmueble: string;
+  nombre_obra: string; direccion_obra: string | null; piso: string | null;
+  unidad: string | null; sector: string | null };
 
 const RUBROS_LISTA = [
   'Impermeabilización', 'Eléctrica', 'Plomería',
@@ -255,6 +260,8 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
   const [errorDirectorio, setErrorDirectorio] = useState<string | null>(null);
   const [responsablesCuenta, setResponsablesCuenta] = useState<ResponsableCuenta[]>([]);
   const [errorResponsables, setErrorResponsables] = useState<string | null>(null);
+  const [clientesObra, setClientesObra] = useState<ClienteObra[]>([]);
+  const [errorClientes, setErrorClientes] = useState<string | null>(null);
   const [confirmEliminar, setConfirmEliminar] = useState(false);
   const [guardando,       setGuardando]       = useState(false);
   const [guardadoEn,      setGuardadoEn]      = useState<Date | null>(null);
@@ -474,6 +481,19 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
     });
     return () => { activo = false; };
   }, [ordenFresca?.proyecto_id]);
+  useEffect(() => {
+    const proyectoId = ordenFresca?.proyecto_id;
+    if (!proyectoId || !puedeEditar) return;
+    let active = true;
+    void supabase.rpc('plan_clientes_para_obra', { p_proyecto: proyectoId }).then(({ data, error }) => {
+      if (!active) return;
+      if (error) { setClientesObra([]); setErrorClientes(error.message); }
+      else { setClientesObra((data ?? []) as ClienteObra[]); setErrorClientes(null); }
+    });
+    return () => { active = false; };
+  }, [ordenFresca?.proyecto_id, puedeEditar]);
+  const ubicacionesCliente = clientesObra.filter(c => c.cliente_id === form.cliente_id);
+  const ubicacionElegida = ubicacionesCliente.find(c => c.ubicacion_id === form.cliente_ubicacion_id);
   const cambiosSinGuardar = JSON.stringify(form) !== JSON.stringify(ordenToForm(baseVisible))
     || JSON.stringify(valoresCampos) !== JSON.stringify(baseVisible?.campos ?? {});
   useLayoutEffect(() => { cambiosRef.current = cambiosSinGuardar; }, [cambiosSinGuardar]);
@@ -699,6 +719,10 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
 
   const handleGuardar = async () => {
     if (!ordenFresca || saveLock.current) return;
+    if (form.cliente_id && !form.cliente_ubicacion_id) {
+      mostrar('Elegí la ubicación de este cliente antes de guardar la OT.', 'error');
+      setTab('datos'); return;
+    }
     const contratistasFinales = form.contratistas ?? [];
     const v = validarFotosParaEstado(fotosAntes, fotosDurante, fotosDespues, estado);
     // Opción A de C-2. Con la lista de fotos en duda NO se bloquea el guardado,
@@ -735,6 +759,8 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
         comentarios:                form.comentarios ?? '',
         obra:                       form.obra ?? '',
         unidad_amenities:           form.unidad_amenities ?? '',
+        cliente_id:                 form.cliente_id ?? null,
+        cliente_ubicacion_id:       form.cliente_ubicacion_id ?? null,
         estado:                     form.estado,
         prioridad:                  form.prioridad,
         rubro:                      form.rubro ?? '',
@@ -1070,6 +1096,48 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
                   <label className={styles.label}>Fecha de ingreso</label>
                   <input className={styles.input} type="date" value={toDateInput(form.fecha_ingreso)} onChange={e => set('fecha_ingreso', e.target.value)} />
                 </div>
+                <div className={styles.field}>
+                  <label className={styles.label}>Cliente</label>
+                  <select className={styles.select} value={form.cliente_id ?? ''} onChange={e => {
+                    const id = e.target.value;
+                    const sites = clientesObra.filter(c => c.cliente_id === id);
+                    const only = sites.length === 1 ? sites[0] : null;
+                    setForm(f => ({ ...f, cliente_id: id || null,
+                      cliente_ubicacion_id: only?.ubicacion_id ?? null,
+                      obra: only?.nombre_obra ?? (proyectoActivo?.id === ordenFresca.proyecto_id ? proyectoActivo.nombre : ''),
+                      unidad_amenities: only ? (only.unidad || only.sector || '') : '' }));
+                  }}>
+                    <option value="">— Sin cliente vinculado —</option>
+                    {[...new Map(clientesObra.map(c => [c.cliente_id, c])).values()].map(c =>
+                      <option key={c.cliente_id} value={c.cliente_id}>{c.nombre}{c.identificacion ? ` · ${c.identificacion}` : ''}</option>)}
+                    {form.cliente_id && !clientesObra.some(c => c.cliente_id === form.cliente_id) &&
+                      <option value={form.cliente_id}>Cliente vinculado anteriormente</option>}
+                  </select>
+                  {errorClientes && <small role="alert">No se pudo cargar el directorio de clientes: {errorClientes}</small>}
+                  {!clientesObra.length && !errorClientes && <small>El Creador puede cargar clientes y ubicaciones para esta obra.</small>}
+                  {form.cliente_id && ubicacionesCliente.length === 0 && !errorClientes && <small>Este cliente no tiene una ubicación activa en esta obra. El Creador debe vincular una para usarlo en la OT.</small>}
+                </div>
+                {form.cliente_id && ubicacionesCliente.length > 1 && <div className={styles.field}>
+                  <label className={styles.label}>Ubicación del cliente</label>
+                  <select className={styles.select} value={form.cliente_ubicacion_id ?? ''} onChange={e => {
+                    const site = ubicacionesCliente.find(c => c.ubicacion_id === e.target.value);
+                    setForm(f => ({ ...f, cliente_ubicacion_id: site?.ubicacion_id ?? null,
+                      obra: site?.nombre_obra ?? (proyectoActivo?.id === ordenFresca.proyecto_id ? proyectoActivo.nombre : ''),
+                      unidad_amenities: site ? (site.unidad || site.sector || '') : '' }));
+                  }}>
+                    <option value="">— Elegir ubicación —</option>
+                    {ubicacionesCliente.map(c => <option key={c.ubicacion_id} value={c.ubicacion_id}>{c.nombre_obra}{c.unidad ? ` · ${c.unidad}` : ''}{c.piso ? ` · Piso ${c.piso}` : ''}</option>)}
+                    {form.cliente_ubicacion_id && !ubicacionElegida &&
+                      <option value={form.cliente_ubicacion_id}>Ubicación vinculada anteriormente</option>}
+                  </select>
+                  {ubicacionesCliente.length > 1 && !form.cliente_ubicacion_id && <small>Este cliente tiene varias ubicaciones. Elegí una para completar la OT.</small>}
+                </div>}
+                {ubicacionElegida && <div className={`${styles.field} ${styles.fieldWide}`}>
+                  <small>Cliente: {ubicacionElegida.nombre}{ubicacionElegida.identificacion ? ` · ${ubicacionElegida.identificacion}` : ''}</small>
+                  <small>Contacto: {ubicacionElegida.contacto || '—'} · {ubicacionElegida.telefono || 'Sin teléfono'} · {ubicacionElegida.correo || 'Sin correo'}</small>
+                  <small>Domicilio del cliente: {ubicacionElegida.domicilio || 'Sin registrar'}</small>
+                  <small>Inmueble: {ubicacionElegida.nombre_obra} · {ubicacionElegida.direccion_obra || 'Sin dirección'}{ubicacionElegida.piso ? ` · Piso ${ubicacionElegida.piso}` : ''}{ubicacionElegida.unidad ? ` · Unidad ${ubicacionElegida.unidad}` : ''}</small>
+                </div>}
                 <div className={styles.field}>
                   <label className={styles.label}>Obra</label>
                   <select className={styles.select} value={form.obra ?? ''} onChange={e => set('obra', e.target.value)}>

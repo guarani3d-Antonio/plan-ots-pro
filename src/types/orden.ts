@@ -10,6 +10,8 @@ export interface OrdenLocal {
   estado: EstadoOT;
   responsable: string;
   responsable_id?: string | null;
+  cliente_id?: string | null;
+  cliente_ubicacion_id?: string | null;
   prioridad: PrioridadOT;
   pos_x: number;
   pos_y: number;
@@ -58,6 +60,8 @@ export interface OrdenSupabase {
   estado: EstadoOT;
   responsable: string;
   responsable_id?: string | null;
+  cliente_id?: string | null;
+  cliente_ubicacion_id?: string | null;
   prioridad: PrioridadOT;
   pos_x: number;
   pos_y: number;

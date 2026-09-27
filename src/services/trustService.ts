@@ -13,14 +13,11 @@ export interface PaginaEventos { eventos: EventoOT[]; hayMas: boolean; sinLeer: 
 export async function cargarContratistas(tenant: string): Promise<Contratista[]> {
   const ticket = sessionTicket();
   const result: Contratista[] = [];
-  for (let from = 0; ; from += 500) {
-    const { data, error } = await supabase.from('plan_contratistas').select('id,tenant_id,nombre')
-      .eq('tenant_id', tenant).order('nombre').order('id').range(from, from + 499);
-    assertSession(ticket);
-    if (error) throw new Error(error.message);
-    result.push(...data);
-    if (data.length < 500) return result;
-  }
+  const { data, error } = await supabase.rpc('plan_contratistas_activos', { p_tenant: tenant });
+  assertSession(ticket);
+  if (error) throw new Error(error.message);
+  result.push(...(data as Contratista[] ?? []));
+  return result;
 }
 export async function agregarContratistaCompartido(tenant: string, nombre: string): Promise<Contratista> {
   const ticket = sessionTicket();
