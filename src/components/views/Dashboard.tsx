@@ -139,9 +139,9 @@ export default function Dashboard() {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) continue;
       let clave = fecha.slice(0, 7);
       if (periodo === 'semana') {
-        const dia = new Date(`${fecha}T12:00:00Z`);
-        dia.setUTCDate(dia.getUTCDate() - ((dia.getUTCDay() + 6) % 7));
-        clave = dia.toISOString().slice(0, 10);
+        const dia = new Date(`${fecha}T00:00:00`);
+        dia.setDate(dia.getDate() - ((dia.getDay() + 6) % 7));
+        clave = `${dia.getFullYear()}-${String(dia.getMonth() + 1).padStart(2, '0')}-${String(dia.getDate()).padStart(2, '0')}`;
       }
       conteo.set(clave, (conteo.get(clave) ?? 0) + 1);
     }
@@ -179,7 +179,7 @@ export default function Dashboard() {
     if (ordenesFiltradas.length === 0) return [];
     const abiertas = ordenesFiltradas.filter(o => o.estado === 'Pendiente' || o.estado === 'En proceso');
     const vencidas = abiertas.filter(o => {
-      const fecha = Date.parse(o.fecha_ingreso || o.created_at);
+      const fecha = o.fecha_ingreso ? new Date(`${o.fecha_ingreso.slice(0, 10)}T00:00:00`).getTime() : new Date(o.created_at).getTime();
       return Number.isFinite(fecha) && ahora - fecha > 7 * 86400000;
     });
     const riesgos = abiertas.filter(o => o.nivel_riesgo === 'Alto' || o.nivel_riesgo === 'Extremo');
