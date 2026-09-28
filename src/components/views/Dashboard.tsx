@@ -125,6 +125,25 @@ export default function Dashboard() {
     return c;
   }, [ordenesFiltradas]);
 
+  const porEquipo = useMemo(() => {
+    const equipos = new Map<string, { nombre: string; total: number; pendiente: number; enProceso: number; cerrada: number; noAplica: number; reincidente: number }>();
+    for (const orden of ordenesFiltradas) {
+      const nombre = orden.responsable?.trim() || 'Sin asignar';
+      const clave = orden.responsable_id ? `cuenta:${orden.responsable_id}` : `texto:${nombre.toLocaleLowerCase('es')}`;
+      const fila = equipos.get(clave) ?? { nombre, total: 0, pendiente: 0, enProceso: 0, cerrada: 0, noAplica: 0, reincidente: 0 };
+      if (nombre !== 'Sin asignar') fila.nombre = nombre;
+      fila.total += 1;
+      if (orden.estado === 'Pendiente') fila.pendiente += 1;
+      if (orden.estado === 'En proceso') fila.enProceso += 1;
+      if (orden.estado === 'Cerrada') fila.cerrada += 1;
+      if (orden.estado === 'No aplica') fila.noAplica += 1;
+      if (orden.reincidencia) fila.reincidente += 1;
+      equipos.set(clave, fila);
+    }
+    return [...equipos].sort(([, a], [, b]) =>
+      (b.pendiente + b.enProceso) - (a.pendiente + a.enProceso) || a.nombre.localeCompare(b.nombre, 'es'));
+  }, [ordenesFiltradas]);
+
   const sinEstado = ordenesFiltradas.filter(o => !o.estado).length;
 
   const porRubro = useMemo(() => {
@@ -288,7 +307,7 @@ footer{margin-top:28px;font-size:10px;color:#CBD5E1;text-align:center;padding-to
   <div class="card"><div class="lbl">Total OTs</div><div class="val">${total}</div></div>
   <div class="card"><div class="lbl">Avance General</div><div class="val blue">${avancePromedio}%</div></div>
   <div class="card"><div class="lbl">OTs en Riesgo</div><div class="val ${riesgo > 0 ? 'red' : ''}">${riesgo}</div></div>
-  ${puedeVerCostos ? `<div class="card"><div class="lbl">Costo Total</div><div class="val" style="font-size:18px">${formatGs(costoTotal)}</div></div>` : ''}
+  ${puedeVerCostos ? `<div class="card"><div class="lbl">Costo cargado en OT</div><div class="val" style="font-size:18px">${formatGs(costoTotal)}</div></div>` : ''}
 </div>
 <div class="stitle">Por Estado</div>
 <div class="row">
@@ -385,7 +404,7 @@ ${ultimas.map(o => `<tr>
         ${kpiCard('Total OTs', String(total), `${modificadasUltSem} act. esta semana`)}
         ${kpiCard('Avance General', `${avancePromedio}%`, 'promedio del proyecto', '#2563EB')}
         ${kpiCard('OTs en Riesgo', String(riesgo), riesgo > 0 ? 'requieren atención' : 'sin alertas', riesgo > 0 ? '#EF4444' : '#16A34A')}
-        ${puedeVerCostos ? kpiCard('Costo Total', formatGs(costoTotal), 'acumulado del proyecto') : ''}
+        ${puedeVerCostos ? kpiCard('Costo cargado en OT', formatGs(costoTotal), 'acumulado de la selección') : ''}
       </div>
       ${secTitle('Por Estado')}
       <div style="display:flex;gap:8px;margin-bottom:6mm">
@@ -482,7 +501,7 @@ body{background:#888;font-family:Arial,sans-serif}
             {isVisible('kpi_total') && <KPICard label="Total OTs" valor={total} subtitle={modificadasUltSem > 0 ? `${modificadasUltSem} actualizadas última semana` : 'Sin cambios esta semana'} />}
             {isVisible('kpi_avance') && <KPICard label="Avance general" valor={`${avancePromedio}%`} color={avancePromedio >= 80 ? '#15803D' : '#2563EB'} bar={avancePromedio} />}
             {isVisible('kpi_riesgo') && <KPICard label="OTs en riesgo" valor={riesgo} color={riesgo > 0 ? '#DC2626' : '#15803D'} badge={riesgo > 0 ? { text: 'Crítico', color: '#DC2626' } : { text: 'OK', color: '#15803D' }} />}
-            {puedeVerCostos && isVisible('kpi_costo') && <KPICard label="Costo total" valor={formatGs(costoTotal)} fontSize={20} />}
+            {puedeVerCostos && isVisible('kpi_costo') && <KPICard label="Costo cargado en OT" valor={formatGs(costoTotal)} fontSize={20} />}
           </div>
         );
 
@@ -536,6 +555,24 @@ body{background:#888;font-family:Arial,sans-serif}
           </Seccion>
         );
 
+      case 'por_equipo':
+        return <Seccion key="por_equipo" titulo="OTs por encargado">
+          {porEquipo.length === 0 ? <p style={{ margin: 0, color: '#64748B', fontSize: 13 }}>Todavía no hay OTs en la selección actual.</p> :
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', minWidth: 650, borderCollapse: 'collapse', fontSize: 13 }}>
+                <thead><tr>{['Encargado', 'Total', 'Pendientes', 'En proceso', 'Cerradas', 'No aplican', 'Reincidentes'].map(titulo =>
+                  <th key={titulo} scope="col" style={{ textAlign: titulo === 'Encargado' ? 'left' : 'right', padding: '8px 10px', color: '#64748B', borderBottom: '1px solid #E5E7EB' }}>{titulo}</th>)}</tr></thead>
+                <tbody>{porEquipo.map(([clave, fila]) =>
+                  <tr key={clave} style={{ borderBottom: '1px solid #F1F5F9' }}>
+                    <th scope="row" style={{ textAlign: 'left', padding: '10px', color: '#0F172A', fontWeight: 600 }}>{fila.nombre}</th>
+                    {[fila.total, fila.pendiente, fila.enProceso, fila.cerrada, fila.noAplica, fila.reincidente].map((valor, index) =>
+                      <td key={index} style={{ textAlign: 'right', padding: '10px', color: '#334155', fontVariantNumeric: 'tabular-nums' }}>{valor}</td>)}
+                  </tr>)}</tbody>
+              </table>
+              <p style={{ margin: '10px 0 0', color: '#64748B', fontSize: 12 }}>Cada cifra cuenta OTs asignadas en los filtros actuales; no mide horas ni intervenciones individuales.</p>
+            </div>}
+        </Seccion>;
+
       case 'tendencia': {
         const max = Math.max(1, ...tendencia.map(([, cantidad]) => cantidad));
         const peor = [...tendencia].sort((a, b) => b[1] - a[1])[0];
@@ -556,6 +593,7 @@ body{background:#888;font-family:Arial,sans-serif}
 
       case 'costos':
         return puedeVerCostos ? <Seccion key="costos" titulo="Costo registrado por obra y rubro">
+          <p style={{ margin: '0 0 12px', fontSize: 12, color: '#64748B' }}>Suma del campo Costo de las OTs visibles. Todavía no distingue presupuesto, gasto real ni pago.</p>
           {costosPorObra.length === 0 ? <p style={{ margin: 0, fontSize: 13, color: '#64748B' }}>Todavía no hay costos registrados en esta selección.</p>
             : <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 22 }}>
               {[{ titulo: 'Obras', datos: costosPorObra }, { titulo: 'Rubros', datos: costosPorRubro }].map(grupo => <div key={grupo.titulo}>

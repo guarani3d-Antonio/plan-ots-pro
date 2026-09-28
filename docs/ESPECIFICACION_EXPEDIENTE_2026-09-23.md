@@ -2,12 +2,14 @@
 
 Fecha: 23/09/2026. Estado: especificación y mockups visuales aprobados con la corrección de orden de servicio; implementación en curso.
 
-Base: auditoría `AUDITORIA_EXPEDIENTE_INFORMES_2026-09-23.md`, código `98ee86c` y estructuras actuales de acceso, almacenamiento, fotos e historial. Alcance: orden de servicio, relevamiento, avances, cierre técnico y acta de conformidad de una OT. Una visita es un hecho posible dentro del relevamiento, no el origen obligatorio de la orden.
+Base: auditoría `AUDITORIA_EXPEDIENTE_INFORMES_2026-09-23.md`, código `98ee86c` y estructuras actuales de acceso, almacenamiento, fotos e historial. Alcance original: orden de servicio, relevamiento, avances, cierre técnico y acta de conformidad de una OT. Una visita no es el origen obligatorio de la orden.
+
+**Decisión posterior del usuario (28/09/2026):** conservar la ficha de visita técnica como documento separado y repetible, vinculado a la OT y al relevamiento pertinente. Los cinco diseños originales siguen siendo cinco tipos; la ficha es un sexto tipo. La encuesta de satisfacción de BBC se separa del acta y será un registro adicional, sin sustituir su decisión o firma. La correspondencia con los cuatro formularios fuente y las brechas vigentes están en `INFORMES_BBC_BRECHAS_2026-09-28.md`. Las secciones históricas de esta especificación que describen la visita solo dentro del relevamiento se interpretan conforme a esta decisión posterior.
 
 ## 1. Decisiones rectoras
 
 1. Cada documento responde una pregunta y aporta hechos nuevos. La identificación mínima se repite para que una copia aislada sea comprensible. Las narraciones, pruebas y fotos se referencian; no se duplican automáticamente.
-2. Una OT puede tener varios ciclos, visitas, relevamientos y avances. Los cinco tipos de documento forman el expediente; no se fuerza que existan exactamente cinco archivos.
+2. Una OT puede tener varios ciclos, visitas, relevamientos y avances. Los cinco tipos diseñados originalmente más la ficha de visita independiente forman el expediente; no se fuerza que existan exactamente seis archivos. La encuesta de satisfacción es un registro separado.
 3. Estado operativo de la OT, estado documental y decisión del cliente son independientes. Cerrar una OT no significa que el cliente haya aceptado el trabajo.
 4. Una versión emitida conserva los datos, archivos, evidencias y aprobaciones exactos. Corregir crea una nueva revisión con motivo y relación con la anterior.
 5. Nada afirma conformidad, limpieza, ausencia de daños, garantía, cumplimiento ISO o firma sin un dato verificable que lo respalde.

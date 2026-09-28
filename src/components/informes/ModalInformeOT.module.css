@@ -129,6 +129,28 @@
   margin-bottom: 4px;
 }
 
+.revisionList {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.revisionList li {
+  display: grid;
+  gap: 2px;
+  padding: 9px 11px;
+  border: 1px solid var(--border-default, #d5dce5);
+  border-radius: 7px;
+  background: #f7faff;
+  color: var(--text-secondary, #374151);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.revisionList strong { color: #244b80; }
+
 /* Datos: pares dataKey / dataVal en grid 2-col */
 .dataGrid {
   display: grid;
@@ -203,6 +225,13 @@
   resize: vertical;
   line-height: 1.4;
 }
+
+.scopeHeader { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.scopeHeader .sectionTitle { margin: 0; }
+.scopeHeader button { border: 1px solid var(--border-default, #d5dce5); border-radius: 6px; background: #fff; color: #244b80; padding: 6px 9px; font: inherit; font-size: 12px; cursor: pointer; }
+.scopeHeader button:disabled { opacity: .5; cursor: default; }
+.scopeItem { display: grid; gap: 8px; padding: 10px; border: 1px solid var(--border-default, #d5dce5); border-radius: 8px; background: #f7faff; }
+.scopeItem strong { font-size: 12px; color: #244b80; }
 
 .photoList { display: grid; gap: 7px; max-height: 250px; overflow-y: auto; margin-top: 10px; }
 .photoChoice { display: flex; align-items: center; gap: 9px; padding: 6px; border: 1px solid var(--border-default, #E5E7EB); border-radius: 6px; cursor: pointer; }

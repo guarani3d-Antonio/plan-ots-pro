@@ -111,6 +111,14 @@ strong{font-weight:700;color:#243954}
 .a4-page .os-evidence-body img{display:block;max-width:35%;max-height:42mm;object-fit:contain;border-radius:4px}
 .a4-page .os-evidence-body p{flex:1;margin:0;white-space:pre-line}
 .a4-page .os-evidence-body small{display:block;color:#5d6d80;margin-top:7px}
+.a4-page .report-data-table{width:100%;border-collapse:collapse;margin:6px 0 12px;font-size:10px;table-layout:fixed}
+.a4-page .report-data-table th{background:#244b80;color:white;text-align:left;font-size:9px;letter-spacing:.03em;text-transform:uppercase}
+.a4-page .report-data-table th,.a4-page .report-data-table td{border:1px solid #c8d9ec;padding:7px 9px;vertical-align:top;overflow-wrap:anywhere}
+.a4-page .report-data-table th:first-child,.a4-page .report-data-table td:first-child{width:52px;font-weight:700}
+.a4-page .report-data-table tbody tr:nth-child(even){background:#f4f8fd}
+.a4-page .report-data-table-wide th,.a4-page .report-data-table-wide td{font-size:9px;padding:6px 7px}
+.a4-page .report-data-table thead{display:table-header-group}
+.a4-page .report-data-table tr{break-inside:avoid;page-break-inside:avoid}
 .a4-page .evidencia-bloque{background:#eef5fc;border:1px solid #d6e3f0;border-radius:7px;padding:8px!important}
 .a4-page .evidencia-bloque img{max-height:86mm!important}
 .a4-page p{font-size:10px;line-height:1.35}
@@ -120,6 +128,11 @@ strong{font-weight:700;color:#243954}
 .a4-page.os-page section.os-meta>div{padding:6px 7px!important}
 .a4-page.os-page section.os-meta>div>strong{font-size:8px;line-height:1.1}
 .a4-page.os-page section.os-meta>div>p{font-size:9px;line-height:1.2}
+.a4-page.acta-page>header+div{margin-bottom:10px}
+.a4-page.acta-page .report-section-title{margin:9px 0 5px}
+.a4-page.acta-page section{margin-bottom:6px!important}
+.a4-page.acta-page section.grid{padding:8px 10px!important;gap:6px 8px!important}
+.a4-page.acta-page section.grid>div{padding:6px 8px!important}
 .page-break{break-after:page;page-break-after:always}
 @media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
 @media screen{

@@ -51,7 +51,7 @@ try {
   assert.equal((await one("select encode(pg_catalog.sha256(convert_to('a','UTF8')),'hex') as hash")).hash.length, 64);
 
   for (const name of ['202609230009_document_policies.sql', '202609230010_document_identity.sql',
-    '202609230011_order_service_export_audit.sql']) {
+    '202609230011_order_service_export_audit.sql', '202609280021_visit_document.sql']) {
     const migration = await readFile(new URL(`../supabase/migrations/${name}`, import.meta.url), 'utf8');
     await db.exec(migration);
   }
@@ -87,6 +87,8 @@ try {
   assert.equal((await exportar('orden_servicio', uuid(40))).rows[0].id, exportacion);
   await rejectsCode(() => exportar('relevamiento', uuid(40)), '22023');
   await rejectsCode(() => exportar('otro', uuid(41)), '22023');
+  assert.ok((await exportar('visita', uuid(43))).rows[0].id);
+  assert.ok((await exportar('encuesta', uuid(44))).rows[0].id);
 
   const os = await reserve('orden_servicio', uuid(1));
   assert.match(os.codigo, /^POT-\d{4}-OS-\d{8,}$/);
@@ -97,6 +99,14 @@ try {
   const rel2 = await reserve('relevamiento', uuid(4));
   assert.notEqual(rel1.id, rel2.id);
   assert.notEqual(rel1.codigo, rel2.codigo);
+  const visita1 = await reserve('visita', uuid(16));
+  const visita2 = await reserve('visita', uuid(17));
+  assert.match(visita1.codigo, /^POT-\d{4}-VIS-\d{8,}$/);
+  assert.notEqual(visita1.id, visita2.id);
+  const encuesta1 = await reserve('encuesta', uuid(18));
+  const encuesta2 = await reserve('encuesta', uuid(19));
+  assert.match(encuesta1.codigo, /^POT-\d{4}-ENC-\d{8,}$/);
+  assert.notEqual(encuesta1.id, encuesta2.id);
   assert.equal((await reserve('cierre', uuid(5))).id, (await reserve('cierre', uuid(6))).id);
   await db.query("select set_config('request.jwt.claim.sub',$1,false)", [intruso]);
   await rejectsCode(() => db.query('select public.plan_politicas_listar($1)', [tenant]), '42501');

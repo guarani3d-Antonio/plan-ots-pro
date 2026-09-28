@@ -87,13 +87,13 @@ const MODULOS: ModuloAyuda[] = [
     id: 'informes',
     icono: '📄',
     titulo: 'Generar informes',
-    resumen: 'Cinco tipos de informe con vista previa antes de imprimir.',
+    resumen: 'Siete tipos de borrador con vista previa antes de imprimir.',
     pasos: [
-      { texto: 'Abrí una OT → pestaña "Informes" → elegí el tipo (Orden de servicio, Relevamiento, Avance, Cierre o Acta de conformidad).' },
-      { texto: 'Revisá la vista previa y completá los comentarios finales editables.' },
+      { texto: 'Abrí una OT → pestaña "Informes" → elegí entre los cinco informes del expediente, la Ficha de visita y la Encuesta de satisfacción.' },
+      { texto: 'Revisá la vista previa y completá los datos propios de cada documento.' },
       {
-        texto: 'Generá el PDF. Incluye logo Guaraní 3D, KPIs y las fotos según el tipo de informe.',
-        nota: 'El acta de conformidad incluye encuesta de satisfacción y firmantes.',
+        texto: 'Imprimí o guardá el borrador en PDF. Las fotos aparecen según el tipo de documento.',
+        nota: 'El acta todavía no registra aceptación ni firma del cliente. La encuesta aparece por separado y sus respuestas no acreditan autoría verificada.',
       },
     ],
   },

@@ -2,7 +2,7 @@ import { supabase } from '../db/supabase';
 import { assertSession, sessionTicket } from '../security/sessionScope';
 
 // Identidad y borradores del expediente. Los RPC no emiten ni firman documentos.
-export type TipoDocumento = 'orden_servicio' | 'relevamiento' | 'avance' | 'cierre' | 'acta';
+export type TipoDocumento = 'orden_servicio' | 'visita' | 'relevamiento' | 'avance' | 'cierre' | 'acta' | 'encuesta';
 
 export interface DocumentoRegistro {
   id: string;

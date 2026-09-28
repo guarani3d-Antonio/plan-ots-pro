@@ -864,10 +864,12 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
 
   const INFORMES_CONFIG: { tipo: TipoInforme; icono: string; nombre: string; codigo?: string; subtitulo: string }[] = [
     { tipo: 'orden_servicio',   icono: '📋', nombre: 'Orden de Servicio',        subtitulo: 'Solicitud y apertura de OT' },
+    { tipo: 'visita',           icono: '📍', nombre: 'Ficha de Visita Técnica',   subtitulo: 'Visita realizada y observaciones' },
     { tipo: 'relevamiento',     icono: '🔍', nombre: 'Informe de Relevamiento',                      subtitulo: 'Diagnóstico técnico' },
     { tipo: 'avance',           icono: '📊', nombre: 'Informe de Avance',                            subtitulo: 'Progreso de ejecución' },
     { tipo: 'cierre',           icono: '✅', nombre: 'Informe de Cierre',                            subtitulo: 'Resultado y verificación técnica' },
     { tipo: 'acta_conformidad', icono: '🏛️', nombre: 'Acta de Conformidad',                          subtitulo: 'Recepción y decisión del cliente' },
+    { tipo: 'encuesta',        icono: '🗣️', nombre: 'Encuesta de Satisfacción',                      subtitulo: 'Opinión del cliente, separada del acta' },
   ];
 
   const bloqueFotos = (
@@ -1189,7 +1191,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
                   </div>
                   <input className={styles.input} value={String(valoresCampos.referencia_solicitud ?? '')} onChange={e => setValorCampo('referencia_solicitud', e.target.value)} placeholder="Asunto del correo, WhatsApp o fecha de llamada" />
                 </div>
-                <p className={styles.metadataRow}>La orden registra lo declarado por el cliente. La visita y el diagnóstico se documentan en el relevamiento.</p>
+                <p className={styles.metadataRow}>La orden registra lo declarado por el cliente. Una visita realizada se documenta en su ficha; el diagnóstico va en el relevamiento.</p>
               </div>
 
               <div className={`${styles.section} ${styles.formSection}`}>
@@ -1496,7 +1498,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
       )}
 
       {modalCierre && (
-        <ModalInformeOT isOpen={modalCierre} onClose={() => setModalCierre(false)} orden={ordenFresca} proyectoNombre={proyectoActivo?.nombre ?? ''} tipo={tipoInforme} />
+        <ModalInformeOT isOpen={modalCierre} onClose={() => setModalCierre(false)} orden={ordenFresca} proyectoNombre={proyectoActivo?.nombre ?? ''} tipo={tipoInforme} puedeRevisar={esSupervisor} />
       )}
 
       {fotoEditando && (

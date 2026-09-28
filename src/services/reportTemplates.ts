@@ -120,10 +120,12 @@ export function _paginaHeader(orden: OrdenLocal, titulo: string, subtitulo: stri
   const otLabel = orden.ot ?? 'Sin código';
   const etapa: Record<string, string> = {
     'ORDEN DE SERVICIO': '01 / APERTURA',
+    'FICHA DE VISITA TÉCNICA': 'VIS / VISITA',
     'INFORME DE RELEVAMIENTO': '02 / DIAGNÓSTICO',
     'INFORME DE AVANCE': '03 / EJECUCIÓN',
     'INFORME DE CIERRE TÉCNICO': '04 / VERIFICACIÓN',
     'ACTA DE CONFORMIDAD': '05 / RECEPCIÓN',
+    'ENCUESTA DE SATISFACCIÓN': 'SAT / EXPERIENCIA',
   };
   return `<header class="flex justify-between items-start mb-10 border-b border-outline-variant pb-6">
     ${_LOGOS_HTML_INFORME}
