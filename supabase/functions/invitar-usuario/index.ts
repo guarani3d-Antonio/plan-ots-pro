@@ -44,7 +44,7 @@ Deno.serve(async request => {
   const { data: tenant, error: tenantError } = await admin.from('tenants').select('id,activo').eq('id', tenantId).single();
   if (tenantError || !tenant?.activo) return json({ error: 'Empresa inexistente o inactiva' }, 400);
 
-  const invited = await admin.auth.admin.inviteUserByEmail(email, { redirectTo: origin });
+  const invited = await admin.auth.admin.inviteUserByEmail(email, { redirectTo: `${origin}/?activar=1` });
   if (invited.error) return json({ error: invited.error.message }, 400);
   if (!invited.data.user?.id) return json({ error: 'Auth no devolvió la cuenta invitada' }, 502);
 

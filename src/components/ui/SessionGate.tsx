@@ -2,11 +2,13 @@ import { useEffect, type ReactNode } from 'react';
 import { useAuthStore } from '../../stores/authStore';
 import { useAccessStore } from '../../stores/accessStore';
 import { AuthForm } from './AuthForm';
+import { ActivarCuenta } from './ActivarCuenta';
+import { esEnlaceDeActivacion } from '../../security/authLink';
 export function SessionGate({children}:{children:ReactNode}) {
   const {user,loading,initialize,signOut}=useAuthStore();
   const userId=user?.id;
   const {contexto,disponible,error,refresh}=useAccessStore();
-  useEffect(()=>{void initialize();},[initialize]);
+  useEffect(()=>{if(!esEnlaceDeActivacion)void initialize();},[initialize]);
   useEffect(()=>{
     if(!userId)return;
     const validate=()=>{if(document.visibilityState==='visible')void refresh();};
@@ -15,6 +17,7 @@ export function SessionGate({children}:{children:ReactNode}) {
     const timer=window.setInterval(validate,60_000);
     return()=>{window.clearInterval(timer);window.removeEventListener('online',validate);window.removeEventListener('offline',offline);window.removeEventListener('focus',validate);document.removeEventListener('visibilitychange',validate);};
   },[userId,refresh]);
+  if(esEnlaceDeActivacion)return <ActivarCuenta/>;
   if(loading)return <div role="status">Verificando sesión…</div>;
   if(!user)return <AuthForm/>;
   return <>

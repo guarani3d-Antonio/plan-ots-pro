@@ -1,189 +1,89 @@
-import React, { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import styles from './AuthForm.module.css';
+import { supabase } from '../../db/supabase';
+import { urlActivacion } from '../../security/authLink';
 import { useAuthStore } from '../../stores/authStore';
-import { useToast } from './Toast';
 
-type Modo = 'login' | 'register';
-
-export const AuthForm: React.FC = () => {
-  const [modo, setModo]         = useState<Modo>('login');
-  const [email, setEmail]       = useState('');
+export function AuthForm() {
+  const [recuperar, setRecuperar] = useState(false);
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
-  const [error, setError]       = useState('');
-  const [loading, setLoading]   = useState(false);
-
-  // Selectores por slice: el store no lanza excepciones, guarda el motivo del
-  // fallo en `error` (authStore.ts:34). Sin leerlo acá, un login rechazado se
-  // veía como "no pasa nada": el catch de handleSubmit nunca se dispara.
-  const signIn     = useAuthStore(s => s.signIn);
-  const signUp     = useAuthStore(s => s.signUp);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [enlaceSolicitado, setEnlaceSolicitado] = useState(false);
+  const signIn = useAuthStore(s => s.signIn);
   const errorStore = useAuthStore(s => s.error);
-  const { mostrar, ToastComponent } = useToast();
 
-  const cambiarModo = (m: Modo) => {
-    setModo(m);
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
     setError('');
-  };
-
-  const handleSubmit = async () => {
-    setError('');
-
-    if (!email.trim())        { setError('Ingresá tu email.'); return; }
-    if (!password)            { setError('Ingresá tu contraseña.'); return; }
-    if (password.length < 6)  { setError('La contraseña debe tener al menos 6 caracteres.'); return; }
-
+    const correo = email.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo)) { setError('Ingresá un correo válido.'); return; }
+    if (!recuperar && !password) { setError('Ingresá tu contraseña.'); return; }
     setLoading(true);
     try {
-      if (modo === 'login') {
-        await signIn(email.trim(), password);
+      if (recuperar) {
+        const { error: envioError } = await supabase.auth.resetPasswordForEmail(correo, { redirectTo: urlActivacion });
+        if (envioError) throw envioError;
+        setEnlaceSolicitado(true);
       } else {
-        await signUp(email.trim(), password);
-        // Cuenta creada — Supabase enviará email de confirmación.
-        mostrar('Cuenta creada. Revisá tu email para confirmar el registro antes de ingresar.', 'success');
-        cambiarModo('login');
+        await signIn(correo, password);
       }
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Error de autenticación.');
+    } catch {
+      setError(recuperar ? 'No pudimos enviar el enlace ahora. Intentá de nuevo más tarde.' : 'No pudimos iniciar sesión. Revisá tu correo y contraseña.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleGoogleLogin = () => {
-    // Stub — provider OAuth de Google aún no implementado en Supabase.
-    console.log('google-login');
+  const cambiarVista = () => {
+    setRecuperar(value => !value);
+    setError('');
+    setEnlaceSolicitado(false);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') handleSubmit();
-  };
-
-  return (
-    <div className={styles.page}>
-      {/* Panel izquierdo */}
-      <div className={styles.left}>
-        <div className={styles.logo}>
-          <div className={styles.logoIcon}>P</div>
-          <span className={styles.logoText}>Plan-OTs</span>
-        </div>
-        <p className={styles.tagline}>Gestión visual de obras en campo</p>
-        <ul className={styles.features}>
-          <li className={styles.feature}>
-            <span className={styles.featureCheck}>✓</span>
-            Optimiza el flujo de trabajo con planos interactivos.
-          </li>
-          <li className={styles.feature}>
-            <span className={styles.featureCheck}>✓</span>
-            Reporta incidencias directamente en la obra.
-          </li>
-          <li className={styles.feature}>
-            <span className={styles.featureCheck}>✓</span>
-            Accede a la documentación de tus instalaciones en tiempo real.
-          </li>
-        </ul>
-      </div>
-
-      {/* Panel derecho */}
-      <div className={styles.right}>
-        <div className={styles.formCard}>
-          <h1 className={styles.heading}>Bienvenido de nuevo.</h1>
-
-          {/* Tabs */}
-          <div className={styles.tabs}>
-            <button
-              className={`${styles.tab} ${modo === 'login' ? styles.active : ''}`}
-              onClick={() => cambiarModo('login')}
-              type="button"
-            >
-              Iniciar sesión
-            </button>
-            <button
-              className={`${styles.tab} ${modo === 'register' ? styles.active : ''}`}
-              disabled
-              title="Solicita una cuenta al administrador de la plataforma"
-              onClick={() => cambiarModo('register')}
-              type="button"
-            >
-              Crear cuenta
-            </button>
-          </div>
-
-          {/* Error local: validaciones de formulario previas al submit. */}
-          {error && <div className={styles.error}>{error}</div>}
-          {/* Error del store: lo que devuelve Supabase Auth. Se omite si repite
-              el texto del local para no mostrar el mismo mensaje dos veces. */}
-          {errorStore && errorStore !== error && (
-            <div className={styles.error}>{errorStore}</div>
-          )}
-
-          {/* Campo email */}
-          <div className={styles.field}>
-            <label className={styles.label}>Correo electrónico</label>
-            <input
-              className={styles.input}
-              type="email"
-              placeholder="usuario@empresa.com"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              onKeyDown={handleKeyDown}
-              autoComplete="email"
-              autoFocus
-              disabled={loading}
-            />
-          </div>
-
-          {/* Campo contraseña */}
-          <div className={styles.field}>
-            <label className={styles.label}>Contraseña</label>
-            <div className={styles.inputWrap}>
-              <input
-                className={styles.input}
-                type={showPass ? 'text' : 'password'}
-                placeholder="••••••••"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                onKeyDown={handleKeyDown}
-                autoComplete={modo === 'login' ? 'current-password' : 'new-password'}
-                disabled={loading}
-              />
-              <button
-                className={styles.eyeBtn}
-                onClick={() => setShowPass(p => !p)}
-                type="button"
-                tabIndex={-1}
-              >
-                {showPass ? '🙈' : '👁️'}
-              </button>
-            </div>
-          </div>
-
-          <button
-            className={styles.submitBtn}
-            onClick={handleSubmit}
-            disabled={loading}
-            type="button"
-          >
-            {loading ? 'Ingresando...' : (modo === 'login' ? 'Ingresar' : 'Crear cuenta')}
-          </button>
-
-          {modo === 'login' && (
-            <a className={styles.forgotLink}>¿Olvidaste tu contraseña?</a>
-          )}
-
-          <div className={styles.divider}>o</div>
-
-          <button
-            className={styles.googleBtn}
-            onClick={handleGoogleLogin}
-            type="button"
-          >
-            <span>🔵</span> Continuar con Google
-          </button>
-        </div>
-      </div>
-      {/* Toast — feedback de signup exitoso */}
-      {ToastComponent}
+  return <div className={styles.page}>
+    <div className={styles.left}>
+      <div className={styles.logo}><div className={styles.logoIcon}>P</div><span className={styles.logoText}>Plan-OTs</span></div>
+      <p className={styles.tagline}>Gestión visual de obras en campo</p>
+      <ul className={styles.features}>
+        <li className={styles.feature}><span className={styles.featureCheck}>✓</span>Optimizá el trabajo con planos interactivos.</li>
+        <li className={styles.feature}><span className={styles.featureCheck}>✓</span>Registrá incidencias directamente en la obra.</li>
+        <li className={styles.feature}><span className={styles.featureCheck}>✓</span>Consultá la documentación en tiempo real.</li>
+      </ul>
     </div>
-  );
-};
+    <div className={styles.right}><div className={styles.formCard}>
+      <h1 className={styles.heading}>{recuperar ? 'Recuperá tu acceso' : 'Ingresá a Plan-OTs'}</h1>
+      <p className={styles.helpText}>{recuperar
+        ? 'Te enviaremos un enlace para elegir una contraseña.'
+        : 'Usá el correo y la contraseña que elegiste al aceptar la invitación.'}</p>
+      {enlaceSolicitado ?
+        <p className={styles.success} role="status">Si la cuenta existe, recibirás un enlace. Revisá tu correo y la carpeta de spam.</p> :
+        <form onSubmit={handleSubmit}>
+          {error && <p className={styles.error} role="alert">{error}</p>}
+          {!recuperar && errorStore && <p className={styles.error} role="alert">{errorStore}</p>}
+          <div className={styles.field}>
+            <label className={styles.label} htmlFor="correo-acceso">Correo electrónico</label>
+            <input id="correo-acceso" className={styles.input} type="email" placeholder="usuario@empresa.com" value={email}
+              onChange={event => setEmail(event.target.value)} autoComplete="email" autoFocus disabled={loading} required />
+          </div>
+          {!recuperar && <div className={styles.field}>
+            <label className={styles.label} htmlFor="clave-acceso">Contraseña</label>
+            <div className={styles.inputWrap}>
+              <input id="clave-acceso" className={styles.input} type={showPass ? 'text' : 'password'} value={password}
+                onChange={event => setPassword(event.target.value)} autoComplete="current-password" disabled={loading} required />
+              <button className={styles.eyeBtn} onClick={() => setShowPass(value => !value)} type="button"
+                aria-label={showPass ? 'Ocultar contraseña' : 'Mostrar contraseña'}>{showPass ? '🙈' : '👁️'}</button>
+            </div>
+          </div>}
+          <button className={styles.submitBtn} disabled={loading} type="submit">
+            {loading ? 'Esperá un momento…' : recuperar ? 'Enviar enlace' : 'Ingresar'}
+          </button>
+        </form>}
+      <button className={styles.textButton} onClick={cambiarVista} type="button">
+        {recuperar ? 'Volver al inicio de sesión' : '¿Primera vez u olvidaste tu contraseña?'}
+      </button>
+    </div></div>
+  </div>;
+}

@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { createSessionFetch } from '../security/sessionScope';
+import '../security/authLink';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;

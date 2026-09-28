@@ -122,6 +122,41 @@
   letter-spacing: -0.5px;
 }
 
+.helpText {
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin: -10px 0 26px;
+}
+
+.success {
+  background: var(--color-success-bg);
+  border: 1px solid var(--estado-cerrada-border);
+  color: var(--estado-cerrada-text);
+  padding: 12px 14px;
+  border-radius: 8px;
+  line-height: 1.5;
+}
+
+.textButton {
+  display: block;
+  margin: 18px auto 0;
+  background: none;
+  border: 0;
+  color: var(--text-link);
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+@media (max-width: 700px) {
+  .page { overflow-y: auto; min-height: 100vh; height: auto; flex-direction: column; }
+  .left { width: 100%; box-sizing: border-box; padding: 30px 24px; }
+  .logo { margin-bottom: 8px; }
+  .tagline { margin: 0; }
+  .features { display: none; }
+  .right { padding: 32px 24px; }
+}
+
 /* Tabs Iniciar sesión / Crear cuenta */
 .tabs {
   display: flex;
