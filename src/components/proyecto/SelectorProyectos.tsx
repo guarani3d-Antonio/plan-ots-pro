@@ -216,7 +216,17 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
                 : 'No hay obras asignadas en esta selección.'}
             </div>
           ) : proyectosFiltrados.map(proyecto => {
-            const stats    = statsMap[proyecto.id] ?? STATS_VACIO;
+            const hijos = proyecto.proyecto_padre_id ? [] : proyectos.filter(p => p.proyecto_padre_id === proyecto.id);
+            const fuentes = [proyecto, ...hijos].map(p => statsMap[p.id] ?? STATS_VACIO);
+            const stats = fuentes.reduce((acc, item) => ({
+              ...acc,
+              pendiente: acc.pendiente + item.pendiente,
+              en_proceso: acc.en_proceso + item.en_proceso,
+              cerrada: acc.cerrada + item.cerrada,
+              no_aplica: acc.no_aplica + item.no_aplica,
+              total: acc.total + item.total,
+            }), { ...STATS_VACIO });
+            stats.pct_cerrada = stats.total ? Math.round(stats.cerrada / stats.total * 100) : 0;
             const thumbUrl = thumbnails[proyecto.id] ?? obtenerThumbnailPDFCache(proyecto.plano_url);
             const planoUrl = proyecto.plano_url ?? '';
             const esPdf    = planoUrl.toLowerCase().includes('.pdf');
