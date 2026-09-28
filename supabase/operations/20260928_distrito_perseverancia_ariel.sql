@@ -33,7 +33,7 @@ begin
   loop
     perform public.plan_admin_obra_miembro(v_obra.id,'ajara@benitezbittar.com.py','supervisor');
   end loop;
-  perform public.plan_configurar_delegacion_invitacion(v_empresa,'ajara@benitezbittar.com.py',4,true);
+  perform public.plan_configurar_delegacion_invitacion(v_empresa,'ajara@benitezbittar.com.py',4::smallint,true);
 end $$;
 commit;
 
