@@ -596,12 +596,11 @@ export default function Gantt() {
                 textTransform: 'uppercase', letterSpacing: '0.06em',
               }}>{f.label}:</span>
               <select
+                className="app-select"
                 value={f.value}
                 onChange={e => f.setter(e.target.value)}
                 style={{
-                  height: 26, fontSize: 11, padding: '0 4px', maxWidth: 85,
-                  border: '1px solid #E2E2E7', borderRadius: 5,
-                  background: 'white', cursor: 'pointer', fontFamily: 'inherit',
+                  height: 36, minHeight: 36, maxWidth: 130,
                 }}
               >
                 {f.ops.map(o => <option key={o} value={o}>{o}</option>)}
@@ -616,12 +615,11 @@ export default function Gantt() {
               textTransform: 'uppercase', letterSpacing: '0.06em',
             }}>Proyecto:</span>
             <select
+              className="app-select"
               value={filtroProyecto || 'Todos'}
               onChange={e => setFiltroProyecto(e.target.value === 'Todos' ? '' : e.target.value)}
               style={{
-                height: 26, fontSize: 11, padding: '0 4px', maxWidth: 120,
-                border: '1px solid #E2E2E7', borderRadius: 5,
-                background: 'white', cursor: 'pointer', fontFamily: 'inherit',
+                height: 36, minHeight: 36, maxWidth: 160,
               }}
             >
               <option value="Todos">Todos</option>

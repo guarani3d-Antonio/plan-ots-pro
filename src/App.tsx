@@ -237,7 +237,9 @@ function ContenidoApp() {
           minWidth: 0,
           display: 'flex',
           flexDirection: 'column',
-          overflow: 'auto',
+          overflowX: 'hidden',
+          overflowY: 'scroll',
+          scrollbarGutter: 'stable',
         }}>
           {!fullscreen && !(proyectoActivo && VISTAS_CON_PROYECTO.has(vista)) && <ApplicationTopBar vista={vista} />}
           {!fullscreen && proyectoActivo && (vista === 'plano' || vista === 'grilla') && (

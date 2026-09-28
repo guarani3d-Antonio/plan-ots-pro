@@ -4,7 +4,7 @@ import { supabase } from '../db/supabase';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
-export type WidgetId = 'kpis' | 'kpi_total' | 'kpi_avance' | 'kpi_riesgo' | 'kpi_costo' | 'por_estado' | 'por_rubro' | 'ultimas_ots';
+export type WidgetId = 'lectura' | 'kpis' | 'kpi_total' | 'kpi_avance' | 'kpi_riesgo' | 'kpi_costo' | 'por_estado' | 'por_rubro' | 'tendencia' | 'costos' | 'ultimas_ots';
 
 export interface WidgetConfig {
   id: WidgetId;
@@ -16,14 +16,17 @@ export interface WidgetConfig {
 // ─── Defaults ────────────────────────────────────────────────────────────────
 
 export const DEFAULT_WIDGETS: WidgetConfig[] = [
-  { id: 'kpis',        label: '📊 KPIs Principales',        visible: true, orden: 0 },
+  { id: 'lectura',     label: 'Lectura de la operación',   visible: true, orden: 0 },
+  { id: 'kpis',        label: '📊 KPIs Principales',        visible: true, orden: 1 },
   { id: 'kpi_total',   label: 'Total OTs',                   visible: true, orden: 1 },
   { id: 'kpi_avance',  label: 'Avance general',              visible: true, orden: 2 },
   { id: 'kpi_riesgo',  label: 'OTs en riesgo',               visible: true, orden: 3 },
   { id: 'kpi_costo',   label: 'Costo total',                 visible: true, orden: 4 },
   { id: 'por_estado',  label: '🎯 Por Estado',              visible: true, orden: 5 },
   { id: 'por_rubro',   label: '🔧 Por Rubro',               visible: true, orden: 6 },
-  { id: 'ultimas_ots', label: '🕐 Últimas OTs Modificadas', visible: true, orden: 7 },
+  { id: 'tendencia',   label: 'Ingresos por semana o mes',  visible: true, orden: 7 },
+  { id: 'costos',      label: 'Costos por obra y rubro',    visible: true, orden: 8 },
+  { id: 'ultimas_ots', label: '🕐 Últimas OTs Modificadas', visible: true, orden: 9 },
 ];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

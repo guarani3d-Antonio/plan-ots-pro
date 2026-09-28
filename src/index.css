@@ -193,6 +193,24 @@ body {
 /* ── Elements ── */
 button { font-family: var(--font-sans); cursor: pointer; border: none; background: none; }
 input, textarea, select { font-family: var(--font-sans); font-size: inherit; color: inherit; }
+
+.app-select {
+  appearance: none;
+  min-height: 42px;
+  min-width: 0;
+  padding: 8px 36px 8px 12px;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  background-color: var(--bg-surface);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23475569' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-position: right 12px center;
+  background-repeat: no-repeat;
+  color: var(--text-primary);
+  font: 500 13px var(--font-sans);
+  cursor: pointer;
+}
+.app-select:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
+.app-select:disabled { background-color: var(--bg-subtle); color: var(--text-tertiary); cursor: not-allowed; }
 a { color: var(--text-link); text-decoration: none; }
 img { display: block; max-width: 100%; }
 

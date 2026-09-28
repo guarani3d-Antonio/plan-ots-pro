@@ -1,5 +1,5 @@
 import { useAccessStore } from '../../stores/accessStore';
-import { cargarContratistas, agregarContratistaCompartido } from '../../services/trustService';
+import { cargarContratistas } from '../../services/trustService';
 import { useEffect, useMemo, useState } from 'react';
 import { useOrdenesStore } from '../../stores/ordenesStore';
 import { useProyectosStore } from '../../stores/proyectosStore';
@@ -41,11 +41,8 @@ export default function Contratistas() {
   const [empresaElegida, setEmpresaElegida] = useState('');
   const empresaId = empresaElegida || empresaActiva || (contexto?.empresas.length === 1 ? contexto.empresas[0].id : '');
   const [errorDirectorio, setErrorDirectorio] = useState<string | null>(null);
-  const [guardandoDirectorio, setGuardandoDirectorio] = useState(false);
   const [directorioEmpresa, setDirectorioEmpresa] = useState('');
-  const puedeAgregar = !!empresaId && !!contexto?.creador;
   const [filtroProyecto, setFiltroProyecto] = useState('');
-  const [nuevoNombre, setNuevoNombre]       = useState('');
   const [directorio, setDirectorio]         = useState<string[]>([]);
   const [expandido, setExpandido]           = useState<string | null>(null);
   const [modalOrden, setModalOrden]         = useState<OrdenLocal | null>(null);
@@ -93,18 +90,6 @@ export default function Contratistas() {
     }).sort((a, b) => b.total - a.total || a.nombre.localeCompare(b.nombre));
   }, [ordenesFiltradas, directorio, directorioEmpresa, empresaId]);
 
-  const agregar = async () => {
-    const nombre = nuevoNombre.trim();
-    if (!nombre || guardandoDirectorio || !puedeAgregar || directorioEmpresa !== empresaId) return;
-    setGuardandoDirectorio(true);
-    try {
-      const saved = await agregarContratistaCompartido(empresaId, nombre);
-      setDirectorio(prev => [...new Set([...prev, saved.nombre])].sort((a,b) => a.localeCompare(b)));
-      setDirectorioEmpresa(empresaId); setNuevoNombre(''); setErrorDirectorio(null);
-    } catch (e) { setErrorDirectorio(e instanceof Error ? e.message : 'No se pudo guardar el contratista.'); }
-    finally { setGuardandoDirectorio(false); }
-  };
-
   return (
     <div style={{ padding: 28, background: '#F9FAFB', minHeight: '100%' }}>
       <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14, marginBottom: 18, flexWrap: 'wrap' }}>
@@ -114,43 +99,21 @@ export default function Contratistas() {
             Directorio compartido de la empresa y carga de trabajo asignada.
           </p>
         </div>
-        <FiltroProyecto value={filtroProyecto} onChange={setFiltroProyecto} proyectos={proyectos} />
+        <div style={{ display: 'flex', alignItems: 'end', flexWrap: 'wrap', gap: 12 }}>
+          <label style={{ display: 'grid', gap: 5, color: '#475569', fontSize: 12, fontWeight: 600 }}>
+            Empresa del directorio
+            <select className="app-select" aria-label="Empresa del directorio" value={empresaId} onChange={e => { setEmpresaElegida(e.target.value); setFiltroProyecto(''); }} style={{ minWidth: 220 }}>
+              <option value="">Seleccioná una empresa</option>
+              {contexto?.empresas.map(e => <option key={e.id} value={e.id}>{e.nombre}</option>)}
+            </select>
+          </label>
+          <label style={{ display: 'grid', gap: 5, color: '#475569', fontSize: 12, fontWeight: 600 }}>
+            Proyecto
+            <FiltroProyecto value={filtroProyecto} onChange={setFiltroProyecto} proyectos={proyectos} />
+          </label>
+        </div>
       </header>
-
-      <label>Empresa del directorio <select aria-label="Empresa del directorio" value={empresaId} disabled={guardandoDirectorio} onChange={e => { setEmpresaElegida(e.target.value); setFiltroProyecto(''); }}>
-        <option value="">Seleccioná una empresa</option>
-        {contexto?.empresas.map(e => <option key={e.id} value={e.id}>{e.nombre}</option>)}
-      </select></label>
-      {errorDirectorio && <p role="alert">No se pudo consultar o guardar el directorio: {errorDirectorio}</p>}
-      {/* Agregar */}
-      <section style={{
-        background: '#fff', border: '1px solid #E5E7EB', borderRadius: 12,
-        padding: 16, marginBottom: 14, display: 'flex', gap: 8, alignItems: 'center',
-      }}>
-        <input
-          type="text" maxLength={160} disabled={guardandoDirectorio || !puedeAgregar || directorioEmpresa !== empresaId}
-          placeholder="Nombre del nuevo contratista..."
-          value={nuevoNombre}
-          onChange={e => setNuevoNombre(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') agregar(); }}
-          style={{
-            flex: 1, height: 34, padding: '0 12px',
-            border: '1px solid #E5E7EB', borderRadius: 8,
-            fontSize: 13, color: '#1E293B', outline: 'none', fontFamily: 'inherit',
-          }}
-        />
-        <button
-          type="button" onClick={agregar} disabled={!nuevoNombre.trim() || guardandoDirectorio || !puedeAgregar || directorioEmpresa !== empresaId}
-          style={{
-            height: 34, padding: '0 16px',
-            background: '#1E3A5F', color: '#fff', border: 'none',
-            borderRadius: 8, fontSize: 13, fontWeight: 700,
-            cursor: nuevoNombre.trim() ? 'pointer' : 'not-allowed',
-            opacity: nuevoNombre.trim() ? 1 : 0.45,
-            fontFamily: 'inherit',
-          }}
-        >{guardandoDirectorio ? 'Guardando…' : '+ Agregar contratista'}</button>
-      </section>
+      {errorDirectorio && <p role="alert">No se pudo consultar el directorio: {errorDirectorio}</p>}
 
       {/* Cards */}
       {grupos.length === 0 ? (

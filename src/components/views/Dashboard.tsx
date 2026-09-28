@@ -1,18 +1,13 @@
 // src/components/views/Dashboard.tsx
 // Dashboard con KPIs en tiempo real + exportación CSV / HTML / PDF + widgets configurables
 
-import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useOrdenesStore } from '../../stores/ordenesStore';
 import { useProyectosStore } from '../../stores/proyectosStore';
 import { useAuthStore } from '../../stores/authStore';
 import { ESTADO_COLOR } from '../../constants/estados';
-import {
-  getWidgetConfig, saveWidgetConfig, getManagedWidgetConfig, saveManagedWidgetConfig, listarUsuariosDashboard, DEFAULT_WIDGETS,
-  type WidgetConfig, type WidgetId, type UsuarioDashboard,
-} from '../../services/dashboardConfigService';
-import { ModalConfigWidgets } from '../dashboard/ModalConfigWidgets';
+import { getWidgetConfig, DEFAULT_WIDGETS, type WidgetConfig, type WidgetId } from '../../services/dashboardConfigService';
 import { usePuedeVerCostosMultiple } from '../../hooks/usePuedeVerCostos';
-import { useAccessStore } from '../../stores/accessStore';
 
 const ESTADOS = ['Pendiente', 'En proceso', 'Cerrada', 'No aplica'] as const;
 
@@ -50,18 +45,18 @@ export default function Dashboard() {
   const proyectos             = useProyectosStore(s => s.proyectos);
   const cargarProyectos       = useProyectosStore(s => s.cargarProyectos);
   const user                  = useAuthStore(s => s.user);
-  const esCreador             = useAccessStore(s => s.disponible && s.contexto?.creador === true);
 
   const [filtroProyecto, setFiltroProyecto] = useState<string>('');
+  const [filtroEstado, setFiltroEstado] = useState('');
+  const [filtroRiesgo, setFiltroRiesgo] = useState('');
+  const [filtroRubro, setFiltroRubro] = useState('');
+  const [filtroResponsable, setFiltroResponsable] = useState('');
+  const [fechaDesde, setFechaDesde] = useState('');
+  const [fechaHasta, setFechaHasta] = useState('');
+  const [periodo, setPeriodo] = useState<'semana' | 'mes'>('mes');
+  const [ahora] = useState(() => Date.now());
   const [colapsado, setColapsado]           = useState(false);
   const [widgetConfig, setWidgetConfig]     = useState<WidgetConfig[]>(DEFAULT_WIDGETS);
-  const [showWidgetPanel, setShowWidgetPanel] = useState(false);
-  const [usuariosDashboard, setUsuariosDashboard] = useState<UsuarioDashboard[]>([]);
-  const [usuarioObjetivo, setUsuarioObjetivo] = useState('');
-  const [configObjetivo, setConfigObjetivo] = useState<WidgetConfig[]>(DEFAULT_WIDGETS);
-  const [errorConfig, setErrorConfig] = useState('');
-  const [cargandoConfig, setCargandoConfig] = useState(false);
-  const configBtnWrapperRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     cargarProyectos();
@@ -75,26 +70,6 @@ export default function Dashboard() {
     }
   }, [user?.id]);
 
-  useEffect(() => {
-    if (!esCreador || !showWidgetPanel) return;
-    let activo = true;
-    void listarUsuariosDashboard().then(rows => {
-      if (activo) { setUsuariosDashboard(rows); setErrorConfig(''); setUsuarioObjetivo(id => id || user?.id || rows[0]?.user_id || ''); }
-    }).catch(err => { if (activo) setErrorConfig(err instanceof Error ? err.message : 'No se pudieron cargar usuarios'); });
-    return () => { activo = false; };
-  }, [esCreador, showWidgetPanel, user?.id]);
-
-  useEffect(() => {
-    if (!showWidgetPanel || !usuarioObjetivo) return;
-    let activo = true;
-    setCargandoConfig(true);
-    void getManagedWidgetConfig(usuarioObjetivo).then(config => {
-      if (activo) { setConfigObjetivo(config); setErrorConfig(''); }
-    }).catch(err => { if (activo) setErrorConfig(err instanceof Error ? err.message : 'No se pudo cargar la configuración'); })
-      .finally(() => { if (activo) setCargandoConfig(false); });
-    return () => { activo = false; };
-  }, [showWidgetPanel, usuarioObjetivo]);
-
   const userName = user?.email?.split('@')[0] ?? 'Usuario';
 
   const proyectoLabel = filtroProyecto
@@ -103,10 +78,19 @@ export default function Dashboard() {
 
   // ── Datos filtrados ────────────────────────────────────────────────────────
 
-  const ordenesFiltradas = useMemo(
-    () => filtroProyecto ? ordenes.filter(o => o.proyecto_id === filtroProyecto) : ordenes,
-    [ordenes, filtroProyecto],
-  );
+  const opcionesRubro = useMemo(() => [...new Set(ordenes.map(o => o.rubro).filter(Boolean))].sort(), [ordenes]);
+  const opcionesResponsable = useMemo(() => [...new Set(ordenes.map(o => o.responsable).filter(Boolean))].sort(), [ordenes]);
+  const ordenesFiltradas = useMemo(() => ordenes.filter(o => {
+    if (filtroProyecto && o.proyecto_id !== filtroProyecto) return false;
+    if (filtroEstado && o.estado !== filtroEstado) return false;
+    if (filtroRiesgo && o.nivel_riesgo !== filtroRiesgo) return false;
+    if (filtroRubro && o.rubro !== filtroRubro) return false;
+    if (filtroResponsable && o.responsable !== filtroResponsable) return false;
+    const fecha = (o.fecha_ingreso || o.created_at || '').slice(0, 10);
+    if (fechaDesde && fecha < fechaDesde) return false;
+    if (fechaHasta && fecha > fechaHasta) return false;
+    return true;
+  }), [ordenes, filtroProyecto, filtroEstado, filtroRiesgo, filtroRubro, filtroResponsable, fechaDesde, fechaHasta]);
 
   // P0-6: Dashboard agrega OTs de varios proyectos a la vez — solo se ven
   // costos si el usuario es supervisor en TODOS los proyectos que aportan
@@ -123,13 +107,13 @@ export default function Dashboard() {
     const avancePromedio = total > 0 ? Math.round(avanceSum / total) : 0;
     const riesgo = ordenesFiltradas.filter(o => o.nivel_riesgo === 'Alto' || o.nivel_riesgo === 'Extremo').length;
     const costoTotal = ordenesFiltradas.reduce((s, o) => s + (o.costo ?? 0), 0);
-    const haceSemana = Date.now() - 7 * 86400000;
+    const haceSemana = ahora - 7 * 86400000;
     const modificadasUltSem = ordenesFiltradas.filter(o => {
       const t = new Date(o.updated_at ?? o.created_at ?? 0).getTime();
       return t >= haceSemana;
     }).length;
     return { total, avancePromedio, riesgo, costoTotal, modificadasUltSem };
-  }, [ordenesFiltradas]);
+  }, [ordenesFiltradas, ahora]);
 
   const porEstado = useMemo(() => {
     const c: Record<string, number> = {};
@@ -148,6 +132,36 @@ export default function Dashboard() {
     return Object.entries(c).sort((a, b) => b[1] - a[1]);
   }, [ordenesFiltradas]);
 
+  const tendencia = useMemo(() => {
+    const conteo = new Map<string, number>();
+    for (const o of ordenesFiltradas) {
+      const fecha = (o.fecha_ingreso || o.created_at || '').slice(0, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) continue;
+      let clave = fecha.slice(0, 7);
+      if (periodo === 'semana') {
+        const dia = new Date(`${fecha}T12:00:00Z`);
+        dia.setUTCDate(dia.getUTCDate() - ((dia.getUTCDay() + 6) % 7));
+        clave = dia.toISOString().slice(0, 10);
+      }
+      conteo.set(clave, (conteo.get(clave) ?? 0) + 1);
+    }
+    return [...conteo].sort(([a], [b]) => a.localeCompare(b)).slice(-12);
+  }, [ordenesFiltradas, periodo]);
+
+  const costosPorObra = useMemo(() => {
+    const totales = new Map<string, number>();
+    for (const o of ordenesFiltradas) if ((o.costo ?? 0) > 0) totales.set(o.proyecto_id, (totales.get(o.proyecto_id) ?? 0) + (o.costo ?? 0));
+    return [...totales].map(([id, monto]) => ({ label: proyectos.find(p => p.id === id)?.nombre ?? 'Obra', monto })).sort((a, b) => b.monto - a.monto);
+  }, [ordenesFiltradas, proyectos]);
+  const costosPorRubro = useMemo(() => {
+    const totales = new Map<string, number>();
+    for (const o of ordenesFiltradas) if ((o.costo ?? 0) > 0) {
+      const rubro = o.rubro || 'Sin rubro';
+      totales.set(rubro, (totales.get(rubro) ?? 0) + (o.costo ?? 0));
+    }
+    return [...totales].map(([label, monto]) => ({ label, monto })).sort((a, b) => b.monto - a.monto);
+  }, [ordenesFiltradas]);
+
   const ultimas = useMemo(() => {
     return [...ordenesFiltradas]
       .sort((a, b) => {
@@ -161,6 +175,39 @@ export default function Dashboard() {
   const maxRubro = porRubro[0]?.[1] ?? 1;
   const { total, avancePromedio, riesgo, costoTotal, modificadasUltSem } = kpi;
 
+  const lectura = useMemo(() => {
+    if (ordenesFiltradas.length === 0) return [];
+    const abiertas = ordenesFiltradas.filter(o => o.estado === 'Pendiente' || o.estado === 'En proceso');
+    const vencidas = abiertas.filter(o => {
+      const fecha = Date.parse(o.fecha_ingreso || o.created_at);
+      return Number.isFinite(fecha) && ahora - fecha > 7 * 86400000;
+    });
+    const riesgos = abiertas.filter(o => o.nivel_riesgo === 'Alto' || o.nivel_riesgo === 'Extremo');
+    const reincidencias = abiertas.filter(o => o.reincidencia);
+    const mensajes = [
+      { titulo: 'Dónde atender primero', detalle: riesgos.length
+        ? `${riesgos.length} ${riesgos.length === 1 ? 'OT abierta tiene' : 'OTs abiertas tienen'} riesgo alto o extremo. Revisá su responsable y el próximo paso.`
+        : 'No hay OTs abiertas con riesgo alto o extremo.', tono: riesgos.length ? '#B91C1C' : '#15803D' },
+      { titulo: 'Demoras', detalle: vencidas.length
+        ? `${vencidas.length} ${vencidas.length === 1 ? 'OT abierta lleva' : 'OTs abiertas llevan'} más de 7 días desde el ingreso.`
+        : 'Ninguna OT abierta supera 7 días desde el ingreso.', tono: vencidas.length ? '#B45309' : '#15803D' },
+      { titulo: 'Reclamos repetidos', detalle: reincidencias.length
+        ? `${reincidencias.length} ${reincidencias.length === 1 ? 'OT abierta está marcada' : 'OTs abiertas están marcadas'} como reincidencia.`
+        : 'No hay OTs abiertas marcadas como reincidencia.', tono: reincidencias.length ? '#B45309' : '#15803D' },
+    ];
+    const [rubroTop, cantidadRubro] = porRubro[0] ?? [];
+    if (rubroTop) mensajes.push({ titulo: 'Rubro con más reclamos', detalle: `${rubroTop}: ${cantidadRubro} ${cantidadRubro === 1 ? 'OT' : 'OTs'} en la selección actual.`, tono: '#1E40AF' });
+    if (puedeVerCostos) {
+      const porObra = new Map<string, number>();
+      for (const o of ordenesFiltradas) if ((o.costo ?? 0) > 0) porObra.set(o.proyecto_id, (porObra.get(o.proyecto_id) ?? 0) + (o.costo ?? 0));
+      const [obraId, monto] = [...porObra].sort((a, b) => b[1] - a[1])[0] ?? [];
+      mensajes.push({ titulo: 'Dónde se concentra el costo', detalle: obraId
+        ? `${proyectos.find(p => p.id === obraId)?.nombre ?? 'Una obra'} concentra ${formatGs(monto)} de ${formatGs(costoTotal)} registrados. Es costo acumulado, no margen ni presupuesto.`
+        : 'Todavía no hay costos registrados para comparar obras.', tono: '#1E40AF' });
+    }
+    return mensajes;
+  }, [ordenesFiltradas, proyectos, puedeVerCostos, costoTotal, ahora, porRubro]);
+
   // ── Widget helpers ─────────────────────────────────────────────────────────
 
   const isVisible = (id: WidgetId) =>
@@ -170,16 +217,6 @@ export default function Dashboard() {
     .sort((a, b) => a.orden - b.orden)
     .map(w => w.id)
     .filter(id => !id.startsWith('kpi_'));
-
-  const handleSaveWidgetConfig = useCallback(async (newConfig: WidgetConfig[]) => {
-    if (!usuarioObjetivo) throw new Error('Seleccioná un usuario');
-    if (usuarioObjetivo === user?.id) {
-      await saveManagedWidgetConfig(usuarioObjetivo, newConfig);
-      await saveWidgetConfig(usuarioObjetivo, newConfig);
-      setWidgetConfig(newConfig);
-    } else await saveManagedWidgetConfig(usuarioObjetivo, newConfig);
-    setConfigObjetivo(newConfig);
-  }, [usuarioObjetivo, user?.id]);
 
   // ── Export CSV ─────────────────────────────────────────────────────────────
 
@@ -288,7 +325,7 @@ ${ultimas.map(o => `<tr>
     a.download = `dashboard_${proyectoLabel.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.html`;
     a.click();
     URL.revokeObjectURL(url);
-  }, [ordenesFiltradas, porRubro, porEstado, sinEstado, kpi, proyectoLabel, maxRubro, ultimas, puedeVerCostos]);
+  }, [porRubro, porEstado, sinEstado, proyectoLabel, maxRubro, ultimas, puedeVerCostos, total, avancePromedio, riesgo, costoTotal]);
 
   // ── Export PDF ─────────────────────────────────────────────────────────────
 
@@ -418,12 +455,23 @@ body{background:#888;font-family:Arial,sans-serif}
       pw.print();
       pw.addEventListener('afterprint', () => setTimeout(() => pw.close(), 400));
     }, 600);
-  }, [ordenesFiltradas, porRubro, porEstado, sinEstado, kpi, proyectoLabel, maxRubro, ultimas, puedeVerCostos]);
+  }, [porRubro, porEstado, sinEstado, proyectoLabel, maxRubro, ultimas, puedeVerCostos, total, avancePromedio, riesgo, costoTotal, modificadasUltSem]);
 
   // ── Render de widgets por orden ────────────────────────────────────────────
 
   const renderWidget = (id: WidgetId) => {
     switch (id) {
+      case 'lectura':
+        return <Seccion key="lectura" titulo="Lectura de la operación">
+          {lectura.length === 0
+            ? <p style={{ margin: 0, color: '#64748B', fontSize: 14 }}>Todavía no hay OTs visibles. Si vas a probar en campo, pedile al Creador acceso a una obra y registrá una OT para empezar a medir la operación.</p>
+            : <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 12 }}>
+              {lectura.map(item => <div key={item.titulo} style={{ ...smallCard, borderTop: `3px solid ${item.tono}` }}>
+                <strong style={{ display: 'block', fontSize: 13, color: item.tono, marginBottom: 7 }}>{item.titulo}</strong>
+                <span style={{ fontSize: 13, lineHeight: 1.5, color: '#334155' }}>{item.detalle}</span>
+              </div>)}
+            </div>}
+        </Seccion>;
       case 'kpis':
         return (
           <div key="kpis" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, marginBottom: 14 }}>
@@ -483,6 +531,38 @@ body{background:#888;font-family:Arial,sans-serif}
             )}
           </Seccion>
         );
+
+      case 'tendencia': {
+        const max = Math.max(1, ...tendencia.map(([, cantidad]) => cantidad));
+        const peor = [...tendencia].sort((a, b) => b[1] - a[1])[0];
+        return <Seccion key="tendencia" titulo="Ingresos de reclamos en el tiempo">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 14 }}>
+            <span style={{ color: '#475569', fontSize: 13 }}>{peor ? `Mayor volumen: ${peor[0]} · ${peor[1]} ${peor[1] === 1 ? 'reclamo' : 'reclamos'}` : 'Sin ingresos para los filtros seleccionados.'}</span>
+            <select className="app-select" aria-label="Agrupar reclamos por" value={periodo} onChange={e => setPeriodo(e.target.value as 'semana' | 'mes')}><option value="mes">Por mes</option><option value="semana">Por semana</option></select>
+          </div>
+          <div style={{ display: 'grid', gap: 9 }}>
+            {tendencia.map(([clave, cantidad]) => <div key={clave} style={{ display: 'grid', gridTemplateColumns: '90px minmax(0,1fr) 35px', alignItems: 'center', gap: 10, fontSize: 12 }}>
+              <span style={{ color: '#475569' }}>{clave}</span>
+              <div style={{ height: 12, borderRadius: 999, background: '#F1F5F9', overflow: 'hidden' }}><div style={{ height: '100%', width: `${cantidad / max * 100}%`, background: '#3B599B' }} /></div>
+              <strong style={{ textAlign: 'right' }}>{cantidad}</strong>
+            </div>)}
+          </div>
+        </Seccion>;
+      }
+
+      case 'costos':
+        return puedeVerCostos ? <Seccion key="costos" titulo="Costo registrado por obra y rubro">
+          {costosPorObra.length === 0 ? <p style={{ margin: 0, fontSize: 13, color: '#64748B' }}>Todavía no hay costos registrados en esta selección.</p>
+            : <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 22 }}>
+              {[{ titulo: 'Obras', datos: costosPorObra }, { titulo: 'Rubros', datos: costosPorRubro }].map(grupo => <div key={grupo.titulo}>
+                <strong style={{ display: 'block', marginBottom: 10, fontSize: 13 }}>{grupo.titulo}</strong>
+                <div style={{ display: 'grid', gap: 12 }}>{grupo.datos.map(d => <div key={d.label}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 12, marginBottom: 4 }}><span>{d.label}</span><strong style={{ whiteSpace: 'nowrap' }}>{formatGs(d.monto)}</strong></div>
+                  <div style={{ height: 9, background: '#F1F5F9', borderRadius: 999, overflow: 'hidden' }}><div style={{ width: `${d.monto / grupo.datos[0].monto * 100}%`, height: '100%', background: '#3B599B' }} /></div>
+                </div>)}</div>
+              </div>)}
+            </div>}
+        </Seccion> : null;
 
       case 'ultimas_ots':
         return (
@@ -544,39 +624,22 @@ body{background:#888;font-family:Arial,sans-serif}
             <button type="button" onClick={handleExportCSV} style={btnSecundario}>CSV</button>
             <button type="button" onClick={handleExportHTML} style={btnSecundario}>HTML</button>
             <button type="button" onClick={handleExportPDF} style={btnPrimario}>🖨 PDF</button>
-            {/* Botón configurar widgets */}
-            {esCreador && <div ref={configBtnWrapperRef} style={{ position: 'relative' }}>
-              <button
-                type="button"
-                onClick={() => setShowWidgetPanel(v => !v)}
-                style={{
-                  ...btnSecundario,
-                  background: showWidgetPanel ? '#EFF6FF' : '#fff',
-                  borderColor: showWidgetPanel ? '#2563EB' : '#E5E7EB',
-                  color: showWidgetPanel ? '#2563EB' : '#475569',
-                }}
-                title="Configurar widgets"
-              >
-                ⚙ Widgets
-              </button>
-              {showWidgetPanel && errorConfig && <span role="alert" style={{ position: 'absolute', top: '100%', right: 0, zIndex: 9001, background: 'var(--bg-surface)', color: 'var(--color-danger, #b91c1c)', padding: 8, minWidth: 280 }}>{errorConfig}</span>}
-              {showWidgetPanel && !errorConfig && usuarioObjetivo && (
-                <ModalConfigWidgets
-                  key={usuarioObjetivo}
-                  widgets={configObjetivo}
-                  onSave={handleSaveWidgetConfig}
-                  onClose={() => setShowWidgetPanel(false)}
-                  usuarios={usuariosDashboard}
-                  usuarioId={usuarioObjetivo}
-                  onUsuarioChange={setUsuarioObjetivo}
-                  loading={cargandoConfig}
-                />
-              )}
-            </div>}
           </div>
           <FiltroProyecto value={filtroProyecto} onChange={setFiltroProyecto} proyectos={proyectos} />
         </div>
       </div>
+
+      <section aria-label="Filtros del dashboard" style={{ background: '#fff', border: '1px solid #E5E7EB', borderRadius: 12, padding: 14, marginBottom: 18 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, alignItems: 'end' }}>
+          <label style={filterLabel}>Estado<select className="app-select" value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)}><option value="">Todos</option>{ESTADOS.map(e => <option key={e} value={e}>{e}</option>)}</select></label>
+          <label style={filterLabel}>Riesgo<select className="app-select" value={filtroRiesgo} onChange={e => setFiltroRiesgo(e.target.value)}><option value="">Todos</option>{['Bajo', 'Medio', 'Alto', 'Extremo'].map(e => <option key={e} value={e}>{e}</option>)}</select></label>
+          <label style={filterLabel}>Rubro<select className="app-select" value={filtroRubro} onChange={e => setFiltroRubro(e.target.value)}><option value="">Todos</option>{opcionesRubro.map(e => <option key={e} value={e}>{e}</option>)}</select></label>
+          <label style={filterLabel}>Encargado<select className="app-select" value={filtroResponsable} onChange={e => setFiltroResponsable(e.target.value)}><option value="">Todos</option>{opcionesResponsable.map(e => <option key={e} value={e}>{e}</option>)}</select></label>
+          <label style={filterLabel}>Desde<input type="date" value={fechaDesde} onChange={e => setFechaDesde(e.target.value)} style={filterDate} /></label>
+          <label style={filterLabel}>Hasta<input type="date" min={fechaDesde || undefined} value={fechaHasta} onChange={e => setFechaHasta(e.target.value)} style={filterDate} /></label>
+          <button type="button" style={{ ...btnSecundario, height: 42 }} onClick={() => { setFiltroProyecto(''); setFiltroEstado(''); setFiltroRiesgo(''); setFiltroRubro(''); setFiltroResponsable(''); setFechaDesde(''); setFechaHasta(''); }}>Limpiar filtros</button>
+        </div>
+      </section>
 
       {/* KPI Section header con colapso */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #E5E7EB', paddingBottom: 8, marginBottom: 14 }}>
@@ -628,6 +691,9 @@ const smallCard: React.CSSProperties = {
   padding: '12px 14px',
 };
 
+const filterLabel: React.CSSProperties = { display: 'grid', gap: 5, color: '#475569', fontSize: 12, fontWeight: 600 };
+const filterDate: React.CSSProperties = { minHeight: 42, minWidth: 0, width: '100%', padding: '8px 12px', border: '1px solid var(--border-default)', borderRadius: 8, background: 'var(--bg-surface)', color: 'var(--text-primary)', font: '500 13px var(--font-sans)' };
+
 // ─── Sub-componentes ──────────────────────────────────────────────────────────
 
 export function FiltroProyecto({
@@ -635,13 +701,10 @@ export function FiltroProyecto({
 }: { value: string; onChange: (v: string) => void; proyectos: { id: string; nombre: string }[] }) {
   return (
     <select
+      className="app-select"
       value={value}
       onChange={e => onChange(e.target.value)}
       style={{
-        height: 34, padding: '0 12px',
-        border: '1px solid #E5E7EB', borderRadius: 8,
-        fontSize: 13, color: '#1E293B', background: '#fff',
-        outline: 'none', cursor: 'pointer', fontFamily: 'inherit',
         minWidth: 220,
       }}
     >

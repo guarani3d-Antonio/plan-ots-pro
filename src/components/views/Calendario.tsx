@@ -369,13 +369,11 @@ export default function Calendario() {
             textTransform: 'uppercase', letterSpacing: '0.06em',
           }}>Proyecto:</span>
           <select
+            className="app-select"
             value={proyectoFiltro}
             onChange={e => setProyectoFiltro(e.target.value)}
             style={{
-              height: 28, fontSize: 12, padding: '0 8px',
-              border: '1px solid #E2E2E7', borderRadius: 6,
-              background: 'white', cursor: 'pointer', fontFamily: 'inherit',
-              maxWidth: 200,
+              height: 36, minHeight: 36, maxWidth: 220,
             }}
           >
             <option value="todos">Todos los proyectos</option>
