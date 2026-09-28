@@ -1,10 +1,12 @@
 import { useAccessStore } from '../../stores/accessStore';
 import { useEffect, useState, useRef, useMemo } from 'react';
-import { useProyectosStore, type Proyecto } from '../../stores/proyectosStore';
+import { useProyectosStore, PLANO_PENDIENTE, type Proyecto } from '../../stores/proyectosStore';
 import { ModalNuevoProyecto } from './ModalNuevoProyecto';
+import { validarCalidadPlano } from '../../utils/validarCalidadPlano';
 import { ImagenPrivada } from './ImagenPrivada';
 import { cargarStatsProyectos, type ProyectoStats } from '../../services/statsService';
 import { generarThumbnailPDF, obtenerThumbnailPDFCache } from '../../services/pdfThumbnailService';
+import { procesarPlanoCanvas, esPDFFile } from '../../utils/planoScanner';
 import styles from './SelectorProyectos.module.css';
 
 // Stats por defecto cuando un proyecto aún no fue cargado en statsMap.
@@ -35,7 +37,7 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
   const {
     proyectos, loading, error,
     cargarProyectos, setProyectoActivo,
-    eliminarProyecto, duplicarProyecto,
+    eliminarProyecto, duplicarProyecto, cargarPlanoInicial, crearPlanoEnObra,
   } = useProyectosStore();
 
   const abrirProyecto = onAbrirProyecto ?? setProyectoActivo;
@@ -46,6 +48,11 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
   const [menuAbierto,    setMenuAbierto]    = useState<string | null>(null);
   const [confirmDelete,  setConfirmDelete]  = useState<Proyecto | null>(null);
   const [accionError,    setAccionError]    = useState<string | null>(null);
+  const [planoPendiente, setPlanoPendiente] = useState<Proyecto | null>(null);
+  const [torreNuevoPlano, setTorreNuevoPlano] = useState<Proyecto | null>(null);
+  const [nombreNuevoPlano, setNombreNuevoPlano] = useState('');
+  const [creandoPlano, setCreandoPlano] = useState(false);
+  const [subiendoPlano, setSubiendoPlano] = useState(false);
   const [busqueda,       setBusqueda]       = useState('');
   const [statsMap,       setStatsMap]       = useState<Record<string, ProyectoStats>>(() => Object.fromEntries(statsCache));
   const [thumbnails,     setThumbnails]     = useState<Record<string, string>>({});
@@ -126,6 +133,30 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
     }
   }
 
+  async function handleCargarPlano(file: File) {
+    if (!planoPendiente || subiendoPlano) return;
+    setAccionError(null);
+    setSubiendoPlano(true);
+    try {
+      const validacion = await validarCalidadPlano(file);
+      if (!validacion.valido) throw new Error(validacion.error ?? 'Plano inválido.');
+      const planoFile = esPDFFile(file) ? file : new File([await procesarPlanoCanvas(file)], 'plano_procesado.png', { type: 'image/png' });
+      await cargarPlanoInicial(planoPendiente.id, planoFile);
+      setPlanoPendiente(null);
+    } catch (error) { setAccionError(error instanceof Error ? error.message : 'No se pudo cargar el plano.'); }
+    finally { setSubiendoPlano(false); }
+  }
+
+  async function handleNuevoPlano() {
+    if (!torreNuevoPlano || !nombreNuevoPlano.trim() || creandoPlano) return;
+    setCreandoPlano(true); setAccionError(null);
+    try {
+      await crearPlanoEnObra(torreNuevoPlano.id, nombreNuevoPlano);
+      setTorreNuevoPlano(null); setNombreNuevoPlano('');
+    } catch (error) { setAccionError(error instanceof Error ? error.message : 'No se pudo crear el plano.'); }
+    finally { setCreandoPlano(false); }
+  }
+
   return (
     <div className={styles.page}>
 
@@ -200,7 +231,12 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
               <div
                 key={proyecto.id}
                 className={styles.card}
-                onClick={() => abrirProyecto(proyecto)}
+                onClick={() => {
+                  if (proyecto.plano_url === PLANO_PENDIENTE) {
+                    if (contexto?.obras.find(p => p.id === proyecto.id)?.administrar) setPlanoPendiente(proyecto);
+                    else setAccionError('Esta obra todavía no tiene plano. Pedí al supervisor que lo cargue.');
+                  } else abrirProyecto(proyecto);
+                }}
               >
                 {/* Portada — thumb generado (PDF), imagen directa, o placeholder */}
                 <div className={styles.cardImage}>
@@ -259,7 +295,13 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
                         borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
                         minWidth: 180, overflow: 'hidden', zIndex: 10,
                       }}>
-                        <button onClick={() => handleDuplicar(proyecto)} style={dropdownItemStyle}>
+                        {!proyecto.proyecto_padre_id && <button onClick={() => { setMenuAbierto(null); setTorreNuevoPlano(proyecto); }} style={dropdownItemStyle}>
+                          + Nuevo plano en esta obra
+                        </button>}
+                        {proyecto.plano_url === PLANO_PENDIENTE && <button onClick={() => { setMenuAbierto(null); setPlanoPendiente(proyecto); }} style={dropdownItemStyle}>
+                          ↑ Cargar plano inicial
+                        </button>}
+                        <button disabled={proyecto.plano_url === PLANO_PENDIENTE} onClick={() => handleDuplicar(proyecto)} style={dropdownItemStyle}>
                           ⧉ Duplicar proyecto
                         </button>
                         <button
@@ -275,10 +317,14 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
 
                 {/* Cuerpo */}
                 <div className={styles.cardBody}>
+                  {proyecto.proyecto_padre_id && <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginBottom: 4 }}>
+                    Plano de {proyectos.find(p => p.id === proyecto.proyecto_padre_id)?.nombre ?? 'obra asignada'}
+                  </div>}
                   <div className={styles.cardName}>{proyecto.nombre}</div>
                   <div className={styles.cardClient}>
                     {proyecto.cliente ?? 'Sin cliente'}
                   </div>
+                  {proyecto.plano_url === PLANO_PENDIENTE && <p style={{ margin: '8px 0', color: 'var(--text-secondary)', fontSize: 13 }}>Plano pendiente · {contexto?.obras.find(p => p.id === proyecto.id)?.administrar ? 'tocá para cargarlo' : 'esperando al supervisor'}</p>}
                   <div className={styles.cardDivider} />
 
                   {/* Stats por estado — vienen de statsService (Supabase) */}
@@ -330,6 +376,35 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
       {modalAbierto && (
         <ModalNuevoProyecto onCerrar={() => setModalAbierto(false)} />
       )}
+
+      {torreNuevoPlano && <div style={modalOverlayStyle} onClick={() => !creandoPlano && setTorreNuevoPlano(null)}>
+        <div style={modalBoxStyle} onClick={e => e.stopPropagation()}>
+          <h3 style={{ margin: 0, fontSize: 18 }}>Nuevo plano en {torreNuevoPlano.nombre}</h3>
+          <p style={{ margin: 0, color: 'var(--text-secondary)' }}>Creá el sector o piso y cargá su plano después. El equipo asignado a la torre tendrá acceso.</p>
+          <label>Nombre del plano
+            <input className="app-input" value={nombreNuevoPlano} maxLength={180} onChange={e => setNombreNuevoPlano(e.target.value)} placeholder="Ej.: Piso 3 · instalaciones" />
+          </label>
+          {accionError && <p role="alert" style={{ color: '#b91c1c' }}>{accionError}</p>}
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <button style={modalBtnCancelStyle} disabled={creandoPlano} onClick={() => setTorreNuevoPlano(null)}>Cancelar</button>
+            <button style={{ ...modalBtnCancelStyle, background: '#395b9c', color: 'white' }} disabled={creandoPlano || !nombreNuevoPlano.trim()} onClick={() => void handleNuevoPlano()}>
+              {creandoPlano ? 'Creando…' : 'Crear plano'}
+            </button>
+          </div>
+        </div>
+      </div>}
+
+      {planoPendiente && <div style={modalOverlayStyle} onClick={() => !subiendoPlano && setPlanoPendiente(null)}>
+        <div style={modalBoxStyle} onClick={e => e.stopPropagation()}>
+          <h3 style={{ margin: 0, fontSize: 18 }}>Cargar plano inicial</h3>
+          <p style={{ margin: 0, color: 'var(--text-secondary)' }}>{planoPendiente.nombre}</p>
+          <p style={{ margin: 0, fontSize: 14 }}>Elegí un PDF, PNG, JPG o WebP de hasta 20 MB. Después podrás abrir la obra y ubicar OTs en el plano.</p>
+          <input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" disabled={subiendoPlano} onChange={e => { const file = e.target.files?.[0]; if (file) void handleCargarPlano(file); }} />
+          {subiendoPlano && <p role="status" style={{ margin: 0 }}>Cargando plano…</p>}
+          {accionError && <p role="alert" style={{ margin: 0, color: 'var(--text-danger, #b91c1c)' }}>{accionError}</p>}
+          <button style={modalBtnCancelStyle} disabled={subiendoPlano} onClick={() => setPlanoPendiente(null)}>Cerrar</button>
+        </div>
+      </div>}
 
       {/* Modal confirmar eliminación */}
       {confirmDelete && (

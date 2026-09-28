@@ -2,51 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import styles from './ModalNuevoProyecto.module.css';
 import { useProyectosStore } from '../../stores/proyectosStore';
 import { procesarPlanoCanvas, esPDFFile } from '../../utils/planoScanner';
-
-async function validarCalidadPlano(
-  file: File
-): Promise<{ valido: boolean; error?: string }> {
-  if (file.type === 'application/pdf') {
-    if (file.size > 20 * 1024 * 1024)
-      return { valido: false, error: 'El PDF supera el máximo de 20 MB.' };
-    return { valido: true };
-  }
-
-  const imageTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
-  if (!imageTypes.includes(file.type))
-    return { valido: false, error: 'Formato no soportado. Usá PDF, PNG, JPG o WebP.' };
-
-  if (file.size < 200 * 1024)
-    return { valido: false, error: 'Imagen demasiado pequeña (< 200 KB). El plano puede verse pixelado.' };
-
-  if (file.size > 20 * 1024 * 1024)
-    return { valido: false, error: 'La imagen supera el máximo de 20 MB.' };
-
-  return new Promise(resolve => {
-    const img = new Image();
-    const url = URL.createObjectURL(file);
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      const minAncho = 1800;
-      const minAlto  = 1200;
-      if (img.width < minAncho || img.height < minAlto) {
-        resolve({
-          valido: false,
-          error: `Resolución insuficiente: ${img.width}×${img.height}px. ` +
-                 `Mínimo requerido: ${minAncho}×${minAlto}px. ` +
-                 `Subí el plano en mayor calidad o usá PDF.`,
-        });
-      } else {
-        resolve({ valido: true });
-      }
-    };
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      resolve({ valido: false, error: 'No se pudo leer la imagen.' });
-    };
-    img.src = url;
-  });
-}
+import { validarCalidadPlano } from '../../utils/validarCalidadPlano';
 
 interface Props {
   onCerrar: () => void;
@@ -68,7 +24,7 @@ export const ModalNuevoProyecto: React.FC<Props> = ({ onCerrar }) => {
   const inputRef      = useRef<HTMLInputElement>(null);
   const previewUrlRef = useRef<string | null>(null);
 
-  const { crearProyecto } = useProyectosStore();
+  const { crearProyecto, crearProyectoBorrador } = useProyectosStore();
 
   const handleArchivo = async (file: File) => {
     setValidando(true);
@@ -103,12 +59,19 @@ export const ModalNuevoProyecto: React.FC<Props> = ({ onCerrar }) => {
 
   const handleSubmit = async () => {
     if (!nombre.trim()) { setError('El nombre del proyecto es obligatorio.'); return; }
-    if (!archivo)       { setError('Debés subir un plano referencial.'); return; }
 
     setCargando(true);
     setError('');
 
     try {
+      if (!archivo) {
+        setProgreso('Creando obra sin plano...');
+        await crearProyectoBorrador({ nombre: nombre.trim(), cliente: cliente.trim(), descripcion: '' });
+        const storeErr = useProyectosStore.getState().error;
+        if (storeErr) { setError(storeErr); return; }
+        onCerrar();
+        return;
+      }
       // Scanner Nivel 2: procesar imagen antes de pasarla al store
       // El store hace el upload internamente → recibe un File
       let planoFile: File = archivo;
@@ -193,7 +156,7 @@ export const ModalNuevoProyecto: React.FC<Props> = ({ onCerrar }) => {
 
           <div className={styles.formRow}>
             <label className={styles.label}>
-              Plano referencial *
+              Plano referencial <span className={styles.labelHint}>(podés cargarlo después)</span>
               <span className={styles.labelHint}> PNG · JPG · PDF · máx 20 MB</span>
             </label>
             <div
@@ -267,7 +230,7 @@ export const ModalNuevoProyecto: React.FC<Props> = ({ onCerrar }) => {
             onClick={handleSubmit}
             disabled={cargando}
           >
-            {cargando ? 'Creando...' : 'Crear Proyecto'}
+            {cargando ? 'Creando...' : archivo ? 'Crear obra con plano' : 'Crear obra sin plano'}
           </button>
         </div>
 

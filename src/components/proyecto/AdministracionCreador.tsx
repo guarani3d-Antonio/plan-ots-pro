@@ -19,6 +19,8 @@ export function AdministracionCreador() {
   const { contexto, empresaId, refresh } = useAccessStore();
   const [nombre, setNombre] = useState('');
   const [email, setEmail] = useState('');
+  const [nombreInvitado, setNombreInvitado] = useState('');
+  const [apellidosInvitado, setApellidosInvitado] = useState('');
   const [rol, setRol] = useState('viewer');
   const [activo, setActivo] = useState(true);
   const [obra, setObra] = useState('');
@@ -72,7 +74,7 @@ export function AdministracionCreador() {
     setBusy(true); setMensaje('');
     try {
       const { error } = await supabase.functions.invoke('invitar-usuario', {
-        body: { tenantId: empresaId, email: email.trim(), rol },
+        body: { tenantId: empresaId, email: email.trim(), rol, nombre: nombreInvitado.trim(), apellidos: apellidosInvitado.trim() },
       });
       if (error) throw new Error(error.message);
       setMensaje(`Invitación enviada a ${email.trim()}. Su rol en la empresa quedó asignado.`);
@@ -105,6 +107,10 @@ export function AdministracionCreador() {
         <div style={{ display: 'grid', alignContent: 'start', gap: 10 }}>
           <p style={{ margin: 0, color: 'var(--text-secondary)' }}>{empresa ? `Empresa seleccionada: ${empresa.nombre}` : 'Elegí una empresa para administrar las cuentas.'}</p>
           <label style={field}>Correo del usuario<input style={control} type="email" value={email} onChange={e => setEmail(e.target.value)} /></label>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
+            <label style={field}>Nombre para la invitación<input style={control} value={nombreInvitado} onChange={e => setNombreInvitado(e.target.value)} /></label>
+            <label style={field}>Apellidos para la invitación<input style={control} value={apellidosInvitado} onChange={e => setApellidosInvitado(e.target.value)} /></label>
+          </div>
           <label style={field}>Rol en la empresa<select className="app-select" value={rol} onChange={e => setRol(e.target.value)}><option value="administrador">Administrador</option><option value="supervisor">Supervisor</option><option value="tecnico">Técnico</option><option value="viewer">Lector</option></select></label>
           <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}><input type="checkbox" checked={activo} onChange={e => setActivo(e.target.checked)} />Membresía activa</label>
           <button style={button} disabled={busy || !empresaId || !email.trim()} onClick={() => void ejecutar(() => supabase.rpc('plan_admin_miembro', { p_tenant: empresaId, p_email: email, p_rol: rol, p_activo: activo }))}>Guardar cuenta y rol</button>
@@ -112,6 +118,11 @@ export function AdministracionCreador() {
           <label style={field}>Obra<select className="app-select" value={obra} onChange={e => setObra(e.target.value)}><option value="">Seleccionar obra</option>{contexto.obras.filter(p => p.tenant_id === empresaId).map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}</select></label>
           <label style={field}>Permiso en la obra<select className="app-select" value={rolObra} onChange={e => setRolObra(e.target.value)}><option value="supervisor">Supervisor</option><option value="tecnico">Técnico</option><option value="viewer">Lector</option><option value="sin_acceso">Retirar acceso</option></select></label>
           <button style={button} disabled={busy || !email.trim() || !contexto.obras.some(p => p.id === obra && p.tenant_id === empresaId)} onClick={() => void ejecutar(() => supabase.rpc('plan_admin_obra_miembro', { p_proyecto: obra, p_email: email, p_rol: rolObra }))}>Guardar acceso a obra</button>
+          <p style={{ margin: '8px 0 0', color: 'var(--text-secondary)' }}>Delegación de prueba: un supervisor asignado a sus obras podrá invitar hasta cuatro Supervisores, cada uno a una torre.</p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            <button style={button} disabled={busy || !empresaId || !email.trim() || rol !== 'supervisor'} onClick={() => void ejecutar(() => supabase.rpc('plan_configurar_delegacion_invitacion', { p_tenant: empresaId, p_email: email.trim(), p_limite: 4, p_activa: true }))}>Habilitar 4 invitaciones</button>
+            <button style={{ ...button, background: 'var(--bg-surface)', color: 'var(--text-primary)' }} disabled={busy || !empresaId || !email.trim()} onClick={() => void ejecutar(() => supabase.rpc('plan_configurar_delegacion_invitacion', { p_tenant: empresaId, p_email: email.trim(), p_limite: 4, p_activa: false }))}>Desactivar invitaciones</button>
+          </div>
         </div>
       </div>
     </section>

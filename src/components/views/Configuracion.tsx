@@ -3,6 +3,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { useAccessStore } from '../../stores/accessStore';
 import { supabase } from '../../db/supabase';
 import { useToast } from '../ui/Toast';
+import { InvitacionesEquipo } from './InvitacionesEquipo';
 
 const fieldStyle: React.CSSProperties = {
   width: '100%', minHeight: 44, padding: '10px 12px', border: '1px solid var(--border-default)',
@@ -148,6 +149,7 @@ export default function Configuracion() {
           <p style={{ marginBottom: 0 }}>{rol}</p>
           {contexto?.creador && <p style={{ color: 'var(--text-secondary)' }}>Podés administrar empresas y accesos desde las herramientas de la plataforma.</p>}
         </section>
+        <InvitacionesEquipo />
         <section style={{ padding: 24, border: '1px solid var(--border-default)', borderRadius: 12, background: 'var(--bg-surface)' }}>
           <h2 style={{ marginTop: 0, fontSize: 20 }}>Sesión</h2>
           <button type="button" onClick={cerrarSesion} disabled={cerrando} style={{ minHeight: 44, padding: '0 20px', border: '1px solid var(--border-default)', borderRadius: 8, background: 'var(--bg-surface)', color: 'var(--text-primary)', cursor: 'pointer' }}>

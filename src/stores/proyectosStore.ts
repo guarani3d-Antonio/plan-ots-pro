@@ -11,6 +11,7 @@ import { resolverArchivo, subirArchivo } from '../services/storageService';
 export interface Proyecto {
   id: string;
   tenant_id?: string | null;
+  proyecto_padre_id?: string | null;
   nombre: string;
   cliente: string | null;
   descripcion: string | null;
@@ -23,6 +24,8 @@ export interface Proyecto {
   updated_at: string;
 }
 
+export const PLANO_PENDIENTE = 'pending://plan-upload-required';
+
 async function crearConPlano(datos: { nombre: string; cliente: string | null; descripcion: string | null; rubros?: string[]; tecnicos?: string[] }, file: File): Promise<Proyecto> {
   const ticket = sessionTicket();
   const access = useAccessStore.getState();
@@ -31,7 +34,7 @@ async function crearConPlano(datos: { nombre: string; cliente: string | null; de
     p_tenant_id: access.empresaId,
     p_nombre: datos.nombre, p_cliente: datos.cliente, p_descripcion: datos.descripcion,
     p_rubros: datos.rubros ?? [], p_tecnicos: datos.tecnicos ?? [],
-    p_plano_url: 'pending://plan-upload-required',
+    p_plano_url: PLANO_PENDIENTE,
   }).single();
   if (error) throw new Error(error.message);
   assertSession(ticket);
@@ -44,7 +47,7 @@ async function crearConPlano(datos: { nombre: string; cliente: string | null; de
     return updated.data as Proyecto;
   } catch (err) {
     const cleanup = await supabase.from('proyectos').update({ deleted_at: new Date().toISOString() }).eq('id', proyecto.id).select('id').single();
-    if (cleanup.error) throw new Error('La obra quedó pendiente de plano. Revisa la conexión antes de volver a crearla.');
+    if (cleanup.error) throw new Error('La obra quedó pendiente de plano. Revisa la conexión antes de volver a crearla.', { cause: err });
     throw err;
   }
 }
@@ -56,6 +59,9 @@ interface ProyectosState {
   error: string | null;
   cargarProyectos: () => Promise<void>;
   crearProyecto: (datos: { nombre: string; cliente: string; descripcion: string; planoFile: File }) => Promise<void>;
+  crearProyectoBorrador: (datos: { nombre: string; cliente: string; descripcion: string }) => Promise<void>;
+  crearPlanoEnObra: (torreId: string, nombre: string) => Promise<void>;
+  cargarPlanoInicial: (id: string, file: File) => Promise<void>;
   eliminarProyecto: (id: string) => Promise<void>;
   duplicarProyecto: (proyecto: Proyecto) => Promise<void>;
   setProyectoActivo: (proyecto: Proyecto | null) => void;
@@ -94,6 +100,52 @@ export const useProyectosStore = create<ProyectosState>((set, get) => ({
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Error al crear proyecto';
       set({ error: msg, loading: false });
+    }
+  },
+  crearProyectoBorrador: async ({ nombre, cliente, descripcion }) => {
+    set({ loading: true, error: null });
+    try {
+      const ticket = sessionTicket();
+      const access = useAccessStore.getState();
+      if (!access.empresaId || !access.contexto?.empresas.find(e => e.id === access.empresaId)?.puede_crear)
+        throw new Error('Seleccioná una empresa donde puedas crear obras.');
+      const { data, error } = await supabase.rpc('plan_crear_proyecto', {
+        p_tenant_id: access.empresaId, p_nombre: nombre, p_cliente: cliente || null,
+        p_descripcion: descripcion || null, p_rubros: [], p_tecnicos: [], p_plano_url: PLANO_PENDIENTE,
+      }).single();
+      assertSession(ticket);
+      if (error || !data) throw new Error(error?.message ?? 'No se pudo crear la obra.');
+      set(state => ({ proyectos: [data as Proyecto, ...state.proyectos], loading: false }));
+      await access.refresh();
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : 'No se pudo crear la obra.', loading: false });
+    }
+  },
+  crearPlanoEnObra: async (torreId, nombre) => {
+    exigirPermiso(torreId, 'administrar');
+    const ticket = sessionTicket();
+    const { data, error } = await supabase.rpc('plan_crear_plano_en_obra', {
+      p_torre: torreId, p_nombre: nombre.trim(),
+    }).single();
+    assertSession(ticket);
+    if (error || !data) throw new Error(error?.message ?? 'No se pudo crear el plano.');
+    set(state => ({ proyectos: [data as Proyecto, ...state.proyectos] }));
+    await useAccessStore.getState().refresh();
+  },
+  cargarPlanoInicial: async (id, file) => {
+    exigirPermiso(id, 'administrar');
+    const ticket = sessionTicket();
+    const proyecto = get().proyectos.find(p => p.id === id);
+    if (!proyecto || proyecto.plano_url !== PLANO_PENDIENTE) throw new Error('La obra ya tiene un plano principal.');
+    const uploaded = await subirArchivo('planos', id, file, file.name.split('.').pop() ?? 'pdf');
+    try {
+      const { data, error } = await supabase.from('proyectos').update({ plano_url: uploaded.ref }).eq('id', id).eq('plano_url', PLANO_PENDIENTE).select().single();
+      assertSession(ticket);
+      if (error || !data) throw new Error(error?.message ?? 'No se pudo vincular el plano a la obra.');
+      set(state => ({ proyectos: state.proyectos.map(p => p.id === id ? data as Proyecto : p) }));
+    } catch (error) {
+      await supabase.storage.from('planos').remove([uploaded.path]);
+      throw error;
     }
   },
 

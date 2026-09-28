@@ -80,8 +80,12 @@ export default function Dashboard() {
 
   const opcionesRubro = useMemo(() => [...new Set(ordenes.map(o => o.rubro).filter(Boolean))].sort(), [ordenes]);
   const opcionesResponsable = useMemo(() => [...new Set(ordenes.map(o => o.responsable).filter(Boolean))].sort(), [ordenes]);
+  const idsProyecto = useMemo(() => {
+    if (!filtroProyecto) return null;
+    return new Set([filtroProyecto, ...proyectos.filter(p => p.proyecto_padre_id === filtroProyecto).map(p => p.id)]);
+  }, [filtroProyecto, proyectos]);
   const ordenesFiltradas = useMemo(() => ordenes.filter(o => {
-    if (filtroProyecto && o.proyecto_id !== filtroProyecto) return false;
+    if (idsProyecto && !idsProyecto.has(o.proyecto_id)) return false;
     if (filtroEstado && o.estado !== filtroEstado) return false;
     if (filtroRiesgo && o.nivel_riesgo !== filtroRiesgo) return false;
     if (filtroRubro && o.rubro !== filtroRubro) return false;
@@ -90,7 +94,7 @@ export default function Dashboard() {
     if (fechaDesde && fecha < fechaDesde) return false;
     if (fechaHasta && fecha > fechaHasta) return false;
     return true;
-  }), [ordenes, filtroProyecto, filtroEstado, filtroRiesgo, filtroRubro, filtroResponsable, fechaDesde, fechaHasta]);
+  }), [ordenes, idsProyecto, filtroEstado, filtroRiesgo, filtroRubro, filtroResponsable, fechaDesde, fechaHasta]);
 
   // P0-6: Dashboard agrega OTs de varios proyectos a la vez — solo se ven
   // costos si el usuario es supervisor en TODOS los proyectos que aportan
