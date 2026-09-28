@@ -7,6 +7,7 @@ export const enlaceContieneSesion =
   Boolean(tokenDeEnlace) && fragment.has('refresh_token');
 export const esEnlaceDeActivacion =
   new URLSearchParams(window.location.search).has('activar') ||
-  tipo === 'invite' || tipo === 'recovery';
+  tipo === 'invite' || tipo === 'recovery' ||
+  fragment.get('error_code') === 'otp_expired';
 
 export const urlActivacion = `${window.location.origin}/?activar=1`;
