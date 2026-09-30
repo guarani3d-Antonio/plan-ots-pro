@@ -54,6 +54,8 @@ try {
   await db.exec(migration);
   const scopedPlans = await readFile(new URL('../supabase/migrations/202609280020_scoped_work_plans.sql', import.meta.url), 'utf8');
   await db.exec(scopedPlans);
+  const technicianInvites = await readFile(new URL('../supabase/migrations/202609300024_team_invites_as_technicians.sql', import.meta.url), 'utf8');
+  await db.exec(technicianInvites);
 
   await db.query("select set_config('request.jwt.claim.sub',$1,false)", [ariel]);
   await db.exec('set role authenticated');
@@ -87,10 +89,10 @@ try {
   await denied(() => db.query('select public.plan_confirmar_invitacion_equipo($1,$2)',
     [first.id, ariel]), '42501');
   await db.query('select public.plan_confirmar_invitacion_equipo($1,$2)', [first.id, teammate]);
-  assert.equal((await one('select rol from tenant_miembros where user_id=$1', [teammate])).rol, 'supervisor');
-  assert.equal((await one('select rol from proyecto_miembros where user_id=$1', [teammate])).rol, 'supervisor');
+  assert.equal((await one('select rol from tenant_miembros where user_id=$1', [teammate])).rol, 'tecnico');
+  assert.equal((await one('select rol from proyecto_miembros where user_id=$1', [teammate])).rol, 'tecnico');
   assert.equal((await one('select count(*)::int as n from proyecto_miembros where user_id=$1', [teammate])).n, 2);
-  assert.equal((await one('select rol from proyecto_miembros where user_id=$1 and proyecto_id=$2', [teammate, child.id])).rol, 'supervisor');
+  assert.equal((await one('select rol from proyecto_miembros where user_id=$1 and proyecto_id=$2', [teammate, child.id])).rol, 'tecnico');
   await db.exec('reset role');
   const fourth = await one('select id from plan_invitaciones_equipo where email=$1', ['teammate4@example.test']);
   await db.exec('set role service_role');

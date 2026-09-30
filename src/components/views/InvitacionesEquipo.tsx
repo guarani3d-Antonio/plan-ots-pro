@@ -50,7 +50,7 @@ export function InvitacionesEquipo() {
     setBusy(true); setMensaje('');
     try {
       const result = await supabase.functions.invoke('invitar-usuario', {
-        body: { tenantId: empresaId, proyectoId: obraId, rol: 'supervisor', email: email.trim(), nombre: nombre.trim(), apellidos: apellidos.trim() },
+        body: { tenantId: empresaId, proyectoId: obraId, rol: 'tecnico', email: email.trim(), nombre: nombre.trim(), apellidos: apellidos.trim() },
       });
       if (result.error) {
         const response = result.error.context;
@@ -71,7 +71,7 @@ export function InvitacionesEquipo() {
     <h2 style={{ margin: '0 0 8px', fontSize: 20 }}>Invitar a tu equipo</h2>
     <p style={{ margin: '0 0 16px', color: 'var(--text-secondary)' }}>
       {delegacion.activa ? `Quedan ${restantes} de ${delegacion.limite} invitaciones de prueba.` : 'El Creador desactivó temporalmente las invitaciones.'}
-      {' '}Cada cuenta entra como Supervisor solo a la torre que elijas.
+      {' '}Cada cuenta entra como Técnico y ve solo la torre que elijas.
     </p>
     {delegacion.activa && restantes > 0 && <div style={{ display: 'grid', gap: 12 }}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>

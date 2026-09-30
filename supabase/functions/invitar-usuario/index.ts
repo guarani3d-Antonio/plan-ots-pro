@@ -43,8 +43,8 @@ Deno.serve(async request => {
   if (identityError || !identity.user) return json({ error: 'Sesión inválida' }, 401);
   const { data: isCreator, error: roleError } = await userClient.rpc('plan_es_creador');
   if (roleError) return json({ error: 'No se pudo comprobar el permiso' }, 403);
-  if (!isCreator && (rol !== 'supervisor' || !uuid.test(proyectoId)))
-    return json({ error: 'Elegí una obra y el rol Supervisor para la invitación de equipo' }, 403);
+  if (!isCreator && (rol !== 'tecnico' || !uuid.test(proyectoId)))
+    return json({ error: 'Elegí una obra y el rol Técnico para la invitación de equipo' }, 403);
 
   const admin = createClient(url, service, { auth: { persistSession: false, autoRefreshToken: false } });
   const { data: tenant, error: tenantError } = await admin.from('tenants').select('id,activo').eq('id', tenantId).single();
