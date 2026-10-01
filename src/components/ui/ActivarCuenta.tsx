@@ -1,12 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../../db/supabase';
-import { enlaceContieneSesion, tokenDeEnlace, urlActivacion } from '../../security/authLink';
+import { enlaceActivacion, enlaceContieneSesion, tokenDeEnlace, urlActivacion } from '../../security/authLink';
 import styles from './AuthForm.module.css';
 
-type Estado = 'verificando' | 'lista' | 'invalida' | 'guardando' | 'completa';
+type Estado = 'pendiente' | 'verificando' | 'lista' | 'invalida' | 'guardando' | 'completa';
 
 export function ActivarCuenta() {
-  const [estado, setEstado] = useState<Estado>(enlaceContieneSesion ? 'verificando' : 'invalida');
+  const [estado, setEstado] = useState<Estado>(enlaceActivacion.tokenHash ? 'pendiente' : enlaceContieneSesion ? 'verificando' : 'invalida');
+  const usuarioVerificado = useRef<string | null>(null);
+  const verificando = useRef(false);
   const [correo, setCorreo] = useState('');
   const [clave, setClave] = useState('');
   const [repeticion, setRepeticion] = useState('');
@@ -17,7 +19,7 @@ export function ActivarCuenta() {
   useEffect(() => {
     if (!enlaceContieneSesion) return;
     let vigente = true;
-    void (async () => {
+    void (async () => { try {
       const { data: sesion, error: sesionError } = await supabase.auth.getSession();
       if (!vigente) return;
       if (sesionError || !sesion.session || sesion.session.access_token !== tokenDeEnlace) {
@@ -31,10 +33,36 @@ export function ActivarCuenta() {
         return;
       }
       setCorreo(identidad.user.email ?? '');
+      usuarioVerificado.current = identidad.user.id;
+      window.history.replaceState(null, '', '/?activar=1');
       setEstado('lista');
-    })();
+    } catch { if (vigente) setEstado('invalida'); } })();
     return () => { vigente = false; };
   }, []);
+
+  // Explicit click: email scanners and link previews must not consume the token.
+  const verificarEnlace = async () => {
+    if (verificando.current || !enlaceActivacion.tokenHash || !enlaceActivacion.type) return;
+    verificando.current = true;
+    setEstado('verificando');
+    setError('');
+    try {
+      const { data, error: fallo } = await supabase.auth.verifyOtp({
+        token_hash: enlaceActivacion.tokenHash, type: enlaceActivacion.type,
+      });
+      if (fallo || !data.session || !data.user?.email) {
+        setEstado('invalida');
+        return;
+      }
+      usuarioVerificado.current = data.user.id;
+      setCorreo(data.user.email);
+      window.history.replaceState(null, '', '/?activar=1');
+      setEstado('lista');
+    } catch {
+      setError('No pudimos conectar. Revisá tu conexión y volvé a continuar.');
+      setEstado('pendiente');
+    } finally { verificando.current = false; }
+  };
 
   const guardarClave = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -42,6 +70,13 @@ export function ActivarCuenta() {
     if (clave.length < 8) { setError('Usá al menos 8 caracteres.'); return; }
     if (clave !== repeticion) { setError('Las contraseñas no coinciden.'); return; }
     setEstado('guardando');
+    try {
+    // Another tab may have signed into a different account in the meantime.
+    const { data: actual, error: identidadError } = await supabase.auth.getUser();
+    if (identidadError || !usuarioVerificado.current || actual.user?.id !== usuarioVerificado.current) {
+      setEstado('invalida');
+      return;
+    }
     const { error: guardarError } = await supabase.auth.updateUser({ password: clave });
     if (guardarError) {
       setError('No pudimos guardar la contraseña. Volvé a intentarlo o pedí otro enlace.');
@@ -51,6 +86,10 @@ export function ActivarCuenta() {
     setClave('');
     setRepeticion('');
     setEstado('completa');
+    } catch {
+      setError('No pudimos conectar para guardar. Revisá tu conexión y volvé a intentarlo.');
+      setEstado('lista');
+    }
   };
 
   const pedirEnlace = async (event: React.FormEvent) => {
@@ -61,12 +100,14 @@ export function ActivarCuenta() {
       return;
     }
     setEnviando(true);
+    try {
     const { error: envioError } = await supabase.auth.resetPasswordForEmail(correo.trim(), {
       redirectTo: urlActivacion,
     });
-    setEnviando(false);
     if (envioError) { setError('No pudimos enviar el enlace ahora. Intentá de nuevo más tarde.'); return; }
     setEnlaceSolicitado(true);
+    } catch { setError('No pudimos conectar. Revisá tu conexión e intentá nuevamente.'); }
+    finally { setEnviando(false); }
   };
 
   return <div className={styles.page}>
@@ -75,11 +116,20 @@ export function ActivarCuenta() {
       <p className={styles.tagline}>Gestión visual de obras en campo</p>
     </div>
     <div className={styles.right}><div className={styles.formCard}>
+      {estado === 'pendiente' && <>
+        <h1 className={styles.heading}>Creá tu contraseña</h1>
+        <p className={styles.helpText}>Continuá para verificar tu enlace. Después vas a ver tu correo y elegir una contraseña para entrar a Plan-OTs.</p>
+        {error && <p className={styles.error} role="alert">{error}</p>}
+        <button className={styles.submitBtn} type="button" onClick={verificarEnlace}>Continuar con mi activación</button>
+      </>}
       {estado === 'verificando' && <p role="status">Verificando tu invitación…</p>}
       {(estado === 'lista' || estado === 'guardando') && <>
         <h1 className={styles.heading}>Activá tu cuenta</h1>
         <p className={styles.helpText}>Elegí una contraseña para ingresar a Plan-OTs{correo ? ` con ${correo}` : ''}.</p>
         <form onSubmit={guardarClave}>
+          <div className={styles.field}><label className={styles.label} htmlFor="correo-verificado">Correo de tu cuenta</label>
+            <input id="correo-verificado" className={styles.input} type="email" autoComplete="username" value={correo} readOnly />
+          </div>
           <div className={styles.field}><label className={styles.label} htmlFor="nueva-clave">Nueva contraseña</label>
             <input id="nueva-clave" className={styles.input} type="password" autoComplete="new-password" minLength={8}
               value={clave} onChange={event => setClave(event.target.value)} disabled={estado === 'guardando'} required />
@@ -97,7 +147,11 @@ export function ActivarCuenta() {
       {estado === 'invalida' && <>
         <h1 className={styles.heading}>Necesitás un enlace nuevo</h1>
         <p className={styles.helpText}>El enlace ya se usó o venció. Escribí el correo al que llegó la invitación y te enviaremos uno nuevo.</p>
-        {enlaceSolicitado ? <p className={styles.success} role="status">Si la cuenta existe, recibirás un enlace para elegir tu contraseña. Revisá también la carpeta de spam.</p> :
+        {enlaceSolicitado ? <>
+          <p className={styles.success} role="status">Solicitud registrada para {correo.trim()}. Si la cuenta existe y el servicio de correo permite el envío, recibirás un enlace para elegir tu contraseña.</p>
+          <p className={styles.helpText}>Revisá spam y correo no deseado. Si no llega, contactá a quien te invitó para que te facilite un enlace nuevo. No necesitás crear otra cuenta.</p>
+          <button className={styles.forgotLink} type="button" onClick={() => setEnlaceSolicitado(false)}>Revisar el correo ingresado</button>
+        </> :
           <form onSubmit={pedirEnlace}>
             <div className={styles.field}><label className={styles.label} htmlFor="correo-invitado">Correo electrónico</label>
               <input id="correo-invitado" className={styles.input} type="email" autoComplete="email" value={correo}

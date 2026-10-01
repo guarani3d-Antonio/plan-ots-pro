@@ -58,8 +58,11 @@ export function AuthForm() {
       <p className={styles.helpText}>{recuperar
         ? 'Te enviaremos un enlace para elegir una contraseña.'
         : 'Usá el correo y la contraseña que elegiste al aceptar la invitación.'}</p>
-      {enlaceSolicitado ?
-        <p className={styles.success} role="status">Si la cuenta existe, recibirás un enlace. Revisá tu correo y la carpeta de spam.</p> :
+      {enlaceSolicitado ? <>
+        <p className={styles.success} role="status">Solicitud registrada para {email.trim()}. Si la cuenta existe y el servicio de correo permite el envío, recibirás un enlace para elegir tu contraseña.</p>
+        <p className={styles.helpText}>Revisá spam y correo no deseado. Si no llega, contactá a quien te invitó para que te facilite un enlace nuevo. No necesitás crear otra cuenta.</p>
+        <button className={styles.textButton} type="button" onClick={() => setEnlaceSolicitado(false)}>Revisar el correo ingresado</button>
+      </> :
         <form onSubmit={handleSubmit}>
           {error && <p className={styles.error} role="alert">{error}</p>}
           {!recuperar && errorStore && <p className={styles.error} role="alert">{errorStore}</p>}
