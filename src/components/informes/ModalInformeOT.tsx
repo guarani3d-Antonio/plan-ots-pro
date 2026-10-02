@@ -1063,7 +1063,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                 <div className={styles.dataVal}>{orden.rubro || '—'}</div>
                 <div className={styles.dataKey}>Responsable</div>
                 <div className={styles.dataVal}>{orden.responsable || '—'}</div>
-                <section className={styles.section}>
+                <section className={styles.section} style={{ gridColumn: '1 / -1', minWidth: 0 }}>
               <div className={styles.sectionTitle}>Datos de la OT y del cliente</div>
               <p className={styles.sublabel}>Datos precargados de la OT, del cliente vinculado y de los documentos anteriores disponibles. Revisalos antes de generar. Las ediciones se guardan solo en este informe.</p>
               {avisoFuentes && <p role="alert">{avisoFuentes}</p>}
