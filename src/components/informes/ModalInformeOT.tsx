@@ -721,13 +721,18 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
     setGenerandoPreview(true);
     let cancelado = false;
     const t = window.setTimeout(() => {
-      hacerInformePortable(construirHtml(observaciones))
+      Promise.resolve().then(() => hacerInformePortable(construirHtml(observaciones)))
         .then(result => {
           if (cancelado) return;
           setHtmlPreview(result.html);
           setErrorInforme(result.missingImages ? `${result.missingImages} imagen(es) no pudieron incorporarse y se reemplazaron por un aviso.` : null);
         })
-        .catch(error => { if (!cancelado) setErrorInforme(error instanceof Error ? error.message : 'No se pudo preparar el informe.'); })
+        .catch(error => {
+          if (cancelado) return;
+          console.error('[Informe] No se pudo preparar la vista previa', error);
+          setHtmlPreview('');
+          setErrorInforme('No se pudo preparar el informe. Podés reintentar con «Actualizar preview» o cerrar y volver a la OT.');
+        })
         .finally(() => { if (!cancelado) setGenerandoPreview(false); });
     }, delay);
     return () => {

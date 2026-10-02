@@ -43,17 +43,55 @@ function bytesToBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
-async function embedImage(src: string, fetcher: typeof fetch): Promise<{ dataUrl: string; bytes: number }> {
+async function embedImage(src: string, fetcher: typeof fetch, timeoutMs: number, maxBytes: number): Promise<{ dataUrl: string; bytes: number }> {
   if (src.startsWith('data:')) return { dataUrl: src, bytes: 0 };
-  const response = await fetcher(src, { cache: 'no-store' });
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
-  const mime = response.headers.get('content-type')?.split(';')[0] ?? '';
-  if (!mime.startsWith('image/')) throw new Error('El recurso no es una imagen');
-  const buffer = await response.arrayBuffer();
-  return { dataUrl: `data:${mime};base64,${bytesToBase64(new Uint8Array(buffer))}`, bytes: buffer.byteLength };
+  const controller = new AbortController();
+  let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      reject(new Error('La foto no respondió a tiempo'));
+      controller.abort();
+      void reader?.cancel().catch(() => {});
+    }, timeoutMs);
+  });
+  try {
+    return await Promise.race([deadline, (async () => {
+      const response = await fetcher(src, { cache: 'no-store', signal: controller.signal });
+      controller.signal.throwIfAborted();
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const mime = response.headers.get('content-type')?.split(';')[0] ?? '';
+      if (!mime.startsWith('image/')) throw new Error('El recurso no es una imagen');
+      if (Number(response.headers.get('content-length')) > maxBytes)
+        throw new Error('Límite portable superado');
+      if (!response.body) throw new Error('La imagen está vacía');
+      reader = response.body.getReader();
+      const chunks: Uint8Array[] = [];
+      let size = 0;
+      while (true) {
+        const { done, value } = await reader.read();
+        controller.signal.throwIfAborted();
+        if (done) break;
+        size += value.byteLength;
+        if (size > maxBytes) throw new Error('Límite portable superado');
+        chunks.push(value);
+      }
+      if (!size) throw new Error('La imagen está vacía');
+      const bytes = new Uint8Array(size);
+      let offset = 0;
+      for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+      return { dataUrl: `data:${mime};base64,${bytesToBase64(bytes)}`, bytes: size };
+    })()]);
+  } finally {
+    clearTimeout(timer);
+    controller.abort();
+    void reader?.cancel().catch(() => {});
+  }
 }
 
-export async function hacerInformePortable(html: string, fetcher: typeof fetch = fetch): Promise<PortableReportResult> {
+export async function hacerInformePortable(html: string, fetcher: typeof fetch = fetch,
+  limits: { imageTimeoutMs?: number; totalTimeoutMs?: number } = {}): Promise<PortableReportResult> {
+  const expires = Date.now() + (limits.totalTimeoutMs ?? 30000);
   let output = html
     .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
     .replace(/<link\b[^>]*>/gi, '')
@@ -68,7 +106,10 @@ export async function hacerInformePortable(html: string, fetcher: typeof fetch =
     const source = decodeAttribute(rawSource);
     let replacement: string;
     try {
-      const embedded = await embedImage(source, fetcher);
+      const remaining = expires - Date.now();
+      if (remaining <= 0) throw new Error('Se agotó el tiempo de preparación');
+      const embedded = await embedImage(source, fetcher,
+        Math.min(limits.imageTimeoutMs ?? 10000, remaining), MAX_EMBEDDED_BYTES - embeddedBytes);
       if (embeddedBytes + embedded.bytes > MAX_EMBEDDED_BYTES) throw new Error('Límite portable superado');
       embeddedBytes += embedded.bytes;
       replacement = embedded.dataUrl;
