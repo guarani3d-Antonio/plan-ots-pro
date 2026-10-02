@@ -43,6 +43,7 @@ import { ModalComentarioEstado } from './ModalComentarioEstado';
 import { HistorialComentarios } from './HistorialComentarios';
 import { ModalFotoDetalle } from './ModalFotoDetalle';
 import { ModalInformeOT, type TipoInforme as TipoInformeModal } from '../../components/informes/ModalInformeOT';
+import { InformeErrorBoundary } from '../informes/InformeErrorBoundary';
 import { useToast } from '../ui/Toast';
 import { fechaLocalHoy } from '../../utils/fechaCivil';
 import { VoiceInputButton } from '../ui/VoiceInputButton';
@@ -1498,7 +1499,9 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
       )}
 
       {modalCierre && (
-        <ModalInformeOT isOpen={modalCierre} onClose={() => setModalCierre(false)} orden={ordenFresca} proyectoNombre={proyectoActivo?.nombre ?? ''} tipo={tipoInforme} puedeRevisar={esSupervisor} />
+        <InformeErrorBoundary key={`${ordenFresca.id}:${tipoInforme}`} onClose={() => setModalCierre(false)}>
+          <ModalInformeOT isOpen={modalCierre} onClose={() => setModalCierre(false)} orden={ordenFresca} proyectoNombre={proyectoActivo?.nombre ?? ''} tipo={tipoInforme} puedeRevisar={esSupervisor} />
+        </InformeErrorBoundary>
       )}
 
       {fotoEditando && (
