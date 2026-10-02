@@ -4,6 +4,7 @@ import Papa from 'papaparse';
 import styles from './VistaGrilla.module.css';
 import { useOrdenesStore } from '../../stores/ordenesStore';
 import { ModalDetalleOT } from './ModalDetalleOT';
+import { PanelOT } from '../plano/PanelOT';
 import { getCamposDeProyecto, type CampoDefinicion } from '../../services/camposService';
 import { colorEstado, diasAbierto } from '../../utils/calculos';
 import { usePuedeVerCostos } from '../../hooks/usePuedeVerCostos';
@@ -531,6 +532,8 @@ function escapeHtml(s: string): string {
 
 export const VistaGrilla: React.FC<Props> = ({ proyectoId, proyectoNombre, onSwitchToPlano }) => {
   const { ordenes, cargarOrdenes, asegurarOrdenes } = useOrdenesStore();
+  const [informeOrdenId, setInformeOrdenId] = useState<string | null>(null);
+  const informeOrden = ordenes.find(o => o.id === informeOrdenId && o.proyecto_id === proyectoId);
   // P0-6: único booleano que decide si costo se ve en esta grilla (columna,
   // celda, tarjeta, CSV y PDF/HTML).
   const puedeVerCostos = usePuedeVerCostos(proyectoId);
@@ -723,7 +726,7 @@ export const VistaGrilla: React.FC<Props> = ({ proyectoId, proyectoNombre, onSwi
             <div className={styles.accionesMenu}>
               <button type="button" onClick={() => { setAccionesMenuId(null); setModalOrden(o); }}>👁 Ver detalle</button>
               <button type="button" onClick={() => { setAccionesMenuId(null); setModalOrden(o); }}>✎ Editar</button>
-              <button type="button" onClick={() => { setAccionesMenuId(null); console.log('informe', o.id); }}>📄 Generar informe</button>
+              <button type="button" onClick={() => { setAccionesMenuId(null); setInformeOrdenId(o.id); }}>📄 Generar informe</button>
               <button type="button" className={styles.accionDanger} onClick={() => { setAccionesMenuId(null); console.log('eliminar', o.id); }}>🗑 Eliminar</button>
             </div>
           )}
@@ -919,6 +922,8 @@ export const VistaGrilla: React.FC<Props> = ({ proyectoId, proyectoNombre, onSwi
         <ModalDetalleOT orden={modalOrden} proyectoId={proyectoId} onClose={() => setModalOrden(null)}
           onGuardado={() => { setModalOrden(null); cargarOrdenes(proyectoId); }} />
       )}
+      {informeOrden && <PanelOT key={informeOrden.id} orden={informeOrden}
+        tabInicial="informes" onCerrar={() => setInformeOrdenId(null)} />}
     </div>
   );
 };

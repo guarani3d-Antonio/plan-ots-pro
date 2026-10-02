@@ -61,6 +61,7 @@ interface PanelOTProps {
   onCerrar: () => void;
   modoForzadoFotos?: boolean;
   esNueva?: boolean;
+  tabInicial?: Tab;
 }
 
 type Tab = 'datos' | 'fotos' | 'informes' | 'campos';
@@ -232,7 +233,7 @@ function BtnEditarFotoCard({ onClick, disabled = false, title }: { onClick: () =
   );
 }
 
-export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, esNueva = false }: PanelOTProps) {
+export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, esNueva = false, tabInicial = 'datos' }: PanelOTProps) {
   const { actualizarOrden, cambiarEstado, cancelarOrdenNueva, eliminarOrden, moverOrden } = useOrdenesStore();
   const { user } = useAuthStore();
   const proyectoActivo = useProyectosStore(s => s.proyectoActivo);
@@ -244,7 +245,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
       : null
   );
 
-  const [tab,             setTab]             = useState<Tab>('datos');
+  const [tab,             setTab]             = useState<Tab>(tabInicial);
   const [comentariosVisibles, setComentariosVisibles] = useState(false);
   const comentariosToggleRef = useRef<HTMLButtonElement>(null);
   const [filtroFotos, setFiltroFotos] = useState<'TODAS' | CategoriaFoto>('TODAS');
@@ -548,7 +549,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
 
   useEffect(() => {
     if (!ordenProp?.id) return;
-    setTab(modoForzadoFotos ? 'fotos' : 'datos');
+    setTab(modoForzadoFotos ? 'fotos' : tabInicial);
     setConfirmEliminar(false);
     setErrorFotos(null);
     setInputContratista('');
