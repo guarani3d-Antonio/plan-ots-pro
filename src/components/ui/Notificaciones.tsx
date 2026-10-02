@@ -24,6 +24,38 @@ export function Notificaciones({ collapsed }: { collapsed: boolean }) {
   const request = useRef(0);
   const panelRef = useRef<HTMLDivElement>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
+  const historyRef = useRef<HTMLElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const detailRequest = useRef(0);
+  const cerrarHistorial = useCallback(() => {
+    detailRequest.current++;
+    setSelected(null); setError(null);
+  }, []);
+  useEffect(() => {
+    if (!selected || !disponible) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    closeRef.current?.focus();
+    const keyboard = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault(); cerrarHistorial();
+      } else if (event.key === 'Tab') {
+        const controls = [...(historyRef.current?.querySelectorAll<HTMLElement>(
+          'button:not(:disabled), a[href], summary, input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex="0"]',
+        ) ?? [])].filter(element => element.getClientRects().length > 0);
+        const first = controls[0], last = controls.at(-1);
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+      }
+    };
+    document.addEventListener('keydown', keyboard);
+    return () => {
+      detailRequest.current++;
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', keyboard);
+      btnRef.current?.focus();
+    };
+  }, [selected, disponible, cerrarHistorial]);
   const refresh = useCallback(async () => {
     if (!useAccessStore.getState().disponible) return;
     const sequence = ++request.current;
@@ -64,9 +96,11 @@ export function Notificaciones({ collapsed }: { collapsed: boolean }) {
   });
   const verOrden = () => action(async () => {
     if (!selected) return;
+    const sequence = ++detailRequest.current;
     const ticket = sessionTicket();
     const { data, error: err } = await supabase.from('ordenes').select(ORDEN_SELECT).eq('id', selected.orden_id).is('deleted_at', null).maybeSingle();
     assertSession(ticket);
+    if (sequence !== detailRequest.current) return;
     if (err) throw new Error(err.message);
     if (!data) throw new Error('La OT fue eliminada o ya no tenés acceso. El historial disponible se conserva.');
     setOrden(rowToOrden(data)); setSelected(null); setError(null);
@@ -102,11 +136,20 @@ export function Notificaciones({ collapsed }: { collapsed: boolean }) {
         <div className={styles.panelFooter}><button className={styles.clearBtn} onClick={() => void refresh()}>Actualizar</button><span>Se actualiza al volver y cada minuto.</span></div>
       </div>}
     </div>
-    {selected && disponible && createPortal(<div className={styles.historyBackdrop}>
-      <section className={styles.historyDialog} role="dialog" aria-modal="true" aria-label={`Actividad de ${selected.ot}`}>
-        <header><strong>{selected.ot} · Historial</strong><button onClick={() => { setSelected(null); setError(null); }}>Cerrar</button><button disabled={busy} onClick={verOrden}>Ver OT</button></header>
+    {selected && disponible && createPortal(<div className={styles.historyBackdrop}
+      onClick={event => { if (event.target === event.currentTarget) cerrarHistorial(); }}>
+      <section ref={historyRef} className={styles.historyDialog} role="dialog" aria-modal="true" aria-label={`Actividad de ${selected.ot}`}>
+        <header className={styles.historyHeader}>
+          <strong>{selected.ot} · Historial</strong>
+          <button type="button" className={styles.historyAction} disabled={busy} onClick={verOrden}>Ver OT</button>
+          <button ref={closeRef} type="button" className={styles.historyClose} onClick={cerrarHistorial} aria-label="Cerrar historial">
+            <span aria-hidden="true">×</span> Cerrar
+          </button>
+        </header>
+        <div className={styles.historyBody}>
         {error && <p role="alert">{error}</p>}
         <HistorialComentarios key={selected.orden_id} ordenId={selected.orden_id} proyectoId={selected.proyecto_id} />
+        </div>
       </section>
     </div>, document.body)}
     {orden && disponible && createPortal(<ModalDetalleOT orden={orden} proyectoId={orden.proyecto_id} onClose={() => setOrden(null)} onGuardado={() => void refresh()} />, document.body)}
