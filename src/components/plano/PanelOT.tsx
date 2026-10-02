@@ -1480,7 +1480,8 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
         opciones={directorioClientes.map(c => ({ id:c.id, nombre:c.nombre, detalle:[c.identificacion, ...clientesObra.filter(u => u.cliente_id === c.id).map(u => [u.nombre_obra,u.piso ? `Piso ${u.piso}` : '',u.unidad,u.sector].filter(Boolean).join(' · '))].filter(Boolean).join(' · ') }))}
         onCerrar={() => setBuscador(null)} onSeleccionar={id => {
           const sitios = clientesObra.filter(c => c.cliente_id === id);
-          const sitio = sitios.length === 1 ? sitios[0] : null;
+          const sitio = sitios.find(u => u.ubicacion_id === form.cliente_ubicacion_id)
+            ?? (sitios.length === 1 ? sitios[0] : null);
           setForm(f => ({ ...f, cliente_id:id, cliente_ubicacion_id:sitio?.ubicacion_id ?? null,
             obra:sitio?.nombre_obra ?? proyectoActivo?.nombre ?? '', unidad_amenities:sitio ? (sitio.unidad || sitio.sector || '') : '' }));
         }} />}
