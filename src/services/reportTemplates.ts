@@ -161,6 +161,14 @@ ${_FOOTER_INFORME.replace('__YEAR__', String(new Date().getFullYear()))}
 
 // Identificación mínima de la OT (no atribuye el responsable al cliente).
 export function _bloqueDatosCliente(orden: OrdenLocal): string {
+  const snapshot = orden.campos?.identificacion_informe;
+  const datos = snapshot && typeof snapshot === 'object' && !Array.isArray(snapshot) ? snapshot as Record<string, unknown> : {};
+  const extras = [
+    ['ubicacion', 'Ubicación referencial'], ['rubro', 'Rubro'], ['cliente', 'Cliente'], ['identificacion', 'RUC o documento'],
+    ['contacto', 'Contacto'], ['telefono', 'Teléfono'], ['correo', 'Correo'], ['domicilio', 'Domicilio del cliente'],
+    ['direccion_obra', 'Dirección de la obra'], ['piso', 'Piso'],
+  ].filter(([clave]) => typeof datos[clave] === 'string' && datos[clave] !== '')
+    .map(([clave, etiqueta]) => `<div class="flex flex-col gap-1"><span class="text-[10px] font-bold text-outline uppercase">${etiqueta}</span><span style="white-space:pre-wrap;overflow-wrap:anywhere">${escapeHtml(datos[clave] as string)}</span></div>`).join('');
   return `<section class="grid grid-cols-3 gap-6 bg-surface-container-lowest p-6 rounded-xl border border-outline-variant mb-6 shadow-sm no-break">
     <div class="col-span-3 border-b border-outline-variant/30 pb-2 mb-2">
       <h3 class="font-section-header text-[10px] text-primary uppercase tracking-widest">Identificación de la OT</h3>
@@ -177,6 +185,7 @@ export function _bloqueDatosCliente(orden: OrdenLocal): string {
       <span class="text-[10px] font-bold text-outline uppercase tracking-wider">Responsable asignado</span>
       <span class="text-body-md text-on-surface">${escapeHtml(orden.responsable || 'No asignado')}</span>
     </div>
+    ${extras}
   </section>`;
 }
 

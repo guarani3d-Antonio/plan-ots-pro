@@ -6,8 +6,8 @@ import { registrarExportacion } from '../../services/trustService';
 // Layout: panel izquierdo (datos read-only + observaciones editable + opciones),
 // panel derecho (iframe srcdoc con el HTML generado).
 //
-// Cada borrador empieza con su texto propio; los comentarios de transición
-// permanecen en el historial y no se incorporan como hechos aprobados.
+// Precarga campos de la OT y fuentes vinculadas; las ediciones se conservan
+// en el borrador. No convierte notas ni estados en aprobaciones o firmas.
 // Las fotos se muestran solo en la fase que corresponde a su categoría.
 //
 // Estrategia de actualización del preview:
@@ -31,6 +31,8 @@ import {
 } from '../../services/reportService';
 import type { DatosActa, DatosAvance, DatosCierre, DatosEncuesta, DatosRelevamiento, DatosVisita, ItemAlcance, ItemAvance, ItemCierre, OrigenOrdenServicio } from '../../services/reportService';
 import { cargarFotosDeOrden } from '../../services/fotosService';
+import { CAMPOS_IDENTIFICACION, prepararAutocompletado, restaurarCampos, ordenParaInforme, type IdentificacionInforme } from '../../services/reportAutofillService';
+import { cargarFuentesInforme } from '../../services/reportSourceService';
 import { hacerInformePortable } from '../../services/portableReportService';
 import {
   cargarBorradorDocumento, congelarRevisionDocumento, guardarBorradorDocumento,
@@ -154,7 +156,6 @@ function fechaCorta(fecha: string | null | undefined): string {
 }
 
 const DEBOUNCE_MS = 150;
-const MAX_OBSERVACIONES = 2000;
 
 function siguienteIdItem(items: { id: string }[]): string {
   const usados = new Set(items.map(item => item.id));
@@ -191,12 +192,12 @@ const VISITA_INICIAL: DatosVisita = {
   compromisos: '', representantesPrevistos: '',
 };
 
-function visitaGuardada(valor: unknown): DatosVisita {
-  if (!valor || typeof valor !== 'object' || Array.isArray(valor)) return { ...VISITA_INICIAL };
+function visitaGuardada(valor: unknown, inicial: DatosVisita = VISITA_INICIAL): DatosVisita {
+  if (!valor || typeof valor !== 'object' || Array.isArray(valor)) return { ...inicial };
   const objeto = valor as Record<string, unknown>;
-  const resultado = { ...VISITA_INICIAL };
+  const resultado = { ...inicial };
   for (const clave of Object.keys(resultado) as (keyof DatosVisita)[]) {
-    if (typeof objeto[clave] === 'string') resultado[clave] = String(objeto[clave]).slice(0, 1200);
+    if (typeof objeto[clave] === 'string') resultado[clave] = String(objeto[clave]);
   }
   return resultado;
 }
@@ -223,12 +224,12 @@ const RELEVAMIENTO_INICIAL: DatosRelevamiento = {
   fundamentoGarantia: '', decisionAlcance: '',
 };
 
-function relevamientoGuardado(valor: unknown): DatosRelevamiento {
-  if (!valor || typeof valor !== 'object' || Array.isArray(valor)) return { ...RELEVAMIENTO_INICIAL };
+function relevamientoGuardado(valor: unknown, inicial: DatosRelevamiento = RELEVAMIENTO_INICIAL): DatosRelevamiento {
+  if (!valor || typeof valor !== 'object' || Array.isArray(valor)) return { ...inicial };
   const objeto = valor as Record<string, unknown>;
-  const resultado = { ...RELEVAMIENTO_INICIAL };
+  const resultado = { ...inicial };
   for (const clave of Object.keys(resultado) as (keyof DatosRelevamiento)[]) {
-    if (typeof objeto[clave] === 'string') resultado[clave] = String(objeto[clave]).slice(0, 1200);
+    if (typeof objeto[clave] === 'string') resultado[clave] = String(objeto[clave]);
   }
   return resultado;
 }
@@ -236,7 +237,7 @@ function relevamientoGuardado(valor: unknown): DatosRelevamiento {
 function itemsAlcanceGuardados(valor: unknown): ItemAlcance[] {
   if (!Array.isArray(valor)) return [];
   const usados = new Set<string>();
-  return valor.slice(0, 30).flatMap((fila): ItemAlcance[] => {
+  return valor.flatMap((fila): ItemAlcance[] => {
     if (!fila || typeof fila !== 'object' || Array.isArray(fila)) return [];
     const item = fila as Record<string, unknown>;
     const id = typeof item.id === 'string' ? item.id.slice(0, 20).trim() : '';
@@ -244,8 +245,8 @@ function itemsAlcanceGuardados(valor: unknown): ItemAlcance[] {
     usados.add(id);
     return [{
       id,
-      trabajo: typeof item.trabajo === 'string' ? item.trabajo.slice(0, 600) : '',
-      criterio: typeof item.criterio === 'string' ? item.criterio.slice(0, 600) : '',
+      trabajo: typeof item.trabajo === 'string' ? item.trabajo : '',
+      criterio: typeof item.criterio === 'string' ? item.criterio : '',
     }];
   });
 }
@@ -273,12 +274,12 @@ const AVANCE_INICIAL: DatosAvance = {
   porcentaje: '', metodoPorcentaje: '', desvios: '', proximoPeriodo: '',
 };
 
-function avanceGuardado(valor: unknown): DatosAvance {
-  if (!valor || typeof valor !== 'object' || Array.isArray(valor)) return { ...AVANCE_INICIAL };
+function avanceGuardado(valor: unknown, inicial: DatosAvance = AVANCE_INICIAL): DatosAvance {
+  if (!valor || typeof valor !== 'object' || Array.isArray(valor)) return { ...inicial };
   const objeto = valor as Record<string, unknown>;
-  const resultado = { ...AVANCE_INICIAL };
+  const resultado = { ...inicial };
   for (const clave of Object.keys(resultado) as (keyof DatosAvance)[]) {
-    if (typeof objeto[clave] === 'string') resultado[clave] = String(objeto[clave]).slice(0, 1200);
+    if (typeof objeto[clave] === 'string') resultado[clave] = String(objeto[clave]);
   }
   return resultado;
 }
@@ -286,13 +287,13 @@ function avanceGuardado(valor: unknown): DatosAvance {
 function itemsAvanceGuardados(valor: unknown): ItemAvance[] {
   if (!Array.isArray(valor)) return [];
   const usados = new Set<string>();
-  return valor.slice(0, 30).flatMap((fila): ItemAvance[] => {
+  return valor.flatMap((fila): ItemAvance[] => {
     if (!fila || typeof fila !== 'object' || Array.isArray(fila)) return [];
     const item = fila as Record<string, unknown>;
     const id = typeof item.id === 'string' ? item.id.slice(0, 20).trim() : '';
     if (!id || usados.has(id)) return [];
     usados.add(id);
-    const campo = (clave: string) => typeof item[clave] === 'string' ? String(item[clave]).slice(0, 600) : '';
+    const campo = (clave: string) => typeof item[clave] === 'string' ? String(item[clave]) : '';
     return [{ id, previsto: campo('previsto'), realizado: campo('realizado'), saldo: campo('saldo') }];
   });
 }
@@ -314,12 +315,12 @@ const CIERRE_INICIAL: DatosCierre = {
   conclusion: '', autorizacionInterna: '',
 };
 
-function cierreGuardado(valor: unknown): DatosCierre {
-  if (!valor || typeof valor !== 'object' || Array.isArray(valor)) return { ...CIERRE_INICIAL };
+function cierreGuardado(valor: unknown, inicial: DatosCierre = CIERRE_INICIAL): DatosCierre {
+  if (!valor || typeof valor !== 'object' || Array.isArray(valor)) return { ...inicial };
   const objeto = valor as Record<string, unknown>;
-  const resultado = { ...CIERRE_INICIAL };
+  const resultado = { ...inicial };
   for (const clave of Object.keys(resultado) as (keyof DatosCierre)[]) {
-    if (typeof objeto[clave] === 'string') resultado[clave] = String(objeto[clave]).slice(0, 1200);
+    if (typeof objeto[clave] === 'string') resultado[clave] = String(objeto[clave]);
   }
   return resultado;
 }
@@ -327,13 +328,13 @@ function cierreGuardado(valor: unknown): DatosCierre {
 function itemsCierreGuardados(valor: unknown): ItemCierre[] {
   if (!Array.isArray(valor)) return [];
   const usados = new Set<string>();
-  return valor.slice(0, 30).flatMap((fila): ItemCierre[] => {
+  return valor.flatMap((fila): ItemCierre[] => {
     if (!fila || typeof fila !== 'object' || Array.isArray(fila)) return [];
     const item = fila as Record<string, unknown>;
     const id = typeof item.id === 'string' ? item.id.slice(0, 20).trim() : '';
     if (!id || usados.has(id)) return [];
     usados.add(id);
-    const campo = (clave: string) => typeof item[clave] === 'string' ? String(item[clave]).slice(0, 600) : '';
+    const campo = (clave: string) => typeof item[clave] === 'string' ? String(item[clave]) : '';
     return [{ id, trabajo: campo('trabajo'), criterio: campo('criterio'),
       resultado: campo('resultado'), verificadorFecha: campo('verificadorFecha') }];
   });
@@ -360,12 +361,12 @@ const ACTA_INICIAL: DatosActa = {
   observacionesCliente: '', reservas: '', garantiaReferencia: '', garantiaCondiciones: '',
 };
 
-function actaGuardada(valor: unknown): DatosActa {
-  if (!valor || typeof valor !== 'object' || Array.isArray(valor)) return { ...ACTA_INICIAL };
+function actaGuardada(valor: unknown, inicial: DatosActa = ACTA_INICIAL): DatosActa {
+  if (!valor || typeof valor !== 'object' || Array.isArray(valor)) return { ...inicial };
   const objeto = valor as Record<string, unknown>;
-  const resultado = { ...ACTA_INICIAL };
+  const resultado = { ...inicial };
   for (const clave of Object.keys(resultado) as (keyof DatosActa)[]) {
-    if (typeof objeto[clave] === 'string') resultado[clave] = String(objeto[clave]).slice(0, 1200);
+    if (typeof objeto[clave] === 'string') resultado[clave] = String(objeto[clave]);
   }
   return resultado;
 }
@@ -389,12 +390,12 @@ const ENCUESTA_INICIAL: DatosEncuesta = {
   recomendacion: '', sugerencias: '',
 };
 
-function encuestaGuardada(valor: unknown): DatosEncuesta {
-  if (!valor || typeof valor !== 'object' || Array.isArray(valor)) return { ...ENCUESTA_INICIAL };
+function encuestaGuardada(valor: unknown, inicial: DatosEncuesta = ENCUESTA_INICIAL): DatosEncuesta {
+  if (!valor || typeof valor !== 'object' || Array.isArray(valor)) return { ...inicial };
   const objeto = valor as Record<string, unknown>;
-  const resultado = { ...ENCUESTA_INICIAL };
+  const resultado = { ...inicial };
   for (const clave of Object.keys(resultado) as (keyof DatosEncuesta)[]) {
-    if (typeof objeto[clave] === 'string') resultado[clave] = String(objeto[clave]).slice(0, 1200);
+    if (typeof objeto[clave] === 'string') resultado[clave] = String(objeto[clave]);
   }
   return resultado;
 }
@@ -421,6 +422,9 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
   const muestraTextarea = cfg.labelTextarea !== null;
 
   const [observaciones, setObservaciones] = useState('');
+  const [identificacion, setIdentificacion] = useState<IdentificacionInforme>(() => prepararAutocompletado(orden, proyectoNombre).identificacion);
+  const precargaRef = useRef(prepararAutocompletado(orden, proyectoNombre));
+  const [avisoFuentes, setAvisoFuentes] = useState('');
   const [origenServicio, setOrigenServicio] = useState<OrigenOrdenServicio>(() => origenInicial(orden));
   const [datosVisita, setDatosVisita] = useState<DatosVisita>({ ...VISITA_INICIAL });
   const [datosRelevamiento, setDatosRelevamiento] = useState<DatosRelevamiento>({ ...RELEVAMIENTO_INICIAL });
@@ -528,6 +532,8 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
     setHtmlPreview('');
     setPreviewAlto(1123);
     setObservaciones('');
+    setIdentificacion(prepararAutocompletado(orden, proyectoNombre).identificacion);
+    setAvisoFuentes('');
     setOrigenServicio(origenInicial(orden));
     setDatosVisita({ ...VISITA_INICIAL });
     setDatosRelevamiento({ ...RELEVAMIENTO_INICIAL });
@@ -560,6 +566,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
   }, [orden.id, tipo]);
 
   const construirHtml = (textoActual: string): string => {
+    const ordenDocumento = ordenParaInforme(orden, identificacion);
     const codigoDocumento = documento?.codigo;
     const seleccion = new Set(fotoIds);
     const fa  = incluirFotos ? fotosAntes.filter(f => seleccion.has(f.id)) : [];
@@ -567,19 +574,19 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
     const fdu = incluirFotos ? fotosDurante.filter(f => seleccion.has(f.id)) : [];
     switch (tipo) {
       case 'cierre':
-        return generarInformeCierre(orden, proyectoNombre, textoActual, fa, fd, datosCierre, codigoDocumento, itemsCierre);
+        return generarInformeCierre(ordenDocumento, proyectoNombre, textoActual, fa, fd, datosCierre, codigoDocumento, itemsCierre);
       case 'orden_servicio':
-        return generarInformeOrdenServicio(orden, textoActual, origenServicio, codigoDocumento, fa);
+        return generarInformeOrdenServicio(ordenDocumento, textoActual, origenServicio, codigoDocumento, fa);
       case 'visita':
-        return generarFichaVisita(orden, datosVisita, fa, codigoDocumento);
+        return generarFichaVisita(ordenDocumento, datosVisita, fa, codigoDocumento);
       case 'relevamiento':
-        return generarInformeRelevamiento(orden, textoActual, fa, datosRelevamiento, codigoDocumento, itemsAlcance);
+        return generarInformeRelevamiento(ordenDocumento, textoActual, fa, datosRelevamiento, codigoDocumento, itemsAlcance);
       case 'avance':
-        return generarInformeAvance(orden, textoActual, fa, fdu, datosAvance, codigoDocumento, itemsAvance);
+        return generarInformeAvance(ordenDocumento, textoActual, fa, fdu, datosAvance, codigoDocumento, itemsAvance);
       case 'acta':
-        return generarInformeActaConformidad(orden, datosActa, codigoDocumento);
+        return generarInformeActaConformidad(ordenDocumento, datosActa, codigoDocumento);
       case 'encuesta':
-        return generarEncuestaSatisfaccion(orden, datosEncuesta, codigoDocumento);
+        return generarEncuestaSatisfaccion(ordenDocumento, datosEncuesta, codigoDocumento);
     }
   };
 
@@ -599,32 +606,38 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
           : disponibles.at(-1) ?? null;
       const borrador = vigente ? await cargarBorradorDocumento(vigente.id) : null;
       const revisiones = vigente ? await listarRevisionesDocumento(vigente.id) : [];
-      return { vigente, borrador, revisiones, disponibles };
+      const contexto = await cargarFuentesInforme(orden, tipo, documentos);
+      return { vigente, borrador, revisiones, disponibles, contexto };
     });
 
     Promise.all([promFotos, promBorrador])
       .then(([fotos, resultado]) => {
         if (cancelado) return;
         const datos = resultado?.borrador?.datos;
+        const inicial = prepararAutocompletado(orden, proyectoNombre, resultado.contexto.cliente, resultado.contexto.fuentes);
+        precargaRef.current = inicial;
+        const identidad = restaurarCampos(inicial.identificacion, datos?.identificacion);
+        setIdentificacion(identidad);
+        setAvisoFuentes(resultado.contexto.avisos.join(' '));
         const texto = typeof datos?.observaciones === 'string'
-          ? datos.observaciones.slice(0, MAX_OBSERVACIONES) : '';
-        const origen = origenGuardado(datos?.origen, origenInicial(orden));
-        const visita = visitaGuardada(datos?.visita);
-        const relevamiento = relevamientoGuardado(datos?.relevamiento);
+          ? datos.observaciones : ['relevamiento', 'avance', 'cierre'].includes(tipo) ? inicial.observaciones : '';
+        const origen = origenGuardado(datos?.origen, inicial.origen);
+        const visita = visitaGuardada(datos?.visita, { ...VISITA_INICIAL, ...inicial.visita });
+        const relevamiento = relevamientoGuardado(datos?.relevamiento, { ...RELEVAMIENTO_INICIAL, ...inicial.relevamiento });
         const alcanceItems = itemsAlcanceGuardados(datos?.itemsAlcance);
-        const avance = avanceGuardado(datos?.avance);
-        const avanceItems = itemsAvanceGuardados(datos?.itemsAvance);
-        const cierre = cierreGuardado(datos?.cierre);
-        const cierreItems = itemsCierreGuardados(datos?.itemsCierre);
-        const acta = actaGuardada(datos?.acta);
-        const encuesta = encuestaGuardada(datos?.encuesta);
+        const avance = avanceGuardado(datos?.avance, { ...AVANCE_INICIAL, ...inicial.avance });
+        const avanceItems = itemsAvanceGuardados(datos?.itemsAvance ?? inicial.itemsAvance);
+        const cierre = cierreGuardado(datos?.cierre, { ...CIERRE_INICIAL, ...inicial.cierre });
+        const cierreItems = itemsCierreGuardados(datos?.itemsCierre ?? inicial.itemsCierre);
+        const acta = actaGuardada(datos?.acta, { ...ACTA_INICIAL, ...inicial.acta });
+        const encuesta = encuestaGuardada(datos?.encuesta, { ...ENCUESTA_INICIAL, ...inicial.encuesta });
         const elegibles = fotos.filter(f =>
           (cfg.necesitaFotosAntes && f.categoria === 'ANTES') ||
           (cfg.necesitaFotosDurante && f.categoria === 'DURANTE') ||
           (cfg.necesitaFotosDespues && f.categoria === 'DESPUES'));
         const idsGuardados = Array.isArray(datos?.fotoIds)
           ? datos.fotoIds.filter((id): id is string => typeof id === 'string').slice(0, 500)
-          : resultado?.borrador && datos?.incluirFotos !== false
+          : datos?.incluirFotos !== false
             ? elegibles.map(f => f.id) : [];
         const idsFotos = [...new Set(idsGuardados)];
         setObservaciones(texto);
@@ -645,7 +658,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
         setRevisiones(resultado?.revisiones ?? []);
         setMotivoRevision('');
         setVersionBorrador(resultado?.borrador?.version ?? 0);
-        setGuardado(JSON.stringify({ observaciones: texto,
+        setGuardado(JSON.stringify({ identificacion: datos?.identificacion ?? (resultado?.borrador ? undefined : identidad), observaciones: texto,
           incluirFotos: datos?.incluirFotos !== false,
           ...(necesitaFotos ? { fotoIds: idsFotos } : {}),
           ...(tipo === 'orden_servicio' ? { origen } : {}),
@@ -756,6 +769,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
     itemsAlcance,
     itemsAvance,
     itemsCierre,
+    identificacion, observaciones, origenServicio, datosVisita, datosRelevamiento, datosAvance, datosCierre, datosActa, datosEncuesta,
   ]);
 
   if (!isOpen) return null;
@@ -772,7 +786,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
     } finally { setGenerandoPreview(false); }
   };
 
-  const datosBorrador = { observaciones, incluirFotos,
+  const datosBorrador = { identificacion, observaciones, incluirFotos,
     ...(necesitaFotos ? { fotoIds } : {}),
     ...(tipo === 'orden_servicio' ? { origen: origenServicio } : {}),
     ...(tipo === 'visita' ? { visita: datosVisita } : {}),
@@ -901,7 +915,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
   };
 
   const actualizarRelevamiento = (clave: keyof DatosRelevamiento, valor: string) => {
-    const recortado = valor.slice(0, 1200);
+    const recortado = valor;
     setDatosRelevamiento(actual => ({ ...actual, [clave]: recortado }));
     const el = iframeRef.current?.contentDocument?.getElementById(`rel-${clave}`);
     if (el) el.textContent = recortado.trim() || 'No registrado';
@@ -916,7 +930,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
   };
 
   const actualizarItemAlcance = (id: string, clave: 'trabajo' | 'criterio', valor: string) => {
-    const recortado = valor.slice(0, 600);
+    const recortado = valor;
     const index = itemsAlcance.findIndex(item => item.id === id);
     setItemsAlcance(actual => actual.map(item => item.id === id
       ? { ...item, [clave]: recortado } : item));
@@ -930,7 +944,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
       : [...actual, { id: siguienteIdItem(actual), previsto: '', realizado: '', saldo: '' }]);
   };
   const actualizarItemAvance = (id: string, clave: 'previsto' | 'realizado' | 'saldo', valor: string) => {
-    const recortado = valor.slice(0, 600);
+    const recortado = valor;
     const index = itemsAvance.findIndex(item => item.id === id);
     setItemsAvance(actual => actual.map(item => item.id === id ? { ...item, [clave]: recortado } : item));
     const el = iframeRef.current?.contentDocument?.getElementById(`av-item-${index}-${clave}`);
@@ -943,7 +957,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
       : [...actual, { id: siguienteIdItem(actual), trabajo: '', criterio: '', resultado: '', verificadorFecha: '' }]);
   };
   const actualizarItemCierre = (id: string, clave: 'trabajo' | 'criterio' | 'resultado' | 'verificadorFecha', valor: string) => {
-    const recortado = valor.slice(0, 600);
+    const recortado = valor;
     const index = itemsCierre.findIndex(item => item.id === id);
     setItemsCierre(actual => actual.map(item => item.id === id ? { ...item, [clave]: recortado } : item));
     const el = iframeRef.current?.contentDocument?.getElementById(`cie-item-${index}-${clave}`);
@@ -951,7 +965,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
   };
 
   const actualizarVisita = (clave: keyof DatosVisita, valor: string) => {
-    const recortado = valor.slice(0, 1200);
+    const recortado = valor;
     setDatosVisita(actual => ({ ...actual, [clave]: recortado }));
     const el = iframeRef.current?.contentDocument?.getElementById(`vis-${clave}`);
     if (el) el.textContent = recortado.trim() || 'No registrado';
@@ -959,28 +973,28 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
 
   const actualizarAvance = (clave: keyof DatosAvance, valor: string) => {
     if (clave === 'porcentaje' && valor !== '' && (!Number.isFinite(Number(valor)) || Number(valor) < 0 || Number(valor) > 100)) return;
-    const recortado = valor.slice(0, 1200);
+    const recortado = valor;
     setDatosAvance(actual => ({ ...actual, [clave]: recortado }));
     const el = iframeRef.current?.contentDocument?.getElementById(`av-${clave}`);
     if (el) el.textContent = recortado.trim() || 'No registrado';
   };
 
   const actualizarCierre = (clave: keyof DatosCierre, valor: string) => {
-    const recortado = valor.slice(0, 1200);
+    const recortado = valor;
     setDatosCierre(actual => ({ ...actual, [clave]: recortado }));
     const el = iframeRef.current?.contentDocument?.getElementById(`cie-${clave}`);
     if (el) el.textContent = recortado.trim() || 'No registrado';
   };
 
   const actualizarActa = (clave: keyof DatosActa, valor: string) => {
-    const recortado = valor.slice(0, 1200);
+    const recortado = valor;
     setDatosActa(actual => ({ ...actual, [clave]: recortado }));
     const el = iframeRef.current?.contentDocument?.getElementById(`act-${clave}`);
     if (el) el.textContent = recortado.trim() || 'No registrado';
   };
 
   const actualizarEncuesta = (clave: keyof DatosEncuesta, valor: string) => {
-    const recortado = valor.slice(0, 1200);
+    const recortado = valor;
     setDatosEncuesta(actual => ({ ...actual, [clave]: recortado }));
     const el = iframeRef.current?.contentDocument?.getElementById(`enc-${clave}`);
     if (el) el.textContent = recortado.trim() || 'Sin respuesta';
@@ -1049,7 +1063,41 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                 <div className={styles.dataVal}>{orden.rubro || '—'}</div>
                 <div className={styles.dataKey}>Responsable</div>
                 <div className={styles.dataVal}>{orden.responsable || '—'}</div>
-                {tipo === 'orden_servicio' && (
+                <section className={styles.section}>
+              <div className={styles.sectionTitle}>Datos de la OT y del cliente</div>
+              <p className={styles.sublabel}>Datos precargados de la OT, del cliente vinculado y de los documentos anteriores disponibles. Revisalos antes de generar. Las ediciones se guardan solo en este informe.</p>
+              {avisoFuentes && <p role="alert">{avisoFuentes}</p>}
+              <details>
+                <summary>Ver y editar datos de identificación</summary>
+                <div className={styles.originGrid}>
+                  {CAMPOS_IDENTIFICACION.map(([clave, etiqueta]) => <label className={styles.originField} key={clave}>
+                    <span>{etiqueta}</span>
+                    <textarea rows={clave === 'descripcion' ? 3 : 1} value={identificacion[clave]} disabled={cargandoComentario}
+                      onChange={e => setIdentificacion(actual => ({ ...actual, [clave]: e.target.value }))} placeholder="No registrado" />
+                  </label>)}
+                </div>
+              </details>
+              <button type="button" className={styles.btnSecondary} disabled={cargandoComentario} onClick={() => {
+                const p = precargaRef.current;
+                const completar = <T extends object>(actual: T, origen: Partial<T>): T => {
+                  const siguiente = { ...actual };
+                  for (const clave of Object.keys(origen) as (keyof T)[]) if (actual[clave] === '' && origen[clave] !== undefined) siguiente[clave] = origen[clave] as T[keyof T];
+                  return siguiente;
+                };
+                setIdentificacion(actual => completar(actual, p.identificacion));
+                setOrigenServicio(actual => completar(actual, p.origen));
+                setDatosVisita(actual => completar(actual, p.visita));
+                setDatosRelevamiento(actual => completar(actual, p.relevamiento));
+                setDatosAvance(actual => completar(actual, p.avance));
+                setDatosCierre(actual => completar(actual, p.cierre));
+                setDatosActa(actual => completar(actual, p.acta));
+                setDatosEncuesta(actual => completar(actual, p.encuesta));
+                if (['relevamiento', 'avance', 'cierre'].includes(tipo)) setObservaciones(actual => actual || p.observaciones);
+              }}>Completar campos vacíos con datos existentes</button>
+              <p className={styles.sublabel}>Las fechas de inicio y fin proceden de la OT; verificá que correspondan a la ejecución real. Las aprobaciones, verificaciones y respuestas del cliente se completan cuando están registradas.</p>
+            </section>
+
+            {tipo === 'orden_servicio' && (
                   <>
                     <div className={styles.dataKey}>Ingreso OT</div>
                     <div className={styles.dataVal}>{fechaCorta(orden.fecha_ingreso)}</div>
@@ -1110,12 +1158,12 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                       <span>{etiqueta}</span>
                       <input type="text" value={origenServicio[clave]} disabled={cargandoComentario}
                         onChange={e => {
-                          const valor = e.target.value.slice(0, 300);
+                          const valor = e.target.value;
                           setOrigenServicio(actual => ({ ...actual, [clave]: valor }));
                           const el = iframeRef.current?.contentDocument?.getElementById(`os-${clave}`);
                           if (el) el.textContent = (clave === 'fechaRecepcion' ? valor.replace('T', ' ') : valor) || 'No registrado';
                         }}
-                        maxLength={300} placeholder="No registrado" />
+                        placeholder="No registrado" />
                     </label>
                   ))}
                 </div>
@@ -1133,7 +1181,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                       <input type={clave === 'fechaVisita' ? 'date' : clave === 'horaInicio' || clave === 'horaFin' ? 'time' : 'text'}
                         value={datosVisita[clave]}
                         onChange={e => actualizarVisita(clave, e.target.value)}
-                        disabled={cargandoComentario} maxLength={1200} placeholder="No registrado" />
+                        disabled={cargandoComentario} placeholder="No registrado" />
                     </label>
                   ))}
                 </div>
@@ -1142,7 +1190,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                     <span>{etiqueta}</span>
                     <textarea value={datosVisita[clave]}
                       onChange={e => actualizarVisita(clave, e.target.value)}
-                      disabled={cargandoComentario} maxLength={1200} rows={2}
+                      disabled={cargandoComentario} rows={2}
                       placeholder="No registrado" />
                   </label>
                 ))}
@@ -1159,7 +1207,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                       <span>{etiqueta}</span>
                       <input type="text" value={datosRelevamiento[clave]}
                         onChange={e => actualizarRelevamiento(clave, e.target.value)}
-                        disabled={cargandoComentario} maxLength={1200} placeholder="No registrado" />
+                        disabled={cargandoComentario} placeholder="No registrado" />
                     </label>
                   ))}
                 </div>
@@ -1168,7 +1216,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                     <span>{etiqueta}</span>
                     <textarea value={datosRelevamiento[clave]}
                       onChange={e => actualizarRelevamiento(clave, e.target.value)}
-                      disabled={cargandoComentario} maxLength={1200} rows={2}
+                      disabled={cargandoComentario} rows={2}
                       placeholder="No registrado" />
                   </label>
                 ))}
@@ -1187,12 +1235,12 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                     <label className={styles.originField}>
                       <span>Trabajo propuesto</span>
                       <textarea value={item.trabajo} onChange={e => actualizarItemAlcance(item.id, 'trabajo', e.target.value)}
-                        disabled={cargandoComentario} maxLength={600} rows={2} placeholder="Describí una acción concreta" />
+                        disabled={cargandoComentario} rows={2} placeholder="Describí una acción concreta" />
                     </label>
                     <label className={styles.originField}>
                       <span>Criterio de aceptación propuesto</span>
                       <textarea value={item.criterio} onChange={e => actualizarItemAlcance(item.id, 'criterio', e.target.value)}
-                        disabled={cargandoComentario} maxLength={600} rows={2} placeholder="Cómo se comprobará el resultado" />
+                        disabled={cargandoComentario} rows={2} placeholder="Cómo se comprobará el resultado" />
                     </label>
                   </div>
                 ))}
@@ -1209,7 +1257,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                       <span>{etiqueta}</span>
                       <input type="text" value={datosAvance[clave]}
                         onChange={e => actualizarAvance(clave, e.target.value)}
-                        disabled={cargandoComentario} maxLength={1200} placeholder="No registrado" />
+                        disabled={cargandoComentario} placeholder="No registrado" />
                     </label>
                   ))}
                   <label className={styles.originField}>
@@ -1225,7 +1273,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                       <span>{etiqueta}</span>
                       <textarea value={datosAvance[clave]}
                         onChange={e => actualizarAvance(clave, e.target.value)}
-                        disabled={cargandoComentario} maxLength={1200} rows={2}
+                        disabled={cargandoComentario} rows={2}
                         placeholder="No registrado" />
                     </label>
                   ))}
@@ -1246,12 +1294,12 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                       <label className={styles.originField} key={clave}>
                         <span>{etiqueta}</span>
                         <textarea value={item[clave]} onChange={e => actualizarItemAvance(item.id, clave, e.target.value)}
-                          disabled={cargandoComentario} maxLength={600} rows={2} placeholder="No registrado" />
+                          disabled={cargandoComentario} rows={2} placeholder="No registrado" />
                       </label>
                     ))}
                   </div>
                 ))}
-                <p className={styles.sublabel}>El porcentaje no se toma de la OT: se declara para este corte y necesita método, base y alcance aprobados.</p>
+                <p className={styles.sublabel}>El porcentaje se copia de la OT. Revisalo para este corte y completá el método, la base de cálculo y la referencia del alcance aprobado.</p>
               </div>
             )}
 
@@ -1264,7 +1312,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                       <span>{etiqueta}</span>
                       <input type="text" value={datosCierre[clave]}
                         onChange={e => actualizarCierre(clave, e.target.value)}
-                        disabled={cargandoComentario} maxLength={1200} placeholder="No registrado" />
+                        disabled={cargandoComentario} placeholder="No registrado" />
                     </label>
                   ))}
                 </div>
@@ -1273,7 +1321,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                     <span>{etiqueta}</span>
                     <textarea value={datosCierre[clave]}
                       onChange={e => actualizarCierre(clave, e.target.value)}
-                      disabled={cargandoComentario} maxLength={1200} rows={2}
+                      disabled={cargandoComentario} rows={2}
                       placeholder="No registrado" />
                   </label>
                 ))}
@@ -1289,13 +1337,13 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                       <button type="button" onClick={() => setItemsCierre(actual => actual.filter(fila => fila.id !== item.id))}
                         disabled={cargandoComentario} aria-label={`Quitar ítem ${item.id}`}>Quitar</button>
                     </div>
-                    {([['trabajo', 'Trabajo ejecutado'], ['criterio', 'Criterio y método de comprobación'],
+                    {([['trabajo', 'Trabajo del alcance (verificar ejecución)'], ['criterio', 'Criterio y método de comprobación'],
                       ['resultado', 'Resultado observado'], ['verificadorFecha', 'Verificador y fecha']] as const)
                       .map(([clave, etiqueta]) => (
                         <label className={styles.originField} key={clave}>
                           <span>{etiqueta}</span>
                           <textarea value={item[clave]} onChange={e => actualizarItemCierre(item.id, clave, e.target.value)}
-                            disabled={cargandoComentario} maxLength={600} rows={2} placeholder="No registrado" />
+                            disabled={cargandoComentario} rows={2} placeholder="No registrado" />
                         </label>
                       ))}
                   </div>
@@ -1314,7 +1362,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                         <span>{etiqueta}</span>
                         <input type="text" value={datosActa[clave]}
                           onChange={e => actualizarActa(clave, e.target.value)}
-                          disabled={cargandoComentario} maxLength={1200} placeholder="No registrado" />
+                          disabled={cargandoComentario} placeholder="No registrado" />
                       </label>
                     ))}
                 </div>
@@ -1324,7 +1372,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                       <span>{etiqueta}</span>
                       <textarea value={datosActa[clave]}
                         onChange={e => actualizarActa(clave, e.target.value)}
-                        disabled={cargandoComentario} maxLength={1200} rows={2}
+                        disabled={cargandoComentario} rows={2}
                         placeholder="No registrado" />
                     </label>
                   ))}
@@ -1349,7 +1397,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                 <div className={styles.originGrid}>
                   {([
                     ['fechaRespuesta', 'Fecha de respuesta declarada'],
-                    ['respondente', 'Respondente declarado'],
+                    ['respondente', 'Persona consultada (verificar al responder)'],
                     ['relacionConOT', 'Relación con la OT'],
                     ['modalidad', 'Modalidad de captura'],
                     ['referenciaFuente', 'Referencia al formulario o mensaje de origen'],
@@ -1358,7 +1406,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                       <span>{etiqueta}</span>
                       <input type={clave === 'fechaRespuesta' ? 'date' : 'text'} value={datosEncuesta[clave]}
                         onChange={e => actualizarEncuesta(clave, e.target.value)}
-                        disabled={cargandoComentario} maxLength={1200} placeholder="Sin registrar" />
+                        disabled={cargandoComentario} placeholder="Sin registrar" />
                     </label>
                   ))}
                 </div>
@@ -1372,7 +1420,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                       {opciones.map(opcion => <option key={opcion} value={opcion}>{opcion}</option>)}
                     </select> : <textarea value={datosEncuesta[clave]}
                       onChange={e => actualizarEncuesta(clave, e.target.value)}
-                      disabled={cargandoComentario} maxLength={1200} rows={3}
+                      disabled={cargandoComentario} rows={3}
                       placeholder="Sin respuesta" />}
                   </label>
                 ))}
@@ -1387,14 +1435,14 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                   <VoiceInputButton
                     value={observaciones}
                     onChange={value => {
-                      const nuevoTexto = value.slice(0, MAX_OBSERVACIONES);
+                      const nuevoTexto = value;
                       setObservaciones(nuevoTexto);
                       const doc = iframeRef.current?.contentDocument;
                       const el = doc?.getElementById('antecedentes-texto') ?? doc?.getElementById('bloque-texto-naranja');
                       if (el) el.textContent = nuevoTexto || (tipo === 'orden_servicio' ? 'Sin aclaraciones posteriores.' : 'Sin observaciones registradas.');
                       else setHtmlPreview(construirHtml(nuevoTexto));
                     }}
-                    maxLength={MAX_OBSERVACIONES}
+
                   />
                 </div>
                 <div className={styles.sublabel}>
@@ -1413,7 +1461,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                       className={styles.textarea}
                       value={observaciones}
                       onChange={e => {
-                        const nuevoTexto = e.target.value.slice(0, MAX_OBSERVACIONES);
+                        const nuevoTexto = e.target.value;
                         setObservaciones(nuevoTexto);
 
                         // Patch directo del DOM del iframe — sin reload
@@ -1431,11 +1479,11 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                         setHtmlPreview(construirHtml(nuevoTexto));
                       }}
                       rows={7}
-                      maxLength={MAX_OBSERVACIONES}
+
                       placeholder={cfg.placeholderTextarea}
                     />
                     <div className={styles.contador}>
-                      {observaciones.length}/{MAX_OBSERVACIONES} caracteres
+                      {observaciones.length} caracteres
                     </div>
                   </>
                 )}

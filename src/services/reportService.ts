@@ -164,7 +164,7 @@ export function generarEncuestaSatisfaccion(
   codigoDocumento?: string,
 ): string {
   const campo = (clave: keyof DatosEncuesta) =>
-    `<p id="enc-${clave}" style="white-space:pre-line">${escapeHtml(datos?.[clave]?.trim() || 'Sin respuesta')}</p>`;
+    `<p id="enc-${clave}" style="white-space:pre-line">${escapeHtml(datos?.[clave] || 'Sin respuesta')}</p>`;
   const pregunta = (numero: number, titulo: string, escala: string, clave: keyof DatosEncuesta) =>
     `<section class="p-4 border border-outline-variant rounded-lg mb-4 no-break"><strong>${numero}. ${escapeHtml(titulo)}</strong><small style="display:block;color:#64748B;margin-top:4px">${escapeHtml(escala)}</small>${campo(clave)}</section>`;
   const contenido = `<div class="a4-page">
@@ -173,7 +173,7 @@ ${_bloqueDatosCliente(orden)}
 ${_seccionInforme(1, 'Procedencia de las respuestas')}
 <section class="grid grid-cols-2 gap-4 mb-6">
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Fecha de respuesta declarada</strong>${campo('fechaRespuesta')}</div>
-  <div class="p-4 border border-outline-variant rounded-lg"><strong>Respondente declarado</strong>${campo('respondente')}</div>
+  <div class="p-4 border border-outline-variant rounded-lg"><strong>Persona consultada (verificar al responder)</strong>${campo('respondente')}</div>
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Relación con la OT</strong>${campo('relacionConOT')}</div>
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Modalidad de captura</strong>${campo('modalidad')}</div>
 </section>
@@ -203,7 +203,7 @@ export function generarFichaVisita(
   codigoDocumento?: string,
 ): string {
   const campo = (clave: keyof DatosVisita) =>
-    `<p id="vis-${clave}" style="white-space:pre-line">${escapeHtml(datos?.[clave]?.trim() || 'No registrado')}</p>`;
+    `<p id="vis-${clave}" style="white-space:pre-line">${escapeHtml(datos?.[clave] || 'No registrado')}</p>`;
   const bloque = (titulo: string, clave: keyof DatosVisita) =>
     `<section class="p-4 border border-outline-variant rounded-lg mb-4"><strong>${titulo}</strong>${campo(clave)}</section>`;
   const contenido = `<div class="a4-page">
@@ -248,7 +248,7 @@ export function generarInformeCierre(
   itemsCierre: ItemCierre[] = [],
 ): string {
   const campo = (clave: keyof DatosCierre) =>
-    `<p id="cie-${clave}" style="white-space:pre-line">${escapeHtml(datos?.[clave]?.trim() || 'No registrado')}</p>`;
+    `<p id="cie-${clave}" style="white-space:pre-line">${escapeHtml(datos?.[clave] || 'No registrado')}</p>`;
   const bloque = (titulo: string, clave: keyof DatosCierre) =>
     `<section class="p-4 border border-outline-variant rounded-lg mb-4"><strong>${titulo}</strong>${campo(clave)}</section>`;
   const tablaCierre = itemsCierre.length ? `<table class="report-data-table report-data-table-wide">
@@ -257,6 +257,7 @@ export function generarInformeCierre(
 </table>` : '';
   const contenido = `<div class="a4-page">
 ${_paginaHeader(orden, 'INFORME DE CIERRE TÉCNICO', 'Resultados de la intervención y pendientes de verificación. La recepción del cliente corresponde al acta.', codigoDocumento)}
+${_bloqueDatosCliente(orden)}
 ${_seccionInforme(1, 'Base y ejecución final')}
 <section class="grid grid-cols-2 gap-4 mb-6">
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Proyecto</strong><p>${escapeHtml(proyectoNombre)}</p></div>
@@ -340,7 +341,7 @@ export function generarInformeRelevamiento(
   itemsAlcance: ItemAlcance[] = [],
 ): string {
   const campo = (clave: keyof DatosRelevamiento) => {
-    const valor = datos?.[clave]?.trim();
+    const valor = datos?.[clave];
     return `<p id="rel-${clave}" style="white-space:pre-line">${escapeHtml(valor || 'No registrado')}</p>`;
   };
   const bloque = (titulo: string, clave: keyof DatosRelevamiento) =>
@@ -405,7 +406,7 @@ export function generarInformeAvance(
   itemsAvance: ItemAvance[] = [],
 ): string {
   const campo = (clave: keyof DatosAvance) =>
-    `<p id="av-${clave}" style="white-space:pre-line">${escapeHtml(datos?.[clave]?.trim() || 'No registrado')}</p>`;
+    `<p id="av-${clave}" style="white-space:pre-line">${escapeHtml(datos?.[clave] || 'No registrado')}</p>`;
   const bloque = (titulo: string, clave: keyof DatosAvance) =>
     `<section class="p-4 border border-outline-variant rounded-lg mb-4"><strong>${titulo}</strong>${campo(clave)}</section>`;
   const tablaAvance = itemsAvance.length ? `<table class="report-data-table report-data-table-wide">
@@ -414,6 +415,7 @@ export function generarInformeAvance(
 </table>` : '';
   const contenido = `<div class="a4-page">
 ${_paginaHeader(orden, 'INFORME DE AVANCE', 'Estado de la ejecución durante un período determinado. El corte y su revisión deberán quedar identificados al emitir.', codigoDocumento)}
+${_bloqueDatosCliente(orden)}
 ${_seccionInforme(1, 'Resultado del período')}
 <section class="grid grid-cols-2 gap-4 mb-6">
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Período desde</strong>${campo('periodoDesde')}</div>
@@ -443,7 +445,7 @@ ${generarGridFotos(fotosDurante)}` : ''}
 
 export function generarInformeActaConformidad(orden: OrdenLocal, datos?: DatosActa, codigoDocumento?: string): string {
   const campo = (clave: keyof DatosActa) =>
-    `<p id="act-${clave}" style="white-space:pre-line">${escapeHtml(datos?.[clave]?.trim() || 'No registrado')}</p>`;
+    `<p id="act-${clave}" style="white-space:pre-line">${escapeHtml(datos?.[clave] || 'No registrado')}</p>`;
   const bloque = (titulo: string, clave: keyof DatosActa) =>
     `<section class="p-4 border border-outline-variant rounded-lg mb-4"><strong>${titulo}</strong>${campo(clave)}</section>`;
   const contenido = `<div class="a4-page acta-page">
