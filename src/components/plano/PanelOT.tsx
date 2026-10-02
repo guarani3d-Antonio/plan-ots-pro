@@ -1,3 +1,4 @@
+import { AltaClienteOT, type ClienteObra } from './AltaClienteOT';
 import { LEGACY_OFFLINE_ENABLED } from '../../security/sessionScope';
 import { usePermisoObra } from '../../stores/accessStore';
 import { cargarContratistas } from '../../services/trustService';
@@ -67,11 +68,6 @@ interface PanelOTProps {
 type Tab = 'datos' | 'fotos' | 'informes' | 'campos';
 type NivelRiesgo = 'Bajo' | 'Medio' | 'Alto' | 'Extremo';
 type ResponsableCuenta = { user_id: string; nombre: string; rol: string };
-type ClienteObra = { cliente_id: string; ubicacion_id: string; nombre: string;
-  identificacion: string | null; contacto: string | null; telefono: string | null;
-  correo: string | null; domicilio: string | null; tipo_inmueble: string;
-  nombre_obra: string; direccion_obra: string | null; piso: string | null;
-  unidad: string | null; sector: string | null };
 
 const RUBROS_LISTA = [
   'Impermeabilización', 'Eléctrica', 'Plomería',
@@ -264,6 +260,9 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
   const [errorResponsables, setErrorResponsables] = useState<string | null>(null);
   const [clientesObra, setClientesObra] = useState<ClienteObra[]>([]);
   const [errorClientes, setErrorClientes] = useState<string | null>(null);
+  const [altaCliente, setAltaCliente] = useState<{ clienteId?: string } | null>(null);
+  const [guardandoCliente, setGuardandoCliente] = useState(false);
+  const clienteBusyRef = useRef(false);
   const [confirmEliminar, setConfirmEliminar] = useState(false);
   const [guardando,       setGuardando]       = useState(false);
   const [guardadoEn,      setGuardadoEn]      = useState<Date | null>(null);
@@ -496,7 +495,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
   }, [ordenFresca?.proyecto_id, puedeEditar]);
   const ubicacionesCliente = clientesObra.filter(c => c.cliente_id === form.cliente_id);
   const ubicacionElegida = ubicacionesCliente.find(c => c.ubicacion_id === form.cliente_ubicacion_id);
-  const cambiosSinGuardar = JSON.stringify(form) !== JSON.stringify(ordenToForm(baseVisible))
+  const cambiosSinGuardar = altaCliente !== null || JSON.stringify(form) !== JSON.stringify(ordenToForm(baseVisible))
     || JSON.stringify(valoresCampos) !== JSON.stringify(baseVisible?.campos ?? {});
   useLayoutEffect(() => { cambiosRef.current = cambiosSinGuardar; }, [cambiosSinGuardar]);
   useEffect(() => {
@@ -507,7 +506,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
       if (event.state?.planotsOT === marcador) return;
       const omitirAviso = omitirAvisoBackRef.current;
       omitirAvisoBackRef.current = false;
-      if (saveLock.current || (!omitirAviso && cambiosRef.current &&
+      if (saveLock.current || clienteBusyRef.current || (!omitirAviso && cambiosRef.current &&
         !window.confirm('Hay cambios sin guardar. ¿Querés descartarlos y cerrar?'))) {
         history.pushState({ ...history.state, planotsOT: marcador }, '');
         return;
@@ -530,7 +529,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
     return () => window.removeEventListener('beforeunload', warn);
   }, [cambiosSinGuardar]);
   const cerrarConAviso = () => {
-    if (saveLock.current) return;
+    if (saveLock.current || clienteBusyRef.current) return;
     if (!cambiosSinGuardar || window.confirm('Hay cambios sin guardar. ¿Querés descartarlos y cerrar?')) cerrarPanel();
   };
   const [historialRefresh, setHistorialRefresh] = useState(0);
@@ -542,6 +541,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
     setBaseVisible(ordenFresca);
     setGuardadoEn(null); setErrorGuardado(false);
     setForm(ordenToForm(ordenFresca));
+    setAltaCliente(null);
     setValoresCampos(
       ordenFresca.campos && typeof ordenFresca.campos === 'object' ? ordenFresca.campos : {}
     );
@@ -1058,20 +1058,20 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
                 <span aria-hidden="true">💬</span>
                 <span>{comentariosVisibles ? 'Ocultar conversación' : 'Mostrar conversación'}</span>
               </button>
-              {!modoForzadoFotos && <button className={styles.closeBtn} onClick={cerrarConAviso} aria-label="Cerrar panel">✕</button>}
+              {!modoForzadoFotos && <button className={styles.closeBtn} onClick={cerrarConAviso} disabled={guardandoCliente} aria-label="Cerrar panel">✕</button>}
             </div>
           </div>
 
           <div className={styles.viewTabs}>
-            <button onClick={() => setTabActivo('detalle')} className={tabActivo === 'detalle' ? styles.viewTabActive : ''}>Detalle</button>
-            <button onClick={() => setTabActivo('historial')} className={tabActivo === 'historial' ? styles.viewTabActive : ''}>Historial</button>
+            <button disabled={guardandoCliente} onClick={() => setTabActivo('detalle')} className={tabActivo === 'detalle' ? styles.viewTabActive : ''}>Detalle</button>
+            <button disabled={guardandoCliente} onClick={() => setTabActivo('historial')} className={tabActivo === 'historial' ? styles.viewTabActive : ''}>Historial</button>
           </div>
 
           {tabActivo === 'detalle' && (<>
 
           <div className={styles.tabs}>
             {(['datos', 'fotos', 'informes', 'campos'] as const).map(t => (
-              <button key={t} className={`${styles.tab} ${tab === t ? styles.active : ''}`} onClick={() => setTab(t)}>
+              <button key={t} disabled={guardandoCliente} className={`${styles.tab} ${tab === t ? styles.active : ''}`} onClick={() => setTab(t)}>
                 {t === 'datos' ? 'Datos' : t === 'fotos' ? 'Fotos' : t === 'informes' ? 'Informes' : 'Campos'}
                 {/* F4 — Visible desde las cuatro pestañas: el técnico pasa la
                     mayor parte del tiempo en Datos y tiene que enterarse ahí de
@@ -1102,7 +1102,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
                 </div>
                 <div className={styles.field}>
                   <label className={styles.label}>Cliente</label>
-                  <select className={styles.select} value={form.cliente_id ?? ''} onChange={e => {
+                  <select aria-label="Cliente de la OT" className={styles.select} value={form.cliente_id ?? ''} onChange={e => {
                     const id = e.target.value;
                     const sites = clientesObra.filter(c => c.cliente_id === id);
                     const only = sites.length === 1 ? sites[0] : null;
@@ -1118,12 +1118,29 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
                       <option value={form.cliente_id}>Cliente vinculado anteriormente</option>}
                   </select>
                   {errorClientes && <small role="alert">No se pudo cargar el directorio de clientes: {errorClientes}</small>}
-                  {!clientesObra.length && !errorClientes && <small>El Creador puede cargar clientes y ubicaciones para esta obra.</small>}
-                  {form.cliente_id && ubicacionesCliente.length === 0 && !errorClientes && <small>Este cliente no tiene una ubicación activa en esta obra. El Creador debe vincular una para usarlo en la OT.</small>}
+                  {!clientesObra.length && !errorClientes && <small>{esSupervisor ? 'Agregá el primer cliente con «Nuevo cliente».' : 'El supervisor puede registrar clientes y ubicaciones para esta obra.'}</small>}
+                  {form.cliente_id && ubicacionesCliente.length === 0 && !errorClientes && <small>Este cliente no tiene una ubicación activa en esta obra. El supervisor debe agregar una ubicación para usarlo en la OT.</small>}
                 </div>
+                {esSupervisor && !altaCliente && <div className={`${styles.field} ${styles.fieldWide}`} style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  <button type="button" className={styles.contratistaAddBtn} onClick={() => setAltaCliente({})}>+ Nuevo cliente</button>
+                  <button type="button" className={styles.contratistaAddBtn} onClick={() => setAltaCliente({ clienteId: form.cliente_id ?? undefined })}>+ Ubicación de cliente existente</button>
+                </div>}
+                {esSupervisor && altaCliente && <div className={styles.fieldWide}>
+                  <AltaClienteOT key={ordenFresca.id} proyectoId={ordenFresca.proyecto_id}
+                    obra={proyectoActivo?.nombre ?? form.obra ?? ''} clienteInicial={altaCliente.clienteId}
+                    onBusy={busy => { clienteBusyRef.current = busy; setGuardandoCliente(busy); }}
+                    onCancelar={() => setAltaCliente(null)} onGuardar={cliente => {
+                      setClientesObra(actual => [...actual.filter(c => c.ubicacion_id !== cliente.ubicacion_id), cliente]);
+                      setErrorClientes(null);
+                      setForm(f => ({ ...f, cliente_id: cliente.cliente_id, cliente_ubicacion_id: cliente.ubicacion_id,
+                        obra: cliente.nombre_obra, unidad_amenities: cliente.unidad || cliente.sector || '' }));
+                      setAltaCliente(null);
+                      mostrar('Cliente y ubicación guardados. Guardá la OT para conservar la vinculación.', 'info');
+                    }} />
+                </div>}
                 {form.cliente_id && ubicacionesCliente.length > 1 && <div className={styles.field}>
                   <label className={styles.label}>Ubicación del cliente</label>
-                  <select className={styles.select} value={form.cliente_ubicacion_id ?? ''} onChange={e => {
+                  <select aria-label="Ubicación del cliente" className={styles.select} value={form.cliente_ubicacion_id ?? ''} onChange={e => {
                     const site = ubicacionesCliente.find(c => c.ubicacion_id === e.target.value);
                     setForm(f => ({ ...f, cliente_ubicacion_id: site?.ubicacion_id ?? null,
                       obra: site?.nombre_obra ?? (proyectoActivo?.id === ordenFresca.proyecto_id ? proyectoActivo.nombre : ''),
@@ -1433,15 +1450,15 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
                   ? 'Cambios sin guardar' : guardadoEn ? `Guardado · ${guardadoEn.toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit' })}` : ''}
             </span>
             {modoForzadoFotos ? (
-              <button className={styles.cancelUbicacionBtn} onClick={handleCancelarUbicacion} disabled={guardando} type="button">Cancelar ubicación</button>
+              <button className={styles.cancelUbicacionBtn} onClick={handleCancelarUbicacion} disabled={guardando || altaCliente !== null} type="button">Cancelar ubicación</button>
             ) : esNueva ? (
-              <button className={styles.cancelUbicacionBtn} onClick={handleCancelarNueva} disabled={guardando} type="button">Cancelar</button>
+              <button className={styles.cancelUbicacionBtn} onClick={handleCancelarNueva} disabled={guardando || altaCliente !== null} type="button">Cancelar</button>
             ) : esSupervisor ? (
-              <button className={styles.deleteBtn} onClick={handleEliminar} disabled={guardando} type="button">
+              <button className={styles.deleteBtn} onClick={handleEliminar} disabled={guardando || altaCliente !== null} type="button">
                 {confirmEliminar ? '¿Confirmar?' : 'Borrar'}
               </button>
             ) : null}
-            <button className={styles.saveBtn} onClick={handleGuardar} disabled={!puedeEditar || guardando || (modoForzadoFotos && !validacion.valido)}>
+            <button className={styles.saveBtn} onClick={handleGuardar} disabled={!puedeEditar || guardando || altaCliente !== null || (modoForzadoFotos && !validacion.valido)}>
               {guardando ? 'Guardando...' : 'Guardar cambios'}
             </button>
           </div>

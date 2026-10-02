@@ -1,3 +1,4 @@
+import { borradorModificado } from '../../services/reportDraftComparison';
 import { registrarExportacion } from '../../services/trustService';
 // src/components/informes/ModalInformeOT.tsx
 //
@@ -795,7 +796,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
     ...(tipo === 'cierre' ? { cierre: datosCierre, itemsCierre } : {}),
     ...(tipo === 'acta' ? { acta: datosActa } : {}),
     ...(tipo === 'encuesta' ? { encuesta: datosEncuesta } : {}) };
-  const cambiosBorrador = guardado !== JSON.stringify(datosBorrador);
+  const cambiosBorrador = borradorModificado(guardado, datosBorrador);
   const revisionActual = revisiones.find(revision => revision.borrador_version === versionBorrador);
   const tipoRepetible = tipo === 'visita' || tipo === 'relevamiento' || tipo === 'avance' || tipo === 'encuesta';
   const fotosElegibles = [
@@ -1039,7 +1040,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
             {tipoRepetible && (
               <div className={styles.section}>
                 <label className={styles.originField}>
-                  <span>{tipo === 'avance' ? 'Informe de avance' : tipo === 'visita' ? 'Ficha de visita' : tipo === 'encuesta' ? 'Encuesta de satisfacción' : 'Informe de relevamiento'}</span>
+                  <span>{tipo === 'avance' ? 'Informe de avance' : tipo === 'visita' ? 'Visita que querés documentar' : tipo === 'encuesta' ? 'Encuesta de satisfacción' : 'Informe de relevamiento'}</span>
                   <select value={seleccionId ?? documento?.id ?? 'nuevo'}
                     onChange={e => cambiarDocumento(e.target.value)}
                     disabled={cargandoComentario || guardandoBorrador || cambiosBorrador}>
@@ -1048,9 +1049,10 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                         {doc.codigo}
                       </option>
                     ))}
-                    <option value="nuevo">+ Nuevo borrador</option>
+                    <option value="nuevo">{tipo === 'visita' ? (documentosTipo.length ? '+ Registrar otra visita' : '+ Registrar primera visita') : '+ Nuevo borrador'}</option>
                   </select>
                 </label>
+                {tipo === 'visita' && <p className={styles.sublabel}>Para empezar, elegí «Registrar primera visita». Para continuar o corregir una ya guardada, seleccioná su código. Creá otra solo cuando se realice una nueva visita.</p>}
                 {cambiosBorrador && !cargandoComentario && (
                   <p className={styles.sublabel}>Guardá el borrador antes de cambiar de documento.</p>
                 )}
