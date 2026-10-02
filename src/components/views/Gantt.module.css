@@ -1,0 +1,3 @@
+.toolbar button, .toolbar input, .toolbar select { min-height:36px; }
+.toolbar button { min-width:36px; }
+@media (pointer:coarse) { .toolbar button, .toolbar input, .toolbar select { min-height:44px; } .toolbar button { min-width:44px; } }

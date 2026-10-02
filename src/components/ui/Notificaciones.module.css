@@ -203,7 +203,7 @@
 }
 
 .notifLeida {
-  opacity: 0.55;
+  background: var(--bg-subtle, #f8fafc);
 }
 
 .notifLeida .notifDot {

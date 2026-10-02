@@ -11,6 +11,7 @@ import { useProyectosStore } from '../../stores/proyectosStore';
 import { ModalDetalleOT } from '../grilla/ModalDetalleOT';
 import type { OrdenLocal } from '../../types/orden';
 import { useToast } from '../ui/Toast';
+import styles from './Calendario.module.css';
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 const DIAS_SEMANA  = ['LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM'];
@@ -324,7 +325,7 @@ export default function Calendario() {
     : `${diasSemana[0].getDate()} ${MESES[diasSemana[0].getMonth()]} – ${diasSemana[6].getDate()} ${MESES[diasSemana[6].getMonth()]} ${diasSemana[6].getFullYear()}`;
 
   return (
-    <div style={{
+    <div className={styles.page} style={{
       flex: 1, overflow: 'auto', background: '#F9F9FE',
       padding: 24,
     }}>
@@ -383,12 +384,10 @@ export default function Calendario() {
       </div>
 
       {/* ═══ GRID 12 COLS ═══ */}
-      <div style={{
-        display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: 16,
-      }}>
+      <div className={styles.layout}>
 
         {/* ── Calendario (cols 1-9) ── */}
-        <div style={{ ...cardStyle, gridColumn: 'span 9' }}>
+        <div className={styles.calendar} style={cardStyle}>
           {vistaCalendario === 'mes' ? (
             <>
               {/* Cabecera días de la semana */}
@@ -519,7 +518,7 @@ export default function Calendario() {
         </div>
 
         {/* ── Panel lateral (cols 10-12) ── */}
-        <aside style={{ ...cardStyle, gridColumn: 'span 3', display: 'flex', flexDirection: 'column' }}>
+        <aside className={styles.detail} style={{ ...cardStyle, display: 'flex', flexDirection: 'column' }}>
           <div style={{ padding: '14px 16px', borderBottom: '1px solid #F3F4F6' }}>
             <div style={{
               fontSize: 11, fontWeight: 700, color: '#001E40',

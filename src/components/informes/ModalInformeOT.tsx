@@ -1,3 +1,4 @@
+import { CampoTextoInforme } from './CampoTextoInforme';
 import { borradorModificado } from '../../services/reportDraftComparison';
 import { registrarExportacion } from '../../services/trustService';
 // src/components/informes/ModalInformeOT.tsx
@@ -1042,7 +1043,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                 <label className={styles.originField}>
                   <span>{tipo === 'avance' ? 'Informe de avance' : tipo === 'visita' ? 'Visita que querés documentar' : tipo === 'encuesta' ? 'Encuesta de satisfacción' : 'Informe de relevamiento'}</span>
                   <select value={seleccionId ?? documento?.id ?? 'nuevo'}
-                    onChange={e => cambiarDocumento(e.target.value)}
+                    onChange={e => cambiarDocumento(e.target.value === "continuar" ? (documento?.id ?? documentosTipo[0]?.id ?? "nuevo") : e.target.value)}
                     disabled={cargandoComentario || guardandoBorrador || cambiosBorrador}>
                     {documentosTipo.map(doc => (
                       <option key={doc.id} value={doc.id}>
@@ -1050,6 +1051,8 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                       </option>
                     ))}
                     <option value="nuevo">{tipo === 'visita' ? (documentosTipo.length ? '+ Registrar otra visita' : '+ Registrar primera visita') : '+ Nuevo borrador'}</option>
+                    <option value="continuar" disabled={!documentosTipo.length}>Continuar documento guardado{!documentosTipo.length ? ' · todavía no hay' : ''}</option>
+                    <option value="emitido" disabled>Ver PDF emitido · emisión formal no habilitada</option>
                   </select>
                 </label>
                 {tipo === 'visita' && <p className={styles.sublabel}>Para empezar, elegí «Registrar primera visita». Para continuar o corregir una ya guardada, seleccioná su código. Creá otra solo cuando se realice una nueva visita.</p>}
@@ -1072,11 +1075,8 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
               <details>
                 <summary>Ver y editar datos de identificación</summary>
                 <div className={styles.originGrid}>
-                  {CAMPOS_IDENTIFICACION.map(([clave, etiqueta]) => <label className={styles.originField} key={clave}>
-                    <span>{etiqueta}</span>
-                    <textarea rows={clave === 'descripcion' ? 3 : 1} value={identificacion[clave]} disabled={cargandoComentario}
-                      onChange={e => setIdentificacion(actual => ({ ...actual, [clave]: e.target.value }))} placeholder="No registrado" />
-                  </label>)}
+                  {CAMPOS_IDENTIFICACION.map(([clave, etiqueta]) => <CampoTextoInforme key={clave} etiqueta={etiqueta} multiline={clave === 'descripcion'} rows={3} value={identificacion[clave]} disabled={cargandoComentario}
+                      onChange={value => setIdentificacion(actual => ({ ...actual, [clave]: value }))} placeholder="No registrado"  />)}
                 </div>
               </details>
               <button type="button" className={styles.btnSecondary} disabled={cargandoComentario} onClick={() => {
@@ -1127,12 +1127,8 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                 {puedeRevisar && versionBorrador > 0 && !revisionActual && (
                   <>
                     {revisiones.length > 0 && (
-                      <label className={styles.originField}>
-                        <span>Motivo de la nueva revisión</span>
-                        <textarea value={motivoRevision} maxLength={500}
-                          onChange={e => setMotivoRevision(e.target.value)}
-                          placeholder="Explicá qué se corrigió respecto de la revisión anterior" />
-                      </label>
+                      <CampoTextoInforme etiqueta="Motivo de la nueva revisión" multiline value={motivoRevision} maxLength={500}
+                    onChange={setMotivoRevision} placeholder="Explicá qué se corrigió respecto de la revisión anterior" />
                     )}
                     <button type="button" className={styles.btnSecondary}
                       onClick={handleCongelarRevision}
@@ -1156,17 +1152,14 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                     ['referencia', 'Referencia del mensaje'], ['urgencia', 'Urgencia manifestada'],
                     ['proximoPaso', 'Próximo paso'],
                   ] as [keyof OrigenOrdenServicio, string][]).map(([clave, etiqueta]) => (
-                    <label className={styles.originField} key={clave}>
-                      <span>{etiqueta}</span>
-                      <input type="text" value={origenServicio[clave]} disabled={cargandoComentario}
-                        onChange={e => {
-                          const valor = e.target.value;
+                    <CampoTextoInforme key={clave} etiqueta={etiqueta} type="text" value={origenServicio[clave]} disabled={cargandoComentario}
+                        onChange={value => {
+                          const valor = value;
                           setOrigenServicio(actual => ({ ...actual, [clave]: valor }));
                           const el = iframeRef.current?.contentDocument?.getElementById(`os-${clave}`);
                           if (el) el.textContent = (clave === 'fechaRecepcion' ? valor.replace('T', ' ') : valor) || 'No registrado';
                         }}
-                        placeholder="No registrado" />
-                    </label>
+                        placeholder="No registrado"  />
                   ))}
                 </div>
                 <p className={styles.sublabel}>Son datos del pedido recibido; no acreditan una visita ni un diagnóstico.</p>
@@ -1178,23 +1171,17 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                 <div className={styles.sectionTitle}>Visita técnica realizada</div>
                 <div className={styles.originGrid}>
                   {CAMPOS_VISITA.slice(0, 9).map(([clave, etiqueta]) => (
-                    <label className={styles.originField} key={clave}>
-                      <span>{etiqueta}</span>
-                      <input type={clave === 'fechaVisita' ? 'date' : clave === 'horaInicio' || clave === 'horaFin' ? 'time' : 'text'}
+                    <CampoTextoInforme key={clave} etiqueta={etiqueta} type={clave === 'fechaVisita' ? 'date' : clave === 'horaInicio' || clave === 'horaFin' ? 'time' : 'text'}
                         value={datosVisita[clave]}
-                        onChange={e => actualizarVisita(clave, e.target.value)}
-                        disabled={cargandoComentario} placeholder="No registrado" />
-                    </label>
+                        onChange={value => actualizarVisita(clave, value)}
+                        disabled={cargandoComentario} placeholder="No registrado"  />
                   ))}
                 </div>
                 {CAMPOS_VISITA.slice(9).map(([clave, etiqueta]) => (
-                  <label className={styles.originField} key={clave}>
-                    <span>{etiqueta}</span>
-                    <textarea value={datosVisita[clave]}
-                      onChange={e => actualizarVisita(clave, e.target.value)}
+                  <CampoTextoInforme key={clave} etiqueta={etiqueta} multiline value={datosVisita[clave]}
+                      onChange={value => actualizarVisita(clave, value)}
                       disabled={cargandoComentario} rows={2}
-                      placeholder="No registrado" />
-                  </label>
+                      placeholder="No registrado"  />
                 ))}
                 <p className={styles.sublabel}>Registrá únicamente una visita que ocurrió. Los nombres de los asistentes no acreditan firmas; este documento sigue siendo borrador.</p>
               </div>
@@ -1205,22 +1192,16 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                 <div className={styles.sectionTitle}>Hechos y alcance del relevamiento</div>
                 <div className={styles.originGrid}>
                   {CAMPOS_RELEVAMIENTO.slice(0, 4).map(([clave, etiqueta]) => (
-                    <label className={styles.originField} key={clave}>
-                      <span>{etiqueta}</span>
-                      <input type="text" value={datosRelevamiento[clave]}
-                        onChange={e => actualizarRelevamiento(clave, e.target.value)}
-                        disabled={cargandoComentario} placeholder="No registrado" />
-                    </label>
+                    <CampoTextoInforme key={clave} etiqueta={etiqueta} type="text" value={datosRelevamiento[clave]}
+                        onChange={value => actualizarRelevamiento(clave, value)}
+                        disabled={cargandoComentario} placeholder="No registrado"  />
                   ))}
                 </div>
                 {CAMPOS_RELEVAMIENTO.slice(4).map(([clave, etiqueta]) => (
-                  <label className={styles.originField} key={clave}>
-                    <span>{etiqueta}</span>
-                    <textarea value={datosRelevamiento[clave]}
-                      onChange={e => actualizarRelevamiento(clave, e.target.value)}
+                  <CampoTextoInforme key={clave} etiqueta={etiqueta} multiline value={datosRelevamiento[clave]}
+                      onChange={value => actualizarRelevamiento(clave, value)}
                       disabled={cargandoComentario} rows={2}
-                      placeholder="No registrado" />
-                  </label>
+                      placeholder="No registrado"  />
                 ))}
                 <div className={styles.scopeHeader}>
                   <span className={styles.sectionTitle}>Trabajos y criterios por ítem</span>
@@ -1234,16 +1215,10 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                       <button type="button" onClick={() => setItemsAlcance(actual => actual.filter(fila => fila.id !== item.id))}
                         disabled={cargandoComentario} aria-label={`Quitar ítem ${item.id}`}>Quitar</button>
                     </div>
-                    <label className={styles.originField}>
-                      <span>Trabajo propuesto</span>
-                      <textarea value={item.trabajo} onChange={e => actualizarItemAlcance(item.id, 'trabajo', e.target.value)}
-                        disabled={cargandoComentario} rows={2} placeholder="Describí una acción concreta" />
-                    </label>
-                    <label className={styles.originField}>
-                      <span>Criterio de aceptación propuesto</span>
-                      <textarea value={item.criterio} onChange={e => actualizarItemAlcance(item.id, 'criterio', e.target.value)}
-                        disabled={cargandoComentario} rows={2} placeholder="Cómo se comprobará el resultado" />
-                    </label>
+                    <CampoTextoInforme etiqueta="Trabajo propuesto" multiline value={item.trabajo} onChange={value => actualizarItemAlcance(item.id, 'trabajo', value)}
+                      disabled={cargandoComentario} rows={2} placeholder="Describí una acción concreta" />
+                    <CampoTextoInforme etiqueta="Criterio de aceptación propuesto" multiline value={item.criterio} onChange={value => actualizarItemAlcance(item.id, 'criterio', value)}
+                      disabled={cargandoComentario} rows={2} placeholder="Cómo se comprobará el resultado" />
                   </div>
                 ))}
                 <p className={styles.sublabel}>La aprobación del alcance requiere una decisión vinculada a una revisión; este campo solo describe el estado declarado.</p>
@@ -1255,12 +1230,9 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                 <div className={styles.sectionTitle}>Período, base y desvíos</div>
                 <div className={styles.originGrid}>
                   {CAMPOS_AVANCE.slice(0, 3).map(([clave, etiqueta]) => (
-                    <label className={styles.originField} key={clave}>
-                      <span>{etiqueta}</span>
-                      <input type="text" value={datosAvance[clave]}
-                        onChange={e => actualizarAvance(clave, e.target.value)}
-                        disabled={cargandoComentario} placeholder="No registrado" />
-                    </label>
+                    <CampoTextoInforme key={clave} etiqueta={etiqueta} type="text" value={datosAvance[clave]}
+                        onChange={value => actualizarAvance(clave, value)}
+                        disabled={cargandoComentario} placeholder="No registrado"  />
                   ))}
                   <label className={styles.originField}>
                     <span>Porcentaje declarado al corte</span>
@@ -1271,13 +1243,10 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                 </div>
                 {CAMPOS_AVANCE.filter(([clave]) => !['periodoDesde', 'periodoHasta', 'alcanceReferencia', 'porcentaje'].includes(clave))
                   .map(([clave, etiqueta]) => (
-                    <label className={styles.originField} key={clave}>
-                      <span>{etiqueta}</span>
-                      <textarea value={datosAvance[clave]}
-                        onChange={e => actualizarAvance(clave, e.target.value)}
+                    <CampoTextoInforme key={clave} etiqueta={etiqueta} multiline value={datosAvance[clave]}
+                        onChange={value => actualizarAvance(clave, value)}
                         disabled={cargandoComentario} rows={2}
-                        placeholder="No registrado" />
-                    </label>
+                        placeholder="No registrado"  />
                   ))}
                 <div className={styles.scopeHeader}>
                   <span className={styles.sectionTitle}>Resultado por ítem del alcance</span>
@@ -1293,11 +1262,8 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                     </div>
                     {([['previsto', 'Previsto para el corte'], ['realizado', 'Realizado y evidencia'],
                       ['saldo', 'Saldo pendiente']] as const).map(([clave, etiqueta]) => (
-                      <label className={styles.originField} key={clave}>
-                        <span>{etiqueta}</span>
-                        <textarea value={item[clave]} onChange={e => actualizarItemAvance(item.id, clave, e.target.value)}
-                          disabled={cargandoComentario} rows={2} placeholder="No registrado" />
-                      </label>
+                      <CampoTextoInforme key={clave} etiqueta={etiqueta} multiline value={item[clave]} onChange={value => actualizarItemAvance(item.id, clave, value)}
+                          disabled={cargandoComentario} rows={2} placeholder="No registrado"  />
                     ))}
                   </div>
                 ))}
@@ -1310,22 +1276,16 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                 <div className={styles.sectionTitle}>Ejecución y verificación final</div>
                 <div className={styles.originGrid}>
                   {CAMPOS_CIERRE.slice(0, 4).map(([clave, etiqueta]) => (
-                    <label className={styles.originField} key={clave}>
-                      <span>{etiqueta}</span>
-                      <input type="text" value={datosCierre[clave]}
-                        onChange={e => actualizarCierre(clave, e.target.value)}
-                        disabled={cargandoComentario} placeholder="No registrado" />
-                    </label>
+                    <CampoTextoInforme key={clave} etiqueta={etiqueta} type="text" value={datosCierre[clave]}
+                        onChange={value => actualizarCierre(clave, value)}
+                        disabled={cargandoComentario} placeholder="No registrado"  />
                   ))}
                 </div>
                 {CAMPOS_CIERRE.slice(4).map(([clave, etiqueta]) => (
-                  <label className={styles.originField} key={clave}>
-                    <span>{etiqueta}</span>
-                    <textarea value={datosCierre[clave]}
-                      onChange={e => actualizarCierre(clave, e.target.value)}
+                  <CampoTextoInforme key={clave} etiqueta={etiqueta} multiline value={datosCierre[clave]}
+                      onChange={value => actualizarCierre(clave, value)}
                       disabled={cargandoComentario} rows={2}
-                      placeholder="No registrado" />
-                  </label>
+                      placeholder="No registrado"  />
                 ))}
                 <div className={styles.scopeHeader}>
                   <span className={styles.sectionTitle}>Trabajo y comprobación por ítem</span>
@@ -1342,11 +1302,8 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                     {([['trabajo', 'Trabajo del alcance (verificar ejecución)'], ['criterio', 'Criterio y método de comprobación'],
                       ['resultado', 'Resultado observado'], ['verificadorFecha', 'Verificador y fecha']] as const)
                       .map(([clave, etiqueta]) => (
-                        <label className={styles.originField} key={clave}>
-                          <span>{etiqueta}</span>
-                          <textarea value={item[clave]} onChange={e => actualizarItemCierre(item.id, clave, e.target.value)}
-                            disabled={cargandoComentario} rows={2} placeholder="No registrado" />
-                        </label>
+                        <CampoTextoInforme key={clave} etiqueta={etiqueta} multiline value={item[clave]} onChange={value => actualizarItemCierre(item.id, clave, value)}
+                            disabled={cargandoComentario} rows={2} placeholder="No registrado"  />
                       ))}
                   </div>
                 ))}
@@ -1360,23 +1317,17 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                 <div className={styles.originGrid}>
                   {CAMPOS_ACTA.filter(([clave]) => ['cierreReferencia', 'receptor', 'organizacion', 'cargo', 'facultad', 'garantiaReferencia'].includes(clave))
                     .map(([clave, etiqueta]) => (
-                      <label className={styles.originField} key={clave}>
-                        <span>{etiqueta}</span>
-                        <input type="text" value={datosActa[clave]}
-                          onChange={e => actualizarActa(clave, e.target.value)}
-                          disabled={cargandoComentario} placeholder="No registrado" />
-                      </label>
+                      <CampoTextoInforme key={clave} etiqueta={etiqueta} type="text" value={datosActa[clave]}
+                          onChange={value => actualizarActa(clave, value)}
+                          disabled={cargandoComentario} placeholder="No registrado"  />
                     ))}
                 </div>
                 {CAMPOS_ACTA.filter(([clave]) => !['cierreReferencia', 'receptor', 'organizacion', 'cargo', 'facultad', 'garantiaReferencia'].includes(clave))
                   .map(([clave, etiqueta]) => (
-                    <label className={styles.originField} key={clave}>
-                      <span>{etiqueta}</span>
-                      <textarea value={datosActa[clave]}
-                        onChange={e => actualizarActa(clave, e.target.value)}
+                    <CampoTextoInforme key={clave} etiqueta={etiqueta} multiline value={datosActa[clave]}
+                        onChange={value => actualizarActa(clave, value)}
                         disabled={cargandoComentario} rows={2}
-                        placeholder="No registrado" />
-                    </label>
+                        placeholder="No registrado"  />
                   ))}
                 <label className={styles.originField}>
                   <span>Opción preparada para decisión</span>
@@ -1404,27 +1355,22 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                     ['modalidad', 'Modalidad de captura'],
                     ['referenciaFuente', 'Referencia al formulario o mensaje de origen'],
                   ] as [keyof DatosEncuesta, string][]).map(([clave, etiqueta]) => (
-                    <label className={styles.originField} key={clave}>
-                      <span>{etiqueta}</span>
-                      <input type={clave === 'fechaRespuesta' ? 'date' : 'text'} value={datosEncuesta[clave]}
-                        onChange={e => actualizarEncuesta(clave, e.target.value)}
-                        disabled={cargandoComentario} placeholder="Sin registrar" />
-                    </label>
+                    <CampoTextoInforme key={clave} etiqueta={etiqueta} type={clave === 'fechaRespuesta' ? 'date' : 'text'} value={datosEncuesta[clave]}
+                        onChange={value => actualizarEncuesta(clave, value)}
+                        disabled={cargandoComentario} placeholder="Sin registrar"  />
                   ))}
                 </div>
                 {PREGUNTAS_ENCUESTA.map(({ clave, etiqueta, opciones }) => (
-                  <label className={styles.originField} key={clave}>
-                    <span>{etiqueta}</span>
+                  <div className={styles.originField} key={clave}>
+                    {opciones && <span>{etiqueta}</span>}
                     {opciones ? <select value={datosEncuesta[clave]}
                       onChange={e => actualizarEncuesta(clave, e.target.value)}
                       disabled={cargandoComentario}>
                       <option value="">Sin respuesta</option>
                       {opciones.map(opcion => <option key={opcion} value={opcion}>{opcion}</option>)}
-                    </select> : <textarea value={datosEncuesta[clave]}
-                      onChange={e => actualizarEncuesta(clave, e.target.value)}
-                      disabled={cargandoComentario} rows={3}
-                      placeholder="Sin respuesta" />}
-                  </label>
+                    </select> : <CampoTextoInforme etiqueta={etiqueta} multiline value={datosEncuesta[clave]}
+                      onChange={value => actualizarEncuesta(clave, value)} disabled={cargandoComentario} rows={3} placeholder="Sin respuesta" />}
+                  </div>
                 ))}
                 <p className={styles.sublabel}>Estas respuestas son un borrador registrado por el equipo. No acreditan por sí solas autoría verificada del cliente ni sustituyen su decisión sobre el acta.</p>
               </div>

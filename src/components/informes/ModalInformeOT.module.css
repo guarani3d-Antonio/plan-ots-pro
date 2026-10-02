@@ -24,7 +24,7 @@
   display: flex;
   flex-direction: column;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family:inherit;
   color: var(--text-primary, #111827);
 }
 
@@ -105,12 +105,12 @@
 .left {
   background: var(--bg-surface, #FFFFFF);
   border-right: 1px solid var(--border-default, #E5E7EB);
-  padding: 20px;
+  padding: 16px;
   overflow-y: auto;
   overscroll-behavior: contain;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
   min-height: 0;
 }
 
@@ -123,7 +123,7 @@
 .sectionTitle {
   font-size: 10px;
   font-weight: 700;
-  color: #9CA3AF;
+  color: #64748B;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   margin-bottom: 4px;
@@ -161,7 +161,7 @@
 .dataKey {
   font-size: 11px;
   font-weight: 600;
-  color: #9CA3AF;
+  color: #64748B;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   padding: 6px 0;
@@ -187,7 +187,7 @@
 
 .sublabel {
   font-size: 12px;
-  color: #9CA3AF;
+  color: #64748B;
   line-height: 1.4;
 }
 
@@ -286,12 +286,12 @@
   box-shadow: 0 0 0 3px rgba(204, 122, 0, 0.12);
 }
 .textarea::placeholder {
-  color: #9CA3AF;
+  color: #64748B;
 }
 
 .contador {
   font-size: 11px;
-  color: #9CA3AF;
+  color: #64748B;
   text-align: right;
 }
 
@@ -399,7 +399,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #9CA3AF;
+  color: #64748B;
   font-size: 14px;
   padding: 48px 24px;
   text-align: center;
@@ -521,6 +521,12 @@
   cursor: not-allowed;
 }
 
+.documentError { color:#b42318; font-size:13px; line-height:1.45; overflow-wrap:anywhere; }
+.documentSuccess { color:#176b42; font-size:13px; line-height:1.45; }
+.documentHash { color:#475569; font:11px ui-monospace,SFMono-Regular,Consolas,monospace; overflow-wrap:anywhere; }
+.documentActions { display:grid; gap:10px; margin-top:12px; }
+.pdfViewer { width:100%; min-height:70vh; border:1px solid #dce2ea; background:#fff; border-radius:8px; }
+
 /* ── Responsive ────────────────────────────────────────────────────────── */
 @media (max-width: 900px) {
   .modal {
@@ -572,3 +578,22 @@
 .quickNav button { white-space:nowrap; font:inherit; font-size:12px; font-weight:650; color:var(--text-secondary,#475569); background:var(--bg-surface,#fff); border:1px solid var(--border-default,#e5e7eb); border-radius:8px; padding:7px 12px; cursor:pointer; }
 .quickNav button:hover { color:var(--accent,#375a98); border-color:var(--accent,#375a98); }
 .section { scroll-margin-top:12px; }
+
+/* Match the application typography and avoid stretched action buttons. */
+.fieldLabel { display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:44px; line-height:1.35; }
+.originGrid { gap:12px 16px; align-items:start; }
+.originField { font-size:14px; }
+.originField input, .originField select { min-height:44px; height:44px; }
+.originField textarea { min-height:68px; font-size:14px; line-height:1.45; }
+.originGrid > .narrativeField { grid-column:1 / -1; }
+.narrativeField { min-width:0; }
+.btnCancelar, .btnSecondary, .btnPrimary, .btnRefresh { align-self:flex-start; width:auto; min-height:44px; padding:8px 14px; }
+.closeBtn { width:44px; height:44px; flex-shrink:0; }
+.documentActions { display:flex; flex-wrap:wrap; gap:8px; }
+.documentActions > button { width:auto; }
+.footer { align-items:center; gap:8px; flex-wrap:wrap; padding:10px 16px; }
+.quickNav button, .scopeHeader button { min-height:44px; }
+.scopeHeader { flex-wrap:wrap; }
+.sectionTitle { font-size:12px; }
+@media (max-width:900px) { .body { grid-template-rows:minmax(260px,48%) minmax(0,1fr); } }
+@media (max-width:600px) { .closeBtn { flex-basis:44px; } }

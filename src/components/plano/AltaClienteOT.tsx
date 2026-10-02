@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../../db/supabase';
 import { assertSession, sessionTicket } from '../../security/sessionScope';
 import styles from './AltaClienteOT.module.css';
+import { VoiceInputButton } from '../ui/VoiceInputButton';
 
 export type ClienteObra = { cliente_id: string; ubicacion_id: string; nombre: string;
   identificacion: string | null; contacto: string | null; telefono: string | null;
@@ -23,7 +24,7 @@ export function AltaClienteOT({ proyectoId, obra, clienteInicial, onGuardar, onC
   { proyectoId: string; obra: string; clienteInicial?: string; onGuardar: (cliente: ClienteObra) => void;
     onCancelar: () => void; onBusy: (busy: boolean) => void }) {
   const [datos, setDatos] = useState(inicial);
-  const [clienteId, setClienteId] = useState(clienteInicial ?? '');
+  const clienteId = clienteInicial ?? '';
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
@@ -58,7 +59,7 @@ export function AltaClienteOT({ proyectoId, obra, clienteInicial, onGuardar, onC
       });
       assertSession(ticket);
       if (error) throw new Error(error.code === '23505'
-        ? 'Ya existe un cliente con ese documento. Seleccionalo en «Cliente existente». Si no aparece, solicitá su vinculación al Creador.'
+        ? 'Ya existe un cliente con ese documento. Buscalo en «Buscar cliente» y agregá una ubicación. Si no aparece, solicitá su vinculación al Creador.'
         : error.message);
       if (activo.current) onGuardar(data as ClienteObra);
     } catch (e) { if (activo.current) setError(e instanceof Error ? e.message : 'No se pudo guardar. Podés reintentar.'); }
@@ -66,17 +67,11 @@ export function AltaClienteOT({ proyectoId, obra, clienteInicial, onGuardar, onC
   }
 
   return <section className={styles.card} aria-label="Alta de cliente y ubicación">
-    <h3>Cliente y ubicación para esta OT</h3>
-    <p>Registrá un cliente nuevo o agregá una ubicación a uno existente. La ficha quedará disponible para próximos reclamos.</p>
+    <p>{clienteId ? `Nueva ubicación de ${clientes.find(c => c.id === clienteId)?.nombre ?? 'cliente seleccionado'}. Se conservará su ficha.` : 'Registrá el cliente y la ubicación del reclamo. Podrás reutilizarlos en próximas OTs.'}</p>
     <fieldset disabled={busy || cargando}>
-      <label>Cliente existente
-        <select value={clienteId} onChange={e => setClienteId(e.target.value)}>
-          <option value="">+ Crear un cliente nuevo</option>
-          {clientes.map(c => <option key={c.id} value={c.id}>{c.nombre}{c.identificacion ? ` · ${c.identificacion}` : ''}</option>)}
-        </select>
-      </label>
-      {!clienteId ? <div className={styles.grid}>{campos.map(([key, label, max]) => <label key={key}>{label}{key === 'nombre' ? ' *' : ''}
-        <input value={datos[key]} maxLength={max} type={key === 'correo' ? 'email' : key === 'telefono' ? 'tel' : 'text'}
+      {!clienteId ? <div className={styles.grid}>{campos.map(([key, label, max]) => <label key={key} htmlFor={`alta-${key}`}>
+        <span className={styles.labelRow}>{label}{key === 'nombre' ? ' *' : ''}<VoiceInputButton compact value={datos[key]} maxLength={max} onChange={v => setDatos(d => ({ ...d, [key]: v }))} /></span>
+        <input id={`alta-${key}`} value={datos[key]} maxLength={max} type={key === 'correo' ? 'email' : key === 'telefono' ? 'tel' : 'text'}
           onChange={e => setDatos(d => ({ ...d, [key]: e.target.value }))} />
       </label>)}</div> : <p>Se conservarán los datos de la ficha existente; solo se agregará la nueva ubicación.</p>}
       <h4>Ubicación del reclamo</h4>
@@ -88,8 +83,9 @@ export function AltaClienteOT({ proyectoId, obra, clienteInicial, onGuardar, onC
             <option value="industrial">Industrial / fábrica</option><option value="otro">Otro / centro comercial</option>
           </select>
         </label>
-        {lugar.map(([key, label, max]) => <label key={key}>{label}{key === 'direccion_obra' ? ' *' : ''}
-          <input value={datos[key]} maxLength={max} onChange={e => setDatos(d => ({ ...d, [key]: e.target.value }))} />
+        {lugar.map(([key, label, max]) => <label key={key} htmlFor={`alta-${key}`}>
+          <span className={styles.labelRow}>{label}{key === 'direccion_obra' ? ' *' : ''}<VoiceInputButton compact value={datos[key]} maxLength={max} onChange={v => setDatos(d => ({ ...d, [key]: v }))} /></span>
+          <input id={`alta-${key}`} value={datos[key]} maxLength={max} onChange={e => setDatos(d => ({ ...d, [key]: e.target.value }))} />
         </label>)}
       </div>
       <p>* Obligatorio. Piso y unidad se dejan vacíos cuando no aplican.</p>

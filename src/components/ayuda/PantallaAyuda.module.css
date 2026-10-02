@@ -1,4 +1,5 @@
 .contenedor {
+  container-type: inline-size;
   display: flex;
   height: 100%;
   width: 100%;
@@ -92,6 +93,7 @@
 
 /* ---- Panel derecho ---- */
 .contenido {
+  min-width: 0;
   flex: 1;
   padding: 40px 48px;
   overflow-y: auto;
@@ -182,3 +184,9 @@
   background: #EFF6FF;
   border-left: 2px solid #3B599B;
 }
+
+.railItem { min-height:44px; flex-shrink:0; }
+.railSub, .badgeProx { color:#64748B; }
+@container (max-width:850px) { .rail { width:220px; } .contenido { padding:24px; } .railHeader { padding:16px; } }
+@container (max-width:500px) { .rail { width:100%; max-height:220px; border-right:0; border-bottom:1px solid #E5E7EB; } .contenido { padding:16px; } .paso { padding:12px; gap:10px; } }
+@media (max-width:800px) { .contenedor { flex-direction:column; } .rail { width:100%; max-height:220px; border-right:0; border-bottom:1px solid #E5E7EB; } }

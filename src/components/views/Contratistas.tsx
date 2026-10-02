@@ -121,7 +121,7 @@ export default function Contratistas() {
           Sin contratistas en el directorio. El Creador puede agregarlos desde su espacio.
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 320px), 1fr))', gap: 12 }}>
           {grupos.map(g => {
             const isOpen = expandido === g.nombre;
             return (

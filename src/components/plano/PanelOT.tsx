@@ -1,6 +1,8 @@
 import { AltaClienteOT, type ClienteObra } from './AltaClienteOT';
 import { LEGACY_OFFLINE_ENABLED } from '../../security/sessionScope';
-import { usePermisoObra } from '../../stores/accessStore';
+import { useAccessStore, usePermisoObra } from '../../stores/accessStore';
+import { BuscarDirectorioOT, DialogDirectorioOT } from './DialogDirectorioOT';
+import { AltaContratistaOT } from './AltaContratistaOT';
 import { cargarContratistas } from '../../services/trustService';
 // src/components/plano/PanelOT.tsx
 import { useState, useEffect, useLayoutEffect, useRef } from 'react';
@@ -253,12 +255,16 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
   const cambiosRef = useRef(false);
   const omitirAvisoBackRef = useRef(false);
   useLayoutEffect(() => { onCerrarRef.current = onCerrar; }, [onCerrar]);
-  const [inputContratista, setInputContratista] = useState('');
+  const [buscador, setBuscador] = useState<'cliente' | 'contratista' | null>(null);
+  const [altaContratista, setAltaContratista] = useState(false);
+  const creador = useAccessStore(s => s.disponible && !!s.contexto?.creador);
+  const [clientesDirectorio, setClientesDirectorio] = useState<{ id:string; nombre:string; identificacion:string | null }[]>([]);
   const [contratistasGlobales, setContratistasGlobales] = useState<string[]>([]);
   const [errorDirectorio, setErrorDirectorio] = useState<string | null>(null);
   const [responsablesCuenta, setResponsablesCuenta] = useState<ResponsableCuenta[]>([]);
   const [errorResponsables, setErrorResponsables] = useState<string | null>(null);
   const [clientesObra, setClientesObra] = useState<ClienteObra[]>([]);
+  const [errorGestionClientes, setErrorGestionClientes] = useState<string | null>(null);
   const [errorClientes, setErrorClientes] = useState<string | null>(null);
   const [altaCliente, setAltaCliente] = useState<{ clienteId?: string } | null>(null);
   const [guardandoCliente, setGuardandoCliente] = useState(false);
@@ -493,6 +499,18 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
     });
     return () => { active = false; };
   }, [ordenFresca?.proyecto_id, puedeEditar]);
+  useEffect(() => {
+    if (!ordenFresca?.proyecto_id || !esSupervisor) return;
+    let active = true;
+    void supabase.rpc('plan_clientes_gestion_obra', { p_proyecto:ordenFresca.proyecto_id }).then(({ data, error }) => {
+      if (active) { setClientesDirectorio(error ? [] : data ?? []); setErrorGestionClientes(error?.message ?? null); }
+    });
+    return () => { active = false; };
+  }, [ordenFresca?.proyecto_id, esSupervisor]);
+  const directorioClientes = [...new Map([
+    ...(esSupervisor ? clientesDirectorio : []).map(c => [c.id, c] as const),
+    ...clientesObra.map(c => [c.cliente_id, { id:c.cliente_id, nombre:c.nombre, identificacion:c.identificacion }] as const),
+  ]).values()];
   const ubicacionesCliente = clientesObra.filter(c => c.cliente_id === form.cliente_id);
   const ubicacionElegida = ubicacionesCliente.find(c => c.ubicacion_id === form.cliente_ubicacion_id);
   const cambiosSinGuardar = altaCliente !== null || JSON.stringify(form) !== JSON.stringify(ordenToForm(baseVisible))
@@ -542,6 +560,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
     setGuardadoEn(null); setErrorGuardado(false);
     setForm(ordenToForm(ordenFresca));
     setAltaCliente(null);
+    setAltaContratista(false); setBuscador(null);
     setValoresCampos(
       ordenFresca.campos && typeof ordenFresca.campos === 'object' ? ordenFresca.campos : {}
     );
@@ -552,7 +571,6 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
     setTab(modoForzadoFotos ? 'fotos' : tabInicial);
     setConfirmEliminar(false);
     setErrorFotos(null);
-    setInputContratista('');
     // Las tres listas se vacían ANTES de pedir las nuevas. Sin esto sobreviven
     // las de la OT anterior mientras recargarFotos espera sus dos await, y el
     // cleanup de abajo ya revocó sus objectURL: React sigue renderizando
@@ -805,7 +823,6 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
       if (guardadoSinVerificar) {
         mostrar('Guardado. Las fotos obligatorias no se verificaron — sin conexión con el servidor.', 'info');
       }
-      setInputContratista('');
       setErrorGuardado(false);
       setGuardadoEn(new Date());
       setHistorialRefresh(r => r + 1);
@@ -979,13 +996,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
     if (!form.contratistas?.includes(trimmed)) {
       setForm(prev => ({ ...prev, contratistas: [...(prev.contratistas ?? []), trimmed] }));
     }
-    setInputContratista('');
   };
-
-  const sugerenciasContratistas = contratistasGlobales.filter(c => {
-    if (form.contratistas?.includes(c)) return false;
-    return true;
-  });
 
   const handleCambiarEstado = async (nuevoEstado: EstadoOT) => {
     const estadoAnterior = (form.estado ?? 'Pendiente') as EstadoOT;
@@ -1092,52 +1103,25 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
             {tab === 'datos' && <>
               <div className={`${styles.section} ${styles.formSection}`}>
                 <div className={styles.sectionTitle}>Identificación</div>
-                <div className={styles.field}>
+                <div className={`${styles.field} ${styles.fieldShort}`}>
                   <label className={styles.label}>Código OT</label>
                   <input className={styles.input} value={form.ot ?? ''} readOnly aria-label="Código OT asignado por la plataforma" title="Código único asignado por la plataforma" />
                 </div>
-                <div className={styles.field}>
+                <div className={`${styles.field} ${styles.fieldShort}`}>
                   <label className={styles.label}>Fecha de ingreso</label>
                   <input className={styles.input} type="date" value={toDateInput(form.fecha_ingreso)} onChange={e => set('fecha_ingreso', e.target.value)} />
                 </div>
-                <div className={styles.field}>
+                <div className={`${styles.field} ${styles.fieldMedium}`}>
                   <label className={styles.label}>Cliente</label>
-                  <select aria-label="Cliente de la OT" className={styles.select} value={form.cliente_id ?? ''} onChange={e => {
-                    const id = e.target.value;
-                    const sites = clientesObra.filter(c => c.cliente_id === id);
-                    const only = sites.length === 1 ? sites[0] : null;
-                    setForm(f => ({ ...f, cliente_id: id || null,
-                      cliente_ubicacion_id: only?.ubicacion_id ?? null,
-                      obra: only?.nombre_obra ?? (proyectoActivo?.id === ordenFresca.proyecto_id ? proyectoActivo.nombre : ''),
-                      unidad_amenities: only ? (only.unidad || only.sector || '') : '' }));
-                  }}>
-                    <option value="">— Sin cliente vinculado —</option>
-                    {[...new Map(clientesObra.map(c => [c.cliente_id, c])).values()].map(c =>
-                      <option key={c.cliente_id} value={c.cliente_id}>{c.nombre}{c.identificacion ? ` · ${c.identificacion}` : ''}</option>)}
-                    {form.cliente_id && !clientesObra.some(c => c.cliente_id === form.cliente_id) &&
-                      <option value={form.cliente_id}>Cliente vinculado anteriormente</option>}
-                  </select>
-                  {errorClientes && <small role="alert">No se pudo cargar el directorio de clientes: {errorClientes}</small>}
-                  {!clientesObra.length && !errorClientes && <small>{esSupervisor ? 'Agregá el primer cliente con «Nuevo cliente».' : 'El supervisor puede registrar clientes y ubicaciones para esta obra.'}</small>}
-                  {form.cliente_id && ubicacionesCliente.length === 0 && !errorClientes && <small>Este cliente no tiene una ubicación activa en esta obra. El supervisor debe agregar una ubicación para usarlo en la OT.</small>}
+                  <div className={styles.directoryActions}>
+                    <button type="button" className={styles.directoryBtn} onClick={() => setBuscador('cliente')}>Buscar cliente</button>
+                    {esSupervisor && <button type="button" className={styles.directoryBtn} onClick={() => setAltaCliente({})}>+ Nuevo cliente</button>}
+                  </div>
+                  <span className={styles.selectedName}>{directorioClientes.find(c => c.id === form.cliente_id)?.nombre ?? (form.cliente_id ? 'Cliente vinculado anteriormente' : 'Sin cliente vinculado')}</span>
+                  {errorClientes && <small role="alert">No se pudo cargar el directorio: {errorClientes}</small>}
+                  {esSupervisor && form.cliente_id && <button type="button" className={styles.locationBtn} onClick={() => setAltaCliente({ clienteId: form.cliente_id! })}>+ Agregar ubicación</button>}
+                  {!ubicacionesCliente.length && form.cliente_id && <small>Este cliente no tiene ubicación activa en esta obra.{esSupervisor ? ' Agregá una ubicación para vincularlo.' : ' Pedí al supervisor que la registre.'}</small>}
                 </div>
-                {esSupervisor && !altaCliente && <div className={`${styles.field} ${styles.fieldWide}`} style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                  <button type="button" className={styles.contratistaAddBtn} onClick={() => setAltaCliente({})}>+ Nuevo cliente</button>
-                  <button type="button" className={styles.contratistaAddBtn} onClick={() => setAltaCliente({ clienteId: form.cliente_id ?? undefined })}>+ Ubicación de cliente existente</button>
-                </div>}
-                {esSupervisor && altaCliente && <div className={styles.fieldWide}>
-                  <AltaClienteOT key={ordenFresca.id} proyectoId={ordenFresca.proyecto_id}
-                    obra={proyectoActivo?.nombre ?? form.obra ?? ''} clienteInicial={altaCliente.clienteId}
-                    onBusy={busy => { clienteBusyRef.current = busy; setGuardandoCliente(busy); }}
-                    onCancelar={() => setAltaCliente(null)} onGuardar={cliente => {
-                      setClientesObra(actual => [...actual.filter(c => c.ubicacion_id !== cliente.ubicacion_id), cliente]);
-                      setErrorClientes(null);
-                      setForm(f => ({ ...f, cliente_id: cliente.cliente_id, cliente_ubicacion_id: cliente.ubicacion_id,
-                        obra: cliente.nombre_obra, unidad_amenities: cliente.unidad || cliente.sector || '' }));
-                      setAltaCliente(null);
-                      mostrar('Cliente y ubicación guardados. Guardá la OT para conservar la vinculación.', 'info');
-                    }} />
-                </div>}
                 {form.cliente_id && ubicacionesCliente.length > 1 && <div className={styles.field}>
                   <label className={styles.label}>Ubicación del cliente</label>
                   <select aria-label="Ubicación del cliente" className={styles.select} value={form.cliente_ubicacion_id ?? ''} onChange={e => {
@@ -1159,7 +1143,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
                   <small>Domicilio del cliente: {ubicacionElegida.domicilio || 'Sin registrar'}</small>
                   <small>Inmueble: {ubicacionElegida.nombre_obra} · {ubicacionElegida.direccion_obra || 'Sin dirección'}{ubicacionElegida.piso ? ` · Piso ${ubicacionElegida.piso}` : ''}{ubicacionElegida.unidad ? ` · Unidad ${ubicacionElegida.unidad}` : ''}</small>
                 </div>}
-                <div className={styles.field}>
+                <div className={`${styles.field} ${styles.fieldMedium}`}>
                   <label className={styles.label}>Obra</label>
                   <select className={styles.select} value={form.obra ?? ''} onChange={e => set('obra', e.target.value)}>
                     <option value="">— Seleccionar obra —</option>
@@ -1168,10 +1152,11 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
                   </select>
                 </div>
                 <div className={styles.field}>
-                  <label className={styles.label}>Unidad / Amenities</label>
+                  <div className={styles.labelRow}><label className={styles.label}>Unidad / Amenities</label>
+                    <VoiceInputButton compact value={form.unidad_amenities ?? ''} onChange={value => set('unidad_amenities', value)} /></div>
                   <input className={styles.input} value={form.unidad_amenities ?? ''} onChange={e => set('unidad_amenities', e.target.value)} placeholder="ej: Dpto 401 / Gym" />
                 </div>
-                <div className={`${styles.field} ${styles.fieldWide}`}>
+                <div className={`${styles.field} ${styles.fieldNarrative}`}>
                   <div className={styles.labelRow}>
                     <label className={styles.label}>Descripción del reclamo</label>
                     <VoiceInputButton value={form.descripcion ?? ''} onChange={value => set('descripcion', value)} />
@@ -1200,7 +1185,8 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
                   <input className={styles.input} type="datetime-local" value={String(valoresCampos.fecha_solicitud ?? '')} onChange={e => setValorCampo('fecha_solicitud', e.target.value)} />
                 </div>
                 <div className={styles.field}>
-                  <label className={styles.label}>Solicitante</label>
+                  <div className={styles.labelRow}><label className={styles.label}>Solicitante</label>
+                    <VoiceInputButton compact value={String(valoresCampos.solicitante ?? '')} onChange={value => setValorCampo('solicitante', value)} /></div>
                   <input className={styles.input} value={String(valoresCampos.solicitante ?? '')} onChange={e => setValorCampo('solicitante', e.target.value)} placeholder="Nombre y organización" />
                 </div>
                 <div className={`${styles.field} ${styles.fieldWide}`}>
@@ -1262,7 +1248,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
                 {toggleRow('asiste_facility',            'Asiste Facility Services')}
               </div>
 
-              <div className={`${styles.section} ${styles.formSection}`}>
+              <div className={`${styles.section} ${styles.formSection} ${styles.executionGrid}`}>
                 <div className={styles.sectionTitle}>Ejecución</div>
                 <div className={styles.field}>
                   <label className={styles.label}>Supervisor / Responsable</label>
@@ -1281,33 +1267,32 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
                   {(form.contratistas ?? []).length > 0 && (
                     <div className={styles.chipsWrap} style={{ marginBottom: 6 }}>
                       {(form.contratistas ?? []).map(c => (
-                        <span key={c} className={styles.chip}>{c}<span className={styles.chipRemove} onClick={() => set('contratistas', (form.contratistas ?? []).filter(x => x !== c))} title="Quitar">×</span></span>
+                        <span key={c} className={styles.chip}>{c}<button type="button" className={styles.chipRemove} onClick={() => set('contratistas', (form.contratistas ?? []).filter(x => x !== c))} aria-label={`Quitar ${c}`}>×</button></span>
                       ))}
                     </div>
                   )}
                   {errorDirectorio && <p role="alert">No se pudo cargar el directorio de contratistas: {errorDirectorio}. Volvé a intentarlo o avisá al Creador.</p>}
-                  <select className={styles.select} aria-label="Agregar contratista del directorio" value={inputContratista}
-                    onChange={e => { const valor = e.target.value; if (valor) agregarContratista(valor); }}>
-                    <option value="">— Seleccionar del directorio —</option>
-                    {sugerenciasContratistas.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                  {sugerenciasContratistas.length === 0 && <small>El directorio no tiene otras opciones para esta empresa. El Creador puede agregar contratistas desde su espacio.</small>}
+                  <div className={styles.directoryActions}>
+                    <button type="button" className={styles.directoryBtn} onClick={() => setBuscador('contratista')}>Buscar contratista</button>
+                    <button type="button" className={styles.directoryBtn} disabled={!creador || !permiso?.tenant_id} title={creador ? 'Registrar una ficha en el directorio' : 'El Creador registra los contratistas de la empresa'} onClick={() => setAltaContratista(true)}>+ Nuevo contratista</button>
+                  </div>
+                  {!contratistasGlobales.length && <small>Sin contratistas disponibles. El Creador puede registrarlos.</small>}
                 </div>
                 {estado !== 'No aplica' && (
                   <div className={styles.field}>
                     <label className={styles.label}>Fecha inicio trabajos</label>
-                    <div style={{ display: 'flex', gap: 6 }}>
-                      <input className={styles.input} style={{ flex: 1 }} type="date" value={toDateInput(form.fecha_inicio_trabajos)} onChange={e => set('fecha_inicio_trabajos', e.target.value)} />
-                      <input className={styles.input} style={{ flex: '0 0 100px' }} type="time" value={(valoresCampos.hora_inicio_trabajos as string | undefined) ?? ''} onChange={e => setValorCampo('hora_inicio_trabajos', e.target.value)} />
+                    <div className={styles.dateTimeGroup}>
+                      <input className={styles.input} type="date" value={toDateInput(form.fecha_inicio_trabajos)} onChange={e => set('fecha_inicio_trabajos', e.target.value)} />
+                      <input className={styles.input} type="time" value={(valoresCampos.hora_inicio_trabajos as string | undefined) ?? ''} onChange={e => setValorCampo('hora_inicio_trabajos', e.target.value)} />
                     </div>
                   </div>
                 )}
                 {estado !== 'No aplica' && (
                   <div className={styles.field}>
                     <label className={styles.label}>Fecha fin trabajos</label>
-                    <div style={{ display: 'flex', gap: 6 }}>
-                      <input className={styles.input} style={{ flex: 1 }} type="date" value={toDateInput(form.fecha_fin_trabajos)} onChange={e => set('fecha_fin_trabajos', e.target.value)} />
-                      <input className={styles.input} style={{ flex: '0 0 100px' }} type="time" value={(valoresCampos.hora_fin_trabajos as string | undefined) ?? ''} onChange={e => setValorCampo('hora_fin_trabajos', e.target.value)} />
+                    <div className={styles.dateTimeGroup}>
+                      <input className={styles.input} type="date" value={toDateInput(form.fecha_fin_trabajos)} onChange={e => set('fecha_fin_trabajos', e.target.value)} />
+                      <input className={styles.input} type="time" value={(valoresCampos.hora_fin_trabajos as string | undefined) ?? ''} onChange={e => setValorCampo('hora_fin_trabajos', e.target.value)} />
                     </div>
                   </div>
                 )}
@@ -1490,6 +1475,38 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
       {ToastComponent}
 
       <ModalComentarioEstado isOpen={modalComentario.abierto} estadoAnterior={modalComentario.estadoAnterior} estadoNuevo={modalComentario.estadoNuevo} esPorFoto={modalComentario.esPorFoto} onConfirmar={modalComentario.onConfirmar ?? (() => {})} onCancelar={modalComentario.onCancelar ?? (() => {})} />
+
+      {buscador === 'cliente' && <BuscarDirectorioOT titulo="Buscar cliente" error={errorClientes ?? (esSupervisor ? errorGestionClientes : null)}
+        opciones={directorioClientes.map(c => ({ id:c.id, nombre:c.nombre, detalle:[c.identificacion, ...clientesObra.filter(u => u.cliente_id === c.id).map(u => [u.nombre_obra,u.piso ? `Piso ${u.piso}` : '',u.unidad,u.sector].filter(Boolean).join(' · '))].filter(Boolean).join(' · ') }))}
+        onCerrar={() => setBuscador(null)} onSeleccionar={id => {
+          const sitios = clientesObra.filter(c => c.cliente_id === id);
+          const sitio = sitios.length === 1 ? sitios[0] : null;
+          setForm(f => ({ ...f, cliente_id:id, cliente_ubicacion_id:sitio?.ubicacion_id ?? null,
+            obra:sitio?.nombre_obra ?? proyectoActivo?.nombre ?? '', unidad_amenities:sitio ? (sitio.unidad || sitio.sector || '') : '' }));
+        }} />}
+      {buscador === 'contratista' && <BuscarDirectorioOT titulo="Buscar contratistas" etiquetaBusqueda="Buscar por nombre" error={errorDirectorio} multiple
+        opciones={contratistasGlobales.map(nombre => ({ id:nombre,nombre }))} seleccionados={form.contratistas ?? []}
+        onCerrar={() => setBuscador(null)} onSeleccionar={nombre => set('contratistas', form.contratistas?.includes(nombre) ? form.contratistas.filter(c => c !== nombre) : [...(form.contratistas ?? []),nombre])} />}
+      {altaCliente && <DialogDirectorioOT titulo={altaCliente.clienteId ? 'Agregar ubicación' : 'Nuevo cliente'} busy={guardandoCliente}
+        onCerrar={() => setAltaCliente(null)}>
+        <AltaClienteOT key={`${ordenFresca.id}:${altaCliente.clienteId ?? 'nuevo'}`} proyectoId={ordenFresca.proyecto_id}
+          obra={proyectoActivo?.nombre ?? form.obra ?? ''} clienteInicial={altaCliente.clienteId}
+          onBusy={busy => { clienteBusyRef.current = busy; setGuardandoCliente(busy); }} onCancelar={() => setAltaCliente(null)}
+          onGuardar={cliente => {
+            setClientesObra(actual => [...actual.filter(c => c.ubicacion_id !== cliente.ubicacion_id),cliente]);
+            setErrorClientes(null);
+            setForm(f => ({ ...f, cliente_id:cliente.cliente_id, cliente_ubicacion_id:cliente.ubicacion_id,
+              obra:cliente.nombre_obra, unidad_amenities:cliente.unidad || cliente.sector || '' }));
+            setAltaCliente(null);
+            mostrar('Cliente y ubicación guardados. Guardá la OT para conservar la vinculación.', 'info');
+          }} />
+      </DialogDirectorioOT>}
+      {altaContratista && permiso?.tenant_id && creador && <DialogDirectorioOT titulo="Nuevo contratista" busy={guardandoCliente} onCerrar={() => setAltaContratista(false)}>
+        <AltaContratistaOT tenantId={permiso.tenant_id} onBusy={busy => { clienteBusyRef.current = busy; setGuardandoCliente(busy); }}
+          onCancelar={() => setAltaContratista(false)} onGuardar={nombre => {
+            setContratistasGlobales(actual => [...new Set([...actual,nombre])]); agregarContratista(nombre); setAltaContratista(false);
+          }} />
+      </DialogDirectorioOT>}
 
       {modalDescIA && (
         <ModalDescripcionFoto

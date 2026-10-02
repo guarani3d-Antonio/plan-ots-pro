@@ -20,7 +20,7 @@ export default function MultiSelectRubro({
   emojiMap,
 }: MultiSelectRubroProps) {
   const [abierto, setAbierto] = useState(false);
-  const [coords, setCoords] = useState<{ top: number; left: number; width: number } | null>(null);
+  const [coords, setCoords] = useState<{ top: number; left: number; width: number; maxHeight: number } | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
 
   // El dropdown es `position: fixed` para escapar del `overflow-y: auto` de .body
@@ -35,7 +35,15 @@ export default function MultiSelectRubro({
     if (!abierto) return;
     const actualizar = () => {
       const r = wrapRef.current?.getBoundingClientRect();
-      if (r) setCoords({ top: r.bottom + 4, left: r.left, width: r.width });
+      if (r) {
+        const debajo = Math.max(0, window.innerHeight - r.bottom - 12);
+        const encima = Math.max(0, r.top - 12);
+        const arriba = debajo < 180 && encima > debajo;
+        const maxHeight = Math.min(260, arriba ? encima : debajo);
+        const width = Math.min(r.width, window.innerWidth - 16);
+        setCoords({ top: arriba ? Math.max(8, r.top - maxHeight - 4) : r.bottom + 4,
+          left: Math.max(8, Math.min(r.left, window.innerWidth - width - 8)), width, maxHeight });
+      }
     };
     actualizar();
     // capture: true — el scroll ocurre en .body de PanelOT, no en window.
@@ -92,6 +100,8 @@ export default function MultiSelectRubro({
       <button
         type="button"
         className={`${styles.trigger} ${abierto ? styles.triggerOpen : ''}`}
+        aria-label="Rubro secundario"
+        aria-expanded={abierto}
         onClick={() => setAbierto(v => !v)}
       >
         <span className={styles.triggerLabel}>{etiqueta()}</span>
@@ -102,7 +112,7 @@ export default function MultiSelectRubro({
       {abierto && (
         <div
           className={styles.dropdown}
-          style={coords ? { top: coords.top, left: coords.left, width: coords.width } : undefined}
+          style={coords ?? undefined}
         >
           {opciones.length === 0 ? (
             <div className={styles.vacio}>Sin opciones disponibles</div>
@@ -114,6 +124,7 @@ export default function MultiSelectRubro({
                   key={op}
                   type="button"
                   className={`${styles.opcion} ${sel ? styles.opcionSel : ''}`}
+                  aria-pressed={sel}
                   onClick={() => toggle(op)}
                 >
                   <span className={styles.check}>{sel ? '✓' : ''}</span>

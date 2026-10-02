@@ -858,3 +858,5 @@
 .badgeOk   { background: #D1FAE5; color: #065F46; }
 .badgeWarn { background: #FEF3C7; color: #92400E; }
 .badgeCrit { background: #FEE2E2; color: #991B1B; }
+.compactToolbar button, .compactToolbar input, .compactToolbar select { min-height:36px; }
+@media (pointer:coarse) { .compactToolbar button, .compactToolbar input, .compactToolbar select, .compactToolbar label { min-height:44px; } }

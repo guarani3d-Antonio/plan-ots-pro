@@ -95,6 +95,7 @@ export function VoiceInputButton({ value, onChange, disabled = false, maxLength,
       onClick={escuchando ? detener : comenzar}
       disabled={disabled || !disponible}
       aria-pressed={escuchando}
+      aria-label={escuchando ? 'Detener dictado' : 'Dictar'}
       title={errorDictado || (disponible ? (escuchando ? 'Detener dictado' : 'Escribir mediante voz') : 'El dictado no está disponible en este navegador')}
     >
       <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -103,7 +104,7 @@ export function VoiceInputButton({ value, onChange, disabled = false, maxLength,
       </svg>
       {!compact && <span>{escuchando ? 'Escuchando…' : 'Dictar'}</span>}
     </button>
-    {!disponible && <span className={styles.error}>Dictado no disponible. Usá el teclado o su micrófono.</span>}
+    {!disponible && !compact && <span className={styles.error}>Dictado no disponible. Usá el teclado o su micrófono.</span>}
     {errorDictado && <span role="alert" className={styles.error}>{errorDictado}</span>}
   </span>);
 }

@@ -9,6 +9,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
+import styles from './Gantt.module.css';
 import { useOrdenesStore } from '../../stores/ordenesStore';
 import { useProyectosStore } from '../../stores/proyectosStore';
 import { ModalDetalleOT } from '../grilla/ModalDetalleOT';
@@ -462,7 +463,7 @@ export default function Gantt() {
     <div style={containerStyle}>
 
       {/* ───── TOOLBAR (2 filas compactas, sin scroll horizontal) ───── */}
-      <div style={{
+      <div className={styles.toolbar} style={{
         borderBottom: '1px solid #E2E2E7',
         background: 'white',
         flexShrink: 0,
@@ -470,7 +471,7 @@ export default function Gantt() {
 
         {/* FILA 1: navegación temporal + escala + leyenda + zoom */}
         <div style={{
-          display: 'flex', alignItems: 'center', gap: 8,
+          display: 'flex', flexWrap:'wrap', alignItems: 'center', gap: 8,
           padding: '6px 16px', borderBottom: '1px solid #F3F4F6',
         }}>
           {/* Navegación de mes */}
@@ -567,8 +568,8 @@ export default function Gantt() {
 
         {/* FILA 2: buscador + filtros + proyecto + exportar */}
         <div style={{
-          display: 'flex', alignItems: 'center', gap: 6,
-          padding: '5px 16px',
+          display: 'flex', flexWrap:'wrap', alignItems: 'center', gap: 8,
+          padding: '8px 16px',
         }}>
           {/* Buscador */}
           <input

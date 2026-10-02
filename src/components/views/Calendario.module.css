@@ -1,0 +1,8 @@
+.page { container-type:inline-size; }
+.layout { display:grid; grid-template-columns:repeat(12,minmax(0,1fr)); gap:16px; }
+.calendar, .detail { min-width:0; }
+.calendar { grid-column:span 9; }
+.detail { grid-column:span 3; }
+@container (max-width:760px) { .layout { grid-template-columns:minmax(0,1fr); } .layout > * { grid-column:1 / -1 !important; } }
+.page button { min-height:36px; }
+@media (pointer:coarse) { .page button { min-height:44px; min-width:44px; } }

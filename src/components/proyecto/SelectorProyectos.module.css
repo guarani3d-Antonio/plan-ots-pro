@@ -337,8 +337,8 @@
   .signOutBtn span { display: none; }
   .signOutBtn { width: 40px; padding: 0; justify-content: center; }
   .content { padding: 28px 18px; }
-  .companyField, .searchWrap, .newBtn { width: 100%; max-width: none; flex-basis: 100%; }
-  .newBtn { justify-content: center; }
+  .companyField, .searchWrap { width:100%; max-width:none; flex-basis:100%; }
+  .newBtn { width:auto; flex-basis:auto; }
 }
 
 /* Grid de proyectos */
@@ -451,7 +451,7 @@
 
 /* Cuerpo de la card */
 .cardBody {
-  padding: 14px 16px;
+  padding: 12px 16px;
 }
 
 .cardName {
@@ -465,20 +465,20 @@
 .cardClient {
   font-size: 13px;
   color: #64748B;
-  margin-bottom: 14px;
+  margin-bottom: 8px;
 }
 
 .cardDivider {
   height: 1px;
   background: #F1F5F9;
-  margin-bottom: 14px;
+  margin-bottom: 8px;
 }
 
 .cardStats {
   display: flex;
   flex-direction: column;
   gap: 3px;
-  margin-bottom: 14px;
+  margin-bottom: 8px;
 }
 
 .statRow {
@@ -497,7 +497,7 @@
 }
 
 .progressWrap {
-  margin-top: 4px;
+  margin-top: 0;
 }
 
 .progressBar {
