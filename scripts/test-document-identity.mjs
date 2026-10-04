@@ -5,6 +5,7 @@ import { PGlite } from '@electric-sql/pglite';
 const db = new PGlite();
 const actor = '11111111-1111-4111-8111-111111111111';
 const intruso = '11111111-1111-4111-8111-222222222222';
+const revisor = '11111111-1111-4111-8111-333333333333';
 const tenant = '22222222-2222-4222-8222-222222222222';
 const proyecto = '33333333-3333-4333-8333-333333333333';
 const orden = '44444444-4444-4444-8444-444444444444';
@@ -20,17 +21,31 @@ const rejectsCode = async (fn, code) => {
 
 try {
   await db.exec(`
-    create role anon; create role authenticated;
+    create role anon; create role authenticated; create role service_role;
     create schema auth;
+    create schema storage;
     grant usage on schema auth to authenticated;
+    create table storage.buckets(id text primary key, public boolean not null);
+    create table storage.objects(bucket_id text not null, name text not null,
+      primary key(bucket_id,name));
+    alter table storage.objects enable row level security;
     create table auth.users(id uuid primary key, email text);
-    create table public.tenants(id uuid primary key, activo boolean not null default true);
+    create table public.tenants(id uuid primary key, nombre text not null default 'Empresa ficticia QA', activo boolean not null default true);
     create table public.proyectos(
       id uuid primary key, tenant_id uuid not null references public.tenants(id),
+      nombre text, cliente text, descripcion text,
       deleted_at timestamptz, unique(tenant_id,id));
     create table public.ordenes(
       id uuid primary key, proyecto_id uuid not null references public.proyectos(id),
-      ot text not null, deleted_at timestamptz, unique(proyecto_id,id));
+      ot text not null, costo numeric, deleted_at timestamptz, unique(proyecto_id,id));
+    create table public.fotos(
+      id uuid primary key, orden_id uuid not null, proyecto_id uuid not null,
+      categoria text not null, label text, descripcion text,
+      descripcion_observacion text, anotaciones jsonb,
+      edicion jsonb, revision bigint, uploaded_at timestamptz, file_path text not null);
+    create table public.plan_foto_originales(
+      foto_id uuid primary key references public.fotos(id),
+      proyecto_id uuid not null, file_path text not null);
     create table public.plan_ot_eventos(
       id uuid primary key default gen_random_uuid(), tenant_id uuid not null,
       proyecto_id uuid not null, orden_id uuid not null, ot text not null,
@@ -43,7 +58,7 @@ try {
     create function public.plan_puede_editar_proyecto(uuid) returns boolean
       language sql stable as $$select auth.uid() = '${actor}'::uuid$$;
     create function public.plan_es_supervisor_proyecto(uuid) returns boolean
-      language sql stable as $$select auth.uid() = '${actor}'::uuid$$;
+      language sql stable as $$select auth.uid() in ('${actor}'::uuid,'${revisor}'::uuid)$$;
     create function public.plan_es_creador() returns boolean
       language sql stable as $$select auth.uid() = '${actor}'::uuid$$;
   `);
@@ -57,9 +72,18 @@ try {
   }
   await db.query('insert into auth.users(id,email) values($1,$2)', [actor, 'creador@prueba.test']);
   await db.query('insert into auth.users(id) values($1)', [intruso]);
+  await db.query('insert into auth.users(id) values($1)', [revisor]);
   await db.query('insert into public.tenants(id) values($1)', [tenant]);
   await db.query('insert into public.proyectos(id,tenant_id) values($1,$2)', [proyecto, tenant]);
   await db.query('insert into public.ordenes(id,proyecto_id,ot) values($1,$2,$3)', [orden, proyecto, 'OT-001']);
+  const foto = uuid(60);
+  await db.query('insert into public.fotos(id,orden_id,proyecto_id,categoria,file_path,edicion,revision) values($1,$2,$3,$4,$5,$6,$7)',
+    [foto, orden, proyecto, 'ANTES', `${tenant}/${proyecto}/${orden}/original.jpg`, {}, 0]);
+  await db.query('insert into public.plan_foto_originales(foto_id,proyecto_id,file_path) values($1,$2,$3)',
+    [foto, proyecto, `${tenant}/${proyecto}/${orden}/original.jpg`]);
+  await db.query('insert into storage.buckets(id,public) values($1,$2)', ['fotos', false]);
+  await db.query('insert into storage.objects(bucket_id,name) values($1,$2)',
+    ['fotos', `${tenant}/${proyecto}/${orden}/original.jpg`]);
   await db.query("select set_config('request.jwt.claim.sub',$1,false)", [actor]);
   await db.exec('set role authenticated;');
 
@@ -125,6 +149,18 @@ try {
   await rejectsCode(() => save(os.id, { observaciones: 'Tarde' }, 0, uuid(8)), '40001');
   const rev0 = await freeze(os.id, 1, null, uuid(9));
   assert.equal(rev0.revision, 0);
+  await db.exec('set role postgres;');
+  await db.exec(await readFile(new URL('../supabase/migrations/202609290022_document_sources.sql', import.meta.url), 'utf8'));
+  try {
+    await db.exec(await readFile(new URL('../supabase/migrations/202609290023_document_issue.sql', import.meta.url), 'utf8'));
+  } catch (error) {
+    console.error('Migración de emisión:', error.message, 'posición', error.position);
+    throw new Error('Falló la migración de emisión');
+  }
+  await db.exec('set role authenticated;');
+  assert.equal((await one(`select count(*)::int as n from public.plan_documento_fuentes where revision_id='${rev0.id}'`)).n, 0);
+  await rejectsCode(() => db.query('update public.plan_documento_fuentes set fuentes=$1 where revision_id=$2',
+    [{ alterado: true }, rev0.id]), '42501');
   assert.equal((await freeze(os.id, 1, null, uuid(9))).id, rev0.id);
   await rejectsCode(() => freeze(os.id, 1, null, uuid(10)), '23505');
   const second = await save(os.id, { observaciones: 'Corregido' }, 1, uuid(11));
@@ -133,6 +169,123 @@ try {
   const rev1 = await freeze(os.id, 2, 'Corrección de redacción', uuid(13));
   assert.equal(rev1.revision, 1);
   assert.notEqual(rev0.contenido_sha256, rev1.contenido_sha256);
+  const fuente1 = await one(`select fuentes,fuentes_sha256 from public.plan_documento_fuentes where revision_id='${rev1.id}'`);
+  assert.equal(fuente1.fuentes.revision.datos_sha256, rev1.contenido_sha256);
+  assert.equal(fuente1.fuentes.orden.ot, 'OT-001');
+  assert.equal(fuente1.fuentes.fotos.length, 0);
+  assert.equal(fuente1.fuentes_sha256.length, 64);
+  const preparado = await call('plan_documento_preparar', [rev1.id, uuid(70)]);
+  assert.equal(preparado.estado, 'preparando');
+  assert.equal((await call('plan_documento_preparar', [rev1.id, uuid(70)])).id, preparado.id);
+  await rejectsCode(() => call('plan_documento_preparar', [rev0.id, uuid(71)]), '22023');
+  const tokenRender = uuid(81);
+  await rejectsCode(() => db.query('select public.plan_documento_render_reclamar($1,$2)',
+    [preparado.id, tokenRender]), '42501');
+  await rejectsCode(() => call('plan_documento_pdf_listo', [preparado.id, tokenRender,
+    'falso', 'a'.repeat(64), 500, []]), '42501');
+  const pdfHash = 'a'.repeat(64);
+  const pdfPath = `${tenant}/${proyecto}/documentos/${rev1.id}/${pdfHash}.pdf`;
+  await db.exec('set role postgres;');
+  await db.query('insert into storage.buckets(id,public) values($1,$2)', ['exports', false]);
+  await db.query('insert into storage.objects(bucket_id,name) values($1,$2)', ['exports', pdfPath]);
+  await db.exec('set role service_role;');
+  assert.equal((await db.query('select public.plan_documento_render_reclamar($1,$2) as ok',
+    [preparado.id, tokenRender])).rows[0].ok, true);
+  assert.equal((await db.query('select public.plan_documento_render_reclamar($1,$2) as ok',
+    [preparado.id, uuid(83)])).rows[0].ok, false);
+  await rejectsCode(() => call('plan_documento_pdf_listo', [preparado.id,
+    tokenRender, pdfPath, pdfHash, 500, null]), '22023');
+  const listo = await call('plan_documento_pdf_listo', [preparado.id,
+    tokenRender, pdfPath, pdfHash, 500, []]);
+  assert.equal(listo.estado, 'listo');
+  assert.deepEqual(listo.fuentes_binarias, []);
+  assert.equal((await call('plan_documento_pdf_listo', [preparado.id,
+    tokenRender, pdfPath, pdfHash, 500, []])).id, listo.id);
+  await rejectsCode(() => call('plan_documento_pdf_listo', [preparado.id,
+    tokenRender, pdfPath, 'b'.repeat(64), 500, []]), '22023');
+  await db.exec('set role authenticated;');
+  await rejectsCode(() => call('plan_documento_revisar_pdf', [preparado.id, pdfHash, 'aprobado', null, uuid(72)]), '42501');
+  await db.query("select set_config('request.jwt.claim.sub',$1,false)", [revisor]);
+  await rejectsCode(() => call('plan_documento_revisar_pdf', [preparado.id, 'b'.repeat(64), 'aprobado', null, uuid(73)]), '40001');
+  const aprobado = await call('plan_documento_revisar_pdf', [preparado.id, pdfHash, 'aprobado', null, uuid(74)]);
+  assert.equal((await call('plan_documento_revisar_pdf', [preparado.id, pdfHash, 'aprobado', null, uuid(74)])).id, aprobado.id);
+  await rejectsCode(() => call('plan_documento_emitir', [preparado.id, uuid(75)]), '22023');
+  await db.query("select set_config('request.jwt.claim.sub',$1,false)", [actor]);
+  for (const [index, modulo] of ['identidad', 'revision', 'conservacion'].entries()) {
+    await db.query('select public.plan_politica_decidir($1,$2,$3,$4,$5,$6,$7,$8)',
+      [tenant, modulo, 'aprobada', 'BBC', 'Procedimiento de prueba', null, '2026-09-23', uuid(76 + index)]);
+  }
+  await db.query("select set_config('request.jwt.claim.sub',$1,false)", [revisor]);
+  const emitido = await call('plan_documento_emitir', [preparado.id, uuid(79)]);
+  assert.equal(emitido.pdf_sha256, pdfHash);
+  assert.deepEqual(emitido.fuentes_binarias, []);
+  assert.ok(emitido.politicas.identidad && emitido.politicas.revision && emitido.politicas.conservacion);
+  assert.equal((await call('plan_documento_emitir', [preparado.id, uuid(79)])).id, emitido.id);
+  await db.query("select set_config('request.jwt.claim.sub',$1,false)", [actor]);
+  const luegoDeEmitir = await save(os.id, { observaciones: 'Intento posterior' }, 2, uuid(85));
+  await rejectsCode(() => freeze(os.id, luegoDeEmitir.version, 'Cambio posterior', uuid(86)), '42501');
+  await db.exec('set role postgres;');
+  await rejectsCode(() => db.query('update public.plan_documento_fuentes set fuentes=$1 where revision_id=$2',
+    [{ alterado: true }, rev1.id]), '42501');
+  await rejectsCode(() => db.query('delete from public.plan_documento_aprobaciones where id=$1',
+    [aprobado.id]), '42501');
+  await rejectsCode(() => db.query('delete from public.plan_documento_emisiones where id=$1',
+    [emitido.id]), '42501');
+  await db.exec('set role authenticated;');
+  await db.exec('set role postgres;');
+  await db.query('update public.ordenes set costo=123456 where id=$1', [orden]);
+  await db.exec('set role authenticated;');
+  const visita = await save(visita1.id, { fotoIds: [foto], observaciones: 'Visita' }, 0, uuid(61));
+  const revisionVisita = await freeze(visita1.id, visita.version, null, uuid(62));
+  const fuenteVisita = await one(`select fuentes from public.plan_documento_fuentes where revision_id='${revisionVisita.id}'`);
+  assert.equal(fuenteVisita.fuentes.fotos[0].id, foto);
+  assert.equal(fuenteVisita.fuentes.fotos[0].original_path, `${tenant}/${proyecto}/${orden}/original.jpg`);
+  assert.equal('costo' in fuenteVisita.fuentes.orden, false);
+  assert.equal((await one(`select public.plan_documento_foto_referida('${tenant}/${proyecto}/${orden}/original.jpg') as protegida`)).protegida, true);
+  assert.equal((await one("select public.plan_documento_foto_referida('otra-foto.jpg') as protegida")).protegida, false);
+  const candidatoVisita = await call('plan_documento_preparar', [revisionVisita.id, uuid(82)]);
+  const tokenVisita = uuid(84);
+  const fotoHash = 'd'.repeat(64);
+  const fotoOrigen = `${tenant}/${proyecto}/${orden}/original.jpg`;
+  const fotoBase = `${tenant}/${proyecto}/documentos/${revisionVisita.id}/fotos/${foto}`;
+  const fotoManifiesto = [{ id: foto,
+    original: { fuente_path: fotoOrigen, path: `${fotoBase}/original/${fotoHash}`,
+      sha256: fotoHash, bytes: 1000 },
+    edicion: { fuente_path: fotoOrigen, path: `${fotoBase}/edicion/${fotoHash}`,
+      sha256: fotoHash, bytes: 1000 } }];
+  const pdfVisitaHash = 'e'.repeat(64);
+  const pdfVisitaPath = `${tenant}/${proyecto}/documentos/${revisionVisita.id}/${pdfVisitaHash}.pdf`;
+  await db.exec('set role postgres;');
+  for (const name of [fotoManifiesto[0].original.path,
+    fotoManifiesto[0].edicion.path, pdfVisitaPath])
+    await db.query('insert into storage.objects(bucket_id,name) values($1,$2)', ['exports', name]);
+  await db.exec('set role service_role;');
+  assert.equal((await db.query('select public.plan_documento_render_reclamar($1,$2) as ok',
+    [candidatoVisita.id, tokenVisita])).rows[0].ok, true);
+  await rejectsCode(() => call('plan_documento_pdf_listo', [candidatoVisita.id,
+    tokenVisita, pdfVisitaPath, pdfVisitaHash, 700, [{ ...fotoManifiesto[0],
+      original: { ...fotoManifiesto[0].original, fuente_path: 'ajena.jpg' } }]]), '22023');
+  const visitaLista = await call('plan_documento_pdf_listo',
+    [candidatoVisita.id, tokenVisita, pdfVisitaPath, pdfVisitaHash, 700, fotoManifiesto]);
+  assert.deepEqual(visitaLista.fuentes_binarias, fotoManifiesto);
+  await db.exec('set role authenticated;');
+  const fotoSinBinario = uuid(68);
+  await db.exec('set role postgres;');
+  await db.query('insert into public.fotos(id,orden_id,proyecto_id,categoria,file_path,edicion,revision) values($1,$2,$3,$4,$5,$6,$7)',
+    [fotoSinBinario, orden, proyecto, 'ANTES', `${tenant}/${proyecto}/${orden}/falta.jpg`, {}, 0]);
+  await db.query('insert into public.plan_foto_originales(foto_id,proyecto_id,file_path) values($1,$2,$3)',
+    [fotoSinBinario, proyecto, `${tenant}/${proyecto}/${orden}/falta.jpg`]);
+  await db.exec('set role authenticated;');
+  const sinBinario = await save(rel2.id, { fotoIds: [fotoSinBinario] }, 0, uuid(69));
+  await rejectsCode(() => freeze(rel2.id, sinBinario.version, null, uuid(80)), '22023');
+  const incorrecto = await save(visita2.id, { fotoIds: [uuid(63)] }, 0, uuid(64));
+  await rejectsCode(() => freeze(visita2.id, incorrecto.version, null, uuid(65)), '42501');
+  assert.equal((await one(`select count(*)::int as n from public.plan_documento_revisiones where documento_id='${visita2.id}'`)).n, 0);
+  const repetido = await save(rel1.id, { fotoIds: [foto, foto] }, 0, uuid(66));
+  await rejectsCode(() => freeze(rel1.id, repetido.version, null, uuid(67)), '22023');
+  await db.query("select set_config('request.jwt.claim.sub',$1,false)", [intruso]);
+  assert.equal((await one(`select count(*)::int as n from public.plan_documento_fuentes where revision_id='${revisionVisita.id}'`)).n, 0);
+  await db.query("select set_config('request.jwt.claim.sub',$1,false)", [actor]);
   await rejectsCode(() => db.query('update public.plan_documento_revisiones set motivo=$1 where id=$2', ['Alterado', rev0.id]), '42501');
   const persisted = await one(`select datos->>'observaciones' as texto from public.plan_documento_revisiones where id='${rev0.id}'`);
   assert.equal(persisted.texto, 'Recibido');
@@ -144,7 +297,41 @@ try {
   const mayor = await reserve('avance', uuid(15));
   assert.match(mayor.codigo, /-100000000$/);
   assert.notEqual(largo.codigo, mayor.codigo);
-  console.log('Expediente: políticas, identidad, borradores, revisiones y auditoría de exportación OK');
+  // La regla de piloto aprobada restringe la decision al Creador en el servidor.
+  await db.exec('set role postgres;');
+  await db.exec(await readFile(new URL('../supabase/migrations/202610040025_pilot_document_review.sql', import.meta.url), 'utf8'));
+  await db.exec(await readFile(new URL('../supabase/migrations/202610040026_document_issuer_snapshot.sql', import.meta.url), 'utf8'));
+  await db.exec(`create or replace function public.plan_es_creador() returns boolean
+    language sql stable as $$select auth.uid() = '${revisor}'::uuid$$;`);
+  await db.exec('set role authenticated;');
+  await db.query("select set_config('request.jwt.claim.sub',$1,false)", [actor]);
+  await rejectsCode(() => call('plan_documento_revisar_pdf', [visitaLista.id, pdfVisitaHash, 'aprobado', null, uuid(101)]), '42501');
+  await rejectsCode(() => call('plan_documento_emitir', [visitaLista.id, uuid(102)]), '42501');
+  await db.query("select set_config('request.jwt.claim.sub',$1,false)", [revisor]);
+  await call('plan_documento_revisar_pdf', [visitaLista.id, pdfVisitaHash, 'aprobado', null, uuid(103)]);
+  const emisionPiloto = await call('plan_documento_emitir', [visitaLista.id, uuid(104)]);
+  assert.equal(emisionPiloto.emitido_por, revisor);
+  assert.equal((await call('plan_documento_emitir', [visitaLista.id, uuid(104)])).id, emisionPiloto.id);
+  await db.query("select set_config('request.jwt.claim.sub',$1,false)", [actor]);
+  const pendiente = await reserve('cierre', uuid(105));
+  const pendienteDraft = await save(pendiente.id, {fotoIds: [], observaciones: 'Original'}, 0, uuid(106));
+  const pendienteRevision = await freeze(pendiente.id, pendienteDraft.version, null, uuid(107));
+  assert.equal((await one(`select fuentes->'empresa'->>'nombre' as nombre from public.plan_documento_fuentes where revision_id='${pendienteRevision.id}'`)).nombre,'Empresa ficticia QA');
+  const pendientePdf = await call('plan_documento_preparar', [pendienteRevision.id, uuid(108)]);
+  const pendientePath = `${tenant}/${proyecto}/documentos/${pendienteRevision.id}/${pdfHash}.pdf`;
+  await db.exec('set role postgres;');
+  await db.query('insert into storage.objects(bucket_id,name) values($1,$2)', ['exports', pendientePath]);
+  await db.exec('set role service_role;');
+  await db.query('select public.plan_documento_render_reclamar($1,$2)', [pendientePdf.id, uuid(109)]);
+  await call('plan_documento_pdf_listo', [pendientePdf.id, uuid(109), pendientePath, pdfHash, 700, []]);
+  await db.exec('set role authenticated;');
+  await db.query("select set_config('request.jwt.claim.sub',$1,false)", [revisor]);
+  await call('plan_documento_revisar_pdf', [pendientePdf.id, pdfHash, 'aprobado', null, uuid(110)]);
+  await db.query("select set_config('request.jwt.claim.sub',$1,false)", [actor]);
+  await save(pendiente.id, {fotoIds: [], observaciones: 'Correccion posterior'}, pendienteDraft.version, uuid(111));
+  await db.query("select set_config('request.jwt.claim.sub',$1,false)", [revisor]);
+  await rejectsCode(() => call('plan_documento_emitir', [pendientePdf.id, uuid(112)]), '40001');
+  console.log('Expediente: identidad, fuentes, doble persona, emision exclusiva del Creador y bloqueo de borrador posterior OK');
 } finally {
   await db.close();
 }

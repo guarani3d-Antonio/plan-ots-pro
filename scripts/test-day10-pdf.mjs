@@ -25,12 +25,13 @@ async function inspect(dir) {
   }
 }
 await inspect('src');
-assert.equal(entryPoints.length, 4);
+assert.equal(entryPoints.length, 5);
 const headers = await readFile('public/_headers', 'utf8');
 assert.match(headers, /X-Content-Type-Options: nosniff/);
 assert.match(headers, /camera=\(self\)/);
 assert.match(headers, /\/sw\.js\s+Cache-Control: no-cache/);
-await mkdir('docs/estabilizacion-2026-09-20/dia-10', { recursive: true });
+const outputDirectory = process.env.PLAN_QA_OUTPUT || 'docs/estabilizacion-2026-09-20/dia-10';
+await mkdir(outputDirectory, { recursive: true });
 const report = { testedAt: new Date().toISOString(), entryPoints, allDisableEval: true, hostingHeadersPrepared: true, advisory: 'https://github.com/mozilla/pdf.js/security/advisories/GHSA-wgrm-67xf-hhpq', scope: 'Verificación AST de las opciones enviadas al visor. No sustituye render en navegador ni actualización de PDF.js.' };
-await writeFile('docs/estabilizacion-2026-09-20/dia-10/pdf-security.json', JSON.stringify(report, null, 2) + '\n');
-console.log('4/4 puntos PDF desactivan eval; cabeceras preparadas.');
+await writeFile(`${outputDirectory}/pdf-security.json`, JSON.stringify(report, null, 2) + '\n');
+console.log(`${entryPoints.length}/${entryPoints.length} puntos PDF desactivan eval; cabeceras preparadas.`);

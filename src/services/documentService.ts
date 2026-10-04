@@ -39,6 +39,115 @@ export interface RevisionDocumento {
   creada_en: string;
 }
 
+export interface CandidatoDocumento {
+  id: string;
+  revision_id: string;
+  documento_id: string;
+  estado: 'preparando' | 'listo' | 'fallido';
+  pdf_path: string | null;
+  pdf_sha256: string | null;
+  pdf_bytes: number | null;
+  solicitado_por: string;
+  listo_en: string | null;
+}
+
+export interface AprobacionDocumento {
+  id: string;
+  candidato_id: string;
+  decision: 'aprobado' | 'observado';
+  pdf_sha256: string;
+  motivo: string | null;
+  decidido_por: string;
+  decidido_en: string;
+}
+
+export interface EmisionDocumento {
+  id: string;
+  candidato_id: string;
+  documento_id: string;
+  revision_id: string;
+  pdf_path: string;
+  pdf_sha256: string;
+  pdf_bytes: number;
+  emitido_en: string;
+}
+
+export async function cargarEstadoEmision(documentoId: string): Promise<{
+  candidatos: CandidatoDocumento[];
+  aprobaciones: AprobacionDocumento[];
+  emisiones: EmisionDocumento[];
+}> {
+  const ticket = sessionTicket();
+  const { data: candidatos, error: errorCandidatos } = await supabase
+    .from('plan_documento_candidatos').select('*').eq('documento_id', documentoId);
+  assertSession(ticket);
+  if (errorCandidatos) throw errorDocumento(errorCandidatos);
+  const ids = (candidatos ?? []).map(candidato => candidato.id as string);
+  const { data: aprobaciones, error: errorAprobaciones } = ids.length
+    ? await supabase.from('plan_documento_aprobaciones').select('*').in('candidato_id', ids)
+    : { data: [], error: null };
+  assertSession(ticket);
+  if (errorAprobaciones) throw errorDocumento(errorAprobaciones);
+  const { data: emisiones, error: errorEmisiones } = await supabase
+    .from('plan_documento_emisiones').select('*').eq('documento_id', documentoId);
+  assertSession(ticket);
+  if (errorEmisiones) throw errorDocumento(errorEmisiones);
+  return {
+    candidatos: (candidatos ?? []) as CandidatoDocumento[],
+    aprobaciones: (aprobaciones ?? []) as AprobacionDocumento[],
+    emisiones: (emisiones ?? []) as EmisionDocumento[],
+  };
+}
+
+export async function generarCandidatoPdf(revisionId: string, solicitudId: string):
+  Promise<{ candidatoId: string; estado: 'procesando' | 'listo'; pdfSha256?: string }> {
+  const ticket = sessionTicket();
+  const { data, error } = await supabase.functions.invoke('render-documento', {
+    body: { revisionId, solicitudId },
+  });
+  assertSession(ticket);
+  if (error || !data?.candidatoId) throw new Error(data?.error ?? error?.message ?? 'No se pudo generar el PDF.');
+  return data;
+}
+
+export async function descargarCandidatoVerificado(candidato: CandidatoDocumento): Promise<Blob> {
+  if (candidato.estado !== 'listo' || !candidato.pdf_path || !candidato.pdf_sha256)
+    throw new Error('El PDF todavía no está listo');
+  const ticket = sessionTicket();
+  const { data, error } = await supabase.storage.from('exports')
+    .createSignedUrl(candidato.pdf_path, 60);
+  assertSession(ticket);
+  if (error || !data?.signedUrl) throw new Error(error?.message ?? 'No se pudo abrir el PDF privado');
+  const { descargarPdfVerificado } = await import('./verifiedPdfDownload');
+  const blob = await descargarPdfVerificado(data.signedUrl, candidato.pdf_bytes, candidato.pdf_sha256);
+  assertSession(ticket);
+  return blob;
+}
+
+export async function revisarCandidatoPdf(candidatoId: string, hash: string,
+  decision: 'aprobado' | 'observado', motivo: string | null, solicitudId: string):
+  Promise<AprobacionDocumento> {
+  const ticket = sessionTicket();
+  const { data, error } = await supabase.rpc('plan_documento_revisar_pdf', {
+    p_candidato: candidatoId, p_sha256: hash, p_decision: decision,
+    p_motivo: motivo, p_solicitud: solicitudId,
+  });
+  assertSession(ticket);
+  if (error) throw errorDocumento(error);
+  return data as AprobacionDocumento;
+}
+
+export async function emitirCandidatoPdf(candidatoId: string, solicitudId: string):
+  Promise<EmisionDocumento> {
+  const ticket = sessionTicket();
+  const { data, error } = await supabase.rpc('plan_documento_emitir', {
+    p_candidato: candidatoId, p_solicitud: solicitudId,
+  });
+  assertSession(ticket);
+  if (error) throw errorDocumento(error);
+  return data as EmisionDocumento;
+}
+
 function errorDocumento(error: { code?: string; message: string }): Error {
   if (error.code === '40001') {
     return new Error('El borrador cambió en otra sesión. Volvé a cargarlo antes de guardar o congelar.');

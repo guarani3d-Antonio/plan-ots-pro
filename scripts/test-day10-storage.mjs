@@ -54,7 +54,9 @@ try {
     assert((await clients['e2-supervisor'].storage.from('fotos').createSignedUrl(path(0, 'fotos'), 30)).error);
   });
 } catch (e) { results.push({ name: 'preparación', ok: false, error: e.message.split('\n')[0] }); }
-await mkdir('docs/estabilizacion-2026-09-20/dia-10', { recursive: true });
+finally { for (const client of Object.values(clients)) await client.auth.signOut({scope:'local'}); }
+const outputDirectory = process.env.PLAN_QA_OUTPUT || 'docs/estabilizacion-2026-09-20/dia-10';
+await mkdir(outputDirectory, { recursive: true });
 const report = { testedAt: new Date().toISOString(), scope: 'Lectura/firma Storage real con clave pública, once cuentas y hashes de ocho fixtures. Sin cambios en archivos.', passed: results.filter(r => r.ok).length, total: results.length, results };
-await writeFile('docs/estabilizacion-2026-09-20/dia-10/storage-rest.json', JSON.stringify(report, null, 2) + '\n');
+await writeFile(`${outputDirectory}/storage-rest.json`, JSON.stringify(report, null, 2) + '\n');
 if (results.some(r => !r.ok)) process.exitCode = 1;

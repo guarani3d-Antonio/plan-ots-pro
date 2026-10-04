@@ -111,11 +111,19 @@ export const _FOOTER_INFORME = `<footer class="page-footer">
   </div>
 </footer>`;
 
+export interface ContextoReporteControlado {
+  emisor?: string;
+  revision: number;
+  anio: number;
+  codigo: string;
+}
+
 // La identidad institucional se incorporará desde la política aprobada del tenant.
 export const _LOGOS_HTML_INFORME = `<div class="flex items-center gap-4"><strong style="font-size:16px;color:#003366">Plan-OTs</strong></div>`;
 
 // Encabezado de página 1: logos + badge estado + ID + título h1 + subtítulo.
-export function _paginaHeader(orden: OrdenLocal, titulo: string, subtitulo: string, codigoDocumento?: string): string {
+export function _paginaHeader(orden: OrdenLocal, titulo: string, subtitulo: string,
+  codigoDocumento?: string, contexto?: ContextoReporteControlado): string {
   const badge = _estadoBadgeCfg(orden.estado);
   const otLabel = orden.ot ?? 'Sin código';
   const etapa: Record<string, string> = {
@@ -128,7 +136,7 @@ export function _paginaHeader(orden: OrdenLocal, titulo: string, subtitulo: stri
     'ENCUESTA DE SATISFACCIÓN': 'SAT / EXPERIENCIA',
   };
   return `<header class="flex justify-between items-start mb-10 border-b border-outline-variant pb-6">
-    ${_LOGOS_HTML_INFORME}
+    <div>${_LOGOS_HTML_INFORME}${contexto?.emisor ? `<p style="font-size:11px;max-width:280px;margin-top:8px">Emisor: ${escapeHtml(contexto.emisor)}</p>` : ''}</div>
     <div class="text-right">
       <div class="px-4 py-1.5 rounded-full font-label-bold text-xs flex items-center gap-1.5 inline-flex mb-2" style="background:${badge.bg}; color:${badge.text}; border:1px solid ${badge.border}33;">
         <span aria-hidden="true" style="width:7px;height:7px;border-radius:50%;background:currentColor;display:inline-block"></span>
@@ -136,12 +144,12 @@ export function _paginaHeader(orden: OrdenLocal, titulo: string, subtitulo: stri
       </div>
       <div class="text-body-sm font-mono-technical text-on-surface-variant">ID DE ORDEN: ${escapeHtml(otLabel)}</div>
       <div class="text-body-sm font-mono-technical text-on-surface-variant">DOCUMENTO: ${escapeHtml(codigoDocumento || 'Borrador sin reservar')}</div>
-      <div class="text-body-sm">Revisión documental: sin emitir</div>
+      <div class="text-body-sm">${contexto ? `Revisión documental: R${String(contexto.revision).padStart(2, '0')}` : 'Revisión documental: sin emitir'}</div>
     </div>
   </header>
   <div class="report-title mb-8">
-    <div class="report-kicker">${escapeHtml(etapa[titulo] ?? 'EXPEDIENTE TÉCNICO')} <span>Documento de trabajo · sin emitir</span></div>
-    <h1 class="font-headline-xl text-headline-xl text-primary border-l-[6px] border-primary pl-5 mb-3">${escapeHtml(titulo)} · BORRADOR</h1>
+    <div class="report-kicker">${escapeHtml(etapa[titulo] ?? 'EXPEDIENTE TÉCNICO')} <span>${contexto ? 'Estado de emisión verificable en Plan-OTs' : 'Documento de trabajo · sin emitir'}</span></div>
+    <h1 class="font-headline-xl text-headline-xl text-primary border-l-[6px] border-primary pl-5 mb-3">${escapeHtml(titulo)}${contexto ? '' : ' · BORRADOR'}</h1>
     <p class="text-on-surface-variant text-body-md max-w-3xl leading-relaxed">${escapeHtml(subtitulo)}</p>
   </div>`;
 }
@@ -151,11 +159,27 @@ export function _seccionInforme(numero: number, titulo: string): string {
 }
 
 // Wrap del contenido en el documento HTML completo.
-export function _envolverInforme(titulo: string, contenido: string): string {
-  return `${_HEAD_INFORME.replace('__TITLE__', escapeHtml(titulo))}
+export function _envolverInforme(titulo: string, contenido: string,
+  contexto?: ContextoReporteControlado): string {
+  let head = _HEAD_INFORME
+    .replace('__TITLE__', escapeHtml(titulo))
+    .replace('Plan-OTs · BORRADOR · SIN EMISIÓN NI APROBACIÓN',
+      contexto ? 'Plan-OTs · ESTADO VERIFICABLE EN LA APLICACIÓN' : 'Plan-OTs · BORRADOR · SIN EMISIÓN NI APROBACIÓN');
+  if (contexto) head = head.replace('</head>',
+    '<style>@media print{@page{@bottom-left{content:none}@bottom-right{content:none}}}</style></head>');
+  const pie = contexto
+    ? _FOOTER_INFORME
+      .replace('Documento de trabajo', 'Expediente documental')
+      .replace('BORRADOR · SIN EMISIÓN NI APROBACIÓN',
+        `${escapeHtml(contexto.codigo)} · R${String(contexto.revision).padStart(2, '0')}`)
+      .replace('Vista de trabajo. No constituye constancia de recepción ni conformidad.',
+        'La emisión y la recepción se verifican por separado en el registro digital.')
+      .replace('__YEAR__', String(contexto.anio))
+    : _FOOTER_INFORME.replace('__YEAR__', String(new Date().getFullYear()));
+  return `${head}
 <body class="bg-surface font-body-md text-on-surface min-h-screen">
 ${contenido}
-${_FOOTER_INFORME.replace('__YEAR__', String(new Date().getFullYear()))}
+${pie}
 </body></html>`;
 }
 

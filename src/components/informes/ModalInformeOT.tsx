@@ -1,6 +1,7 @@
 import { CampoTextoInforme } from './CampoTextoInforme';
-import { borradorModificado } from '../../services/reportDraftComparison';
+import { PdfVerificado } from './PdfVerificado';
 import { registrarExportacion } from '../../services/trustService';
+import { borradorModificado } from '../../services/reportDraftComparison';
 // src/components/informes/ModalInformeOT.tsx
 //
 // Modal fullscreen para previsualizar/exportar los siete borradores de una OT.
@@ -21,6 +22,8 @@ import { registrarExportacion } from '../../services/trustService';
 //      Los tres mapeos de fotos ahora pasan ese campo al generador de informes.
 
 import { useEffect, useRef, useState } from 'react';
+import { useAccessStore } from '../../stores/accessStore';
+import { useAuthStore } from '../../stores/authStore';
 import type { OrdenLocal } from '../../types/orden';
 import {
   generarInformeCierre,
@@ -37,13 +40,18 @@ import { CAMPOS_IDENTIFICACION, prepararAutocompletado, restaurarCampos, ordenPa
 import { cargarFuentesInforme } from '../../services/reportSourceService';
 import { hacerInformePortable } from '../../services/portableReportService';
 import {
-  cargarBorradorDocumento, congelarRevisionDocumento, guardarBorradorDocumento,
+  cargarBorradorDocumento, cargarEstadoEmision, congelarRevisionDocumento,
+  descargarCandidatoVerificado, emitirCandidatoPdf, generarCandidatoPdf,
+  guardarBorradorDocumento, revisarCandidatoPdf,
   listarDocumentosDeOrden, listarRevisionesDocumento, reservarDocumento,
-  type DocumentoRegistro, type RevisionDocumento,
+  type AprobacionDocumento, type CandidatoDocumento, type DocumentoRegistro,
+  type EmisionDocumento, type RevisionDocumento,
 } from '../../services/documentService';
+import { supabase } from '../../db/supabase';
 import { colorEstado } from '../../utils/calculos';
 import styles from './ModalInformeOT.module.css';
 import { VoiceInputButton } from '../ui/VoiceInputButton';
+import { PLANTILLA_CONTROLADA_VERSION } from '../../services/controlledReportService';
 
 export type TipoInforme = 'cierre' | 'orden_servicio' | 'visita' | 'relevamiento' | 'avance' | 'acta' | 'encuesta';
 
@@ -418,6 +426,9 @@ const PREGUNTAS_ENCUESTA: {
 ];
 
 export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, puedeRevisar = false }: Props) {
+  const emisionDisponible = import.meta.env.VITE_DOCUMENT_ISSUANCE_ENABLED === 'true';
+  const esCreador = useAccessStore(s => s.disponible && s.contexto?.creador === true);
+  const usuarioId = useAuthStore(s => s.user?.id);
   const cfg = TIPO_CFG[tipo];
   const necesitaFotos =
     cfg.necesitaFotosAntes || cfg.necesitaFotosDespues || cfg.necesitaFotosDurante;
@@ -449,6 +460,17 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
   const [documento, setDocumento] = useState<DocumentoRegistro | null>(null);
   const [documentosTipo, setDocumentosTipo] = useState<DocumentoRegistro[]>([]);
   const [revisiones, setRevisiones] = useState<RevisionDocumento[]>([]);
+  const [candidatos, setCandidatos] = useState<CandidatoDocumento[]>([]);
+  const [aprobaciones, setAprobaciones] = useState<AprobacionDocumento[]>([]);
+  const [emisiones, setEmisiones] = useState<EmisionDocumento[]>([]);
+  const [procesandoDocumento, setProcesandoDocumento] = useState(false);
+  const [errorEmision, setErrorEmision] = useState<string | null>(null);
+  const [motivoObservacion, setMotivoObservacion] = useState('');
+  const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
+  const [pdfVerificadoId, setPdfVerificadoId] = useState<string | null>(null);
+  const solicitudPdfRef = useRef<{ revision: string; id: string } | null>(null);
+  const solicitudDecisionRef = useRef<{ clave: string; id: string } | null>(null);
+  const solicitudEmisionRef = useRef<{ candidato: string; id: string } | null>(null);
   const [motivoRevision, setMotivoRevision] = useState('');
   const [congelandoRevision, setCongelandoRevision] = useState(false);
   const [seleccionId, setSeleccionId] = useState<string | null>(null);
@@ -531,6 +553,8 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
   // Reset de flags al cambiar de OT o tipo
   useEffect(() => {
     firstRenderRef.current = true;
+    // Restablece el editor cuando cambia la identidad de la OT.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setHtmlPreview('');
     setPreviewAlto(1123);
     setObservaciones('');
@@ -554,6 +578,16 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
     setDocumento(null);
     setDocumentosTipo([]);
     setRevisiones([]);
+    setCandidatos([]);
+    setAprobaciones([]);
+    setEmisiones([]);
+    setErrorEmision(null);
+    setPdfBlobUrl(null);
+    setPdfVerificadoId(null);
+    setMotivoObservacion('');
+    solicitudPdfRef.current = null;
+    solicitudDecisionRef.current = null;
+    solicitudEmisionRef.current = null;
     setMotivoRevision('');
     setSeleccionId(null);
     setVersionBorrador(0);
@@ -566,6 +600,25 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
     // Se reinicia solo al cambiar la identidad de la OT o el tipo de documento.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orden.id, tipo]);
+
+  useEffect(() => {
+    if (!emisionDisponible || !isOpen || !documento?.id) return;
+    const documentoId = documento.id;
+    let cancelado = false;
+    cargarEstadoEmision(documentoId).then(estado => {
+      if (cancelado) return;
+      setCandidatos(estado.candidatos);
+      setAprobaciones(estado.aprobaciones);
+      setEmisiones(estado.emisiones);
+    }).catch(error => {
+      if (!cancelado) setErrorEmision(error instanceof Error ? error.message : 'No se pudo cargar el estado documental.');
+    });
+    return () => { cancelado = true; };
+  }, [documento?.id, emisionDisponible, isOpen]);
+
+  useEffect(() => () => {
+    if (pdfBlobUrl) URL.revokeObjectURL(pdfBlobUrl);
+  }, [pdfBlobUrl]);
 
   const construirHtml = (textoActual: string): string => {
     const ordenDocumento = ordenParaInforme(orden, identificacion);
@@ -596,6 +649,8 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
   useEffect(() => {
     if (!isOpen) return;
     let cancelado = false;
+    // La carga remota empieza con el modal abierto.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCargandoComentario(true);
 
     const promFotos = necesitaFotos
@@ -733,6 +788,8 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
     prevIncluirFotosRef.current = incluirFotos;
     const delay = firstRenderRef.current || incluirFotosCambio ? 0 : DEBOUNCE_MS;
     firstRenderRef.current = false;
+    // Refleja una regeneración asíncrona del preview.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setGenerandoPreview(true);
     let cancelado = false;
     const t = window.setTimeout(() => {
@@ -812,8 +869,17 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
     if (cargandoComentario || guardandoBorrador || cambiosBorrador) return;
     setCargandoComentario(true);
     setHtmlPreview('');
+    setPdfBlobUrl(null);
+    setPdfVerificadoId(null);
+    setCandidatos([]);
+    setAprobaciones([]);
+    setEmisiones([]);
+    solicitudPdfRef.current = null;
+    solicitudDecisionRef.current = null;
+    solicitudEmisionRef.current = null;
     setErrorInforme(null);
     setErrorBorrador(null);
+    setErrorEmision(null);
     solicitudGuardadoRef.current = null;
     solicitudReservaRef.current = null;
     solicitudRevisionRef.current = null;
@@ -848,7 +914,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
   };
 
   const handleCongelarRevision = async () => {
-    if (!puedeRevisar || !documento || !versionBorrador || cambiosBorrador ||
+    if (!puedeRevisar || !documento || emisiones.length > 0 || !versionBorrador || cambiosBorrador ||
       cargandoComentario || guardandoBorrador || congelandoRevision) return;
     const motivo = motivoRevision.trim();
     if (revisiones.length && !motivo) {
@@ -866,7 +932,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
     setErrorBorrador(null);
     try {
       await congelarRevisionDocumento(documento.id, versionBorrador, motivo || null,
-        1, 'expediente-borrador-2026-09-28', solicitud);
+        1, PLANTILLA_CONTROLADA_VERSION, solicitud);
       setRevisiones(await listarRevisionesDocumento(documento.id));
       setMotivoRevision('');
       solicitudRevisionRef.current = null;
@@ -875,6 +941,89 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
     } finally {
       setCongelandoRevision(false);
     }
+  };
+
+  const actualizarEstadoEmision = async () => {
+    if (!documento) return;
+    const estado = await cargarEstadoEmision(documento.id);
+    setCandidatos(estado.candidatos);
+    setAprobaciones(estado.aprobaciones);
+    setEmisiones(estado.emisiones);
+  };
+
+  const handlePrepararPdf = async (revision: RevisionDocumento) => {
+    if (!emisionDisponible || !puedeRevisar || procesandoDocumento || cambiosBorrador ||
+      revision.borrador_version !== versionBorrador) return;
+    const intento = solicitudPdfRef.current;
+    const solicitud = intento?.revision === revision.id ? intento.id : crypto.randomUUID();
+    solicitudPdfRef.current = { revision: revision.id, id: solicitud };
+    setProcesandoDocumento(true);
+    setErrorEmision(null);
+    try {
+      await generarCandidatoPdf(revision.id, solicitud);
+      await actualizarEstadoEmision();
+      solicitudPdfRef.current = null;
+    } catch (error) {
+      setErrorEmision(error instanceof Error ? error.message : 'No se pudo generar el PDF candidato.');
+    } finally { setProcesandoDocumento(false); }
+  };
+
+  const handleVerPdf = async (candidato: CandidatoDocumento) => {
+    if (procesandoDocumento) return;
+    setProcesandoDocumento(true);
+    setErrorEmision(null);
+    try {
+      const blob = await descargarCandidatoVerificado(candidato);
+      setPdfBlobUrl(URL.createObjectURL(blob));
+      setPdfVerificadoId(candidato.id);
+    } catch (error) {
+      setPdfBlobUrl(null);
+      setPdfVerificadoId(null);
+      setErrorEmision(error instanceof Error ? error.message : 'No se pudo verificar el PDF.');
+    } finally { setProcesandoDocumento(false); }
+  };
+
+  const handleRevisarPdf = async (candidato: CandidatoDocumento,
+    decision: 'aprobado' | 'observado') => {
+    if (!esCreador || cambiosBorrador || !revisionActual || procesandoDocumento ||
+      pdfVerificadoId !== candidato.id || !candidato.pdf_sha256) return;
+    const motivo = decision === 'observado' ? motivoObservacion.trim() : null;
+    if (decision === 'observado' && !motivo) {
+      setErrorEmision('Describí la observación antes de registrar la decisión.');
+      return;
+    }
+    const clave = `${candidato.id}:${decision}:${motivo ?? ''}`;
+    const solicitud = solicitudDecisionRef.current?.clave === clave
+      ? solicitudDecisionRef.current.id : crypto.randomUUID();
+    solicitudDecisionRef.current = { clave, id: solicitud };
+    setProcesandoDocumento(true);
+    setErrorEmision(null);
+    try {
+      const { data } = await supabase.auth.getUser();
+      if (decision === 'aprobado' && data.user?.id === candidato.solicitado_por)
+        throw new Error('El PDF debe prepararlo otra persona; durante el piloto lo aprueba el Creador.');
+      await revisarCandidatoPdf(candidato.id, candidato.pdf_sha256, decision, motivo, solicitud);
+      await actualizarEstadoEmision();
+      solicitudDecisionRef.current = null;
+    } catch (error) {
+      setErrorEmision(error instanceof Error ? error.message : 'No se pudo registrar la revisión.');
+    } finally { setProcesandoDocumento(false); }
+  };
+
+  const handleEmitirPdf = async (candidato: CandidatoDocumento) => {
+    if (!esCreador || cambiosBorrador || !revisionActual || procesandoDocumento || pdfVerificadoId !== candidato.id) return;
+    const solicitud = solicitudEmisionRef.current?.candidato === candidato.id
+      ? solicitudEmisionRef.current.id : crypto.randomUUID();
+    solicitudEmisionRef.current = { candidato: candidato.id, id: solicitud };
+    setProcesandoDocumento(true);
+    setErrorEmision(null);
+    try {
+      await emitirCandidatoPdf(candidato.id, solicitud);
+      await actualizarEstadoEmision();
+      solicitudEmisionRef.current = null;
+    } catch (error) {
+      setErrorEmision(error instanceof Error ? error.message : 'No se pudo emitir el documento.');
+    } finally { setProcesandoDocumento(false); }
   };
 
   const handleExportarHTML = async () => {
@@ -1003,6 +1152,11 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
   };
 
   // ── Render ───────────────────────────────────────────────────────────────
+  const revisionEmitible = revisiones.at(-1);
+  const candidatoEmitible = candidatos.find(c => c.revision_id === revisionEmitible?.id);
+  const aprobacionEmitible = aprobaciones.find(a => a.candidato_id === candidatoEmitible?.id);
+  const emisionActual = emisiones.find(e => e.candidato_id === candidatoEmitible?.id);
+  const candidatoEmitido = candidatos.find(c => c.id === emisiones[0]?.candidato_id);
   return (
     <div className={styles.backdrop} onClick={onClose}>
       <div className={styles.modal} onClick={e => e.stopPropagation()}>
@@ -1043,7 +1197,11 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                 <label className={styles.originField}>
                   <span>{tipo === 'avance' ? 'Informe de avance' : tipo === 'visita' ? 'Visita que querés documentar' : tipo === 'encuesta' ? 'Encuesta de satisfacción' : 'Informe de relevamiento'}</span>
                   <select value={seleccionId ?? documento?.id ?? 'nuevo'}
-                    onChange={e => cambiarDocumento(e.target.value === "continuar" ? (documento?.id ?? documentosTipo[0]?.id ?? "nuevo") : e.target.value)}
+                    onChange={e => {
+                      if (e.target.value === 'continuar') cambiarDocumento(documento?.id ?? documentosTipo[0]?.id ?? 'nuevo');
+                      else if (e.target.value === 'emitido') { if (candidatoEmitido) void handleVerPdf(candidatoEmitido); }
+                      else cambiarDocumento(e.target.value);
+                    }}
                     disabled={cargandoComentario || guardandoBorrador || cambiosBorrador}>
                     {documentosTipo.map(doc => (
                       <option key={doc.id} value={doc.id}>
@@ -1052,7 +1210,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                     ))}
                     <option value="nuevo">{tipo === 'visita' ? (documentosTipo.length ? '+ Registrar otra visita' : '+ Registrar primera visita') : '+ Nuevo borrador'}</option>
                     <option value="continuar" disabled={!documentosTipo.length}>Continuar documento guardado{!documentosTipo.length ? ' · todavía no hay' : ''}</option>
-                    <option value="emitido" disabled>Ver PDF emitido · emisión formal no habilitada</option>
+                    <option value="emitido" disabled={!emisionDisponible || !candidatoEmitido}>Ver PDF emitido{!emisionDisponible ? ' · emisión formal no habilitada' : !candidatoEmitido ? ' · todavía no hay' : ''}</option>
                   </select>
                 </label>
                 {tipo === 'visita' && <p className={styles.sublabel}>Para empezar, elegí «Registrar primera visita». Para continuar o corregir una ya guardada, seleccioná su código. Creá otra solo cuando se realice una nueva visita.</p>}
@@ -1124,11 +1282,11 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                     ))}
                   </ol>
                 ) : <p className={styles.sublabel}>Aún no hay revisiones congeladas.</p>}
-                {puedeRevisar && versionBorrador > 0 && !revisionActual && (
+                {puedeRevisar && !emisiones.length && versionBorrador > 0 && !revisionActual && (
                   <>
                     {revisiones.length > 0 && (
                       <CampoTextoInforme etiqueta="Motivo de la nueva revisión" multiline value={motivoRevision} maxLength={500}
-                    onChange={setMotivoRevision} placeholder="Explicá qué se corrigió respecto de la revisión anterior" />
+                        onChange={setMotivoRevision} placeholder="Explicá qué se corrigió respecto de la revisión anterior" />
                     )}
                     <button type="button" className={styles.btnSecondary}
                       onClick={handleCongelarRevision}
@@ -1139,6 +1297,97 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                   </>
                 )}
                 {revisionActual && <p className={styles.sublabel}>Esta versión del borrador quedó congelada como R{String(revisionActual.revision).padStart(2, '0')}.</p>}
+              </section>
+            )}
+            {emisionDisponible && puedeRevisar && documento && (
+              <section className={styles.section} aria-label="Emisión documental">
+                <div className={styles.sectionTitle}>PDF controlado</div>
+                <p className={styles.sublabel}>
+                  El supervisor prepara el PDF. El Creador revisa y autoriza su emisión desde otra cuenta.
+                  Emitir un acta no registra la aceptación del cliente.
+                </p>
+                {errorEmision && <p role="alert" className={styles.documentError}>{errorEmision}</p>}
+                {!emisiones.length && (cambiosBorrador || (revisionEmitible && !revisionActual)) && (
+                  <p className={styles.sublabel}>Hay cambios posteriores al PDF. Guardá el borrador y congelá una nueva revisión antes de continuar.</p>
+                )}
+                {emisiones.length > 0 && (
+                  <>
+                    <p className={styles.documentSuccess}>
+                      Emitido el {new Date(emisiones[0].emitido_en).toLocaleString('es-PY')}.
+                      El archivo y su hash quedaron registrados.
+                    </p>
+                    {candidatoEmitido && (
+                      <button type="button" className={styles.btnSecondary}
+                        onClick={() => handleVerPdf(candidatoEmitido)} disabled={procesandoDocumento}>
+                        Verificar y abrir PDF emitido
+                      </button>
+                    )}
+                  </>
+                )}
+                {!emisiones.length && revisionEmitible &&
+                  revisionEmitible.plantilla_version !== PLANTILLA_CONTROLADA_VERSION && (
+                    <p className={styles.sublabel}>
+                      Esta revisión usa una plantilla anterior. Guardá una nueva versión del borrador y congelá otra revisión para generar el PDF controlado.
+                    </p>
+                  )}
+                {!emisiones.length && revisionEmitible &&
+                  revisionEmitible.plantilla_version === PLANTILLA_CONTROLADA_VERSION && (
+                    <>
+                      <p className={styles.sublabel}>
+                        Revisión R{String(revisionEmitible.revision).padStart(2, '0')} · {documento.codigo}
+                      </p>
+                      {(!candidatoEmitible || candidatoEmitible.estado !== 'listo') && (
+                        <button type="button" className={styles.btnSecondary}
+                          onClick={() => handlePrepararPdf(revisionEmitible)} disabled={procesandoDocumento || cambiosBorrador || !revisionActual}>
+                          {procesandoDocumento ? 'Preparando PDF…' : candidatoEmitible ? 'Retomar PDF candidato' : 'Generar PDF candidato'}
+                        </button>
+                      )}
+                      {candidatoEmitible?.estado === 'listo' && (
+                        <>
+                          <p className={styles.documentHash}>SHA-256 · {candidatoEmitible.pdf_sha256}</p>
+                          <button type="button" className={styles.btnSecondary}
+                            onClick={() => handleVerPdf(candidatoEmitible)} disabled={procesandoDocumento}>
+                            Verificar y abrir PDF
+                          </button>
+                          {pdfVerificadoId === candidatoEmitible.id && (
+                            <p className={styles.documentSuccess}>
+                              El PDF descargado coincide con el hash registrado. Revisá todas sus páginas antes de decidir.
+                            </p>
+                          )}
+                          {!esCreador && <p className={styles.sublabel}>PDF preparado para revisión del Creador. Podés abrirlo y comprobar su contenido.</p>}
+                          {esCreador && candidatoEmitible.solicitado_por === usuarioId && (
+                            <p className={styles.sublabel}>Preparaste este PDF desde tu cuenta. Para mantener la revisión por dos personas, el supervisor debe preparar una nueva revisión y el Creador aprobarla.</p>
+                          )}
+                          {esCreador && !aprobacionEmitible && pdfVerificadoId === candidatoEmitible.id && (
+                            <div className={styles.documentActions}>
+                              <button type="button" className={styles.btnPrimary}
+                                onClick={() => handleRevisarPdf(candidatoEmitible, 'aprobado')}
+                                disabled={procesandoDocumento || cambiosBorrador || !revisionActual || candidatoEmitible.solicitado_por === usuarioId}>Aprobar este PDF</button>
+                              <CampoTextoInforme etiqueta="Motivo si hay observaciones" multiline value={motivoObservacion}
+                                maxLength={1000} onChange={setMotivoObservacion} />
+                              <button type="button" className={styles.btnSecondary}
+                                onClick={() => handleRevisarPdf(candidatoEmitible, 'observado')}
+                                disabled={procesandoDocumento || cambiosBorrador || !revisionActual || !motivoObservacion.trim()}>
+                                Registrar observaciones
+                              </button>
+                            </div>
+                          )}
+                          {aprobacionEmitible?.decision === 'observado' && (
+                            <p className={styles.sublabel}>
+                              PDF observado: {aprobacionEmitible.motivo}. Corregí el borrador y congelá otra revisión.
+                            </p>
+                          )}
+                          {esCreador && aprobacionEmitible?.decision === 'aprobado' && !emisionActual && (
+                            <button type="button" className={styles.btnPrimary}
+                              onClick={() => handleEmitirPdf(candidatoEmitible)}
+                              disabled={procesandoDocumento || cambiosBorrador || !revisionActual || pdfVerificadoId !== candidatoEmitible.id}>
+                              Emitir PDF aprobado
+                            </button>
+                          )}
+                        </>
+                      )}
+                    </>
+                  )}
               </section>
             )}
 
@@ -1499,8 +1748,19 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
 
           {/* DERECHA */}
           <div className={styles.right} ref={previewRef}>
-            <div className={styles.previewHeading}>Vista previa del documento</div>
-            {htmlPreview ? (
+            <div className={styles.previewHeading}>
+              {pdfBlobUrl ? (emisiones.length ? 'PDF emitido verificado' : 'PDF candidato verificado · aún no emitido') : 'Vista previa del borrador'}
+              {pdfBlobUrl && <div className={styles.documentActions}>
+                <a className={styles.btnSecondary} href={pdfBlobUrl}
+                  download={`${documento?.codigo ?? 'informe'}_${emisiones.length ? 'emitido' : 'candidato'}.pdf`}>
+                  Descargar PDF {emisiones.length ? 'emitido' : 'candidato'}
+                </a>
+                <button type="button" className={styles.btnSecondary} onClick={() => setPdfBlobUrl(null)}>Volver al borrador</button>
+              </div>}
+            </div>
+            {pdfBlobUrl ? (
+              <PdfVerificado url={pdfBlobUrl} />
+            ) : htmlPreview ? (
               <div className={styles.previewSheet} style={{ width: 794 * escalaPreview, height: previewAlto * escalaPreview }}>
                 <iframe
                   key={`${orden.id}-${tipo}`}

@@ -37,5 +37,8 @@ audit-*.xml
 skills-lock.json
 qwen-*.md
 estructura.txt
+/tmp/pdfs/
+/tmp/deploy/
+/tmp/run-pdf-qa-secure.mjs
 qwen*.md
 qwen*.md

@@ -2,6 +2,7 @@
 // sobre revisiones y artefactos persistidos; imprimir aquí no equivale a emitir.
 
 import type { OrdenLocal } from '../types/orden';
+import type { ContextoReporteControlado } from './reportTemplates';
 import {
   escapeHtml,
   formatearFechaCorta,
@@ -162,13 +163,14 @@ export function generarEncuestaSatisfaccion(
   orden: OrdenLocal,
   datos?: DatosEncuesta,
   codigoDocumento?: string,
+  contexto?: ContextoReporteControlado,
 ): string {
   const campo = (clave: keyof DatosEncuesta) =>
     `<p id="enc-${clave}" style="white-space:pre-line">${escapeHtml(datos?.[clave] || 'Sin respuesta')}</p>`;
   const pregunta = (numero: number, titulo: string, escala: string, clave: keyof DatosEncuesta) =>
     `<section class="p-4 border border-outline-variant rounded-lg mb-4 no-break"><strong>${numero}. ${escapeHtml(titulo)}</strong><small style="display:block;color:#64748B;margin-top:4px">${escapeHtml(escala)}</small>${campo(clave)}</section>`;
   const contenido = `<div class="a4-page">
-${_paginaHeader(orden, 'ENCUESTA DE SATISFACCIÓN', 'Experiencia declarada sobre la atención de Facility Services; no reemplaza el acta de conformidad.', codigoDocumento)}
+${_paginaHeader(orden, 'ENCUESTA DE SATISFACCIÓN', 'Experiencia declarada sobre la atención de Facility Services; no reemplaza el acta de conformidad.', codigoDocumento, contexto)}
 ${_bloqueDatosCliente(orden)}
 ${_seccionInforme(1, 'Procedencia de las respuestas')}
 <section class="grid grid-cols-2 gap-4 mb-6">
@@ -189,9 +191,9 @@ ${pregunta(7, 'Rapidez y eficacia percibidas', 'Muy insatisfecho · Insatisfecho
 ${pregunta(8, '¿El resultado final cumplió sus expectativas?', 'Sí · No · Parcialmente', 'expectativas')}
 ${pregunta(9, 'Probabilidad de recomendar el servicio', 'Nada probable · Poco probable · Neutral · Probable · Muy probable', 'recomendacion')}
 ${pregunta(10, 'Sugerencias o comentarios adicionales', 'Respuesta libre', 'sugerencias')}
-<p class="text-xs text-on-surface-variant">Borrador de respuestas registradas. No acredita autoría verificada del cliente, firma, conformidad con el trabajo ni decisión sobre el acta.</p>
+<p class="text-xs text-on-surface-variant">${contexto ? 'Respuestas registradas. Este documento no acredita por sí solo autoría verificada del cliente, firma, conformidad con el trabajo ni decisión sobre el acta.' : 'Borrador de respuestas registradas. No acredita autoría verificada del cliente, firma, conformidad con el trabajo ni decisión sobre el acta.'}</p>
 </div>`;
-  return _envolverInforme('Encuesta de satisfacción — borrador', contenido);
+  return _envolverInforme(`Encuesta de satisfacción${contexto ? '' : ' — borrador'}`, contenido, contexto);
 }
 
 // La ficha prepara el registro de una visita; su borrador no acredita que haya
@@ -201,13 +203,14 @@ export function generarFichaVisita(
   datos?: DatosVisita,
   fotosVisita: { id?: string; file_url: string; descripcion?: string | null; descripcion_observacion?: string | null }[] = [],
   codigoDocumento?: string,
+  contexto?: ContextoReporteControlado,
 ): string {
   const campo = (clave: keyof DatosVisita) =>
     `<p id="vis-${clave}" style="white-space:pre-line">${escapeHtml(datos?.[clave] || 'No registrado')}</p>`;
   const bloque = (titulo: string, clave: keyof DatosVisita) =>
     `<section class="p-4 border border-outline-variant rounded-lg mb-4"><strong>${titulo}</strong>${campo(clave)}</section>`;
   const contenido = `<div class="a4-page">
-${_paginaHeader(orden, 'FICHA DE VISITA TÉCNICA', 'Registro de visita en preparación. Debe completarse con lo observado cuando la visita haya ocurrido.', codigoDocumento)}
+${_paginaHeader(orden, 'FICHA DE VISITA TÉCNICA', contexto ? 'Registro de la visita técnica documentada.' : 'Registro de visita en preparación. Debe completarse con lo observado cuando la visita haya ocurrido.', codigoDocumento, contexto)}
 ${_bloqueDatosCliente(orden)}
 ${_seccionInforme(1, 'Visita y participantes')}
 <section class="grid grid-cols-2 gap-4 mb-6">
@@ -229,10 +232,10 @@ ${bloque('Restricciones y límites de observación', 'restricciones')}
 ${bloque('Compromisos y próximo paso declarados', 'compromisos')}
 ${_seccionInforme(3, 'Participación y formalización')}
 ${bloque('Representantes previstos para la firma', 'representantesPrevistos')}
-<p class="text-xs text-on-surface-variant">Este borrador no acredita firma, conformidad del propietario ni aprobación técnica. Las firmas requieren un registro vinculado a esta revisión exacta.</p>
+<p class="text-xs text-on-surface-variant">${contexto ? 'Esta ficha no acredita firma ni conformidad del propietario. Las firmas requieren un registro vinculado a esta revisión exacta.' : 'Este borrador no acredita firma, conformidad del propietario ni aprobación técnica. Las firmas requieren un registro vinculado a esta revisión exacta.'}</p>
 ${fotosVisita.length ? `<h3 class="font-section-header text-section-header text-primary uppercase tracking-widest">Evidencia vinculada a la visita</h3>${generarGridFotos(fotosVisita)}` : ''}
 </div>`;
-  return _envolverInforme('Ficha de visita técnica — borrador', contenido);
+  return _envolverInforme(`Ficha de visita técnica${contexto ? '' : ' — borrador'}`, contenido, contexto);
 }
 
 // Cierre técnico: resultados finales frente al alcance aprobado, sin recepción.
@@ -246,6 +249,7 @@ export function generarInformeCierre(
   datos?: DatosCierre,
   codigoDocumento?: string,
   itemsCierre: ItemCierre[] = [],
+  contexto?: ContextoReporteControlado,
 ): string {
   const campo = (clave: keyof DatosCierre) =>
     `<p id="cie-${clave}" style="white-space:pre-line">${escapeHtml(datos?.[clave] || 'No registrado')}</p>`;
@@ -256,7 +260,7 @@ export function generarInformeCierre(
   <tbody>${itemsCierre.map((item, index) => `<tr><td>${escapeHtml(item.id)}</td><td id="cie-item-${index}-trabajo">${escapeHtml(item.trabajo.trim() || 'No registrado')}</td><td id="cie-item-${index}-criterio">${escapeHtml(item.criterio.trim() || 'No registrado')}</td><td id="cie-item-${index}-resultado">${escapeHtml(item.resultado.trim() || 'No registrado')}</td><td id="cie-item-${index}-verificadorFecha">${escapeHtml(item.verificadorFecha.trim() || 'No registrado')}</td></tr>`).join('')}</tbody>
 </table>` : '';
   const contenido = `<div class="a4-page">
-${_paginaHeader(orden, 'INFORME DE CIERRE TÉCNICO', 'Resultados de la intervención y pendientes de verificación. La recepción del cliente corresponde al acta.', codigoDocumento)}
+${_paginaHeader(orden, 'INFORME DE CIERRE TÉCNICO', 'Resultados de la intervención y pendientes de verificación. La recepción del cliente corresponde al acta.', codigoDocumento, contexto)}
 ${_bloqueDatosCliente(orden)}
 ${_seccionInforme(1, 'Base y ejecución final')}
 <section class="grid grid-cols-2 gap-4 mb-6">
@@ -279,11 +283,11 @@ ${bloque('Entregables técnicos efectivamente entregados', 'entregables')}
 ${_seccionInforme(3, 'Pendientes y decisión técnica')}
 ${bloque('Conclusión técnica declarada', 'conclusion')}
 ${bloque('Autorización interna: actor y referencia', 'autorizacionInterna')}
-<p class="text-xs text-on-surface-variant">El estado de la OT no acredita pruebas ni autorización. Este borrador no equivale a conformidad del cliente.</p>
+<p class="text-xs text-on-surface-variant">El estado de la OT no acredita pruebas ni autorización. ${contexto ? 'Este informe no equivale a conformidad del cliente.' : 'Este borrador no equivale a conformidad del cliente.'}</p>
 ${fotosDespues.length ? `<h3 class="font-section-header text-section-header text-primary uppercase tracking-widest">Evidencia final (después)</h3>
 ${generarGridFotos(fotosDespues)}` : ''}
 </div>`;
-  return _envolverInforme('Informe de cierre técnico — borrador', contenido);
+  return _envolverInforme(`Informe de cierre técnico${contexto ? '' : ' — borrador'}`, contenido, contexto);
 }
 
 // La orden de servicio documenta la solicitud recibida. No supone una visita.
@@ -293,6 +297,7 @@ export function generarInformeOrdenServicio(
   origen?: OrigenOrdenServicio,
   codigoDocumento?: string,
   fotosCliente: { file_url: string; descripcion?: string | null; descripcion_observacion?: string | null }[] = [],
+  contexto?: ContextoReporteControlado,
 ): string {
   const dato = (clave: keyof OrigenOrdenServicio, legado: string) => {
     const valor = origen ? origen[clave] : orden.campos?.[legado];
@@ -300,7 +305,7 @@ export function generarInformeOrdenServicio(
   };
 
   const contenido = `<div class="a4-page os-page">
-${_paginaHeader(orden, 'ORDEN DE SERVICIO', 'Registro de apertura de la orden de trabajo y procedencia de la solicitud. No certifica una visita ni un diagnóstico.', codigoDocumento)}
+${_paginaHeader(orden, 'ORDEN DE SERVICIO', 'Registro de apertura de la orden de trabajo y procedencia de la solicitud. No certifica una visita ni un diagnóstico.', codigoDocumento, contexto)}
 ${_bloqueDatosCliente(orden)}
 ${_seccionInforme(1, 'Origen y solicitud')}
 <section class="grid grid-cols-2 os-meta gap-4 mb-6 no-break">
@@ -313,17 +318,16 @@ ${_seccionInforme(1, 'Origen y solicitud')}
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Urgencia manifestada</strong><p id="os-urgencia">${escapeHtml(dato('urgencia', 'urgencia_solicitada'))}</p></div>
 </section>
 ${_bloqueNaranjaIzquierdo('Solicitud original', orden.descripcion ?? '', 'No se ha registrado el reclamo original.', '')}
-${fotosCliente.length ? `<section class="os-evidence no-break"><strong>Evidencia aportada al ingreso · ${fotosCliente.length} foto(s)</strong>
-  <div class="os-evidence-body"><img src="${escapeHtml(fotosCliente[0].file_url)}" alt="Evidencia aportada al ingreso" />
-  <p>${escapeHtml(fotosCliente[0].descripcion_observacion || fotosCliente[0].descripcion || 'Sin descripción de origen')}
-  <small>La imagen aportada no acredita por sí sola una visita técnica.</small></p></div></section>` : ''}
+${fotosCliente.length ? `<section class="os-evidence"><strong>Evidencia aportada al ingreso · ${fotosCliente.length} foto(s)</strong>
+  ${generarGridFotos(fotosCliente)}
+  <p class="text-xs text-on-surface-variant">Las imágenes aportadas no acreditan por sí solas una visita técnica.</p></section>` : ''}
 ${_bloqueNaranjaIzquierdo('Aclaración posterior', aclaracion, 'Sin aclaraciones posteriores.')}
 ${_seccionInforme(2, 'Clasificación y derivación')}
 <section class="p-4 border border-outline-variant rounded-lg no-break"><strong>Clasificación inicial</strong><p>${escapeHtml(orden.rubro || 'Sin clasificar')} · Prioridad ${escapeHtml(orden.prioridad || 'No registrada')} · Responsable ${escapeHtml(orden.responsable || 'No asignado')}</p></section>
 <section class="p-4 border border-outline-variant rounded-lg no-break mt-4"><strong>Próximo paso acordado</strong><p id="os-proximoPaso">${escapeHtml(dato('proximoPaso', 'proximo_paso'))}</p></section>
 </div>`;
 
-  return _envolverInforme('Orden de servicio — borrador', contenido);
+  return _envolverInforme(`Orden de servicio${contexto ? '' : ' — borrador'}`, contenido, contexto);
 }
 
 // ─────────────────────────────────────────── Informe de Relevamiento ──
@@ -339,6 +343,7 @@ export function generarInformeRelevamiento(
   datos?: DatosRelevamiento,
   codigoDocumento?: string,
   itemsAlcance: ItemAlcance[] = [],
+  contexto?: ContextoReporteControlado,
 ): string {
   const campo = (clave: keyof DatosRelevamiento) => {
     const valor = datos?.[clave];
@@ -352,7 +357,7 @@ export function generarInformeRelevamiento(
 </table>` : '';
 
   const contenido = `<div class="a4-page relevamiento-page">
-${_paginaHeader(orden, 'INFORME DE RELEVAMIENTO', 'Diagnóstico técnico inicial y detección del alcance de la intervención requerida.', codigoDocumento)}
+${_paginaHeader(orden, 'INFORME DE RELEVAMIENTO', 'Diagnóstico técnico inicial y detección del alcance de la intervención requerida.', codigoDocumento, contexto)}
 ${_bloqueDatosCliente(orden)}
 ${_seccionInforme(1, 'Hallazgo y diagnóstico')}
 <section class="grid grid-cols-2 gap-4 mb-6">
@@ -379,7 +384,7 @@ ${_seccionInforme(3, 'Cobertura y decisión')}
 ${bloque('Aplicabilidad de garantía declarada', 'decisionGarantia')}
 ${bloque('Fundamento contractual o técnico de la cobertura', 'fundamentoGarantia')}
 ${bloque('Estado declarado del alcance', 'decisionAlcance')}
-<p class="text-xs text-on-surface-variant">Este borrador no acredita aprobación del alcance. La autorización debe vincularse a una revisión y a su actor con facultades.</p>
+<p class="text-xs text-on-surface-variant">${contexto ? 'La aprobación del alcance se registra por separado y se vincula a esta revisión y a su actor autorizado.' : 'Este borrador no acredita aprobación del alcance. La autorización debe vincularse a una revisión y a su actor con facultades.'}</p>
 </div>
 ${fotosAntes.length ? `<div class="a4-page">
 <div>
@@ -391,7 +396,7 @@ ${fotosAntes.length ? `<div class="a4-page">
 </div>
 </div>` : ''}`;
 
-  return _envolverInforme('Informe de relevamiento — borrador', contenido);
+  return _envolverInforme(`Informe de relevamiento${contexto ? '' : ' — borrador'}`, contenido, contexto);
 }
 
 // El indicador operativo no se presenta como avance aprobado.
@@ -404,6 +409,7 @@ export function generarInformeAvance(
   datos?: DatosAvance,
   codigoDocumento?: string,
   itemsAvance: ItemAvance[] = [],
+  contexto?: ContextoReporteControlado,
 ): string {
   const campo = (clave: keyof DatosAvance) =>
     `<p id="av-${clave}" style="white-space:pre-line">${escapeHtml(datos?.[clave] || 'No registrado')}</p>`;
@@ -414,7 +420,7 @@ export function generarInformeAvance(
   <tbody>${itemsAvance.map((item, index) => `<tr><td>${escapeHtml(item.id)}</td><td id="av-item-${index}-previsto">${escapeHtml(item.previsto.trim() || 'No registrado')}</td><td id="av-item-${index}-realizado">${escapeHtml(item.realizado.trim() || 'No registrado')}</td><td id="av-item-${index}-saldo">${escapeHtml(item.saldo.trim() || 'No registrado')}</td></tr>`).join('')}</tbody>
 </table>` : '';
   const contenido = `<div class="a4-page">
-${_paginaHeader(orden, 'INFORME DE AVANCE', 'Estado de la ejecución durante un período determinado. El corte y su revisión deberán quedar identificados al emitir.', codigoDocumento)}
+${_paginaHeader(orden, 'INFORME DE AVANCE', contexto ? 'Estado de la ejecución durante el período y corte identificados.' : 'Estado de la ejecución durante un período determinado. El corte y su revisión deberán quedar identificados al emitir.', codigoDocumento, contexto)}
 ${_bloqueDatosCliente(orden)}
 ${_seccionInforme(1, 'Resultado del período')}
 <section class="grid grid-cols-2 gap-4 mb-6">
@@ -433,23 +439,24 @@ ${_seccionInforme(2, 'Previsto frente a realizado')}
 ${bloque('Desvíos, impacto y acciones', 'desvios')}
 ${_seccionInforme(3, 'Desvíos y siguiente decisión')}
 ${bloque('Objetivos y dependencias del próximo período', 'proximoPeriodo')}
-<p class="text-xs text-on-surface-variant">Un porcentaje sin método, base y alcance aprobado no acredita el progreso. Este borrador no certifica ejecución ni recepción.</p>
+<p class="text-xs text-on-surface-variant">Un porcentaje sin método, base y alcance aprobado no acredita el progreso. ${contexto ? 'La recepción del cliente se documenta por separado.' : 'Este borrador no certifica ejecución ni recepción.'}</p>
 ${fotosDurante.length ? `<h3 class="font-section-header text-section-header text-primary uppercase tracking-widest">Evidencia de ejecución (durante)</h3>
 ${generarGridFotos(fotosDurante)}` : ''}
 </div>`;
-  return _envolverInforme('Informe de avance — borrador', contenido);
+  return _envolverInforme(`Informe de avance${contexto ? '' : ' — borrador'}`, contenido, contexto);
 }
 
 // Acta sin decisión/firma: siempre borrador. La recepción vinculante requerirá
 // una revisión emitida y la manifestación verificable del receptor autorizado.
 
-export function generarInformeActaConformidad(orden: OrdenLocal, datos?: DatosActa, codigoDocumento?: string): string {
+export function generarInformeActaConformidad(orden: OrdenLocal, datos?: DatosActa,
+  codigoDocumento?: string, contexto?: ContextoReporteControlado): string {
   const campo = (clave: keyof DatosActa) =>
     `<p id="act-${clave}" style="white-space:pre-line">${escapeHtml(datos?.[clave] || 'No registrado')}</p>`;
   const bloque = (titulo: string, clave: keyof DatosActa) =>
     `<section class="p-4 border border-outline-variant rounded-lg mb-4"><strong>${titulo}</strong>${campo(clave)}</section>`;
   const contenido = `<div class="a4-page acta-page">
-${_paginaHeader(orden, 'ACTA DE CONFORMIDAD', 'Instrumento de recepción pendiente de decisión expresa del cliente.', codigoDocumento)}
+${_paginaHeader(orden, 'ACTA DE CONFORMIDAD', 'Instrumento de recepción pendiente de decisión expresa del cliente.', codigoDocumento, contexto)}
 ${_bloqueDatosCliente(orden)}
 ${_seccionInforme(1, 'Objeto de recepción')}
 ${bloque('Objeto breve de la entrega', 'objetoEntrega')}
@@ -474,8 +481,8 @@ ${_seccionInforme(3, 'Condiciones y formalización')}
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Garantía contractual de referencia</strong>${campo('garantiaReferencia')}</div>
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Cobertura y condiciones acordadas</strong>${campo('garantiaCondiciones')}</div>
 </section>
-<section class="p-4 border border-outline-variant rounded-lg mb-4"><strong>Decisión y formalización</strong><p>Pendientes de manifestación expresa del receptor autorizado y vínculo con la revisión exacta del acta. Este borrador no acredita aceptación, firma ni garantía nueva.</p></section>
+<section class="p-4 border border-outline-variant rounded-lg mb-4"><strong>Decisión y formalización</strong><p>Pendientes de manifestación expresa del receptor autorizado y vínculo con la revisión exacta del acta. ${contexto ? 'La emisión de esta acta no acredita por sí sola aceptación, firma ni garantía nueva.' : 'Este borrador no acredita aceptación, firma ni garantía nueva.'}</p></section>
 </div>`;
 
-  return _envolverInforme('Acta de Conformidad — borrador', contenido);
+  return _envolverInforme(`Acta de Conformidad${contexto ? '' : ' — borrador'}`, contenido, contexto);
 }

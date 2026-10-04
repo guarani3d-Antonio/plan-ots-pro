@@ -8,6 +8,9 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "test:documents": "node scripts/test-document-identity.mjs",
+    "test:reports": "node scripts/test-report-control.mjs",
+    "test:document-request": "node scripts/test-document-request.mjs",
+    "build:controlled-report": "node scripts/build-controlled-report.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
