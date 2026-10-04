@@ -59,7 +59,7 @@ export function PdfVerificado({url}: {url: string}) {
       host.replaceChildren();
     };
   }, [url]);
-  return <div aria-label="Páginas del PDF verificado">
+  return <div aria-label="Páginas del PDF verificado" style={{width:'100%', minWidth:0}}>
     <p role="status" style={{fontSize:12, margin:'8px 0', color:'var(--text-secondary)'}}>{estado}</p>
     <div ref={container} />
   </div>;
