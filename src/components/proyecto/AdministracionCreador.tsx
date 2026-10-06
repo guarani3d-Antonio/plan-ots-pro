@@ -5,6 +5,7 @@ import { PoliticasDocumentales } from './PoliticasDocumentales';
 import { DirectoriosCreador } from './DirectoriosCreador';
 import { ModalNuevoProyecto } from './ModalNuevoProyecto';
 import { ConfiguracionDashboardCreador } from './ConfiguracionDashboardCreador';
+import { MapaAccesosCreador } from './MapaAccesosCreador';
 
 const panel: React.CSSProperties = { border: '1px solid var(--border-default)', borderRadius: 12, padding: 20, background: 'var(--bg-surface)' };
 const field: React.CSSProperties = { display: 'grid', gap: 6, minWidth: 0 };
@@ -14,6 +15,7 @@ const tiposNotificacion = [
   ['nueva_ot', 'OT nuevas'], ['estado', 'Cambios de estado'], ['riesgo', 'Riesgo alto o extremo'],
 ] as const;
 const roles = [['administrador', 'Administrador'], ['supervisor', 'Supervisor'], ['tecnico', 'Técnico'], ['viewer', 'Lector']] as const;
+const empresaPiloto = '9159153b-eac0-49df-80d5-649ced2c7887';
 
 export function AdministracionCreador() {
   const { contexto, empresaId, refresh } = useAccessStore();
@@ -29,6 +31,7 @@ export function AdministracionCreador() {
   const [busy, setBusy] = useState(false);
   const [mensaje, setMensaje] = useState('');
   const [crearObra, setCrearObra] = useState(false);
+  const [versionAccesos, setVersionAccesos] = useState(0);
 
   useEffect(() => {
     if (!contexto?.creador || !empresaId) return;
@@ -49,6 +52,7 @@ export function AdministracionCreador() {
       const r = await action();
       if (r.error) throw new Error(r.error.message);
       setMensaje('Cambio guardado.');
+      setVersionAccesos(version => version + 1);
       await refresh();
     } catch (e) { setMensaje(e instanceof Error ? e.message : 'No se pudo completar el cambio.'); }
     finally { setBusy(false); }
@@ -84,6 +88,7 @@ export function AdministracionCreador() {
   }
 
   const empresa = contexto.empresas.find(e => e.id === empresaId);
+  const limiteInvitaciones = empresaId === empresaPiloto ? 2 : 4;
   return <div style={{ padding: '24px clamp(16px, 3vw, 36px)', display: 'grid', gap: 18, color: 'var(--text-primary)' }}>
     <header>
       <h1 style={{ margin: 0, fontSize: 26 }}>Espacio del Creador</h1>
@@ -118,14 +123,15 @@ export function AdministracionCreador() {
           <label style={field}>Obra<select className="app-select" value={obra} onChange={e => setObra(e.target.value)}><option value="">Seleccionar obra</option>{contexto.obras.filter(p => p.tenant_id === empresaId).map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}</select></label>
           <label style={field}>Permiso en la obra<select className="app-select" value={rolObra} onChange={e => setRolObra(e.target.value)}><option value="supervisor">Supervisor</option><option value="tecnico">Técnico</option><option value="viewer">Lector</option><option value="sin_acceso">Retirar acceso</option></select></label>
           <button style={button} disabled={busy || !email.trim() || !contexto.obras.some(p => p.id === obra && p.tenant_id === empresaId)} onClick={() => void ejecutar(() => supabase.rpc('plan_admin_obra_miembro', { p_proyecto: obra, p_email: email, p_rol: rolObra }))}>Guardar acceso a obra</button>
-          <p style={{ margin: '8px 0 0', color: 'var(--text-secondary)' }}>Delegación de prueba: un supervisor asignado a sus obras podrá invitar hasta cuatro Técnicos, cada uno a una torre.</p>
+          <p style={{ margin: '8px 0 0', color: 'var(--text-secondary)' }}>Delegación de prueba: el supervisor podrá invitar hasta {limiteInvitaciones} Técnicos a las obras que supervisa.</p>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            <button style={button} disabled={busy || !empresaId || !email.trim() || rol !== 'supervisor'} onClick={() => void ejecutar(() => supabase.rpc('plan_configurar_delegacion_invitacion', { p_tenant: empresaId, p_email: email.trim(), p_limite: 4, p_activa: true }))}>Habilitar 4 invitaciones</button>
-            <button style={{ ...button, background: 'var(--bg-surface)', color: 'var(--text-primary)' }} disabled={busy || !empresaId || !email.trim()} onClick={() => void ejecutar(() => supabase.rpc('plan_configurar_delegacion_invitacion', { p_tenant: empresaId, p_email: email.trim(), p_limite: 4, p_activa: false }))}>Desactivar invitaciones</button>
+            <button style={button} disabled={busy || !empresaId || !email.trim() || rol !== 'supervisor'} onClick={() => void ejecutar(() => supabase.rpc('plan_configurar_delegacion_invitacion', { p_tenant: empresaId, p_email: email.trim(), p_limite: limiteInvitaciones, p_activa: true }))}>Habilitar {limiteInvitaciones} invitaciones</button>
+            <button style={{ ...button, background: 'var(--bg-surface)', color: 'var(--text-primary)' }} disabled={busy || !empresaId || !email.trim()} onClick={() => void ejecutar(() => supabase.rpc('plan_configurar_delegacion_invitacion', { p_tenant: empresaId, p_email: email.trim(), p_limite: limiteInvitaciones, p_activa: false }))}>Desactivar invitaciones</button>
           </div>
         </div>
       </div>
     </section>
+    {empresaId && <MapaAccesosCreador key={`${empresaId}-${versionAccesos}`} empresaId={empresaId} />}
     <section style={panel}>
       <h2 style={{ margin: '0 0 8px', fontSize: 18 }}>Cómo se aplican los permisos</h2>
       <p style={{ margin: 0, lineHeight: 1.6, color: 'var(--text-secondary)' }}>El rol de empresa identifica a la persona. El acceso operativo se asigna obra por obra: Lector consulta, Técnico registra y actualiza OTs, y Supervisor además puede ver costos. Solo el Creador administra cuentas, directorios y notificaciones. Sin una obra asignada, la cuenta entra pero no ve OTs ni proyectos de campo.</p>
