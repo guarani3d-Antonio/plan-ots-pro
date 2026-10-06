@@ -464,3 +464,13 @@ Los IDs se mantienen estables por área; la ejecución sigue dependencias y gate
 4. Reestimar con evidencia del servidor y dispositivos; aprobar alcance del piloto contra gates del informe, luego B/C.
 
 La dependencia entre B018 y B021 se resuelve por contrato: B021 define evidencia confirmada antes de integrar el cierre transaccional B018. No se necesita implementar webhooks, IFC, billing automático ni todos los paquetes compartidos para el primer cliente.
+
+## Mejora solicitada — 6 de octubre de 2026
+
+### B044 — Arrastrar proyectos a carpetas
+
+- **Estado:** pendiente; el usuario pidió registrarla para más adelante, sin implementarla ahora. Sin fecha de ejecución acordada.
+- **Alcance:** desde Proyectos, arrastrar un proyecto/plano con el mouse y soltarlo sobre una carpeta para cambiar su ubicación, como en un explorador de archivos.
+- **Experiencia:** destacar únicamente destinos válidos; mostrar la carpeta de destino durante el arrastre y confirmar el resultado al terminar. Conservar «Mover» como alternativa en tablet y para teclado.
+- **Integridad:** reutilizar la operación de movimiento existente; respetar empresa, permisos de obra y jerarquía. Organizar carpetas nunca concede acceso ni reasigna la obra del proyecto. Mantener el origen si falla la operación.
+- **Aceptación:** mover a una carpeta autorizada persiste al recargar; un destino inválido no acepta la caída; cancelar el arrastre no modifica datos; el gesto no interfiere con abrir proyectos ni desplazar la pantalla en tablet.
