@@ -580,13 +580,14 @@
 .moveClose:hover:not(:disabled) { background: #EFF4FB; }
 .moveEyebrow { color: #71839D; font-size: 11px; font-weight: 750; letter-spacing: .07em; text-transform: uppercase; }
 .moveOrigin { display: grid; gap: 5px; padding: 6px 0 12px; border-bottom: 1px solid #E3E9F2; color: #253653; font-size: 14px; overflow-wrap: anywhere; }
-.moveBreadcrumbs { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; min-height: 44px; padding: 6px 9px; border-radius: 9px; background: #F1F5FB; color: #29477F; font-size: 14px; font-weight: 650; }
-.moveBreadcrumbs span { display: inline-flex; align-items: center; gap: 4px; min-width: 0; }
-.moveBreadcrumbs button { border: 0; border-radius: 5px; padding: 3px 5px; background: transparent; color: inherit; cursor: pointer; font: inherit; text-align: left; overflow-wrap: anywhere; }
+.moveBreadcrumbs { display: flex; flex: none; align-items: center; align-content: center; flex-wrap: wrap; column-gap: 4px; row-gap: 6px; min-height: 44px; padding: 8px 9px; border-radius: 9px; background: #F1F5FB; color: #29477F; font-size: 14px; font-weight: 650; }
+.moveBreadcrumbs span { display: inline-flex; align-items: center; gap: 4px; min-width: 0; max-width: 100%; }
+.moveBreadcrumbs span::before { content: '/'; flex: none; }
+.moveBreadcrumbs button { min-width: 0; max-width: 100%; border: 0; border-radius: 5px; padding: 3px 5px; background: transparent; color: inherit; cursor: pointer; font: inherit; text-align: left; overflow-wrap: anywhere; }
 .moveBreadcrumbs button:hover:not(:disabled) { background: #E1EAF7; }
 .moveBreadcrumbs .moveBack { flex: none; width: 30px; height: 30px; padding: 0; font-size: 27px; line-height: 1; text-align: center; }
 .moveBreadcrumbs button:disabled { color: #A8B5C8; cursor: default; }
-.moveFolderList { display: grid; align-content: start; gap: 6px; flex: 1 1 220px; min-height: 82px; max-height: 30dvh; overflow-y: auto; padding-right: 4px; }
+.moveFolderList { display: grid; align-content: start; gap: 6px; flex: 0 1 auto; min-height: 0; max-height: 30dvh; overflow-y: auto; padding-right: 4px; }
 .moveFolderRow { display: flex; align-items: center; gap: 11px; width: 100%; min-height: 52px; padding: 8px 12px; border: 1px solid #D9E3EF; border-radius: 9px; background: #fff; color: #253653; cursor: pointer; font: inherit; text-align: left; }
 .moveFolderRow:hover, .moveFolderRow:focus-visible { background: #F3F7FD; border-color: #9DB2D2; }
 .moveFolderRow svg { flex: none; width: 30px; height: 28px; }

@@ -649,11 +649,15 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
             <button type="button" className={styles.moveBack} aria-label="Subir una carpeta" disabled={destinoMover === null}
               onClick={() => abrirDestino(rutaDestinoMover.at(-1)?.padre_id ?? null)}>‹</button>
             <button type="button" onClick={() => abrirDestino(null)}>{empresaMover}</button>
-            {rutaDestinoMover.map(c => <span key={c.id}> / <button type="button" onClick={() => abrirDestino(c.id)}>{c.nombre}</button></span>)}
+            {rutaDestinoMover.map(c => <span key={c.id}><button type="button" onClick={() => abrirDestino(c.id)}>{c.nombre}</button></span>)}
           </nav>
           <div className={styles.moveFolderList} aria-label={busquedaCarpeta ? 'Resultados de búsqueda' : 'Subcarpetas disponibles'}>
             {carpetasListaMover.length === 0
-              ? <p className={styles.moveEmpty}>{busquedaCarpeta ? 'No hay carpetas que coincidan con la búsqueda.' : 'No hay subcarpetas aquí. Podés mover a esta ubicación.'}</p>
+              ? <p className={styles.moveEmpty}>{busquedaCarpeta
+                  ? 'No hay carpetas que coincidan con la búsqueda.'
+                  : destinoMover === origenMover
+                    ? 'Esta es la ubicación actual. Elegí otra carpeta para moverlo.'
+                    : 'No hay subcarpetas aquí. Podés mover a esta ubicación.'}</p>
               : carpetasListaMover.map(c => <button type="button" key={c.id} className={styles.moveFolderRow} onClick={() => abrirDestino(c.id)}>
                   <svg viewBox="0 0 36 32" aria-hidden="true"><path d="M2 7a4 4 0 0 1 4-4h9l4 4h11a4 4 0 0 1 4 4v16a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4Z" fill="#5D79B0"/><path d="M2 13a4 4 0 0 1 4-4h24a4 4 0 0 1 4 4v14a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4Z" fill="#91A9D3"/></svg>
                   <span className={styles.moveFolderText}><strong>{c.nombre}</strong>
