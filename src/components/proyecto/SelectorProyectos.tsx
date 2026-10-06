@@ -86,6 +86,11 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
   const [moviendo, setMoviendo] = useState(false);
   const [avisoAccion, setAvisoAccion] = useState<string | null>(null);
   const [menuCarpeta, setMenuCarpeta] = useState<string | null>(null);
+  const [carpetaEliminable, setCarpetaEliminable] = useState<Record<string, boolean>>({});
+  const [carpetaRenombrar, setCarpetaRenombrar] = useState<Carpeta | null>(null);
+  const [nombreEditarCarpeta, setNombreEditarCarpeta] = useState('');
+  const [carpetaEliminar, setCarpetaEliminar] = useState<Carpeta | null>(null);
+  const [guardandoCarpeta, setGuardandoCarpeta] = useState(false);
   const [busquedaCarpeta, setBusquedaCarpeta] = useState('');
   const [creandoPlano, setCreandoPlano] = useState(false);
   const [subiendoPlano, setSubiendoPlano] = useState(false);
@@ -288,6 +293,63 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
     finally { setCreandoCarpeta(false); }
   }
 
+  function puedeAdministrarCarpeta(carpeta: Carpeta): boolean {
+    return Boolean(contexto?.creador || (carpeta.created_by === identityId() &&
+      contexto?.empresas.some(empresa => empresa.id === carpeta.tenant_id)));
+  }
+
+  function abrirMenuCarpeta(carpeta: Carpeta) {
+    if (menuCarpeta === carpeta.id) { setMenuCarpeta(null); return; }
+    setMenuCarpeta(carpeta.id);
+    setCarpetaEliminable(prev => ({ ...prev, [carpeta.id]: false }));
+    if (!puedeAdministrarCarpeta(carpeta)) return;
+    const ticket = sessionTicket();
+    void supabase.rpc('plan_puede_eliminar_carpeta', { p_carpeta: carpeta.id }).then(({ data, error }) => {
+      try { assertSession(ticket); } catch { return; }
+      if (error) setAccionError(`No se pudo verificar la carpeta: ${error.message}`);
+      else setCarpetaEliminable(prev => ({ ...prev, [carpeta.id]: data === true }));
+    });
+  }
+
+  async function handleRenombrarCarpeta() {
+    if (!carpetaRenombrar || !nombreEditarCarpeta.trim() || guardandoCarpeta) return;
+    setGuardandoCarpeta(true); setAccionError(null);
+    try {
+      const ticket = sessionTicket();
+      const { data, error } = await supabase.rpc('plan_renombrar_carpeta', {
+        p_carpeta: carpetaRenombrar.id, p_nombre: nombreEditarCarpeta.trim(),
+      }).single();
+      assertSession(ticket);
+      if (error || !data) throw new Error(error?.message ?? 'No se pudo renombrar la carpeta.');
+      setCarpetas(prev => prev.map(c => c.id === carpetaRenombrar.id ? data as Carpeta : c));
+      setAvisoAccion(`Carpeta renombrada a «${(data as Carpeta).nombre}».`);
+      setCarpetaRenombrar(null);
+    } catch (error) { setAccionError(error instanceof Error ? error.message : 'No se pudo renombrar la carpeta.'); }
+    finally { setGuardandoCarpeta(false); }
+  }
+
+  async function handleEliminarCarpeta() {
+    if (!carpetaEliminar || guardandoCarpeta) return;
+    setGuardandoCarpeta(true); setAccionError(null);
+    try {
+      const ticket = sessionTicket();
+      const { error } = await supabase.rpc('plan_eliminar_carpeta', { p_carpeta: carpetaEliminar.id });
+      assertSession(ticket);
+      if (error) throw new Error(error.message);
+      setCarpetas(prev => prev.filter(c => c.id !== carpetaEliminar.id));
+      setHistorialCarpetas(prev => ({
+        ...prev,
+        rutas: prev.rutas.map(id => id === carpetaEliminar.id ? carpetaEliminar.padre_id : id),
+      }));
+      setCarpetaEliminable(prev => ({ ...prev, [carpetaEliminar.id]: false }));
+      setAvisoAccion(`Carpeta «${carpetaEliminar.nombre}» eliminada.`);
+      setCarpetaEliminar(null);
+    } catch (error) {
+      setCarpetaEliminable(prev => ({ ...prev, [carpetaEliminar.id]: false }));
+      setAccionError(error instanceof Error ? error.message : 'No se pudo eliminar la carpeta.');
+    } finally { setGuardandoCarpeta(false); }
+  }
+
   function abrirMoverProyecto(proyecto: Proyecto) {
     setMenuAbierto(null); setCarpetaMover(null); setProyectoMover(proyecto);
     setDestinoMover(proyecto.carpeta_id ?? null); setBusquedaCarpeta('');
@@ -432,11 +494,13 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
               </svg>
               <span className={styles.folderName}>{c.nombre}</span>
             </button>
-            {(contexto?.creador || c.created_by === identityId()) && <button type="button" className={styles.folderMenu} aria-label={`Opciones de ${c.nombre}`} aria-expanded={menuCarpeta === c.id}
-              onClick={() => setMenuCarpeta(menuCarpeta === c.id ? null : c.id)}>···</button>
-            }
+            <button type="button" className={styles.folderMenu} aria-label={`Opciones de ${c.nombre}`} aria-expanded={menuCarpeta === c.id}
+              onClick={() => abrirMenuCarpeta(c)}>···</button>
             {menuCarpeta === c.id && <div className={styles.folderActions}>
-              <button type="button" onClick={() => abrirMoverCarpeta(c)}>Mover</button>
+              <button type="button" disabled={!puedeAdministrarCarpeta(c)} onClick={() => { setMenuCarpeta(null); setAccionError(null); setNombreEditarCarpeta(c.nombre); setCarpetaRenombrar(c); }}>Renombrar</button>
+              <button type="button" disabled={!puedeAdministrarCarpeta(c)} onClick={() => abrirMoverCarpeta(c)}>Mover</button>
+              <button type="button" className={styles.folderActionDanger} disabled={!carpetaEliminable[c.id]} title={!puedeAdministrarCarpeta(c) ? 'No tenés permiso para eliminar esta carpeta.' : !carpetaEliminable[c.id] ? 'Solo se puede eliminar una carpeta vacía.' : undefined}
+                onClick={() => { setMenuCarpeta(null); setAccionError(null); setCarpetaEliminar(c); }}>Eliminar carpeta</button>
             </div>}
           </div>)}
         </div>}
@@ -628,6 +692,35 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
           <div className={styles.newPlanActions}>
             <button type="button" disabled={creandoCarpeta} onClick={() => setModalCarpeta(false)}>Cancelar</button>
             <button type="button" disabled={creandoCarpeta || !nombreCarpeta.trim()} onClick={() => void handleCrearCarpeta()}>{creandoCarpeta ? 'Creando…' : 'Crear carpeta'}</button>
+          </div>
+        </div>
+      </div>}
+
+      {carpetaRenombrar && <div style={{ ...modalOverlayStyle, padding: 16 }} onClick={() => !guardandoCarpeta && setCarpetaRenombrar(null)}>
+        <div className={styles.newPlanDialog} role="dialog" aria-modal="true" aria-labelledby="renombrar-carpeta-titulo" onClick={e => e.stopPropagation()}>
+          <h3 id="renombrar-carpeta-titulo" className={styles.newPlanTitle}>Renombrar carpeta</h3>
+          <label className={styles.newPlanField}>Nombre de la carpeta
+            <input className={styles.newPlanInput} autoFocus maxLength={180} value={nombreEditarCarpeta} onChange={e => setNombreEditarCarpeta(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') void handleRenombrarCarpeta(); }} />
+          </label>
+          {accionError && <p role="alert" className={styles.moveError}>{accionError}</p>}
+          <div className={styles.newPlanActions}>
+            <button type="button" disabled={guardandoCarpeta} onClick={() => setCarpetaRenombrar(null)}>Cancelar</button>
+            <button type="button" disabled={guardandoCarpeta || !nombreEditarCarpeta.trim() || nombreEditarCarpeta.trim() === carpetaRenombrar.nombre}
+              onClick={() => void handleRenombrarCarpeta()}>{guardandoCarpeta ? 'Guardando…' : 'Guardar nombre'}</button>
+          </div>
+        </div>
+      </div>}
+
+      {carpetaEliminar && <div style={{ ...modalOverlayStyle, padding: 16 }} onClick={() => !guardandoCarpeta && setCarpetaEliminar(null)}>
+        <div className={styles.newPlanDialog} role="alertdialog" aria-modal="true" aria-labelledby="eliminar-carpeta-titulo" onClick={e => e.stopPropagation()}>
+          <h3 id="eliminar-carpeta-titulo" className={styles.newPlanTitle}>Eliminar carpeta vacía</h3>
+          <p className={styles.newPlanDescription}>¿Eliminar «{carpetaEliminar.nombre}»? Esta acción no se puede deshacer.</p>
+          {accionError && <p role="alert" className={styles.moveError}>{accionError}</p>}
+          <div className={styles.newPlanActions}>
+            <button type="button" disabled={guardandoCarpeta} onClick={() => setCarpetaEliminar(null)}>Cancelar</button>
+            <button type="button" className={styles.folderDeleteConfirm} disabled={guardandoCarpeta || !carpetaEliminable[carpetaEliminar.id]}
+              onClick={() => void handleEliminarCarpeta()}>{guardandoCarpeta ? 'Eliminando…' : 'Eliminar carpeta'}</button>
           </div>
         </div>
       </div>}

@@ -77,6 +77,8 @@ try {
   `);
   const migration = await readFile(new URL('../supabase/migrations/202610060001_project_folders.sql', import.meta.url), 'utf8');
   await db.exec(migration);
+  const folderActions = await readFile(new URL('../supabase/migrations/202610060002_folder_rename_delete.sql', import.meta.url), 'utf8');
+  await db.exec(folderActions);
 
   let parent = null;
   const folders = [];
@@ -91,8 +93,21 @@ try {
     assert.equal(child.proyecto_padre_id, ids.obra2);
     await denied(() => query('select public.plan_mover_carpeta($1,$2)', [folders[0].id, folders[4].id]), '22023');
     await denied(() => query('select public.plan_mover_carpeta($1,$2)', [folders[1].id, folders[4].id]), '22023');
+    assert.equal((await first('select (public.plan_renombrar_carpeta($1,$2)).nombre as nombre', [folders[0].id, '  Distrito  '])).nombre, 'Distrito');
+    await denied(() => query('select public.plan_renombrar_carpeta($1,$2)', [folders[0].id, '  ']), '22023');
+    assert.equal((await first('select public.plan_puede_eliminar_carpeta($1) as permitido', [folders[0].id])).permitido, false);
+    assert.equal((await first('select public.plan_puede_eliminar_carpeta($1) as permitido', [folders[4].id])).permitido, false);
+    await denied(() => query('select public.plan_eliminar_carpeta($1)', [folders[0].id]), '23503');
+    await denied(() => query('select public.plan_eliminar_carpeta($1)', [folders[4].id]), '23503');
+    const empty = await first('select (public.plan_crear_carpeta($1,$2,$3)).*', [ids.tenant, null, 'Temporal']);
+    assert.equal((await first('select public.plan_puede_eliminar_carpeta($1) as permitido', [empty.id])).permitido, true);
+    await query('select public.plan_eliminar_carpeta($1)', [empty.id]);
+    assert.equal((await first('select count(*)::int as total from plan_carpetas where id=$1', [empty.id])).total, 0);
   });
   await as(ids.tech, async () => {
+    await denied(() => query('select public.plan_renombrar_carpeta($1,$2)', [folders[0].id, 'Cambio ajeno']), '42501');
+    assert.equal((await first('select public.plan_puede_eliminar_carpeta($1) as permitido', [folders[0].id])).permitido, false);
+    await denied(() => query('select public.plan_eliminar_carpeta($1)', [folders[0].id]), '42501');
     await denied(() => query('select public.plan_crear_plano_en_carpeta($1,$2,$3)', [ids.obra2, 'Ajeno', null]), '42501');
     const child = await first('select (public.plan_crear_plano_en_carpeta($1,$2,$3)).*', [ids.obra1, 'Plano de Güembé', null]);
     assert.equal((await first('select rol from proyecto_miembros where proyecto_id=$1 and user_id=$2', [child.id, ids.tech])).rol, 'tecnico');
@@ -101,5 +116,5 @@ try {
     assert.equal((await first("select public.plan_storage_permitido('planos',$1,'write') as permitido", [`${ids.tenant}/${child.id}/archivo.pdf`])).permitido, true);
     assert.equal((await first("select public.plan_storage_permitido('exports',$1,'write') as permitido", [`${ids.tenant}/${child.id}/informe.pdf`])).permitido, false);
   });
-  console.log('Carpetas: cinco niveles, proyectos mixtos, permisos por obra y Storage OK');
+  console.log('Carpetas: cinco niveles, renombrado, eliminación solo vacías, permisos por obra y Storage OK');
 } finally { await db.close(); }
