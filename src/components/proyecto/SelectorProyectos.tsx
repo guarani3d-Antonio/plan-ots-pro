@@ -241,7 +241,9 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
               <div
                 key={proyecto.id}
                 className={styles.card}
+                ref={menuAbierto === proyecto.id ? menuRef : null}
                 onClick={() => {
+                  if (menuAbierto === proyecto.id) { setMenuAbierto(null); return; }
                   if (proyecto.plano_url === PLANO_PENDIENTE) {
                     if (contexto?.obras.find(p => p.id === proyecto.id)?.administrar) setPlanoPendiente(proyecto);
                     else setAccionError('Esta obra todavía no tiene plano. Pedí al supervisor que lo cargue.');
@@ -282,48 +284,41 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
                     <span className={styles.cardBadge}>16:9</span>
                   )}
 
-                  {/* Menú ··· — botón con clase CSS nueva; el dropdown
-                      con duplicar/eliminar mantiene styles inline porque
-                      el spec no incluye CSS para ese popover. */}
+                  {/* El botón queda sobre la portada; las acciones se despliegan
+                      debajo para no tapar la imagen ni el contenido de la tarjeta. */}
                   <div
-                    ref={menuAbierto === proyecto.id ? menuRef : null}
                     style={{ position: 'absolute', top: 0, right: 0, zIndex: 5 }}
                     onClick={e => e.stopPropagation()}
                   >
                     <button
+                      type="button"
                       disabled={!contexto?.obras.find(p=>p.id===proyecto.id)?.administrar}
                       className={styles.cardMenu}
                       onClick={() => setMenuAbierto(prev => prev === proyecto.id ? null : proyecto.id)}
                       title="Opciones"
+                      aria-label={`Opciones de ${proyecto.nombre}`}
+                      aria-expanded={menuAbierto === proyecto.id}
+                      aria-controls={`acciones-proyecto-${proyecto.id}`}
                     >
                       ···
                     </button>
-                    {menuAbierto === proyecto.id && (
-                      <div style={{
-                        position: 'absolute', top: 42, right: 10,
-                        background: 'white', border: '1px solid #E2E8F0',
-                        borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
-                        minWidth: 180, overflow: 'hidden', zIndex: 10,
-                      }}>
-                        {!proyecto.proyecto_padre_id && <button onClick={() => { setMenuAbierto(null); setTorreNuevoPlano(proyecto); }} style={dropdownItemStyle}>
-                          + Nuevo plano en esta obra
-                        </button>}
-                        {proyecto.plano_url === PLANO_PENDIENTE && <button onClick={() => { setMenuAbierto(null); setPlanoPendiente(proyecto); }} style={dropdownItemStyle}>
-                          ↑ Cargar plano inicial
-                        </button>}
-                        <button disabled={proyecto.plano_url === PLANO_PENDIENTE} onClick={() => handleDuplicar(proyecto)} style={dropdownItemStyle}>
-                          ⧉ Duplicar proyecto
-                        </button>
-                        <button
-                          onClick={() => { setMenuAbierto(null); setConfirmDelete(proyecto); }}
-                          style={{ ...dropdownItemStyle, color: '#DC2626' }}
-                        >
-                          🗑 Eliminar proyecto
-                        </button>
-                      </div>
-                    )}
                   </div>
                 </div>
+
+                {menuAbierto === proyecto.id && <div id={`acciones-proyecto-${proyecto.id}`} className={styles.cardActions} onClick={e => e.stopPropagation()}>
+                  {!proyecto.proyecto_padre_id && <button type="button" className={styles.cardAction} onClick={() => { setMenuAbierto(null); setTorreNuevoPlano(proyecto); }}>
+                    + Nuevo plano en esta obra
+                  </button>}
+                  {proyecto.plano_url === PLANO_PENDIENTE && <button type="button" className={styles.cardAction} onClick={() => { setMenuAbierto(null); setPlanoPendiente(proyecto); }}>
+                    ↑ Cargar plano inicial
+                  </button>}
+                  <button type="button" className={styles.cardAction} disabled={proyecto.plano_url === PLANO_PENDIENTE} onClick={() => handleDuplicar(proyecto)}>
+                    ⧉ Duplicar proyecto
+                  </button>
+                  <button type="button" className={`${styles.cardAction} ${styles.cardActionDanger}`} onClick={() => { setMenuAbierto(null); setConfirmDelete(proyecto); }}>
+                    🗑 Eliminar proyecto
+                  </button>
+                </div>}
 
                 {/* Cuerpo */}
                 <div className={styles.cardBody}>
@@ -387,17 +382,17 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
         <ModalNuevoProyecto onCerrar={() => setModalAbierto(false)} />
       )}
 
-      {torreNuevoPlano && <div style={modalOverlayStyle} onClick={() => !creandoPlano && setTorreNuevoPlano(null)}>
-        <div style={modalBoxStyle} onClick={e => e.stopPropagation()}>
-          <h3 style={{ margin: 0, fontSize: 18 }}>Nuevo plano en {torreNuevoPlano.nombre}</h3>
-          <p style={{ margin: 0, color: 'var(--text-secondary)' }}>Creá el sector o piso y cargá su plano después. El equipo asignado a la torre tendrá acceso.</p>
-          <label>Nombre del plano
-            <input className="app-input" value={nombreNuevoPlano} maxLength={180} onChange={e => setNombreNuevoPlano(e.target.value)} placeholder="Ej.: Piso 3 · instalaciones" />
+      {torreNuevoPlano && <div style={{ ...modalOverlayStyle, padding: 16 }} onClick={() => !creandoPlano && setTorreNuevoPlano(null)}>
+        <div className={styles.newPlanDialog} role="dialog" aria-modal="true" aria-labelledby="nuevo-plano-titulo" onClick={e => e.stopPropagation()}>
+          <h3 id="nuevo-plano-titulo" className={styles.newPlanTitle}>Nuevo plano en {torreNuevoPlano.nombre}</h3>
+          <p className={styles.newPlanDescription}>Creá el sector o piso y cargá su plano después. El equipo asignado a esta obra tendrá acceso.</p>
+          <label className={styles.newPlanField}>Nombre del plano
+            <input className={styles.newPlanInput} autoFocus value={nombreNuevoPlano} maxLength={180} onChange={e => setNombreNuevoPlano(e.target.value)} placeholder="Ej.: Piso 3 · instalaciones" />
           </label>
           {accionError && <p role="alert" style={{ color: '#b91c1c' }}>{accionError}</p>}
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-            <button style={modalBtnCancelStyle} disabled={creandoPlano} onClick={() => setTorreNuevoPlano(null)}>Cancelar</button>
-            <button style={{ ...modalBtnCancelStyle, background: '#395b9c', color: 'white' }} disabled={creandoPlano || !nombreNuevoPlano.trim()} onClick={() => void handleNuevoPlano()}>
+          <div className={styles.newPlanActions}>
+            <button type="button" disabled={creandoPlano} onClick={() => setTorreNuevoPlano(null)}>Cancelar</button>
+            <button type="button" disabled={creandoPlano || !nombreNuevoPlano.trim()} onClick={() => void handleNuevoPlano()}>
               {creandoPlano ? 'Creando…' : 'Crear plano'}
             </button>
           </div>
@@ -449,21 +444,7 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
   );
 }
 
-// ─── Estilos inline compartidos por dropdowns y modal de confirmación ─────────
-// Vienen acá porque el CSS module se mantiene exactamente como el spec lo pide.
-
-const dropdownItemStyle: React.CSSProperties = {
-  display: 'block',
-  width: '100%',
-  padding: '10px 14px',
-  background: 'none',
-  border: 'none',
-  textAlign: 'left',
-  fontSize: 14,
-  color: '#0F172A',
-  cursor: 'pointer',
-  fontFamily: 'inherit',
-};
+// ─── Estilos inline del modal de confirmación ────────────────────────────────
 
 const modalOverlayStyle: React.CSSProperties = {
   position: 'fixed',
