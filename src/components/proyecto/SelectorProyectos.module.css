@@ -161,7 +161,7 @@
   gap: 18px;
   margin-bottom: 12px;
 }
-.secondaryBtn, .newWorkBtn {
+.secondaryBtn {
   min-height: 44px;
   width: max-content;
   padding: 0 16px;
@@ -176,7 +176,6 @@
   white-space: nowrap;
 }
 .secondaryBtn:disabled { opacity: .5; cursor: not-allowed; }
-.newWorkBtn { min-height: 34px; margin-bottom: 10px; }
 .breadcrumbs { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; margin-bottom: 20px; color: #64748B; font-size: 14px; }
 .breadcrumbs button { border: 0; background: none; color: #3B599B; padding: 2px 4px; cursor: pointer; font: inherit; }
 .searchHint { margin-left: 12px; color: #64748B; }

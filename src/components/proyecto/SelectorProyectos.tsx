@@ -1,7 +1,6 @@
 import { useAccessStore } from '../../stores/accessStore';
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { useProyectosStore, PLANO_PENDIENTE, type Proyecto } from '../../stores/proyectosStore';
-import { ModalNuevoProyecto } from './ModalNuevoProyecto';
 import { validarCalidadPlano } from '../../utils/validarCalidadPlano';
 import { ImagenPrivada } from './ImagenPrivada';
 import { cargarStatsProyectos, type ProyectoStats } from '../../services/statsService';
@@ -46,9 +45,6 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
 
   const abrirProyecto = onAbrirProyecto ?? setProyectoActivo;
   const { contexto, empresaId } = useAccessStore();
-  const puedeCrear = !!contexto?.empresas.find(e=>e.id===empresaId)?.puede_crear;
-
-  const [modalAbierto,   setModalAbierto]   = useState(false);
   const [menuAbierto,    setMenuAbierto]    = useState<string | null>(null);
   const [confirmDelete,  setConfirmDelete]  = useState<Proyecto | null>(null);
   const [accionError,    setAccionError]    = useState<string | null>(null);
@@ -297,7 +293,6 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
             <span className={styles.newBtnIcon}>+</span> Crear proyecto
           </button>
         </div>
-        {puedeCrear && <button className={styles.newWorkBtn} onClick={() => setModalAbierto(true)}>+ Nueva obra</button>}
         <nav className={styles.breadcrumbs} aria-label="Ruta de carpetas">
           <button type="button" onClick={() => setCarpetaActual(null)}>Proyectos</button>
           {rutaCarpeta.map(c => <span key={c.id}> / <button type="button" onClick={() => setCarpetaActual(c.id)}>{c.nombre}</button></span>)}
@@ -504,11 +499,6 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
       </div>
       </div>
       {/* /scrollArea */}
-
-      {/* Modal nuevo proyecto */}
-      {modalAbierto && (
-        <ModalNuevoProyecto onCerrar={() => setModalAbierto(false)} />
-      )}
 
       {modalCarpeta && <div style={{ ...modalOverlayStyle, padding: 16 }} onClick={() => !creandoCarpeta && setModalCarpeta(false)}>
         <div className={styles.newPlanDialog} role="dialog" aria-modal="true" aria-labelledby="nueva-carpeta-titulo" onClick={e => e.stopPropagation()}>
