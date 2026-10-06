@@ -360,15 +360,17 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
             />
             <svg className={styles.searchIcon} viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5" /><path d="m16 16 4 4" /></svg>
           </div>
-          <button disabled={!empresaParaCrear || (carpetaSeleccionada?.profundidad ?? 0) >= 5} className={styles.secondaryBtn} onClick={() => { setAccionError(null); setModalCarpeta(true); }}>
-            + Crear carpeta
-          </button>
-          <button disabled={obrasDisponibles.length === 0} className={styles.newBtn} onClick={() => {
-            setAccionError(null); setArchivoNuevoPlano(null); setCarpetaNuevoPlano(carpetaActual);
-            setTorreNuevoPlano(obrasDisponibles[0]);
-          }}>
-            <span className={styles.newBtnIcon}>+</span> Crear proyecto
-          </button>
+          <div className={styles.headerActions}>
+            <button disabled={!empresaParaCrear || (carpetaSeleccionada?.profundidad ?? 0) >= 5} className={styles.secondaryBtn} onClick={() => { setAccionError(null); setModalCarpeta(true); }}>
+              + Crear carpeta
+            </button>
+            <button disabled={obrasDisponibles.length === 0} className={styles.newBtn} onClick={() => {
+              setAccionError(null); setArchivoNuevoPlano(null); setCarpetaNuevoPlano(carpetaActual);
+              setTorreNuevoPlano(obrasDisponibles[0]);
+            }}>
+              <span className={styles.newBtnIcon}>+</span> Crear proyecto
+            </button>
+          </div>
         </div>
         <nav className={styles.breadcrumbs} aria-label="Ruta de carpetas">
           <button type="button" className={styles.historyButton} aria-label="Atrás" title="Atrás" disabled={historialCarpetas.indice === 0}

@@ -21,21 +21,23 @@
   padding: 12px 16px;
   border-bottom: 1px solid var(--border-default);
   background: var(--bg-surface);
+  container-type: inline-size;
 }
 .alcanceTitulo { display: flex; flex-direction: column; gap: 2px; min-width: 170px; }
 .alcanceTitulo strong { color: var(--text-primary); font-size: 15px; line-height: 1.25; }
 .alcanceTitulo span { color: var(--text-secondary); font-size: 11px; line-height: 1.3; }
-.alcanceFiltros { display: flex; flex: 1 1 600px; flex-wrap: wrap; align-items: flex-end; gap: 8px; }
-.alcanceFiltros label { display: flex; flex-direction: column; gap: 3px; min-width: 0; color: var(--text-secondary); font-size: 11px; font-weight: 600; }
-.alcanceFiltros select { max-width: min(220px, 100%); height: 32px; padding: 0 28px 0 9px; border: 1px solid var(--border-default); border-radius: 7px; background: var(--bg-surface); color: var(--text-primary); font: inherit; font-size: 12px; }
+.alcanceFiltros { display: flex; flex: 0 1 940px; min-width: 0; max-width: 100%; flex-wrap: wrap; align-items: flex-end; gap: 8px; }
+.alcanceFiltros label { display: flex; flex: 0 1 190px; flex-direction: column; gap: 3px; min-width: 150px; color: var(--text-secondary); font-size: 11px; font-weight: 600; }
+.alcanceFiltros select { width: 100%; min-width: 0; height: 32px; padding: 0 20px 0 8px; border: 1px solid var(--border-default); border-radius: 7px; background: var(--bg-surface); color: var(--text-primary); font: inherit; font-size: 12px; text-overflow: ellipsis; }
 .alcanceFiltros select:focus-visible { outline: 2px solid #3b5d9b; outline-offset: 1px; }
-.alcanceActualizar { height: 32px; align-self: flex-end; padding: 0 11px; border: 1px solid var(--border-default); border-radius: 7px; background: var(--bg-surface); color: var(--text-primary); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+.alcanceActualizar { flex: none; height: 32px; align-self: flex-end; padding: 0 11px; border: 1px solid var(--border-default); border-radius: 7px; background: var(--bg-surface); color: var(--text-primary); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
 .alcanceActualizar:disabled { opacity: .5; cursor: default; }
 .alcanceError { padding: 8px 16px; color: #991b1b; background: #fef2f2; font-size: 12px; }
-@media (max-width: 900px) {
-  .alcanceFiltros { flex-basis: 100%; }
-  .alcanceFiltros label { flex: 1 1 135px; }
-  .alcanceFiltros select { width: 100%; max-width: none; }
+@container (max-width: 920px) {
+  .alcanceFiltros { flex: 1 1 100%; }
+}
+@container (max-width: 600px) {
+  .alcanceFiltros label { flex-basis: 160px; min-width: 140px; }
 }
 
 /* ═══════════════════════════════════════ SIDEBAR ══ */
