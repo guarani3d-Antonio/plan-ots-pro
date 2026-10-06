@@ -133,7 +133,8 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
   }, []);
 
   const carpetaSeleccionada = carpetas.find(c => c.id === carpetaActual);
-  const empresaDestino = carpetaSeleccionada?.tenant_id ?? empresaId;
+  const empresaDestino = carpetaSeleccionada?.tenant_id ?? empresaId ?? '';
+  const empresaParaCrear = empresaDestino || (contexto?.empresas.length === 1 ? contexto.empresas[0].id : '');
   const obrasDisponibles = useMemo(() => proyectos.filter(p => !p.proyecto_padre_id &&
     (!empresaDestino || p.tenant_id === empresaDestino) &&
     contexto?.obras.some(o => o.id === p.id && o.editar)), [proyectos, empresaDestino, contexto]);
@@ -146,6 +147,18 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
     while (actual && ruta.length < 5) { ruta.unshift(actual); actual = carpetas.find(c => c.id === actual?.padre_id); }
     return ruta;
   }, [carpetaSeleccionada, carpetas]);
+  const destinosCarpeta = useMemo(() => {
+    if (!carpetaMover) return { prohibidos: new Set<string>(), altura: 0 };
+    const prohibidos = new Set<string>([carpetaMover.id]);
+    let altura = 1;
+    for (let nivel = 1; nivel <= 5; nivel++) {
+      const hijos = carpetas.filter(c => c.padre_id && prohibidos.has(c.padre_id) && !prohibidos.has(c.id));
+      if (!hijos.length) break;
+      hijos.forEach(c => prohibidos.add(c.id));
+      altura = Math.max(altura, ...hijos.map(c => c.profundidad - carpetaMover.profundidad + 1));
+    }
+    return { prohibidos, altura };
+  }, [carpetaMover, carpetas]);
 
   // Filtro por nombre o cliente (case-insensitive)
   const proyectosFiltrados = useMemo(() => {
@@ -206,12 +219,12 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
   }
 
   async function handleCrearCarpeta() {
-    if (!empresaDestino || !nombreCarpeta.trim() || creandoCarpeta) return;
+    if (!empresaParaCrear || !nombreCarpeta.trim() || creandoCarpeta) return;
     setCreandoCarpeta(true); setAccionError(null);
     try {
       const ticket = sessionTicket();
       const { data, error } = await supabase.rpc('plan_crear_carpeta', {
-        p_tenant: empresaDestino, p_padre: carpetaActual, p_nombre: nombreCarpeta.trim(),
+        p_tenant: empresaParaCrear, p_padre: carpetaActual, p_nombre: nombreCarpeta.trim(),
       }).single();
       assertSession(ticket);
       if (error || !data) throw new Error(error?.message ?? 'No se pudo crear la carpeta.');
@@ -274,7 +287,7 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
             />
             <svg className={styles.searchIcon} viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5" /><path d="m16 16 4 4" /></svg>
           </div>
-          <button disabled={!empresaDestino || (carpetaSeleccionada?.profundidad ?? 0) >= 5} className={styles.secondaryBtn} onClick={() => { setAccionError(null); setModalCarpeta(true); }}>
+          <button disabled={!empresaParaCrear || (carpetaSeleccionada?.profundidad ?? 0) >= 5} className={styles.secondaryBtn} onClick={() => { setAccionError(null); setModalCarpeta(true); }}>
             + Crear carpeta
           </button>
           <button disabled={obrasDisponibles.length === 0} className={styles.newBtn} onClick={() => {
@@ -315,7 +328,7 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
               onClick={() => setMenuCarpeta(menuCarpeta === c.id ? null : c.id)}>···</button>
             }
             {menuCarpeta === c.id && <div className={styles.folderActions}>
-              <button type="button" onClick={() => { setMenuCarpeta(null); setBusquedaCarpeta(''); setCarpetaMover(c); }}>Mover carpeta</button>
+              <button type="button" onClick={() => { setMenuCarpeta(null); setBusquedaCarpeta(''); setCarpetaMover(c); }}>Mover</button>
             </div>}
           </div>)}
           {loading && proyectosFiltrados.length === 0 && carpetasFiltradas.length === 0 ? (
@@ -425,7 +438,7 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
                     ↑ Cargar plano inicial
                   </button>}
                   {(proyecto.proyecto_padre_id || contexto?.obras.find(p => p.id === proyecto.id)?.administrar) && <button type="button" className={styles.cardAction} onClick={() => { setMenuAbierto(null); setBusquedaCarpeta(''); setProyectoMover(proyecto); }}>
-                    ▣ Mover a carpeta
+                    ▣ Mover
                   </button>}
                   <button type="button" className={styles.cardAction} disabled={proyecto.plano_url === PLANO_PENDIENTE || !contexto?.obras.find(p => p.id === proyecto.id)?.administrar} onClick={() => handleDuplicar(proyecto)}>
                     ⧉ Duplicar proyecto
@@ -545,7 +558,9 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
           <input className={styles.newPlanInput} value={busquedaCarpeta} onChange={e => setBusquedaCarpeta(e.target.value)} placeholder="Buscar carpeta por nombre…" aria-label="Buscar carpeta" />
           <div className={styles.folderChoices}>
             <button type="button" onClick={() => void (proyectoMover ? handleMoverProyecto(null) : handleMoverCarpeta(null))}>Proyectos (nivel principal)</button>
-            {carpetas.filter(c => c.tenant_id === (proyectoMover?.tenant_id ?? carpetaMover?.tenant_id) && c.id !== carpetaMover?.id && c.nombre.toLocaleLowerCase().includes(busquedaCarpeta.toLocaleLowerCase())).map(c =>
+            {carpetas.filter(c => c.tenant_id === (proyectoMover?.tenant_id ?? carpetaMover?.tenant_id) &&
+              !destinosCarpeta.prohibidos.has(c.id) && c.profundidad + destinosCarpeta.altura <= 5 &&
+              c.nombre.toLocaleLowerCase().includes(busquedaCarpeta.toLocaleLowerCase())).map(c =>
               <button type="button" key={c.id} onClick={() => void (proyectoMover ? handleMoverProyecto(c.id) : handleMoverCarpeta(c.id))}>▣ {c.nombre} <small>· nivel {c.profundidad}</small></button>)}
           </div>
           {accionError && <p role="alert" style={{ color: '#b91c1c' }}>{accionError}</p>}

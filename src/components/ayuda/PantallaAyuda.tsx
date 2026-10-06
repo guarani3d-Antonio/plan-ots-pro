@@ -24,16 +24,18 @@ const MODULOS: ModuloAyuda[] = [
   {
     id: 'crear-proyecto',
     icono: '📁',
-    titulo: 'Crear un proyecto',
-    resumen: 'Cada proyecto agrupa las OTs de una obra sobre su plano referencial.',
+    titulo: 'Organizar carpetas y proyectos',
+    resumen: 'Cada proyecto tiene un plano; las carpetas sirven para ordenarlos.',
     pasos: [
-      { texto: 'En el selector de proyectos, hacé clic en "+ Nuevo proyecto".' },
-      { texto: 'Completá nombre, cliente y los rubros que aplican a la obra.' },
+      { texto: 'En Proyectos, elegí la empresa y abrí la carpeta donde querés trabajar.' },
+      { texto: 'Para ordenar los planos, pulsá "Crear carpeta", escribí su nombre y confirmá. Podés anidar hasta cinco niveles.' },
+      { texto: 'Para agregar un plano en cualquier nivel, pulsá "Crear proyecto", elegí tu obra asignada y escribí el nombre.' },
       {
-        texto: 'Subí el plano referencial (PDF o imagen).',
+        texto: 'Seleccioná el archivo del plano (PDF o imagen) y pulsá "Crear proyecto".',
         nota: 'Las imágenes deben ser mínimo 1800×1200 px. Los PDF no tienen restricción de dimensión.',
       },
-      { texto: 'Guardá con conexión. Verificá la confirmación antes de seguir trabajando en campo.' },
+      { texto: 'Si algo quedó fuera de lugar, abrí los tres puntos de la carpeta o del proyecto y elegí "Mover".' },
+      { texto: 'Trabajá con conexión y verificá que el plano aparezca antes de seguir en campo.' },
     ],
   },
   {
