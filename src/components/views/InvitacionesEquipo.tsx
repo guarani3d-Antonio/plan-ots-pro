@@ -5,6 +5,7 @@ import { useAccessStore } from '../../stores/accessStore';
 
 interface Delegacion { limite: number; activa: boolean }
 interface Invitacion { id: string; email: string; proyecto_id: string; estado: string }
+const empresaPiloto = '9159153b-eac0-49df-80d5-649ced2c7887';
 
 const card: React.CSSProperties = { padding: 24, border: '1px solid var(--border-default)', borderRadius: 12, background: 'var(--bg-surface)' };
 const field: React.CSSProperties = { display: 'grid', gap: 6, minWidth: 0 };
@@ -43,10 +44,14 @@ export function InvitacionesEquipo() {
 
   if (!delegacion || contexto?.creador) return null;
   const obras = (contexto?.obras ?? []).filter(o => o.tenant_id === empresaId && o.administrar && torres.includes(o.id));
+  const unaPorObra = empresaId === empresaPiloto;
+  const obrasDisponibles = unaPorObra
+    ? obras.filter(obra => !invitaciones.some(item => item.proyecto_id === obra.id)) : obras;
   const restantes = Math.max(0, delegacion.limite - invitaciones.length);
 
   async function enviar() {
-    if (!empresaId || !obraId || !email.trim() || !delegacion?.activa || restantes === 0 || busy) return;
+    if (!empresaId || !obraId || !obrasDisponibles.some(obra => obra.id === obraId) ||
+      !email.trim() || !delegacion?.activa || restantes === 0 || busy) return;
     setBusy(true); setMensaje('');
     try {
       const result = await supabase.functions.invoke('invitar-usuario', {
@@ -62,7 +67,7 @@ export function InvitacionesEquipo() {
       if (error) throw error;
       setInvitaciones((data ?? []) as Invitacion[]);
       setMensaje(`Invitación enviada a ${email.trim()}. El acceso será solo a la obra seleccionada.`);
-      setEmail(''); setNombre(''); setApellidos('');
+      setEmail(''); setNombre(''); setApellidos(''); setObraId('');
     } catch (error) { setMensaje(error instanceof Error ? error.message : 'No se pudo enviar la invitación.'); }
     finally { setBusy(false); }
   }
@@ -71,9 +76,10 @@ export function InvitacionesEquipo() {
     <h2 style={{ margin: '0 0 8px', fontSize: 20 }}>Invitar a tu equipo</h2>
     <p style={{ margin: '0 0 16px', color: 'var(--text-secondary)' }}>
       {delegacion.activa ? `Quedan ${restantes} de ${delegacion.limite} invitaciones de prueba.` : 'El Creador desactivó temporalmente las invitaciones.'}
-      {' '}Cada cuenta entra como Técnico y ve solo la torre que elijas.
+      {' '}Cada cuenta entra como Técnico y ve solo la obra que elijas.
+      {unaPorObra && ' Durante este piloto, cada obra admite un técnico invitado.'}
     </p>
-    {delegacion.activa && restantes > 0 && <div style={{ display: 'grid', gap: 12 }}>
+    {delegacion.activa && restantes > 0 && obrasDisponibles.length > 0 && <div style={{ display: 'grid', gap: 12 }}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
         <label style={field}>Nombre<input style={input} value={nombre} onChange={e => setNombre(e.target.value)} /></label>
         <label style={field}>Apellidos<input style={input} value={apellidos} onChange={e => setApellidos(e.target.value)} /></label>
@@ -82,7 +88,7 @@ export function InvitacionesEquipo() {
       <label style={field}>Obra asignada
         <select className="app-select" value={obraId} onChange={e => setObraId(e.target.value)}>
           <option value="">Elegí una obra</option>
-          {obras.map(obra => <option key={obra.id} value={obra.id}>{obra.nombre}</option>)}
+          {obrasDisponibles.map(obra => <option key={obra.id} value={obra.id}>{obra.nombre}</option>)}
         </select>
       </label>
       <button type="button" disabled={busy || !email.trim() || !obraId} onClick={() => void enviar()}
@@ -90,6 +96,8 @@ export function InvitacionesEquipo() {
         {busy ? 'Enviando…' : 'Enviar invitación'}
       </button>
     </div>}
+    {delegacion.activa && restantes > 0 && obrasDisponibles.length === 0 &&
+      <p style={{ margin: '0 0 16px', color: 'var(--text-secondary)' }}>Todas tus obras ya tienen un técnico invitado.</p>}
     {invitaciones.length > 0 && <div style={{ marginTop: 18 }}>
       <strong>Invitaciones utilizadas</strong>
       <ul style={{ marginBottom: 0, paddingLeft: 20 }}>{invitaciones.map(item => <li key={item.id}>
