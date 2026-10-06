@@ -12,6 +12,25 @@ import styles from './SelectorProyectos.module.css';
 
 interface Carpeta { id: string; tenant_id: string; padre_id: string | null; nombre: string; profundidad: number; created_by: string }
 
+function rutaDeCarpeta(carpetas: Carpeta[], id: string | null): Carpeta[] {
+  const porId = new Map(carpetas.map(c => [c.id, c]));
+  const ruta: Carpeta[] = [];
+  const visitados = new Set<string>();
+  let actual = id;
+  while (actual && !visitados.has(actual) && ruta.length < 5) {
+    visitados.add(actual);
+    const carpeta = porId.get(actual);
+    if (!carpeta) break;
+    ruta.unshift(carpeta);
+    actual = carpeta.padre_id;
+  }
+  return ruta;
+}
+
+function normalizarBusqueda(valor: string): string {
+  return valor.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('es').trim();
+}
+
 // Stats por defecto cuando un proyecto aún no fue cargado en statsMap.
 const STATS_VACIO: ProyectoStats = {
   proyecto_id: '',
@@ -61,6 +80,9 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
   const [creandoCarpeta, setCreandoCarpeta] = useState(false);
   const [proyectoMover, setProyectoMover] = useState<Proyecto | null>(null);
   const [carpetaMover, setCarpetaMover] = useState<Carpeta | null>(null);
+  const [destinoMover, setDestinoMover] = useState<string | null>(null);
+  const [moviendo, setMoviendo] = useState(false);
+  const [avisoAccion, setAvisoAccion] = useState<string | null>(null);
   const [menuCarpeta, setMenuCarpeta] = useState<string | null>(null);
   const [busquedaCarpeta, setBusquedaCarpeta] = useState('');
   const [creandoPlano, setCreandoPlano] = useState(false);
@@ -164,6 +186,22 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
     }
     return { prohibidos, altura };
   }, [carpetaMover, carpetas]);
+  const elementoMover = proyectoMover ?? carpetaMover;
+  const empresaMover = contexto?.empresas.find(e => e.id === elementoMover?.tenant_id)?.nombre ?? 'Empresa';
+  const origenMover = proyectoMover ? proyectoMover.carpeta_id ?? null : carpetaMover?.padre_id ?? null;
+  const rutaDestinoMover = rutaDeCarpeta(carpetas, destinoMover);
+  const rutaOrigenMover = rutaDeCarpeta(carpetas, origenMover);
+  const carpetasPermitidasMover = useMemo(() => carpetas.filter(c =>
+    c.tenant_id === elementoMover?.tenant_id && !destinosCarpeta.prohibidos.has(c.id) &&
+    c.profundidad + destinosCarpeta.altura <= 5
+  ), [carpetas, elementoMover?.tenant_id, destinosCarpeta]);
+  const carpetasListaMover = useMemo(() => {
+    const busquedaTexto = normalizarBusqueda(busquedaCarpeta);
+    return carpetasPermitidasMover.filter(c => busquedaTexto
+      ? normalizarBusqueda(rutaDeCarpeta(carpetas, c.id).map(parte => parte.nombre).join(' / ')).includes(busquedaTexto)
+      : c.padre_id === destinoMover
+    ).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+  }, [carpetasPermitidasMover, carpetas, busquedaCarpeta, destinoMover]);
 
   // Filtro por nombre o cliente (case-insensitive)
   const proyectosFiltrados = useMemo(() => {
@@ -239,25 +277,55 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
     finally { setCreandoCarpeta(false); }
   }
 
-  async function handleMoverProyecto(carpetaId: string | null) {
-    if (!proyectoMover) return;
-    setAccionError(null);
-    try { await moverProyecto(proyectoMover.id, carpetaId); setProyectoMover(null); }
-    catch (error) { setAccionError(error instanceof Error ? error.message : 'No se pudo mover el proyecto.'); }
+  function abrirMoverProyecto(proyecto: Proyecto) {
+    setMenuAbierto(null); setCarpetaMover(null); setProyectoMover(proyecto);
+    setDestinoMover(proyecto.carpeta_id ?? null); setBusquedaCarpeta('');
+    setAccionError(null); setAvisoAccion(null);
   }
-  async function handleMoverCarpeta(padreId: string | null) {
-    if (!carpetaMover) return;
+
+  function abrirMoverCarpeta(carpeta: Carpeta) {
+    setMenuCarpeta(null); setProyectoMover(null); setCarpetaMover(carpeta);
+    setDestinoMover(carpeta.padre_id); setBusquedaCarpeta('');
+    setAccionError(null); setAvisoAccion(null);
+  }
+
+  function cerrarMover() {
+    if (moviendo) return;
+    setProyectoMover(null); setCarpetaMover(null); setBusquedaCarpeta('');
     setAccionError(null);
+  }
+
+  function abrirDestino(id: string | null) {
+    setDestinoMover(id); setBusquedaCarpeta(''); setAccionError(null);
+  }
+
+  async function confirmarMovimiento() {
+    if (!elementoMover || moviendo || destinoMover === origenMover) return;
+    setMoviendo(true); setAccionError(null);
     try {
-      const ticket = sessionTicket();
-      const { error } = await supabase.rpc('plan_mover_carpeta', { p_carpeta: carpetaMover.id, p_padre: padreId });
-      assertSession(ticket);
-      if (error) throw new Error(error.message);
-      const { data, error: cargaError } = await supabase.from('plan_carpetas').select('id,tenant_id,padre_id,nombre,profundidad,created_by').order('nombre');
-      assertSession(ticket);
-      if (cargaError) throw new Error(cargaError.message);
-      setCarpetas(data as Carpeta[]); setCarpetaMover(null);
-    } catch (error) { setAccionError(error instanceof Error ? error.message : 'No se pudo mover la carpeta.'); }
+      let requiereRecarga = false;
+      if (proyectoMover) {
+        await moverProyecto(proyectoMover.id, destinoMover);
+      } else if (carpetaMover) {
+        const ticket = sessionTicket();
+        const { error: movimientoError } = await supabase.rpc('plan_mover_carpeta', {
+          p_carpeta: carpetaMover.id, p_padre: destinoMover,
+        });
+        assertSession(ticket);
+        if (movimientoError) throw new Error(movimientoError.message);
+        const { data, error: cargaError } = await supabase.from('plan_carpetas')
+          .select('id,tenant_id,padre_id,nombre,profundidad,created_by').order('nombre');
+        assertSession(ticket);
+        if (cargaError) requiereRecarga = true;
+        else setCarpetas(data as Carpeta[]);
+      }
+      setAvisoAccion(requiereRecarga
+        ? `«${elementoMover.nombre}» se movió. Recargá la página para ver su nueva ubicación.`
+        : `«${elementoMover.nombre}» se movió a ${[empresaMover, ...rutaDestinoMover.map(c => c.nombre)].join(' / ')}.`);
+      setProyectoMover(null); setCarpetaMover(null); setBusquedaCarpeta('');
+    } catch (error) {
+      setAccionError(error instanceof Error ? error.message : 'No se pudo mover el elemento.');
+    } finally { setMoviendo(false); }
   }
 
   return (
@@ -326,6 +394,7 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
             {accionError || error}
           </div>
         )}
+        {avisoAccion && !accionError && <div className={styles.actionNotice} role="status">{avisoAccion}</div>}
 
         {carpetasFiltradas.length > 0 && <div className={styles.folderGrid}>
           {carpetasFiltradas.map(c => <div key={c.id} className={`${styles.folderCard} ${menuCarpeta === c.id ? styles.folderCardOpen : ''}`}>
@@ -340,7 +409,7 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
               onClick={() => setMenuCarpeta(menuCarpeta === c.id ? null : c.id)}>···</button>
             }
             {menuCarpeta === c.id && <div className={styles.folderActions}>
-              <button type="button" onClick={() => { setMenuCarpeta(null); setBusquedaCarpeta(''); setCarpetaMover(c); }}>Mover</button>
+              <button type="button" onClick={() => abrirMoverCarpeta(c)}>Mover</button>
             </div>}
           </div>)}
         </div>}
@@ -453,7 +522,7 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
                   {proyecto.plano_url === PLANO_PENDIENTE && (proyecto.proyecto_padre_id || contexto?.obras.find(p => p.id === proyecto.id)?.administrar) && <button type="button" className={styles.cardAction} onClick={() => { setMenuAbierto(null); setPlanoPendiente(proyecto); }}>
                     ↑ Cargar plano inicial
                   </button>}
-                  {(proyecto.proyecto_padre_id || contexto?.obras.find(p => p.id === proyecto.id)?.administrar) && <button type="button" className={styles.cardAction} onClick={() => { setMenuAbierto(null); setBusquedaCarpeta(''); setProyectoMover(proyecto); }}>
+                  {(proyecto.proyecto_padre_id || contexto?.obras.find(p => p.id === proyecto.id)?.administrar) && <button type="button" className={styles.cardAction} onClick={() => abrirMoverProyecto(proyecto)}>
                     ▣ Mover
                   </button>}
                   <button type="button" className={styles.cardAction} disabled={proyecto.plano_url === PLANO_PENDIENTE || !contexto?.obras.find(p => p.id === proyecto.id)?.administrar} onClick={() => handleDuplicar(proyecto)}>
@@ -562,20 +631,50 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
         </div>
       </div>}
 
-      {(proyectoMover || carpetaMover) && <div style={{ ...modalOverlayStyle, padding: 16 }} onClick={() => { setProyectoMover(null); setCarpetaMover(null); }}>
-        <div className={styles.newPlanDialog} role="dialog" aria-modal="true" aria-labelledby="mover-titulo" onClick={e => e.stopPropagation()}>
-          <h3 id="mover-titulo" className={styles.newPlanTitle}>Mover {proyectoMover?.nombre ?? carpetaMover?.nombre}</h3>
-          <p className={styles.newPlanDescription}>Elegí la carpeta de destino. Los permisos de las obras no cambian.</p>
-          <input className={styles.newPlanInput} value={busquedaCarpeta} onChange={e => setBusquedaCarpeta(e.target.value)} placeholder="Buscar carpeta por nombre…" aria-label="Buscar carpeta" />
-          <div className={styles.folderChoices}>
-            <button type="button" onClick={() => void (proyectoMover ? handleMoverProyecto(null) : handleMoverCarpeta(null))}>Proyectos (nivel principal)</button>
-            {carpetas.filter(c => c.tenant_id === (proyectoMover?.tenant_id ?? carpetaMover?.tenant_id) &&
-              !destinosCarpeta.prohibidos.has(c.id) && c.profundidad + destinosCarpeta.altura <= 5 &&
-              c.nombre.toLocaleLowerCase().includes(busquedaCarpeta.toLocaleLowerCase())).map(c =>
-              <button type="button" key={c.id} onClick={() => void (proyectoMover ? handleMoverProyecto(c.id) : handleMoverCarpeta(c.id))}>▣ {c.nombre} <small>· nivel {c.profundidad}</small></button>)}
+      {elementoMover && <div style={{ ...modalOverlayStyle, padding: 16 }} onClick={cerrarMover}>
+        <div className={`${styles.newPlanDialog} ${styles.moveDialog}`} role="dialog" aria-modal="true" aria-labelledby="mover-titulo" onClick={e => e.stopPropagation()}>
+          <div className={styles.moveHeader}>
+            <h3 id="mover-titulo" className={styles.newPlanTitle}>Mover «{elementoMover.nombre}»</h3>
+            <button type="button" className={styles.moveClose} aria-label="Cerrar" disabled={moviendo} onClick={cerrarMover}>×</button>
           </div>
-          {accionError && <p role="alert" style={{ color: '#b91c1c' }}>{accionError}</p>}
-          <div className={styles.newPlanActions}><button type="button" onClick={() => { setProyectoMover(null); setCarpetaMover(null); }}>Cancelar</button></div>
+          <p className={styles.newPlanDescription}>Abrí la carpeta donde querés guardarlo. Los permisos de la obra no cambian.</p>
+          <div className={styles.moveOrigin}>
+            <span className={styles.moveEyebrow}>Ubicación actual</span>
+            <span>{[empresaMover, ...rutaOrigenMover.map(c => c.nombre)].join(' / ')}</span>
+          </div>
+          <input className={styles.newPlanInput} autoFocus value={busquedaCarpeta}
+            onChange={e => setBusquedaCarpeta(e.target.value)} placeholder="Buscar carpeta por nombre o ruta…" aria-label="Buscar carpeta" />
+          <span className={styles.moveEyebrow}>Destino</span>
+          <nav className={styles.moveBreadcrumbs} aria-label="Ruta de destino">
+            <button type="button" className={styles.moveBack} aria-label="Subir una carpeta" disabled={destinoMover === null}
+              onClick={() => abrirDestino(rutaDestinoMover.at(-1)?.padre_id ?? null)}>‹</button>
+            <button type="button" onClick={() => abrirDestino(null)}>{empresaMover}</button>
+            {rutaDestinoMover.map(c => <span key={c.id}> / <button type="button" onClick={() => abrirDestino(c.id)}>{c.nombre}</button></span>)}
+          </nav>
+          <div className={styles.moveFolderList} aria-label={busquedaCarpeta ? 'Resultados de búsqueda' : 'Subcarpetas disponibles'}>
+            {carpetasListaMover.length === 0
+              ? <p className={styles.moveEmpty}>{busquedaCarpeta ? 'No hay carpetas que coincidan con la búsqueda.' : 'No hay subcarpetas aquí. Podés mover a esta ubicación.'}</p>
+              : carpetasListaMover.map(c => <button type="button" key={c.id} className={styles.moveFolderRow} onClick={() => abrirDestino(c.id)}>
+                  <svg viewBox="0 0 36 32" aria-hidden="true"><path d="M2 7a4 4 0 0 1 4-4h9l4 4h11a4 4 0 0 1 4 4v16a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4Z" fill="#5D79B0"/><path d="M2 13a4 4 0 0 1 4-4h24a4 4 0 0 1 4 4v14a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4Z" fill="#91A9D3"/></svg>
+                  <span className={styles.moveFolderText}><strong>{c.nombre}</strong>
+                    {busquedaCarpeta && <small>{[empresaMover, ...rutaDeCarpeta(carpetas, c.padre_id).map(parte => parte.nombre)].join(' / ')}</small>}
+                  </span>
+                  <span className={styles.moveChevron} aria-hidden="true">›</span>
+                </button>)}
+          </div>
+          {accionError && <p role="alert" className={styles.moveError}>{accionError}</p>}
+          <div className={styles.moveFooter}>
+            <div className={styles.moveDestinationSummary}>
+              <span className={styles.moveEyebrow}>Mover a</span>
+              <strong>{[empresaMover, ...rutaDestinoMover.map(c => c.nombre)].join(' / ')}</strong>
+            </div>
+            <div className={styles.newPlanActions}>
+              <button type="button" disabled={moviendo} onClick={cerrarMover}>Cancelar</button>
+              <button type="button" disabled={moviendo || destinoMover === origenMover} onClick={() => void confirmarMovimiento()}>
+                {moviendo ? 'Moviendo…' : 'Mover aquí'}
+              </button>
+            </div>
+          </div>
         </div>
       </div>}
 

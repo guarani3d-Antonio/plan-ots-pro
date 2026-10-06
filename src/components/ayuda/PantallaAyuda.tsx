@@ -34,7 +34,7 @@ const MODULOS: ModuloAyuda[] = [
         texto: 'Seleccioná el archivo del plano (PDF o imagen) y pulsá "Crear proyecto".',
         nota: 'Las imágenes deben ser mínimo 1800×1200 px. Los PDF no tienen restricción de dimensión.',
       },
-      { texto: 'Si algo quedó fuera de lugar, abrí los tres puntos de la carpeta o del proyecto y elegí "Mover".' },
+      { texto: 'Si algo quedó fuera de lugar, abrí sus tres puntos y elegí "Mover". Navegá hasta la carpeta de destino y recién entonces pulsá "Mover aquí".' },
       { texto: 'Trabajá con conexión y verificá que el plano aparezca antes de seguir en campo.' },
     ],
   },
