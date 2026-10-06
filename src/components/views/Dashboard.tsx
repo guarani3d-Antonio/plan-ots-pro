@@ -1,7 +1,7 @@
 // src/components/views/Dashboard.tsx
 // Dashboard con KPIs en tiempo real + exportación CSV / HTML / PDF + widgets configurables
 
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useOrdenesStore } from '../../stores/ordenesStore';
 import { useProyectosStore } from '../../stores/proyectosStore';
 import { useAuthStore } from '../../stores/authStore';
@@ -10,6 +10,37 @@ import { getWidgetConfig, DEFAULT_WIDGETS, type WidgetConfig, type WidgetId } fr
 import { usePuedeVerCostosMultiple } from '../../hooks/usePuedeVerCostos';
 
 const ESTADOS = ['Pendiente', 'En proceso', 'Cerrada', 'No aplica'] as const;
+type PeriodoTendencia = 'dia' | 'semana' | 'mes';
+
+function fechaLocal(clave: string): Date {
+  return new Date(`${clave}T00:00:00`);
+}
+
+function claveFecha(fecha: Date): string {
+  return `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-${String(fecha.getDate()).padStart(2, '0')}`;
+}
+
+function inicioPeriodo(clave: string, periodo: PeriodoTendencia): string {
+  if (periodo === 'mes') return `${clave.slice(0, 7)}-01`;
+  if (periodo === 'dia') return clave;
+  const fecha = fechaLocal(clave);
+  fecha.setDate(fecha.getDate() - ((fecha.getDay() + 6) % 7));
+  return claveFecha(fecha);
+}
+
+function siguientePeriodo(clave: string, periodo: PeriodoTendencia): string {
+  const fecha = fechaLocal(clave);
+  if (periodo === 'mes') fecha.setMonth(fecha.getMonth() + 1);
+  else fecha.setDate(fecha.getDate() + (periodo === 'semana' ? 7 : 1));
+  return claveFecha(fecha);
+}
+
+function etiquetaPeriodo(clave: string, periodo: PeriodoTendencia, corta = false): string {
+  const fecha = fechaLocal(clave);
+  if (periodo === 'mes') return fecha.toLocaleDateString('es-PY', { month: 'short', year: 'numeric' });
+  const dia = fecha.toLocaleDateString('es-PY', { day: '2-digit', month: '2-digit', ...(corta ? {} : { year: 'numeric' } as const) });
+  return periodo === 'semana' && !corta ? `Semana del ${dia}` : dia;
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -53,7 +84,7 @@ export default function Dashboard() {
   const [filtroResponsable, setFiltroResponsable] = useState('');
   const [fechaDesde, setFechaDesde] = useState('');
   const [fechaHasta, setFechaHasta] = useState('');
-  const [periodo, setPeriodo] = useState<'semana' | 'mes'>('mes');
+  const [periodo, setPeriodo] = useState<PeriodoTendencia>('mes');
   const [ahora] = useState(() => Date.now());
   const [colapsado, setColapsado]           = useState(false);
   const [widgetConfig, setWidgetConfig]     = useState<WidgetConfig[]>(DEFAULT_WIDGETS);
@@ -155,21 +186,25 @@ export default function Dashboard() {
     return Object.entries(c).sort((a, b) => b[1] - a[1]);
   }, [ordenesFiltradas]);
 
-  const tendencia = useMemo(() => {
+  const tendencia = (() => {
     const conteo = new Map<string, number>();
     for (const o of ordenesFiltradas) {
       const fecha = (o.fecha_ingreso || o.created_at || '').slice(0, 10);
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) continue;
-      let clave = fecha.slice(0, 7);
-      if (periodo === 'semana') {
-        const dia = new Date(`${fecha}T00:00:00`);
-        dia.setDate(dia.getDate() - ((dia.getDay() + 6) % 7));
-        clave = `${dia.getFullYear()}-${String(dia.getMonth() + 1).padStart(2, '0')}-${String(dia.getDate()).padStart(2, '0')}`;
-      }
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha) || Number.isNaN(fechaLocal(fecha).getTime())) continue;
+      const clave = inicioPeriodo(fecha, periodo);
       conteo.set(clave, (conteo.get(clave) ?? 0) + 1);
     }
-    return [...conteo].sort(([a], [b]) => a.localeCompare(b)).slice(-12);
-  }, [ordenesFiltradas, periodo]);
+    const claves = [...conteo.keys()].sort();
+    if (!claves.length) return { puntos: [] as [string, number][], demasiadoAmplio: false };
+    const primero = inicioPeriodo(fechaDesde || claves[0], periodo);
+    const ultimo = inicioPeriodo(fechaHasta || claves[claves.length - 1], periodo);
+    const puntos: [string, number][] = [];
+    for (let clave = primero; clave <= ultimo; clave = siguientePeriodo(clave, periodo)) {
+      if (puntos.length >= 366) return { puntos: [] as [string, number][], demasiadoAmplio: true };
+      puntos.push([clave, conteo.get(clave) ?? 0]);
+    }
+    return { puntos, demasiadoAmplio: false };
+  })();
 
   const costosPorObra = useMemo(() => {
     const totales = new Map<string, number>();
@@ -574,20 +609,15 @@ body{background:#888;font-family:Arial,sans-serif}
         </Seccion>;
 
       case 'tendencia': {
-        const max = Math.max(1, ...tendencia.map(([, cantidad]) => cantidad));
-        const peor = [...tendencia].sort((a, b) => b[1] - a[1])[0];
+        const peor = [...tendencia.puntos].sort((a, b) => b[1] - a[1])[0];
         return <Seccion key="tendencia" titulo="Ingresos de reclamos en el tiempo">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 14 }}>
-            <span style={{ color: '#475569', fontSize: 13 }}>{peor ? `Mayor volumen: ${peor[0]} · ${peor[1]} ${peor[1] === 1 ? 'reclamo' : 'reclamos'}` : 'Sin ingresos para los filtros seleccionados.'}</span>
-            <select className="app-select" aria-label="Agrupar reclamos por" value={periodo} onChange={e => setPeriodo(e.target.value as 'semana' | 'mes')}><option value="mes">Por mes</option><option value="semana">Por semana</option></select>
+            <span style={{ color: 'var(--text-secondary)', fontSize: 13 }}>{peor ? `Mayor volumen: ${etiquetaPeriodo(peor[0], periodo)} · ${peor[1]} ${peor[1] === 1 ? 'reclamo' : 'reclamos'}` : 'Sin ingresos para los filtros seleccionados.'}</span>
+            <select className="app-select" aria-label="Agrupar reclamos por" value={periodo} onChange={e => setPeriodo(e.target.value as PeriodoTendencia)}><option value="mes">Por mes</option><option value="semana">Por semana</option><option value="dia">Por día</option></select>
           </div>
-          <div style={{ display: 'grid', gap: 9 }}>
-            {tendencia.map(([clave, cantidad]) => <div key={clave} style={{ display: 'grid', gridTemplateColumns: '90px minmax(0,1fr) 35px', alignItems: 'center', gap: 10, fontSize: 12 }}>
-              <span style={{ color: '#475569' }}>{clave}</span>
-              <div style={{ height: 12, borderRadius: 999, background: '#F1F5F9', overflow: 'hidden' }}><div style={{ height: '100%', width: `${cantidad / max * 100}%`, background: '#3B599B' }} /></div>
-              <strong style={{ textAlign: 'right' }}>{cantidad}</strong>
-            </div>)}
-          </div>
+          {tendencia.demasiadoAmplio
+            ? <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>El rango supera 366 {periodo === 'mes' ? 'meses' : periodo === 'semana' ? 'semanas' : 'días'}. Acotá las fechas para ver la evolución.</p>
+            : <GraficaTendencia puntos={tendencia.puntos} periodo={periodo} />}
         </Seccion>;
       }
 
@@ -769,6 +799,65 @@ function Seccion({ titulo, children }: { titulo: string; children: React.ReactNo
       {children}
     </section>
   );
+}
+
+function GraficaTendencia({ puntos, periodo }: { puntos: [string, number][]; periodo: PeriodoTendencia }) {
+  const contenedor = useRef<HTMLDivElement>(null);
+  const [ancho, setAncho] = useState(640);
+  const [seleccion, setSeleccion] = useState('');
+
+  useEffect(() => {
+    const elemento = contenedor.current;
+    if (!elemento) return;
+    const observar = new ResizeObserver(([entrada]) => setAncho(entrada.contentRect.width));
+    observar.observe(elemento);
+    return () => observar.disconnect();
+  }, []);
+
+  if (!puntos.length) return <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: 13 }}>Todavía no hay reclamos en la selección actual.</p>;
+
+  const width = Math.max(320, ancho, (puntos.length - 1) * 46 + 68);
+  const height = 242;
+  const izquierda = 38;
+  const derecha = 16;
+  const arriba = 16;
+  const abajo = 34;
+  const plotWidth = width - izquierda - derecha;
+  const plotHeight = height - arriba - abajo;
+  const mayor = Math.max(...puntos.map(([, valor]) => valor));
+  const paso = Math.max(1, Math.ceil(mayor / 4));
+  const maxY = paso * 4;
+  const x = (indice: number) => izquierda + (puntos.length === 1 ? plotWidth / 2 : indice * plotWidth / (puntos.length - 1));
+  const y = (valor: number) => arriba + plotHeight * (1 - valor / maxY);
+  const cadaEtiqueta = Math.max(1, Math.ceil(puntos.length / Math.max(2, Math.floor(plotWidth / 85))));
+  const linea = puntos.map(([, valor], indice) => `${indice === 0 ? 'M' : 'L'} ${x(indice)} ${y(valor)}`).join(' ');
+  const puntoActivo = puntos.find(([clave]) => clave === seleccion);
+
+  return <div ref={contenedor}>
+    <div style={{ overflowX: 'auto', maxWidth: '100%' }} tabIndex={width > ancho ? 0 : undefined} aria-label="Gráfica desplazable de ingresos de reclamos">
+      <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} style={{ display: 'block', maxWidth: 'none' }} aria-label={`Evolución de ingresos por ${periodo}. ${puntos.length} períodos; máximo ${mayor} reclamos.`}>
+        {[0, 1, 2, 3, 4].map(indice => {
+          const valor = indice * paso;
+          const posicion = y(valor);
+          return <g key={valor}>
+            <line x1={izquierda} x2={width - derecha} y1={posicion} y2={posicion} stroke="var(--border-default)" strokeWidth="1" />
+            <text x={izquierda - 9} y={posicion + 4} textAnchor="end" fill="var(--text-secondary)" fontSize="11">{valor}</text>
+          </g>;
+        })}
+        {puntos.map(([clave], indice) => (indice % cadaEtiqueta === 0 && (indice === puntos.length - 1 || x(puntos.length - 1) - x(indice) >= 70) || indice === puntos.length - 1) &&
+          <text key={clave} x={x(indice)} y={height - 9} textAnchor="middle" fill="var(--text-secondary)" fontSize="11">{etiquetaPeriodo(clave, periodo, true)}</text>)}
+        <path d={linea} fill="none" stroke="var(--accent)" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+        {puntos.map(([clave, valor], indice) => <g key={clave} tabIndex={0} role="button" aria-label={`${etiquetaPeriodo(clave, periodo)}: ${valor} ${valor === 1 ? 'reclamo' : 'reclamos'}`} onFocus={() => setSeleccion(clave)} onMouseEnter={() => setSeleccion(clave)} onClick={() => setSeleccion(clave)} onKeyDown={evento => { if (evento.key === 'Enter' || evento.key === ' ') { evento.preventDefault(); setSeleccion(clave); } }} style={{ cursor: 'pointer' }}>
+          <circle cx={x(indice)} cy={y(valor)} r={seleccion === clave ? 6 : 4} fill="var(--accent)" stroke="var(--bg-surface)" strokeWidth="2" />
+          <circle cx={x(indice)} cy={y(valor)} r={17} fill="transparent" />
+          <title>{etiquetaPeriodo(clave, periodo)}: {valor} {valor === 1 ? 'reclamo' : 'reclamos'}</title>
+        </g>)}
+      </svg>
+    </div>
+    <p aria-live="polite" style={{ margin: '8px 0 0', minHeight: 18, color: 'var(--text-secondary)', fontSize: 12 }}>
+      {puntoActivo ? `${etiquetaPeriodo(puntoActivo[0], periodo)}: ${puntoActivo[1]} ${puntoActivo[1] === 1 ? 'reclamo' : 'reclamos'}` : 'Tocá un punto para ver su valor exacto.'}
+    </p>
+  </div>;
 }
 
 function KPICard({
