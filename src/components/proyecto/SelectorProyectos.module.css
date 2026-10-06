@@ -178,6 +178,10 @@
 .secondaryBtn:disabled { opacity: .5; cursor: not-allowed; }
 .breadcrumbs { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; margin-bottom: 20px; color: #64748B; font-size: 14px; }
 .breadcrumbs button { border: 0; background: none; color: #3B599B; padding: 2px 4px; cursor: pointer; font: inherit; }
+.breadcrumbs .historyButton { display: grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 1px solid #D8E1ED; border-radius: 7px; background: #fff; }
+.historyButton svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.breadcrumbs .historyButton:disabled { color: #AAB5C6; background: #F4F6F9; cursor: default; }
+.breadcrumbs .historyButton:not(:disabled):hover { background: #E3ECF9; }
 .searchHint { margin-left: 12px; color: #64748B; }
 
 .title {
@@ -360,22 +364,50 @@
 }
 
 /* Grid de proyectos */
+.folderGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(128px, 144px));
+  gap: 12px 16px;
+  margin-bottom: 20px;
+}
+.folderCard { position: relative; min-width: 0; align-self: start; }
+.folderCardOpen { z-index: 5; }
+.folderOpen {
+  display: flex;
+  width: 100%;
+  min-height: 128px;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 15px 8px 10px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #0F172A;
+  cursor: pointer;
+  font: inherit;
+}
+.folderOpen:hover, .folderOpen:focus-visible { background: #E3ECF9; }
+.folderOpen:focus-visible { outline: 2px solid #3B599B; outline-offset: 2px; }
+.folderIcon { width: 76px; height: 64px; flex: none; filter: drop-shadow(0 3px 3px rgba(34,57,99,.16)); }
+.folderName {
+  width: 100%;
+  text-align: center;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+.folderMenu { position: absolute; top: 4px; right: 4px; z-index: 2; width: 29px; height: 29px; border: 0; border-radius: 7px; background: #EAF0F8; color: #3B599B; cursor: pointer; }
+.folderMenu:hover, .folderMenu:focus-visible { background: #D7E4F5; }
+.folderActions { position: absolute; top: 38px; right: 0; z-index: 3; min-width: 132px; padding: 5px; border: 1px solid #D8E1ED; border-radius: 9px; background: #fff; box-shadow: 0 8px 20px rgba(15,23,42,.14); }
+.folderActions button { min-height: 38px; width: 100%; padding: 8px 10px; border: 0; border-radius: 6px; background: transparent; color: #0F172A; text-align: left; cursor: pointer; font: inherit; font-size: 14px; }
+.folderActions button:hover { background: #EDF2F9; }
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(245px, 1fr));
   gap: 24px;
 }
-.folderCard { position: relative; min-width: 0; align-self: start; border: 1px solid #D8E1ED; border-radius: 14px; background: #fff; box-shadow: 0 2px 8px rgba(15,23,42,.06); }
-.folderOpen { width: 100%; min-height: 124px; display: grid; grid-template-columns: 42px 1fr 20px; grid-template-rows: auto auto; align-content: center; align-items: center; gap: 2px 12px; padding: 20px; border: 0; border-radius: 14px; background: transparent; color: #0F172A; text-align: left; cursor: pointer; font: inherit; }
-.folderOpen:hover { background: #F8FAFD; }
-.folderIcon { grid-row: 1 / 3; display: grid; place-items: center; width: 42px; height: 42px; border-radius: 10px; background: #E9EFF9; color: #3B599B; font-size: 23px; }
-.folderName { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 16px; font-weight: 700; }
-.folderMeta { grid-column: 2; color: #64748B; font-size: 12px; }
-.folderArrow { grid-column: 3; grid-row: 1 / 3; font-size: 25px; color: #94A3B8; }
-.folderMenu { position: absolute; top: 8px; right: 8px; z-index: 2; width: 32px; height: 32px; border: 0; border-radius: 7px; background: #EDF2F9; color: #3B599B; cursor: pointer; }
-.folderActions { border-top: 1px solid #E2E8F0; padding: 6px; }
-.folderActions button { min-height: 40px; width: 100%; padding: 8px; border: 0; border-radius: 7px; background: transparent; color: #0F172A; text-align: left; cursor: pointer; font: inherit; font-size: 14px; }
-.folderActions button:hover { background: #EDF2F9; }
 .folderChoices { display: grid; gap: 5px; max-height: 42vh; overflow-y: auto; }
 .folderChoices button { width: 100%; padding: 11px 12px; border: 1px solid #E2E8F0; border-radius: 8px; background: #fff; color: #0F172A; cursor: pointer; text-align: left; font: inherit; }
 .folderChoices button:hover { background: #EFF4FB; border-color: #AABCDC; }

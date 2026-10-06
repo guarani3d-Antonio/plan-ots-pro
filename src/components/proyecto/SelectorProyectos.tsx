@@ -54,7 +54,8 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
   const [archivoNuevoPlano, setArchivoNuevoPlano] = useState<File | null>(null);
   const [carpetaNuevoPlano, setCarpetaNuevoPlano] = useState<string | null>(null);
   const [carpetas, setCarpetas] = useState<Carpeta[]>([]);
-  const [carpetaActual, setCarpetaActual] = useState<string | null>(null);
+  const [historialCarpetas, setHistorialCarpetas] = useState<{ rutas: (string | null)[]; indice: number }>({ rutas: [null], indice: 0 });
+  const carpetaActual = historialCarpetas.rutas[historialCarpetas.indice];
   const [modalCarpeta, setModalCarpeta] = useState(false);
   const [nombreCarpeta, setNombreCarpeta] = useState('');
   const [creandoCarpeta, setCreandoCarpeta] = useState(false);
@@ -68,6 +69,14 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
   const [statsMap,       setStatsMap]       = useState<Record<string, ProyectoStats>>(() => Object.fromEntries(statsCache));
   const [thumbnails,     setThumbnails]     = useState<Record<string, string>>({});
   const menuRef    = useRef<HTMLDivElement>(null);
+
+  function navegarCarpeta(id: string | null) {
+    setHistorialCarpetas(prev => {
+      if (prev.rutas[prev.indice] === id) return prev;
+      const rutas = [...prev.rutas.slice(0, prev.indice + 1), id];
+      return { rutas, indice: rutas.length - 1 };
+    });
+  }
 
   useEffect(() => { void cargarProyectos(); }, [cargarProyectos, empresaId]);
   useEffect(() => {
@@ -267,7 +276,7 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
             <span className={styles.companyLabel}>Empresa activa</span>
             <span className={styles.companySelectWrap}>
               <svg className={styles.companyIcon} viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V7h6V4h4v3h6v13h-6v-4h-4v4H4Zm3-9h2V9H7v2Zm0 4h2v-2H7v2Zm8-4h2V9h-2v2Zm0 4h2v-2h-2v2Z" /></svg>
-              <select className={styles.companySelect} aria-label="Empresa" value={empresaId} onChange={e=>{setProyectoActivo(null);setCarpetaActual(null);useAccessStore.setState({empresaId:e.target.value});}}>
+              <select className={styles.companySelect} aria-label="Empresa" value={empresaId} onChange={e=>{setProyectoActivo(null);setHistorialCarpetas({ rutas: [null], indice: 0 });useAccessStore.setState({empresaId:e.target.value});}}>
                 <option value="">Todas las obras autorizadas</option>
                 {contexto?.empresas.map(e=><option key={e.id} value={e.id}>{e.nombre}</option>)}
               </select>
@@ -294,8 +303,16 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
           </button>
         </div>
         <nav className={styles.breadcrumbs} aria-label="Ruta de carpetas">
-          <button type="button" onClick={() => setCarpetaActual(null)}>Proyectos</button>
-          {rutaCarpeta.map(c => <span key={c.id}> / <button type="button" onClick={() => setCarpetaActual(c.id)}>{c.nombre}</button></span>)}
+          <button type="button" className={styles.historyButton} aria-label="Atrás" title="Atrás" disabled={historialCarpetas.indice === 0}
+            onClick={() => setHistorialCarpetas(prev => ({ ...prev, indice: prev.indice - 1 }))}>
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m12.5 4.5-5.5 5.5 5.5 5.5" /></svg>
+          </button>
+          <button type="button" className={styles.historyButton} aria-label="Adelante" title="Adelante" disabled={historialCarpetas.indice >= historialCarpetas.rutas.length - 1}
+            onClick={() => setHistorialCarpetas(prev => ({ ...prev, indice: prev.indice + 1 }))}>
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m7.5 4.5 5.5 5.5-5.5 5.5" /></svg>
+          </button>
+          <button type="button" onClick={() => navegarCarpeta(null)}>Proyectos</button>
+          {rutaCarpeta.map(c => <span key={c.id}> / <button type="button" onClick={() => navegarCarpeta(c.id)}>{c.nombre}</button></span>)}
           {busqueda && <span className={styles.searchHint}>Buscando en todas las carpetas</span>}
         </nav>
 
@@ -310,14 +327,14 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
           </div>
         )}
 
-        {/* Grid de proyectos */}
-        <div className={styles.grid}>
-          {carpetasFiltradas.map(c => <div key={c.id} className={styles.folderCard}>
-            <button type="button" className={styles.folderOpen} onClick={() => { setBusqueda(''); setCarpetaActual(c.id); }}>
-              <span className={styles.folderIcon} aria-hidden="true">▣</span>
+        {carpetasFiltradas.length > 0 && <div className={styles.folderGrid}>
+          {carpetasFiltradas.map(c => <div key={c.id} className={`${styles.folderCard} ${menuCarpeta === c.id ? styles.folderCardOpen : ''}`}>
+            <button type="button" className={styles.folderOpen} onClick={() => { setBusqueda(''); navegarCarpeta(c.id); }}>
+              <svg className={styles.folderIcon} viewBox="0 0 96 80" aria-hidden="true">
+                <path d="M8 15a7 7 0 0 1 7-7h22l9 9h35a7 7 0 0 1 7 7v43a7 7 0 0 1-7 7H15a7 7 0 0 1-7-7Z" fill="#5D79B0" />
+                <path d="M8 32a7 7 0 0 1 7-7h66a7 7 0 0 1 7 7v35a7 7 0 0 1-7 7H15a7 7 0 0 1-7-7Z" fill="#91A9D3" />
+              </svg>
               <span className={styles.folderName}>{c.nombre}</span>
-              <span className={styles.folderMeta}>Carpeta · nivel {c.profundidad}</span>
-              <span className={styles.folderArrow} aria-hidden="true">›</span>
             </button>
             {(contexto?.creador || c.created_by === identityId()) && <button type="button" className={styles.folderMenu} aria-label={`Opciones de ${c.nombre}`} aria-expanded={menuCarpeta === c.id}
               onClick={() => setMenuCarpeta(menuCarpeta === c.id ? null : c.id)}>···</button>
@@ -326,6 +343,10 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
               <button type="button" onClick={() => { setMenuCarpeta(null); setBusquedaCarpeta(''); setCarpetaMover(c); }}>Mover</button>
             </div>}
           </div>)}
+        </div>}
+
+        {/* Los planos mantienen sus tarjetas; las carpetas se leen como iconos. */}
+        <div className={styles.grid}>
           {loading && proyectosFiltrados.length === 0 && carpetasFiltradas.length === 0 ? (
             <div className={styles.empty}>Cargando proyectos…</div>
           ) : proyectosFiltrados.length === 0 && carpetasFiltradas.length === 0 ? (
