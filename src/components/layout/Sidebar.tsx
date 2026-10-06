@@ -42,6 +42,7 @@ function NavIcon({ children }: { children: ReactNode }) {
 const ICONS = {
   dashboard: <NavIcon><path d="M4 13h6V4H4v9Zm0 7h6v-4H4v4Zm10 0h6v-9h-6v9Zm0-16v4h6V4h-6Z" /></NavIcon>,
   proyectos: <NavIcon><path d="M3.75 6.75A1.75 1.75 0 0 1 5.5 5h4l1.65 2h7.35a1.75 1.75 0 0 1 1.75 1.75v8.75a1.75 1.75 0 0 1-1.75 1.75h-13a1.75 1.75 0 0 1-1.75-1.75V6.75Z" /></NavIcon>,
+  grilla: <NavIcon><path fill="none" d="M3 4.5h18v15H3v-15Zm0 5h18M3 14.5h18M9 4.5v15M15 4.5v15" /></NavIcon>,
   responsables: <NavIcon><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 8a7 7 0 0 1 14 0H5Z" /></NavIcon>,
   contratistas: <NavIcon><path d="M4 20V7h6V4h4v3h6v13h-6v-4h-4v4H4Zm3-9h2V9H7v2Zm0 4h2v-2H7v2Zm8-4h2V9h-2v2Zm0 4h2v-2h-2v2Z" /></NavIcon>,
   creador: <NavIcon><path d="m12 2 2.4 6.1 6.6.5-5 4.3 1.6 6.4-5.6-3.4-5.6 3.4 1.6-6.4-5-4.3 6.6-.5L12 2Z" /></NavIcon>,
@@ -54,6 +55,7 @@ const ICONS = {
 const NAV_PRINCIPAL: NavItem[] = [
   { vista: 'dashboard', icon: ICONS.dashboard, label: 'Dashboard' },
   { vista: 'proyectos', icon: ICONS.proyectos, label: 'Proyectos' },
+  { vista: 'grilla', icon: ICONS.grilla, label: 'Grilla' },
 ];
 
 const NAV_GLOBALES: NavItem[] = [

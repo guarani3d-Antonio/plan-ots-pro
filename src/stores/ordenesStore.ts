@@ -14,6 +14,7 @@ interface OrdenesState {
   cargarOrdenes: (proyectoId:string)=>Promise<void>;
   asegurarOrdenes: (proyectoId:string)=>Promise<void>;
   cargarTodasLasOrdenes: ()=>Promise<void>;
+  cargarOrdenesDeProyectos: (ids:string[])=>Promise<void>;
   crearOrdenEnPosicion: (proyectoId:string,posX:number,posY:number)=>Promise<OrdenLocal>;
   crearOrdenDesdeImport: (datos:Omit<OrdenLocal,'id'|'_synced'|'_last_fetched'>)=>Promise<string>;
   agregarOActualizarOrden:(orden:OrdenLocal)=>void;
@@ -26,7 +27,7 @@ interface OrdenesState {
   seleccionar:(id:string|null)=>void;limpiar:()=>void;
   setOtsPendientesImport:(ids:string[])=>void;completarOtImport:(id:string)=>void;
 }
-let sequence=0,scope='*';
+let sequence=0,scope='*',scopeProjects=new Set<string>();
 const message=(e:unknown)=>e instanceof Error?e.message:'No se pudo confirmar la operación en el servidor.';
 const equal=(a:unknown,b:unknown)=>JSON.stringify(a)===JSON.stringify(b);
 const newer=(incoming:OrdenLocal,current:OrdenLocal)=>
@@ -36,7 +37,7 @@ export const useOrdenesStore=create<OrdenesState>((set,get)=>({
   cargarTodasLasOrdenes:async()=>{
     const request=++sequence;
     const mismasOrdenes=scope==='*'?get().ordenes:[];
-    scope='*';set({ordenes:mismasOrdenes,cargando:true,error:null});
+    scope='*';scopeProjects=new Set();set({ordenes:mismasOrdenes,cargando:true,error:null});
     try {
       const ticket=sessionTicket();
       const {useProyectosStore}=await import('./proyectosStore');
@@ -47,10 +48,24 @@ export const useOrdenesStore=create<OrdenesState>((set,get)=>({
       if(request===sequence)set({ordenes:(data??[]).map(rowToOrden),cargando:false});
     }catch(e){if(request===sequence)set({ordenes:mismasOrdenes,cargando:false,error:message(e)});}
   },
+  cargarOrdenesDeProyectos:async(ids)=>{
+    const request=++sequence;
+    const key=`grilla:${[...ids].sort().join(',')}`;
+    const mismasOrdenes=scope===key?get().ordenes:[];
+    scope=key;scopeProjects=new Set(ids);set({ordenes:mismasOrdenes,ordenSeleccionada:null,cargando:true,error:null});
+    try{
+      const ticket=sessionTicket();
+      const {data,error}=ids.length
+        ? await supabase.from('ordenes').select(ORDEN_SELECT).in('proyecto_id',ids).is('deleted_at',null).order('updated_at',{ascending:false})
+        : {data:[],error:null};
+      assertSession(ticket);if(error)throw new Error(error.message);
+      if(request===sequence)set({ordenes:(data??[]).map(rowToOrden),cargando:false});
+    }catch(e){if(request===sequence)set({ordenes:mismasOrdenes,cargando:false,error:message(e)});}
+  },
   cargarOrdenes:async(proyectoId)=>{
     const request=++sequence;
     const mismasOrdenes=scope===proyectoId?get().ordenes:[];
-    scope=proyectoId;set({ordenes:mismasOrdenes,ordenSeleccionada:null,cargando:true,error:null});
+    scope=proyectoId;scopeProjects=new Set();set({ordenes:mismasOrdenes,ordenSeleccionada:null,cargando:true,error:null});
     try{
       const ticket=sessionTicket();
       const {data,error}=await supabase.from('ordenes').select(ORDEN_SELECT).eq('proyecto_id',proyectoId).is('deleted_at',null).order('ot',{ascending:true});
@@ -68,7 +83,7 @@ export const useOrdenesStore=create<OrdenesState>((set,get)=>({
     assertSession(ticket);if(error||!id)throw new Error(error?.message??'El servidor no confirmó la creación.');
     const result=await supabase.from('ordenes').select(ORDEN_SELECT).eq('id',id).single();
     assertSession(ticket);if(result.error||!result.data)throw new Error(result.error?.message??'La orden se creó, pero no pudo recuperarse.');
-    const saved=rowToOrden(result.data);if(scope==='*'||scope===saved.proyecto_id)set(s=>({ordenes:[...s.ordenes.filter(o=>o.id!==saved.id),saved]}));
+    const saved=rowToOrden(result.data);if(scope==='*'||scope===saved.proyecto_id||scopeProjects.has(saved.proyecto_id))set(s=>({ordenes:[...s.ordenes.filter(o=>o.id!==saved.id),saved]}));
     return saved;
   },
   crearOrdenDesdeImport:async(datos)=>{
@@ -77,11 +92,11 @@ export const useOrdenesStore=create<OrdenesState>((set,get)=>({
     const {data,error}=await supabase.from('ordenes').insert(ordenToRow(nueva)).select(ORDEN_SELECT).single();
     assertSession(ticket);if(error||!data)throw new Error(error?.message??'El servidor no confirmó la creación.');
     const saved=rowToOrden(data);
-    if(scope==='*'||scope===saved.proyecto_id)set(s=>({ordenes:[...s.ordenes.filter(o=>o.id!==saved.id),saved]}));
+    if(scope==='*'||scope===saved.proyecto_id||scopeProjects.has(saved.proyecto_id))set(s=>({ordenes:[...s.ordenes.filter(o=>o.id!==saved.id),saved]}));
     return saved.id;
   },
   agregarOActualizarOrden:orden=>{
-    if(scope!=='*'&&scope!==orden.proyecto_id)return;
+    if(scope!=='*'&&scope!==orden.proyecto_id&&!scopeProjects.has(orden.proyecto_id))return;
     set(s=>({ordenes:s.ordenes.some(o=>o.id===orden.id)?s.ordenes.map(o=>o.id===orden.id&&newer(orden,o)?orden:o):[...s.ordenes,orden]}));
   },
   aplicarEliminacionRemota:id=>set(s=>({ordenes:s.ordenes.filter(o=>o.id!==id),ordenSeleccionada:s.ordenSeleccionada===id?null:s.ordenSeleccionada})),
@@ -130,7 +145,7 @@ export const useOrdenesStore=create<OrdenesState>((set,get)=>({
     get().aplicarEliminacionRemota(id);
   },
   seleccionar:id=>set({ordenSeleccionada:id}),
-  limpiar:()=>{sequence++;scope='';set({ordenes:[],ordenSeleccionada:null,cargando:false,error:null,otsPendientesImport:[]});},
+  limpiar:()=>{sequence++;scope='';scopeProjects=new Set();set({ordenes:[],ordenSeleccionada:null,cargando:false,error:null,otsPendientesImport:[]});},
   setOtsPendientesImport:ids=>set({otsPendientesImport:ids}),
   completarOtImport:id=>set(s=>({otsPendientesImport:s.otsPendientesImport.filter(x=>x!==id)})),
 }));

@@ -6,7 +6,7 @@ import type { Vista } from './Sidebar';
 import styles from './ApplicationTopBar.module.css';
 
 const TITULOS: Partial<Record<Vista, string>> = {
-  dashboard: 'Dashboard', proyectos: 'Proyectos', responsables: 'Responsables',
+  dashboard: 'Dashboard', proyectos: 'Proyectos', grilla: 'Grilla', responsables: 'Responsables',
   contratistas: 'Contratistas', gantt: 'Gantt', calendario: 'Calendario',
   ayuda: 'Ayuda', configuracion: 'Configuración',
   creador: 'Creador',

@@ -62,6 +62,7 @@ import { usePuedeVerCostos } from '../../hooks/usePuedeVerCostos';
 interface PanelOTProps {
   orden: OrdenLocal | null;
   onCerrar: () => void;
+  proyectoNombre?: string;
   modoForzadoFotos?: boolean;
   esNueva?: boolean;
   tabInicial?: Tab;
@@ -231,7 +232,7 @@ function BtnEditarFotoCard({ onClick, disabled = false, title }: { onClick: () =
   );
 }
 
-export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, esNueva = false, tabInicial = 'datos' }: PanelOTProps) {
+export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzadoFotos = false, esNueva = false, tabInicial = 'datos' }: PanelOTProps) {
   const { actualizarOrden, cambiarEstado, cancelarOrdenNueva, eliminarOrden, moverOrden } = useOrdenesStore();
   const { user } = useAuthStore();
   const proyectoActivo = useProyectosStore(s => s.proyectoActivo);
@@ -1127,7 +1128,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
                   <select aria-label="Ubicación del cliente" className={styles.select} value={form.cliente_ubicacion_id ?? ''} onChange={e => {
                     const site = ubicacionesCliente.find(c => c.ubicacion_id === e.target.value);
                     setForm(f => ({ ...f, cliente_ubicacion_id: site?.ubicacion_id ?? null,
-                      obra: site?.nombre_obra ?? (proyectoActivo?.id === ordenFresca.proyecto_id ? proyectoActivo.nombre : ''),
+                      obra: site?.nombre_obra ?? (proyectoNombre ?? (proyectoActivo?.id === ordenFresca.proyecto_id ? proyectoActivo.nombre : '')),
                       unidad_amenities: site ? (site.unidad || site.sector || '') : '' }));
                   }}>
                     <option value="">— Elegir ubicación —</option>
@@ -1147,8 +1148,9 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
                   <label className={styles.label}>Obra</label>
                   <select className={styles.select} value={form.obra ?? ''} onChange={e => set('obra', e.target.value)}>
                     <option value="">— Seleccionar obra —</option>
-                    {proyectoActivo?.id === ordenFresca.proyecto_id && <option value={proyectoActivo.nombre}>{proyectoActivo.nombre}</option>}
-                    {form.obra && form.obra !== proyectoActivo?.nombre && <option value={form.obra}>{form.obra} (registro anterior)</option>}
+                    {proyectoNombre && <option value={proyectoNombre}>{proyectoNombre}</option>}
+                    {!proyectoNombre && proyectoActivo?.id === ordenFresca.proyecto_id && <option value={proyectoActivo.nombre}>{proyectoActivo.nombre}</option>}
+                    {form.obra && form.obra !== (proyectoNombre ?? proyectoActivo?.nombre) && <option value={form.obra}>{form.obra} (registro anterior)</option>}
                   </select>
                 </div>
                 <div className={styles.field}>
@@ -1483,7 +1485,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
           const sitio = sitios.find(u => u.ubicacion_id === form.cliente_ubicacion_id)
             ?? (sitios.length === 1 ? sitios[0] : null);
           setForm(f => ({ ...f, cliente_id:id, cliente_ubicacion_id:sitio?.ubicacion_id ?? null,
-            obra:sitio?.nombre_obra ?? proyectoActivo?.nombre ?? '', unidad_amenities:sitio ? (sitio.unidad || sitio.sector || '') : '' }));
+            obra:sitio?.nombre_obra ?? proyectoNombre ?? (proyectoActivo?.id === ordenFresca.proyecto_id ? proyectoActivo.nombre : ''), unidad_amenities:sitio ? (sitio.unidad || sitio.sector || '') : '' }));
         }} />}
       {buscador === 'contratista' && <BuscarDirectorioOT titulo="Buscar contratistas" etiquetaBusqueda="Buscar por nombre" error={errorDirectorio} multiple
         opciones={contratistasGlobales.map(nombre => ({ id:nombre,nombre }))} seleccionados={form.contratistas ?? []}
@@ -1491,7 +1493,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
       {altaCliente && <DialogDirectorioOT titulo={altaCliente.clienteId ? 'Agregar ubicación' : 'Nuevo cliente'} busy={guardandoCliente}
         onCerrar={() => setAltaCliente(null)}>
         <AltaClienteOT key={`${ordenFresca.id}:${altaCliente.clienteId ?? 'nuevo'}`} proyectoId={ordenFresca.proyecto_id}
-          obra={proyectoActivo?.nombre ?? form.obra ?? ''} clienteInicial={altaCliente.clienteId}
+          obra={proyectoNombre ?? (proyectoActivo?.id === ordenFresca.proyecto_id ? proyectoActivo.nombre : form.obra ?? '')} clienteInicial={altaCliente.clienteId}
           onBusy={busy => { clienteBusyRef.current = busy; setGuardandoCliente(busy); }} onCancelar={() => setAltaCliente(null)}
           onGuardar={cliente => {
             setClientesObra(actual => [...actual.filter(c => c.ubicacion_id !== cliente.ubicacion_id),cliente]);
@@ -1536,7 +1538,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, modoForzadoFotos = false, 
 
       {modalCierre && (
         <InformeErrorBoundary key={`${ordenFresca.id}:${tipoInforme}`} onClose={() => setModalCierre(false)}>
-          <ModalInformeOT isOpen={modalCierre} onClose={() => setModalCierre(false)} orden={ordenFresca} proyectoNombre={proyectoActivo?.nombre ?? ''} tipo={tipoInforme} puedeRevisar={esSupervisor} />
+          <ModalInformeOT isOpen={modalCierre} onClose={() => setModalCierre(false)} orden={ordenFresca} proyectoNombre={proyectoNombre ?? (proyectoActivo?.id === ordenFresca.proyecto_id ? proyectoActivo.nombre : '')} tipo={tipoInforme} puedeRevisar={esSupervisor} />
         </InformeErrorBoundary>
       )}
 

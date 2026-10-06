@@ -3,11 +3,15 @@ import type { CSSProperties } from 'react';
 import Papa from 'papaparse';
 import styles from './VistaGrilla.module.css';
 import { useOrdenesStore } from '../../stores/ordenesStore';
+import { type Proyecto } from '../../stores/proyectosStore';
+import { useAccessStore } from '../../stores/accessStore';
+import { supabase } from '../../db/supabase';
+import { assertSession, sessionTicket } from '../../security/sessionScope';
 import { ModalDetalleOT } from './ModalDetalleOT';
 import { PanelOT } from '../plano/PanelOT';
-import { getCamposDeProyecto, type CampoDefinicion } from '../../services/camposService';
+import { type CampoDefinicion } from '../../services/camposService';
 import { colorEstado, diasAbierto } from '../../utils/calculos';
-import { usePuedeVerCostos } from '../../hooks/usePuedeVerCostos';
+import { usePuedeVerCostosMultiple } from '../../hooks/usePuedeVerCostos';
 import { scopedKey } from '../../security/sessionScope';
 import { fechaParaMostrar } from '../../utils/fechaCivil';
 
@@ -48,14 +52,13 @@ interface OrdenTrabajo {
   informe_relevamiento?: 'Pendiente' | 'enviada' | 'no aplica';
   informe_avance?: 'Pendiente' | 'enviada' | 'no aplica';
   informe_cierre?: 'Pendiente' | 'enviada' | 'no aplica';
+  empresa_nombre?: string;
+  obra_proyecto?: string;
+  plano_nombre?: string;
+  carpeta_ruta?: string;
 }
 
-interface Props {
-  proyectoId: string;
-  proyectoNombre: string;
-  onBack: () => void;
-  onSwitchToPlano: () => void;
-}
+interface Carpeta { id: string; tenant_id: string; padre_id: string | null; nombre: string }
 
 // ─────────────────────────────────────────────── Constantes ──
 
@@ -87,8 +90,12 @@ interface Columna {
 
 const COLUMNAS: Columna[] = [
   { key: 'ot',                         label: 'OT',            minWidth: 90,  fija: true },
+  { key: 'empresa_nombre',             label: 'Empresa',       minWidth: 160 },
+  { key: 'obra_proyecto',              label: 'Obra',          minWidth: 180 },
+  { key: 'plano_nombre',               label: 'Plano / proyecto', minWidth: 180 },
+  { key: 'carpeta_ruta',               label: 'Carpeta',       minWidth: 170 },
   { key: 'fecha_ingreso',              label: 'F. Ingreso',    minWidth: 120 },
-  { key: 'obra',                       label: 'Obra',          minWidth: 140 },
+  { key: 'obra',                       label: 'Obra (OT)',     minWidth: 140 },
   { key: 'unidad_amenities',           label: 'Unidad',        minWidth: 120 },
   { key: 'estado',                     label: 'Estado',        minWidth: 110 },
   { key: 'prioridad',                  label: 'Prioridad',     minWidth: 90  },
@@ -138,7 +145,7 @@ const KANBAN_COLUMNAS: { estado: EstadoOT; label: string; color: string }[] = [
 
 const CAMPOS_TARJETA: { key: string; label: string; default: boolean }[] = [
   { key: 'descripcion',           label: 'Descripción',         default: false },
-  { key: 'obra',                  label: 'Obra',                default: true  },
+  { key: 'obra',                  label: 'Obra (OT)',           default: true  },
   { key: 'unidad_amenities',      label: 'Unidad / Amenities',  default: false },
   { key: 'rubro',                 label: 'Rubro',               default: true  },
   { key: 'rubro_secundario',      label: 'Rubro Secundario',    default: false },
@@ -157,7 +164,10 @@ const CAMPOS_TARJETA: { key: string; label: string; default: boolean }[] = [
 const LS_CAMPOS_TARJETA_KEY = 'kanban_campos_tarjeta';
 
 const AGRUPABLES: { key: string; label: string }[] = [
-  { key: 'obra',         label: 'Obra' },
+  { key: 'empresa_nombre', label: 'Empresa' },
+  { key: 'obra_proyecto', label: 'Obra' },
+  { key: 'plano_nombre', label: 'Plano / proyecto' },
+  { key: 'obra',         label: 'Obra (OT)' },
   { key: 'estado',       label: 'Estado' },
   { key: 'rubro',        label: 'Rubro' },
   { key: 'nivel_riesgo', label: 'Riesgo' },
@@ -530,13 +540,95 @@ function escapeHtml(s: string): string {
 
 // ─────────────────────────────────────────────── Componente ──
 
-export const VistaGrilla: React.FC<Props> = ({ proyectoId, proyectoNombre, onSwitchToPlano }) => {
-  const { ordenes, cargarOrdenes, asegurarOrdenes } = useOrdenesStore();
+export const VistaGrilla: React.FC = () => {
+  const { ordenes, cargarOrdenesDeProyectos, cargando, error: errorOrdenes } = useOrdenesStore();
+  const contexto = useAccessStore(s => s.contexto);
+  const [proyectos, setProyectos] = useState<Proyecto[]>([]);
+  const [carpetas, setCarpetas] = useState<Carpeta[]>([]);
+  const [cargandoCatalogo, setCargandoCatalogo] = useState(true);
+  const [errorCatalogo, setErrorCatalogo] = useState<string | null>(null);
+  const [revisionCatalogo, setRevisionCatalogo] = useState(0);
+  const [empresaFiltro, setEmpresaFiltro] = useState('');
+  const [obraFiltro, setObraFiltro] = useState('');
+  const [carpetaFiltro, setCarpetaFiltro] = useState('');
+  const [planoFiltro, setPlanoFiltro] = useState('');
   const [informeOrdenId, setInformeOrdenId] = useState<string | null>(null);
-  const informeOrden = ordenes.find(o => o.id === informeOrdenId && o.proyecto_id === proyectoId);
-  // P0-6: único booleano que decide si costo se ve en esta grilla (columna,
-  // celda, tarjeta, CSV y PDF/HTML).
-  const puedeVerCostos = usePuedeVerCostos(proyectoId);
+  const [panelTab, setPanelTab] = useState<'datos' | 'informes'>('informes');
+  const informeOrden = ordenes.find(o => o.id === informeOrdenId && proyectos.some(p => p.id === o.proyecto_id));
+
+  useEffect(() => {
+    let vigente = true;
+    const ticket = sessionTicket();
+    void Promise.all([
+      supabase.from('proyectos').select('*').is('deleted_at', null).order('nombre'),
+      supabase.from('plan_carpetas').select('id,tenant_id,padre_id,nombre').order('nombre'),
+    ]).then(([proyectosResult, carpetasResult]) => {
+      assertSession(ticket);
+      if (!vigente) return;
+      if (proyectosResult.error) throw new Error(proyectosResult.error.message);
+      if (carpetasResult.error) throw new Error(carpetasResult.error.message);
+      // Ambas consultas obedecen RLS: el catálogo nunca incluye obras ajenas.
+      setProyectos(proyectosResult.data as Proyecto[]);
+      setCarpetas(carpetasResult.data as Carpeta[]);
+      setErrorCatalogo(null);
+    }).catch(error => {
+      if (vigente) setErrorCatalogo(error instanceof Error ? error.message : 'No se pudieron cargar las obras.');
+    }).finally(() => { if (vigente) setCargandoCatalogo(false); });
+    return () => { vigente = false; };
+  }, [revisionCatalogo]);
+
+  const porId = useMemo(() => new Map(proyectos.map(p => [p.id, p])), [proyectos]);
+  const carpetasPorId = useMemo(() => new Map(carpetas.map(c => [c.id, c])), [carpetas]);
+  const rutaCarpeta = useCallback((id: string | null | undefined) => {
+    const nombres: string[] = [];
+    const vistos = new Set<string>();
+    let actual = id ?? null;
+    while (actual && !vistos.has(actual) && nombres.length < 5) {
+      vistos.add(actual);
+      const carpeta = carpetasPorId.get(actual);
+      if (!carpeta) break;
+      nombres.unshift(carpeta.nombre);
+      actual = carpeta.padre_id;
+    }
+    return nombres.join(' / ');
+  }, [carpetasPorId]);
+  const empresas = useMemo(() => (contexto?.empresas ?? [])
+    .filter(e => proyectos.some(p => p.tenant_id === e.id)), [contexto, proyectos]);
+  const obras = useMemo(() => proyectos.filter(p => !p.proyecto_padre_id && (!empresaFiltro || p.tenant_id === empresaFiltro)), [proyectos, empresaFiltro]);
+  const carpetasFiltrables = useMemo(() => carpetas.filter(c => !empresaFiltro || c.tenant_id === empresaFiltro), [carpetas, empresaFiltro]);
+  const carpetaDescendiente = useCallback((id: string | null | undefined) => {
+    if (!carpetaFiltro) return true;
+    const vistos = new Set<string>();
+    let actual = id ?? null;
+    while (actual && !vistos.has(actual)) {
+      if (actual === carpetaFiltro) return true;
+      vistos.add(actual);
+      actual = carpetasPorId.get(actual)?.padre_id ?? null;
+    }
+    return false;
+  }, [carpetaFiltro, carpetasPorId]);
+  const proyectosAlcance = useMemo(() => proyectos.filter(p =>
+    (!empresaFiltro || p.tenant_id === empresaFiltro) &&
+    (!obraFiltro || (p.proyecto_padre_id ?? p.id) === obraFiltro) &&
+    carpetaDescendiente(p.carpeta_id) &&
+    (!planoFiltro || p.id === planoFiltro)
+  ), [proyectos, empresaFiltro, obraFiltro, carpetaDescendiente, planoFiltro]);
+  const planosFiltrables = useMemo(() => proyectos.filter(p =>
+    (!empresaFiltro || p.tenant_id === empresaFiltro) &&
+    (!obraFiltro || (p.proyecto_padre_id ?? p.id) === obraFiltro) &&
+    carpetaDescendiente(p.carpeta_id)
+  ), [proyectos, empresaFiltro, obraFiltro, carpetaDescendiente]);
+  const idsCatalogo = useMemo(() => proyectos.map(p => p.id), [proyectos]);
+  useEffect(() => {
+    if (!cargandoCatalogo && !errorCatalogo) void cargarOrdenesDeProyectos(idsCatalogo);
+  }, [cargandoCatalogo, errorCatalogo, idsCatalogo, cargarOrdenesDeProyectos]);
+  const idsAlcance = useMemo(() => proyectosAlcance.map(p => p.id), [proyectosAlcance]);
+  const idsAlcanceSet = useMemo(() => new Set(idsAlcance), [idsAlcance]);
+  // Costos solo cuando TODOS los proyectos del alcance conceden ese permiso.
+  const puedeVerCostos = usePuedeVerCostosMultiple(idsAlcance);
+  const proyectoNombre = planoFiltro ? porId.get(planoFiltro)?.nombre ?? 'Grilla' :
+    obraFiltro ? porId.get(obraFiltro)?.nombre ?? 'Grilla' :
+    empresaFiltro ? empresas.find(e => e.id === empresaFiltro)?.nombre ?? 'Grilla' : 'Todas las obras autorizadas';
   const columnasRol = useMemo(
     () => puedeVerCostos ? COLUMNAS : COLUMNAS.filter(c => c.key !== 'costo'),
     [puedeVerCostos],
@@ -598,9 +690,21 @@ export const VistaGrilla: React.FC<Props> = ({ proyectoId, proyectoNombre, onSwi
   }, [columnasOcultas]);
 
   useEffect(() => {
-    void asegurarOrdenes(proyectoId);
-    getCamposDeProyecto(proyectoId).then(setCamposDefinicion).catch(err => console.error('[VistaGrilla] campos:', err));
-  }, [proyectoId, asegurarOrdenes]);
+    let vigente = true;
+    const cargar = async () => {
+      if (!idsAlcance.length) { if (vigente) setCamposDefinicion([]); return; }
+      try {
+        const ticket = sessionTicket();
+        const { data, error } = await supabase.from('campos_definicion').select('*')
+          .in('proyecto_id', idsAlcance).order('orden', { ascending: true });
+        assertSession(ticket);
+        if (error) throw new Error(error.message);
+        if (vigente) setCamposDefinicion(data as CampoDefinicion[]);
+      } catch (error) { if (vigente) console.error('[VistaGrilla] campos:', error); }
+    };
+    void cargar();
+    return () => { vigente = false; };
+  }, [idsAlcance]);
 
   useEffect(() => {
     try { localStorage.setItem(scopedKey(LS_COLS_KEY), JSON.stringify(columnasCustomVisibles)); } catch (e) { console.error(e); }
@@ -616,7 +720,18 @@ export const VistaGrilla: React.FC<Props> = ({ proyectoId, proyectoNombre, onSwi
     return () => document.removeEventListener('mousedown', fn);
   }, [accionesMenuId, popoverColsOpen]);
 
-  const proyecto_ordenes = useMemo(() => ordenes.filter(o => o.proyecto_id === proyectoId) as unknown as OrdenTrabajo[], [ordenes, proyectoId]);
+  const proyecto_ordenes = useMemo(() => ordenes
+    .filter(o => idsAlcanceSet.has(o.proyecto_id))
+    .map(o => {
+      const plano = porId.get(o.proyecto_id);
+      const obra = plano ? porId.get(plano.proyecto_padre_id ?? plano.id) : undefined;
+      return { ...o,
+        empresa_nombre: empresas.find(e => e.id === plano?.tenant_id)?.nombre ?? '',
+        obra_proyecto: obra?.nombre ?? plano?.nombre ?? '',
+        plano_nombre: plano?.nombre ?? '',
+        carpeta_ruta: rutaCarpeta(plano?.carpeta_id),
+      } as OrdenTrabajo;
+    }), [ordenes, idsAlcanceSet, porId, empresas, rutaCarpeta]);
   const rubrosUnicos = useMemo(() => [...new Set(proyecto_ordenes.map(o => o.rubro).filter(Boolean))].sort(), [proyecto_ordenes]);
 
   const filtradas = useMemo(() => {
@@ -627,7 +742,7 @@ export const VistaGrilla: React.FC<Props> = ({ proyectoId, proyectoNombre, onSwi
     if (filtroRiesgos.size > 0)     lista = lista.filter(o => !!o.nivel_riesgo && filtroRiesgos.has(o.nivel_riesgo));
     if (busqueda) {
       const q = busqueda.toLowerCase();
-      lista = lista.filter(o => o.ot.toLowerCase().includes(q) || (o.descripcion ?? '').toLowerCase().includes(q) || (o.comentarios ?? '').toLowerCase().includes(q) || (o.responsable ?? '').toLowerCase().includes(q) || (o.ubicacion ?? '').toLowerCase().includes(q) || (o.rubro ?? '').toLowerCase().includes(q) || (o.obra ?? '').toLowerCase().includes(q));
+      lista = lista.filter(o => o.ot.toLowerCase().includes(q) || (o.descripcion ?? '').toLowerCase().includes(q) || (o.comentarios ?? '').toLowerCase().includes(q) || (o.responsable ?? '').toLowerCase().includes(q) || (o.ubicacion ?? '').toLowerCase().includes(q) || (o.rubro ?? '').toLowerCase().includes(q) || (o.obra ?? '').toLowerCase().includes(q) || (o.empresa_nombre ?? '').toLowerCase().includes(q) || (o.obra_proyecto ?? '').toLowerCase().includes(q) || (o.plano_nombre ?? '').toLowerCase().includes(q) || (o.carpeta_ruta ?? '').toLowerCase().includes(q));
     }
     lista.sort((a, b) => {
       const va = (a as unknown as Record<string, unknown>)[sortKey];
@@ -664,6 +779,9 @@ export const VistaGrilla: React.FC<Props> = ({ proyectoId, proyectoNombre, onSwi
   const visibleColumnas = useMemo(() => columnasRol.filter(c => c.fija || !columnasOcultas.has(c.key)), [columnasRol, columnasOcultas]);
   const totalColumnas = visibleColumnas.length + camposCustomActivos.length;
   const conteos = useMemo(() => ({
+    empresa_nombre: new Set(proyecto_ordenes.map(o => o.empresa_nombre).filter(Boolean)).size,
+    obra_proyecto: new Set(proyecto_ordenes.map(o => o.obra_proyecto).filter(Boolean)).size,
+    plano_nombre: new Set(proyecto_ordenes.map(o => o.plano_nombre).filter(Boolean)).size,
     estado: new Set(proyecto_ordenes.map(o => o.estado)).size,
     prioridad: new Set(proyecto_ordenes.map(o => o.prioridad)).size,
     rubro: new Set(proyecto_ordenes.map(o => o.rubro).filter(Boolean)).size,
@@ -672,8 +790,11 @@ export const VistaGrilla: React.FC<Props> = ({ proyectoId, proyectoNombre, onSwi
     responsable: new Set(proyecto_ordenes.map(o => o.responsable).filter(Boolean)).size,
   } as Record<string, number>), [proyecto_ordenes]);
 
+  const nombreCampo = useCallback((campo: CampoDefinicion) => proyectosAlcance.length > 1
+    ? `${porId.get(campo.proyecto_id)?.nombre ?? 'Plano'} · ${campo.nombre}` : campo.nombre,
+    [proyectosAlcance.length, porId]);
   const handleExportarCSV = useCallback(() => {
-    const fields = [...visibleColumnas.map(c => c.label), ...camposCustomActivos.map(c => c.nombre)];
+    const fields = [...visibleColumnas.map(c => c.label), ...camposCustomActivos.map(nombreCampo)];
     const data = filtradas.map(o => [...visibleColumnas.map(c => celdaATexto(c.key, o)), ...camposCustomActivos.map(c => { const v = o.campos?.[c.id]; if (v == null || v === '') return ''; if (Array.isArray(v)) return v.join(', '); return String(v); })]);
     const csv = Papa.unparse({ fields, data }, { quotes: false, delimiter: ',' });
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
@@ -681,17 +802,17 @@ export const VistaGrilla: React.FC<Props> = ({ proyectoId, proyectoNombre, onSwi
     const a = document.createElement('a');
     a.href = url; a.download = `${proyectoNombre}_${new Date().toISOString().slice(0, 10)}.csv`; a.click();
     URL.revokeObjectURL(url);
-  }, [filtradas, visibleColumnas, camposCustomActivos, proyectoNombre]);
+  }, [filtradas, visibleColumnas, camposCustomActivos, proyectoNombre, nombreCampo]);
 
   const handleExportarPDF = useCallback(() => {
-    const html = generarHTMLImprimible(filtradas, visibleColumnas, camposCustomActivos, proyectoNombre, puedeVerCostos);
+    const html = generarHTMLImprimible(filtradas, visibleColumnas,
+      camposCustomActivos.map(c => ({ ...c, nombre: nombreCampo(c) })), proyectoNombre, puedeVerCostos);
     const w = window.open('', '_blank');
     if (!w) return;
     w.document.open(); w.document.write(html); w.document.close();
-  }, [filtradas, visibleColumnas, camposCustomActivos, proyectoNombre, puedeVerCostos]);
+  }, [filtradas, visibleColumnas, camposCustomActivos, proyectoNombre, puedeVerCostos, nombreCampo]);
 
   const onRowClick = (o: OrdenTrabajo) => setModalOrden(o);
-  void onSwitchToPlano;
 
   const workspaceStyle: CSSProperties  = { background: '#F9F9FE', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' };
   const mainPanelStyle: CSSProperties  = { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' };
@@ -725,8 +846,8 @@ export const VistaGrilla: React.FC<Props> = ({ proyectoId, proyectoNombre, onSwi
           {accionesMenuId === o.id && (
             <div className={styles.accionesMenu}>
               <button type="button" onClick={() => { setAccionesMenuId(null); setModalOrden(o); }}>👁 Ver detalle</button>
-              <button type="button" onClick={() => { setAccionesMenuId(null); setModalOrden(o); }}>✎ Editar</button>
-              <button type="button" onClick={() => { setAccionesMenuId(null); setInformeOrdenId(o.id); }}>📄 Generar informe</button>
+              <button type="button" onClick={() => { setAccionesMenuId(null); setPanelTab('datos'); setInformeOrdenId(o.id); }}>✎ Editar</button>
+              <button type="button" onClick={() => { setAccionesMenuId(null); setPanelTab('informes'); setInformeOrdenId(o.id); }}>📄 Generar informe</button>
               <button type="button" className={styles.accionDanger} onClick={() => { setAccionesMenuId(null); console.log('eliminar', o.id); }}>🗑 Eliminar</button>
             </div>
           )}
@@ -753,6 +874,38 @@ export const VistaGrilla: React.FC<Props> = ({ proyectoId, proyectoNombre, onSwi
     <div className={styles.workspace} style={workspaceStyle}>
       <main className={styles.mainPanel} style={mainPanelStyle}>
         <div style={cardStyle}>
+
+          <div className={styles.alcanceBar}>
+            <div className={styles.alcanceTitulo}><strong>Grilla de OTs</strong><span>{proyectoNombre}</span></div>
+            <div className={styles.alcanceFiltros}>
+              <label>Empresa
+                <select aria-label="Filtrar por empresa" value={empresaFiltro} onChange={e => { setEmpresaFiltro(e.target.value); setObraFiltro(''); setCarpetaFiltro(''); setPlanoFiltro(''); }}>
+                  <option value="">Todas las autorizadas</option>
+                  {empresas.map(e => <option key={e.id} value={e.id}>{e.nombre}</option>)}
+                </select>
+              </label>
+              <label>Obra
+                <select aria-label="Filtrar por obra" value={obraFiltro} onChange={e => { setObraFiltro(e.target.value); setCarpetaFiltro(''); setPlanoFiltro(''); }}>
+                  <option value="">Todas las obras</option>
+                  {obras.map(p => <option key={p.id} value={p.id}>{empresas.length > 1 ? `${empresas.find(e => e.id === p.tenant_id)?.nombre ?? ''} / ` : ''}{p.nombre}</option>)}
+                </select>
+              </label>
+              <label>Carpeta
+                <select aria-label="Filtrar por carpeta" value={carpetaFiltro} onChange={e => { setCarpetaFiltro(e.target.value); setPlanoFiltro(''); }}>
+                  <option value="">Todas las carpetas</option>
+                  {carpetasFiltrables.map(c => <option key={c.id} value={c.id}>{empresas.length > 1 ? `${empresas.find(e => e.id === c.tenant_id)?.nombre ?? ''} / ` : ''}{rutaCarpeta(c.id)}</option>)}
+                </select>
+              </label>
+              <label>Plano / proyecto
+                <select aria-label="Filtrar por plano o proyecto" value={planoFiltro} onChange={e => setPlanoFiltro(e.target.value)}>
+                  <option value="">Todos los planos</option>
+                  {planosFiltrables.map(p => <option key={p.id} value={p.id}>{porId.get(p.proyecto_padre_id ?? p.id)?.nombre ?? ''}{p.proyecto_padre_id ? ' / ' : ''}{p.proyecto_padre_id ? p.nombre : ''}</option>)}
+                </select>
+              </label>
+              <button type="button" className={styles.alcanceActualizar} onClick={() => { setCargandoCatalogo(true); setRevisionCatalogo(n => n + 1); }} disabled={cargandoCatalogo || cargando} title="Actualizar obras y órdenes">Actualizar</button>
+            </div>
+          </div>
+          {(errorCatalogo || errorOrdenes) && <div role="alert" className={styles.alcanceError}>{errorCatalogo || errorOrdenes}</div>}
 
           {/* TOOLBAR */}
           <div className={styles.compactToolbar} style={toolbarStyle}>
@@ -821,7 +974,7 @@ export const VistaGrilla: React.FC<Props> = ({ proyectoId, proyectoNombre, onSwi
                     })}
                     {camposCustomActivos.map(c => (
                       <th key={c.id} style={{ minWidth: 140, padding: '8px 12px', height: 36, background: '#F4F3F8', color: '#43474F', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid #E2E2E7', borderRight: '1px solid #E2E2E7' }} className={styles.thCustom}>
-                        {c.nombre}
+                        {nombreCampo(c)}
                         <button type="button" className={styles.thCustomRemove} onClick={e => { e.stopPropagation(); toggleCustomCol(c.id); }} title="Quitar columna">×</button>
                       </th>
                     ))}
@@ -832,7 +985,7 @@ export const VistaGrilla: React.FC<Props> = ({ proyectoId, proyectoNombre, onSwi
                           <div className={styles.popoverTitle}>Campos personalizados</div>
                           {camposDefinicion.length === 0
                             ? <div className={styles.popoverHint}>Sin campos personalizados. Creá uno desde el panel de una OT → tab Campos.</div>
-                            : <div className={styles.popoverList}>{camposDefinicion.map(c => { const visible = columnasCustomVisibles.includes(c.id); return (<label key={c.id} className={styles.popoverItem}><input type="checkbox" checked={visible} onChange={() => toggleCustomCol(c.id)} /><span>{c.nombre}</span><span className={styles.popoverTipo}>{c.tipo}</span></label>); })}</div>
+                             : <div className={styles.popoverList}>{camposDefinicion.map(c => { const visible = columnasCustomVisibles.includes(c.id); return (<label key={c.id} className={styles.popoverItem}><input type="checkbox" checked={visible} onChange={() => toggleCustomCol(c.id)} /><span>{nombreCampo(c)}</span><span className={styles.popoverTipo}>{c.tipo}</span></label>); })}</div>
                           }
                           {camposCustomDisponibles.length === 0 && camposDefinicion.length > 0 && <div className={styles.popoverHint}>Todos los campos ya están visibles.</div>}
                         </div>
@@ -843,7 +996,7 @@ export const VistaGrilla: React.FC<Props> = ({ proyectoId, proyectoNombre, onSwi
                 </thead>
                 <tbody>
                   {paginadas.length === 0 ? (
-                    <tr><td colSpan={totalColumnas + 2} style={{ padding: 40, textAlign: 'center', color: '#94A3B8', fontSize: 13 }}>{filtradas.length === 0 && proyecto_ordenes.length > 0 ? 'No hay OTs que coincidan con los filtros.' : 'No hay órdenes de trabajo en este proyecto.'}</td></tr>
+                     <tr><td colSpan={totalColumnas + 2} style={{ padding: 40, textAlign: 'center', color: '#94A3B8', fontSize: 13 }}>{cargandoCatalogo || cargando ? 'Cargando órdenes autorizadas…' : filtradas.length === 0 && proyecto_ordenes.length > 0 ? 'No hay OTs que coincidan con los filtros.' : 'No hay órdenes de trabajo en este alcance.'}</td></tr>
                   ) : agruparPor && grupos ? (
                     grupos.map(([groupValue, items]) => (
                       <Fragment key={groupValue}>
@@ -859,7 +1012,7 @@ export const VistaGrilla: React.FC<Props> = ({ proyectoId, proyectoNombre, onSwi
 
           {/* KANBAN */}
           {vistaActiva === 'tarjetas' && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, padding: '10px 16px', flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden', background: '#F4F3F8' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', alignContent: 'start', gap: 10, padding: '10px 16px', flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden', background: '#F4F3F8' }}>
               {KANBAN_COLUMNAS.map(col => {
                 const items = filtradas.filter(o => o.estado === col.estado);
                 return (
@@ -878,6 +1031,7 @@ export const VistaGrilla: React.FC<Props> = ({ proyectoId, proyectoNombre, onSwi
                             <span style={{ fontWeight: 700, fontSize: 12, color: '#001E40' }}>{o.ot}</span>
                             {o.prioridad && <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 6, background: o.prioridad === 'Alta' ? '#FEE2E2' : o.prioridad === 'Media' ? '#FEF3C7' : '#F3F4F6', color: o.prioridad === 'Alta' ? '#DC2626' : o.prioridad === 'Media' ? '#D97706' : '#6B7280' }}>{o.prioridad}</span>}
                           </div>
+                           <div style={{ fontSize: 10, fontWeight: 600, color: '#64748B', marginBottom: 6 }}>{o.obra_proyecto}{o.plano_nombre && o.plano_nombre !== o.obra_proyecto ? ` · ${o.plano_nombre}` : ''}</div>
                           {camposTarjeta.has('descripcion') && o.descripcion && <p style={{ fontSize: 11, color: '#43474F', margin: '0 0 8px', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{o.descripcion}</p>}
                           {camposTarjeta.has('comentarios') && o.comentarios && <p style={{ fontSize: 11, color: '#43474F', margin: '0 0 8px', fontStyle: 'italic', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{o.comentarios}</p>}
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 8 }}>
@@ -919,11 +1073,13 @@ export const VistaGrilla: React.FC<Props> = ({ proyectoId, proyectoNombre, onSwi
       </main>
 
       {modalOrden && (
-        <ModalDetalleOT orden={modalOrden} proyectoId={proyectoId} onClose={() => setModalOrden(null)}
-          onGuardado={() => { setModalOrden(null); cargarOrdenes(proyectoId); }} />
+        <ModalDetalleOT orden={modalOrden} proyectoId={modalOrden.proyecto_id} onClose={() => setModalOrden(null)}
+          onGuardado={() => { setModalOrden(null); void cargarOrdenesDeProyectos(idsCatalogo); }}
+          onEditar={() => { setModalOrden(null); setPanelTab('datos'); setInformeOrdenId(modalOrden.id); }} />
       )}
       {informeOrden && <PanelOT key={informeOrden.id} orden={informeOrden}
-        tabInicial="informes" onCerrar={() => setInformeOrdenId(null)} />}
+        proyectoNombre={porId.get(informeOrden.proyecto_id)?.nombre ?? ''}
+        tabInicial={panelTab} onCerrar={() => setInformeOrdenId(null)} />}
     </div>
   );
 };

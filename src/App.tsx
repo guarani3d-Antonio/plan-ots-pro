@@ -1,5 +1,4 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import type { CSSProperties } from 'react';
 import { useAuthStore } from './stores/authStore';
 import { useProyectosStore, type Proyecto } from './stores/proyectosStore';
 import { useOrdenesStore } from './stores/ordenesStore';
@@ -25,7 +24,7 @@ import PantallaAyuda from './components/ayuda/PantallaAyuda';
 import TourGuiado from './components/ayuda/TourGuiado';
 import { SessionGate } from './components/ui/SessionGate';
 
-const VISTAS_CON_PROYECTO = new Set<Vista>(['grilla', 'plano']);
+const VISTAS_CON_PROYECTO = new Set<Vista>(['plano']);
 type RutaApp = { planots: true; vista: Vista; proyectoId: string | null };
 const esRutaApp = (value: unknown): value is RutaApp =>
   !!value && typeof value === 'object' && (value as RutaApp).planots === true;
@@ -150,7 +149,7 @@ function ContenidoApp() {
 
   const cambiarVista = useCallback((v: Vista) => {
     if (v === vista) return;
-    intentarNavegar(() => navegarARuta(v));
+    intentarNavegar(() => navegarARuta(v, v === 'grilla' ? null : undefined));
   }, [intentarNavegar, navegarARuta, vista]);
 
   if (!user) {
@@ -173,31 +172,23 @@ function ContenidoApp() {
       );
     }
 
-    if (proyectoActivo && VISTAS_CON_PROYECTO.has(vista)) {
+    if (proyectoActivo && vista === 'plano') {
       return (
         <>
           <div style={{ display: vista === 'plano' ? 'contents' : 'none' }}>
             <VistaPlano
-              onSwitchToGrilla={() => cambiarVista('grilla')}
               fullscreen={fullscreen}
               onToggleFullscreen={() => setFullscreen(f => !f)}
               visible={vista === 'plano'}
             />
           </div>
-          {vista === 'grilla' && (
-            <VistaGrilla
-              proyectoId={proyectoActivo.id}
-              proyectoNombre={proyectoActivo.nombre}
-              onBack={() => intentarNavegar(() => navegarARuta('proyectos', null))}
-              onSwitchToPlano={() => cambiarVista('plano')}
-            />
-          )}
         </>
       );
     }
 
     switch (vista) {
       case 'dashboard':     return <Dashboard />;
+      case 'grilla':        return <VistaGrilla />;
       case 'proyectos':
         return (
           <SelectorProyectos
@@ -242,12 +233,9 @@ function ContenidoApp() {
           scrollbarGutter: 'stable',
         }}>
           {!fullscreen && !(proyectoActivo && VISTAS_CON_PROYECTO.has(vista)) && <ApplicationTopBar vista={vista} />}
-          {!fullscreen && proyectoActivo && (vista === 'plano' || vista === 'grilla') && (
+          {!fullscreen && proyectoActivo && vista === 'plano' && (
             <ProyectoTopBar
               nombreProyecto={proyectoActivo.nombre}
-              vista={vista}
-              onIrAPlano={() => cambiarVista('plano')}
-              onIrAGrilla={() => cambiarVista('grilla')}
               onSalir={() => intentarNavegar(() => navegarARuta('proyectos', null))}
             />
           )}
@@ -269,25 +257,11 @@ function ContenidoApp() {
 }
 
 function ProyectoTopBar({
-  nombreProyecto, vista, onIrAPlano, onIrAGrilla, onSalir,
+  nombreProyecto, onSalir,
 }: {
   nombreProyecto: string;
-  vista: Vista;
-  onIrAPlano:  () => void;
-  onIrAGrilla: () => void;
   onSalir:     () => void;
 }) {
-  const toggleBtn = (activo: boolean): CSSProperties => ({
-    background:   activo ? '#1E3A5F' : 'transparent',
-    color:        activo ? '#fff'    : '#475569',
-    border:       `1px solid ${activo ? '#1E3A5F' : '#E5E7EB'}`,
-    borderRadius: 8,
-    padding:      '6px 12px',
-    fontSize:     13,
-    fontWeight:   600,
-    cursor:       'pointer',
-    fontFamily:   'inherit',
-  });
   return (
     <div style={{
       display: 'flex',
@@ -311,8 +285,6 @@ function ProyectoTopBar({
           textOverflow: 'ellipsis',
         }}
       >{nombreProyecto}</span>
-      <button type="button" onClick={onIrAPlano}  style={toggleBtn(vista === 'plano')}>🗺 Plano</button>
-      <button type="button" onClick={onIrAGrilla} style={toggleBtn(vista === 'grilla')}>≡ Grilla</button>
       <div style={{ width: 1, height: 24, background: '#E5E7EB', margin: '0 4px' }} />
       <button
         type="button"
@@ -338,7 +310,6 @@ function SinProyectoPlaceholder({
   vista, onIrAProyectos,
 }: { vista: Vista; onIrAProyectos: () => void }) {
   const labels: Partial<Record<Vista, string>> = {
-    grilla: 'la grilla',
     plano:  'el plano',
   };
   const label = labels[vista] ?? 'esta vista';
