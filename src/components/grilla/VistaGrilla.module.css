@@ -412,18 +412,11 @@
   width: 60px;
   cursor: default !important;
   text-align: center !important;
-  position: sticky;
-  right: 0;
-  z-index: 3;
   background: #F8FAFC;
 }
 .tdAcciones {
-  position: sticky;
-  right: 0;
-  z-index: 1;
   background: #fff;
   text-align: center;
-  box-shadow: -1px 0 0 #F3F4F6;
 }
 .row:hover .tdAcciones { background: #F8FAFC; }
 

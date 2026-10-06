@@ -153,6 +153,7 @@
   width: 100%;
   margin: 0 auto;
   padding: 48px 40px;
+  --list-row-height: 96px;
 }
 
 /* Header con título, búsqueda y botón */
@@ -429,10 +430,10 @@
 .folderActions button { min-height: 38px; width: 100%; padding: 8px 10px; border: 0; border-radius: 6px; background: transparent; color: #0F172A; text-align: left; cursor: pointer; font: inherit; font-size: 14px; }
 .folderActions button:hover { background: #EDF2F9; }
 .folderGridList { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; margin-bottom: 12px; }
-.folderGridList .folderCard { min-height: 52px; border: 1px solid #DCE4EF; border-radius: 9px; background: #fff; }
-.folderGridList .folderOpen { min-height: 50px; flex-direction: row; justify-content: flex-start; gap: 12px; padding: 7px 48px 7px 12px; text-align: left; }
+.folderGridList .folderCard { height: var(--list-row-height); border: 1px solid #DCE4EF; border-radius: 9px; background: #fff; }
+.folderGridList .folderOpen { height: 100%; min-height: 0; flex-direction: row; justify-content: flex-start; gap: 12px; padding: 7px 48px 7px 12px; text-align: left; }
 .folderGridList .folderIcon { width: 34px; height: 30px; }
-.folderGridList .folderName { text-align: left; }
+.folderGridList .folderName { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; text-align: left; }
 .folderGridList .folderMenu { top: 50%; right: 10px; transform: translateY(-50%); }
 .folderGridList .folderActions { top: calc(100% + 2px); }
 .grid {
@@ -594,25 +595,32 @@
 .cardIdentity { min-width: 0; overflow-wrap: anywhere; }
 
 .gridList { grid-template-columns: minmax(0, 1fr); gap: 6px; }
-.gridList .card { display: grid; grid-template-columns: 76px minmax(0, 1fr); min-height: 76px; border-radius: 10px; }
+.gridList .card { display: grid; grid-template-columns: 76px minmax(0, 1fr); grid-template-rows: var(--list-row-height); height: var(--list-row-height); border-radius: 10px; }
+.gridList .cardListOpen { grid-template-rows: var(--list-row-height) auto; height: auto; }
 .gridList .card:hover { transform: none; box-shadow: 0 2px 8px rgba(15,23,42,.12); }
-.gridList .cardImage { grid-column: 1; grid-row: 1; width: 76px; height: 100%; min-height: 76px; aspect-ratio: auto; border-radius: 9px 0 0 9px; }
+.gridList .cardImage { grid-column: 1; grid-row: 1; width: 76px; height: var(--list-row-height); min-height: 0; aspect-ratio: auto; border-radius: 9px 0 0 9px; }
 .gridList .cardBadge, .gridList .pdfLabel { display: none; }
 .gridList .pdfIcon { font-size: 24px; }
 .gridList .cardMenuWrap { top: 12px; right: 12px; }
 .gridList .cardMenu { background: #EAF0F8; color: #29477F; }
 .gridList .cardMenu:hover { background: #D7E4F5; }
 .gridList .cardActions { grid-column: 1 / -1; grid-row: 2; }
-.gridList .cardBody { grid-column: 2; grid-row: 1; display: grid; grid-template-columns: minmax(170px, 1.4fr) minmax(205px, 1.2fr) minmax(115px, .6fr); align-items: center; gap: 12px; min-width: 0; padding: 10px 54px 10px 14px; }
+.gridList .cardBody { grid-column: 2; grid-row: 1; display: grid; grid-template-columns: minmax(170px, 1.4fr) minmax(205px, 1.2fr) minmax(115px, .6fr); align-items: center; gap: 12px; min-width: 0; min-height: 0; overflow: hidden; padding: 10px 54px 10px 14px; }
 .gridList .cardDivider { display: none; }
+.gridList .cardName { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
 .gridList .cardIdentity .cardClient { margin-bottom: 0; }
+.gridList .cardClient { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .gridList .cardStats { flex-direction: row; flex-wrap: wrap; gap: 4px 12px; margin-bottom: 0; }
 .gridList .statRow { font-size: 12px; white-space: nowrap; }
 .gridList .progressWrap { min-width: 0; }
-.gridList .progressLabel { font-size: 11px; }
+.gridList .progressLabel { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
 
 @container (max-width: 800px) {
-  .gridList .cardBody { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .content { --list-row-height: 110px; }
+  .gridList .cardBody { grid-template-columns: minmax(0, 1fr) minmax(130px, auto); grid-template-rows: minmax(0, 1fr) auto; gap: 4px 12px; }
+  .gridList .cardIdentity { grid-column: 1; grid-row: 1; }
+  .gridList .cardStats { grid-column: 2; grid-row: 1; flex-direction: column; flex-wrap: nowrap; gap: 2px; }
+  .gridList .progressWrap { grid-column: 1 / -1; grid-row: 2; }
   .gridList .progressBar { display: none; }
 }
 
@@ -621,6 +629,17 @@
   .gridList .cardImage { width: 60px; }
   .gridList .cardBody { padding-right: 46px; }
   .gridList .cardStats { gap: 3px 10px; }
+}
+
+@container (max-width: 420px) {
+  .content { --list-row-height: 160px; }
+  .gridList .cardBody { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto; }
+  .gridList .cardStats { grid-column: 1; grid-row: 2; flex-direction: row; flex-wrap: wrap; }
+  .gridList .progressWrap { grid-column: 1; grid-row: 3; }
+}
+
+@container (max-width: 300px) {
+  .content { --list-row-height: 180px; }
 }
 
 .newPlanDialog {

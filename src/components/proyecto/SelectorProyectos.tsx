@@ -476,7 +476,7 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
             return (
               <div
                 key={proyecto.id}
-                className={styles.card}
+                className={`${styles.card} ${menuAbierto === proyecto.id ? styles.cardListOpen : ''}`}
                 ref={menuAbierto === proyecto.id ? menuRef : null}
                 onClick={() => {
                   if (menuAbierto === proyecto.id) { setMenuAbierto(null); return; }
