@@ -6,6 +6,7 @@ import { DirectoriosCreador } from './DirectoriosCreador';
 import { ModalNuevoProyecto } from './ModalNuevoProyecto';
 import { ConfiguracionDashboardCreador } from './ConfiguracionDashboardCreador';
 import { MapaAccesosCreador } from './MapaAccesosCreador';
+import styles from './AdministracionCreador.module.css';
 
 const panel: React.CSSProperties = { border: '1px solid var(--border-default)', borderRadius: 12, padding: 20, background: 'var(--bg-surface)' };
 const field: React.CSSProperties = { display: 'grid', gap: 6, minWidth: 0 };
@@ -100,15 +101,24 @@ export function AdministracionCreador() {
         {contexto.empresas.map(e => <option key={e.id} value={e.id}>{e.nombre}</option>)}
       </select>
     </label>
-    <div><button style={button} disabled={!empresaId} onClick={() => setCrearObra(true)}>Crear obra en la empresa activa</button></div>
+    <details className={styles.seccion}>
+      <summary className={styles.titulo}>Empresas y obras</summary>
+      <div className={styles.contenido}>
+        <div style={{ display: 'grid', justifyItems: 'start', gap: 10 }}>
+          <label style={{ ...field, width: 'min(100%, 420px)' }}>Nombre de la nueva empresa<input style={control} value={nombre} onChange={e => setNombre(e.target.value)} /></label>
+          <button style={button} disabled={busy || !nombre.trim()} onClick={() => void ejecutar(() => supabase.rpc('plan_admin_empresa', { p_nombre: nombre }))}>Crear empresa</button>
+        </div>
+        <div><button style={button} disabled={!empresaId} onClick={() => setCrearObra(true)}>Crear obra en la empresa activa</button></div>
+        {empresaId && <section style={panel}><h2 style={{ margin: '0 0 14px', fontSize: 18 }}>Documentos de la empresa</h2><PoliticasDocumentales tenantId={empresaId} /></section>}
+      </div>
+    </details>
+    <details className={styles.seccion}>
+      <summary className={styles.titulo}>Usuarios y permisos</summary>
+      <div className={styles.contenido}>
     <section style={panel}>
       <h2 style={{ margin: '0 0 14px', fontSize: 18 }}>Cuentas, roles y responsables</h2>
       <p style={{ margin: '0 0 14px', color: 'var(--text-secondary)' }}>Invitá cuentas nuevas por correo; para una cuenta existente, guardá su rol. Después asignale las obras correspondientes. Supervisor y técnico pueden figurar como responsables de OTs.</p>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))', gap: 16 }}>
-        <div style={{ display: 'grid', alignContent: 'start', gap: 10 }}>
-          <label style={field}>Nombre de la nueva empresa<input style={control} value={nombre} onChange={e => setNombre(e.target.value)} /></label>
-          <button style={button} disabled={busy || !nombre.trim()} onClick={() => void ejecutar(() => supabase.rpc('plan_admin_empresa', { p_nombre: nombre }))}>Crear empresa</button>
-        </div>
         <div style={{ display: 'grid', alignContent: 'start', gap: 10 }}>
           <p style={{ margin: 0, color: 'var(--text-secondary)' }}>{empresa ? `Empresa seleccionada: ${empresa.nombre}` : 'Elegí una empresa para administrar las cuentas.'}</p>
           <label style={field}>Correo del usuario<input style={control} type="email" value={email} onChange={e => setEmail(e.target.value)} /></label>
@@ -136,8 +146,6 @@ export function AdministracionCreador() {
       <h2 style={{ margin: '0 0 8px', fontSize: 18 }}>Cómo se aplican los permisos</h2>
       <p style={{ margin: 0, lineHeight: 1.6, color: 'var(--text-secondary)' }}>El rol de empresa identifica a la persona. El acceso operativo se asigna obra por obra: Lector consulta, Técnico registra y actualiza OTs, y Supervisor además puede ver costos. Solo el Creador administra cuentas, directorios y notificaciones. Sin una obra asignada, la cuenta entra pero no ve OTs ni proyectos de campo.</p>
     </section>
-    {empresaId && <DirectoriosCreador key={empresaId} tenantId={empresaId} obras={contexto.obras} />}
-    <ConfiguracionDashboardCreador />
     {empresaId && <section style={panel}>
       <h2 style={{ margin: '0 0 8px', fontSize: 18 }}>Notificaciones por rol</h2>
       <p style={{ margin: '0 0 14px', color: 'var(--text-secondary)' }}>Elegí qué avisos básicos recibe cada rol en esta empresa. Cada persona recibe solamente eventos de las obras a las que tiene acceso; los cambios completos siguen disponibles en el historial de cada OT.</p>
@@ -150,7 +158,13 @@ export function AdministracionCreador() {
       </table></div>
       <button style={{ ...button, marginTop: 14 }} disabled={busy} onClick={() => void guardarNotificaciones()}>Guardar notificaciones</button>
     </section>}
-    {empresaId && <section style={panel}><h2 style={{ margin: '0 0 14px', fontSize: 18 }}>Documentos de la empresa</h2><PoliticasDocumentales tenantId={empresaId} /></section>}
+      </div>
+    </details>
+    {empresaId && <DirectoriosCreador key={empresaId} tenantId={empresaId} obras={contexto.obras} />}
+    <details className={styles.seccion}>
+      <summary className={styles.titulo}>Dashboard</summary>
+      <div className={styles.contenido}><ConfiguracionDashboardCreador /></div>
+    </details>
     <p role="status" aria-live="polite" style={{ margin: 0 }}>{mensaje}</p>
     {crearObra && <ModalNuevoProyecto onCerrar={() => { setCrearObra(false); void refresh(); }} />}
   </div>;

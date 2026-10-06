@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../../db/supabase';
+import styles from './AdministracionCreador.module.css';
 
 type Obra = { id: string; nombre: string; tenant_id: string | null };
 type Cliente = { id: string; nombre: string; identificacion: string | null; contacto: string | null;
@@ -114,6 +115,9 @@ export function DirectoriosCreador({ tenantId, obras }: { tenantId: string; obra
   }
 
   return <>
+    <details className={styles.seccion}>
+      <summary className={styles.titulo}>Clientes</summary>
+      <div className={styles.contenido}>
     <section style={card}>
       <h2 style={{ margin: '0 0 8px', fontSize: 18 }}>Clientes y sus ubicaciones</h2>
       <p style={{ color: 'var(--text-secondary)', margin: '0 0 14px' }}>Una ficha identifica al cliente. Cada departamento, oficina o planta se registra como ubicación y puede acumular varias OTs.</p>
@@ -152,6 +156,11 @@ export function DirectoriosCreador({ tenantId, obras }: { tenantId: string; obra
         </table></div> : <p style={{ color: 'var(--text-secondary)', margin: 0 }}>Todavía no hay reclamos vinculados a este cliente.</p>}
       </div>}
     </section>
+      </div>
+    </details>
+    <details className={styles.seccion}>
+      <summary className={styles.titulo}>Contratistas</summary>
+      <div className={styles.contenido}>
     <section style={card}>
       <h2 style={{ margin: '0 0 8px', fontSize: 18 }}>Directorio de contratistas</h2>
       <p style={{ color: 'var(--text-secondary)', margin: '0 0 14px' }}>Los usuarios eligen contratistas ya cargados al editar una OT.</p>
@@ -161,6 +170,8 @@ export function DirectoriosCreador({ tenantId, obras }: { tenantId: string; obra
         () => supabase.rpc('plan_guardar_contratista_ficha', { p_tenant: tenantId, p_id: contratistaId || null, p_nombre: contratista.nombre, p_identificacion: contratista.identificacion, p_contacto: contratista.contacto, p_telefono: contratista.telefono, p_correo: contratista.correo, p_direccion: contratista.direccion, p_activo: contratista.activo }),
         data => setContratistaId(String(data)), 'Contratista guardado.')}>Guardar contratista</button>
     </section>
+      </div>
+    </details>
     <p role="status" aria-live="polite" style={{ margin: 0 }}>{message}</p>
   </>;
 }
