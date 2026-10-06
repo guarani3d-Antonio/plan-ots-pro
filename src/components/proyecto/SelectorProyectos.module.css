@@ -186,13 +186,20 @@
   white-space: nowrap;
 }
 .secondaryBtn:disabled { opacity: .5; cursor: not-allowed; }
-.breadcrumbs { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; margin-bottom: 20px; color: #64748B; font-size: 14px; }
+.navigationRow { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px 16px; margin-bottom: 20px; }
+.breadcrumbs { display: flex; flex: 1 1 240px; min-width: 0; align-items: center; flex-wrap: wrap; gap: 5px; color: #64748B; font-size: 14px; }
 .breadcrumbs button { border: 0; background: none; color: #3B599B; padding: 2px 4px; cursor: pointer; font: inherit; }
 .breadcrumbs .historyButton { display: grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 1px solid #D8E1ED; border-radius: 7px; background: #fff; }
 .historyButton svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .breadcrumbs .historyButton:disabled { color: #AAB5C6; background: #F4F6F9; cursor: default; }
 .breadcrumbs .historyButton:not(:disabled):hover { background: #E3ECF9; }
 .searchHint { margin-left: 12px; color: #64748B; }
+.viewToggle { display: inline-flex; flex: none; gap: 3px; padding: 3px; border: 1px solid #D8E1ED; border-radius: 9px; background: #E8EEF7; }
+.viewButton { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 34px; padding: 0 11px; border: 0; border-radius: 6px; background: transparent; color: #526784; font: inherit; font-size: 13px; font-weight: 650; cursor: pointer; white-space: nowrap; }
+.viewButton:hover { color: #29477F; background: #DCE7F5; }
+.viewButton:focus-visible { outline: 2px solid #3B599B; outline-offset: 2px; }
+.viewButtonActive, .viewButtonActive:hover { color: #29477F; background: #fff; box-shadow: 0 1px 3px rgba(15,23,42,.12); }
+.viewButton svg { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 
 .title {
   font-size: 32px;
@@ -421,6 +428,13 @@
 .folderActions { position: absolute; top: 38px; right: 0; z-index: 3; min-width: 132px; padding: 5px; border: 1px solid #D8E1ED; border-radius: 9px; background: #fff; box-shadow: 0 8px 20px rgba(15,23,42,.14); }
 .folderActions button { min-height: 38px; width: 100%; padding: 8px 10px; border: 0; border-radius: 6px; background: transparent; color: #0F172A; text-align: left; cursor: pointer; font: inherit; font-size: 14px; }
 .folderActions button:hover { background: #EDF2F9; }
+.folderGridList { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; margin-bottom: 12px; }
+.folderGridList .folderCard { min-height: 52px; border: 1px solid #DCE4EF; border-radius: 9px; background: #fff; }
+.folderGridList .folderOpen { min-height: 50px; flex-direction: row; justify-content: flex-start; gap: 12px; padding: 7px 48px 7px 12px; text-align: left; }
+.folderGridList .folderIcon { width: 34px; height: 30px; }
+.folderGridList .folderName { text-align: left; }
+.folderGridList .folderMenu { top: 50%; right: 10px; transform: translateY(-50%); }
+.folderGridList .folderActions { top: calc(100% + 2px); }
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(245px, 1fr));
@@ -430,6 +444,7 @@
 
 /* Card */
 .card {
+  position: relative;
   background: white;
   border-radius: 14px;
   overflow: hidden;
@@ -494,10 +509,8 @@
 }
 
 /* Botón ··· de cada card (sobre la portada) */
+.cardMenuWrap { position: absolute; top: 10px; right: 10px; z-index: 5; }
 .cardMenu {
-  position: absolute;
-  top: 10px;
-  right: 10px;
   background: rgba(0,0,0,0.45);
   color: white;
   border: none;
@@ -577,6 +590,37 @@
 /* Cuerpo de la card */
 .cardBody {
   padding: 12px 16px;
+}
+.cardIdentity { min-width: 0; overflow-wrap: anywhere; }
+
+.gridList { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+.gridList .card { display: grid; grid-template-columns: 76px minmax(0, 1fr); min-height: 76px; border-radius: 10px; }
+.gridList .card:hover { transform: none; box-shadow: 0 2px 8px rgba(15,23,42,.12); }
+.gridList .cardImage { grid-column: 1; grid-row: 1; width: 76px; height: 100%; min-height: 76px; aspect-ratio: auto; border-radius: 9px 0 0 9px; }
+.gridList .cardBadge, .gridList .pdfLabel { display: none; }
+.gridList .pdfIcon { font-size: 24px; }
+.gridList .cardMenuWrap { top: 12px; right: 12px; }
+.gridList .cardMenu { background: #EAF0F8; color: #29477F; }
+.gridList .cardMenu:hover { background: #D7E4F5; }
+.gridList .cardActions { grid-column: 1 / -1; grid-row: 2; }
+.gridList .cardBody { grid-column: 2; grid-row: 1; display: grid; grid-template-columns: minmax(170px, 1.4fr) minmax(205px, 1.2fr) minmax(115px, .6fr); align-items: center; gap: 12px; min-width: 0; padding: 10px 54px 10px 14px; }
+.gridList .cardDivider { display: none; }
+.gridList .cardIdentity .cardClient { margin-bottom: 0; }
+.gridList .cardStats { flex-direction: row; flex-wrap: wrap; gap: 4px 12px; margin-bottom: 0; }
+.gridList .statRow { font-size: 12px; white-space: nowrap; }
+.gridList .progressWrap { min-width: 0; }
+.gridList .progressLabel { font-size: 11px; }
+
+@container (max-width: 800px) {
+  .gridList .cardBody { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .gridList .progressBar { display: none; }
+}
+
+@container (max-width: 600px) {
+  .gridList .card { grid-template-columns: 60px minmax(0, 1fr); }
+  .gridList .cardImage { width: 60px; }
+  .gridList .cardBody { padding-right: 46px; }
+  .gridList .cardStats { gap: 3px 10px; }
 }
 
 .newPlanDialog {

@@ -42,6 +42,8 @@ const STATS_VACIO: ProyectoStats = {
   pct_cerrada: 0,
 };
 const statsCache = new Map<string, ProyectoStats>();
+const VISTA_PROYECTOS_KEY = 'plan-ots-proyectos-vista-v1';
+type VistaProyectos = 'tarjetas' | 'lista';
 
 interface SelectorProyectosProps {
   onOpenDashboard?: () => void;
@@ -88,9 +90,18 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
   const [creandoPlano, setCreandoPlano] = useState(false);
   const [subiendoPlano, setSubiendoPlano] = useState(false);
   const [busqueda,       setBusqueda]       = useState('');
+  const [vistaProyectos, setVistaProyectos] = useState<VistaProyectos>(() => {
+    try { return localStorage.getItem(VISTA_PROYECTOS_KEY) === 'lista' ? 'lista' : 'tarjetas'; }
+    catch { return 'tarjetas'; }
+  });
   const [statsMap,       setStatsMap]       = useState<Record<string, ProyectoStats>>(() => Object.fromEntries(statsCache));
   const [thumbnails,     setThumbnails]     = useState<Record<string, string>>({});
   const menuRef    = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    try { localStorage.setItem(VISTA_PROYECTOS_KEY, vistaProyectos); }
+    catch { /* La vista funciona igualmente si el almacenamiento está deshabilitado. */ }
+  }, [vistaProyectos]);
 
   function navegarCarpeta(id: string | null) {
     setHistorialCarpetas(prev => {
@@ -372,19 +383,33 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
             </button>
           </div>
         </div>
-        <nav className={styles.breadcrumbs} aria-label="Ruta de carpetas">
-          <button type="button" className={styles.historyButton} aria-label="Atrás" title="Atrás" disabled={historialCarpetas.indice === 0}
-            onClick={() => setHistorialCarpetas(prev => ({ ...prev, indice: prev.indice - 1 }))}>
-            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m12.5 4.5-5.5 5.5 5.5 5.5" /></svg>
-          </button>
-          <button type="button" className={styles.historyButton} aria-label="Adelante" title="Adelante" disabled={historialCarpetas.indice >= historialCarpetas.rutas.length - 1}
-            onClick={() => setHistorialCarpetas(prev => ({ ...prev, indice: prev.indice + 1 }))}>
-            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m7.5 4.5 5.5 5.5-5.5 5.5" /></svg>
-          </button>
-          <button type="button" onClick={() => navegarCarpeta(null)}>Proyectos</button>
-          {rutaCarpeta.map(c => <span key={c.id}> / <button type="button" onClick={() => navegarCarpeta(c.id)}>{c.nombre}</button></span>)}
-          {busqueda && <span className={styles.searchHint}>Buscando en todas las carpetas</span>}
-        </nav>
+        <div className={styles.navigationRow}>
+          <nav className={styles.breadcrumbs} aria-label="Ruta de carpetas">
+            <button type="button" className={styles.historyButton} aria-label="Atrás" title="Atrás" disabled={historialCarpetas.indice === 0}
+              onClick={() => setHistorialCarpetas(prev => ({ ...prev, indice: prev.indice - 1 }))}>
+              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m12.5 4.5-5.5 5.5 5.5 5.5" /></svg>
+            </button>
+            <button type="button" className={styles.historyButton} aria-label="Adelante" title="Adelante" disabled={historialCarpetas.indice >= historialCarpetas.rutas.length - 1}
+              onClick={() => setHistorialCarpetas(prev => ({ ...prev, indice: prev.indice + 1 }))}>
+              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m7.5 4.5 5.5 5.5-5.5 5.5" /></svg>
+            </button>
+            <button type="button" onClick={() => navegarCarpeta(null)}>Proyectos</button>
+            {rutaCarpeta.map(c => <span key={c.id}> / <button type="button" onClick={() => navegarCarpeta(c.id)}>{c.nombre}</button></span>)}
+            {busqueda && <span className={styles.searchHint}>Buscando en todas las carpetas</span>}
+          </nav>
+          <div className={styles.viewToggle} role="group" aria-label="Presentación de proyectos">
+            <button type="button" className={`${styles.viewButton} ${vistaProyectos === 'tarjetas' ? styles.viewButtonActive : ''}`}
+              aria-pressed={vistaProyectos === 'tarjetas'} onClick={() => setVistaProyectos('tarjetas')}>
+              <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2" y="2" width="6" height="6" rx="1" /><rect x="12" y="2" width="6" height="6" rx="1" /><rect x="2" y="12" width="6" height="6" rx="1" /><rect x="12" y="12" width="6" height="6" rx="1" /></svg>
+              Tarjetas
+            </button>
+            <button type="button" className={`${styles.viewButton} ${vistaProyectos === 'lista' ? styles.viewButtonActive : ''}`}
+              aria-pressed={vistaProyectos === 'lista'} onClick={() => setVistaProyectos('lista')}>
+              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 4h12M6 10h12M6 16h12" /><circle cx="2.5" cy="4" r=".8" /><circle cx="2.5" cy="10" r=".8" /><circle cx="2.5" cy="16" r=".8" /></svg>
+              Lista
+            </button>
+          </div>
+        </div>
 
         {/* Errores / loading */}
         {(error || accionError) && (
@@ -398,7 +423,7 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
         )}
         {avisoAccion && !accionError && <div className={styles.actionNotice} role="status">{avisoAccion}</div>}
 
-        {carpetasFiltradas.length > 0 && <div className={styles.folderGrid}>
+        {carpetasFiltradas.length > 0 && <div className={`${styles.folderGrid} ${vistaProyectos === 'lista' ? styles.folderGridList : ''}`}>
           {carpetasFiltradas.map(c => <div key={c.id} className={`${styles.folderCard} ${menuCarpeta === c.id ? styles.folderCardOpen : ''}`}>
             <button type="button" className={styles.folderOpen} onClick={() => { setBusqueda(''); navegarCarpeta(c.id); }}>
               <svg className={styles.folderIcon} viewBox="0 0 96 80" aria-hidden="true">
@@ -416,8 +441,8 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
           </div>)}
         </div>}
 
-        {/* Los planos mantienen sus tarjetas; las carpetas se leen como iconos. */}
-        <div className={styles.grid}>
+        {/* Ambas presentaciones conservan la misma navegación y las mismas acciones. */}
+        <div className={`${styles.grid} ${vistaProyectos === 'lista' ? styles.gridList : ''}`}>
           {loading && proyectosFiltrados.length === 0 && carpetasFiltradas.length === 0 ? (
             <div className={styles.empty}>Cargando proyectos…</div>
           ) : proyectosFiltrados.length === 0 && carpetasFiltradas.length === 0 ? (
@@ -496,25 +521,22 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
                     <span className={styles.cardBadge}>16:9</span>
                   )}
 
-                  {/* El botón queda sobre la portada; las acciones se despliegan
-                      debajo para no tapar la imagen ni el contenido de la tarjeta. */}
-                  <div
-                    style={{ position: 'absolute', top: 0, right: 0, zIndex: 5 }}
-                    onClick={e => e.stopPropagation()}
+                </div>
+
+                {/* El menú permanece accesible junto a la portada en ambas vistas. */}
+                <div className={styles.cardMenuWrap} onClick={e => e.stopPropagation()}>
+                  <button
+                    type="button"
+                    disabled={!contexto?.obras.find(p=>p.id===proyecto.id)?.editar}
+                    className={styles.cardMenu}
+                    onClick={() => setMenuAbierto(prev => prev === proyecto.id ? null : proyecto.id)}
+                    title="Opciones"
+                    aria-label={`Opciones de ${proyecto.nombre}`}
+                    aria-expanded={menuAbierto === proyecto.id}
+                    aria-controls={`acciones-proyecto-${proyecto.id}`}
                   >
-                    <button
-                      type="button"
-                      disabled={!contexto?.obras.find(p=>p.id===proyecto.id)?.editar}
-                      className={styles.cardMenu}
-                      onClick={() => setMenuAbierto(prev => prev === proyecto.id ? null : proyecto.id)}
-                      title="Opciones"
-                      aria-label={`Opciones de ${proyecto.nombre}`}
-                      aria-expanded={menuAbierto === proyecto.id}
-                      aria-controls={`acciones-proyecto-${proyecto.id}`}
-                    >
-                      ···
-                    </button>
-                  </div>
+                    ···
+                  </button>
                 </div>
 
                 {menuAbierto === proyecto.id && <div id={`acciones-proyecto-${proyecto.id}`} className={styles.cardActions} onClick={e => e.stopPropagation()}>
@@ -537,14 +559,16 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
 
                 {/* Cuerpo */}
                 <div className={styles.cardBody}>
-                  {proyecto.proyecto_padre_id && <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginBottom: 4 }}>
-                    Plano de {proyectos.find(p => p.id === proyecto.proyecto_padre_id)?.nombre ?? 'obra asignada'}
-                  </div>}
-                  <div className={styles.cardName}>{proyecto.nombre}</div>
-                  <div className={styles.cardClient}>
-                    {proyecto.cliente ?? 'Sin cliente'}
+                  <div className={styles.cardIdentity}>
+                    {proyecto.proyecto_padre_id && <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginBottom: 4 }}>
+                      Plano de {proyectos.find(p => p.id === proyecto.proyecto_padre_id)?.nombre ?? 'obra asignada'}
+                    </div>}
+                    <div className={styles.cardName}>{proyecto.nombre}</div>
+                    <div className={styles.cardClient}>
+                      {proyecto.cliente ?? 'Sin cliente'}
+                    </div>
+                    {proyecto.plano_url === PLANO_PENDIENTE && <p style={{ margin: '8px 0', color: 'var(--text-secondary)', fontSize: 13 }}>Plano pendiente · {contexto?.obras.find(p => p.id === proyecto.id)?.editar ? 'tocá para cargarlo' : 'esperando al responsable'}</p>}
                   </div>
-                  {proyecto.plano_url === PLANO_PENDIENTE && <p style={{ margin: '8px 0', color: 'var(--text-secondary)', fontSize: 13 }}>Plano pendiente · {contexto?.obras.find(p => p.id === proyecto.id)?.editar ? 'tocá para cargarlo' : 'esperando al responsable'}</p>}
                   <div className={styles.cardDivider} />
 
                   {/* Stats por estado — vienen de statsService (Supabase) */}
