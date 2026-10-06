@@ -7,7 +7,11 @@ import { ImagenPrivada } from './ImagenPrivada';
 import { cargarStatsProyectos, type ProyectoStats } from '../../services/statsService';
 import { generarThumbnailPDF, obtenerThumbnailPDFCache } from '../../services/pdfThumbnailService';
 import { procesarPlanoCanvas, esPDFFile } from '../../utils/planoScanner';
+import { supabase } from '../../db/supabase';
+import { assertSession, identityId, sessionTicket } from '../../security/sessionScope';
 import styles from './SelectorProyectos.module.css';
+
+interface Carpeta { id: string; tenant_id: string; padre_id: string | null; nombre: string; profundidad: number; created_by: string }
 
 // Stats por defecto cuando un proyecto aún no fue cargado en statsMap.
 const STATS_VACIO: ProyectoStats = {
@@ -37,7 +41,7 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
   const {
     proyectos, loading, error,
     cargarProyectos, setProyectoActivo,
-    eliminarProyecto, duplicarProyecto, cargarPlanoInicial, crearPlanoEnObra,
+    eliminarProyecto, duplicarProyecto, cargarPlanoInicial, crearPlanoEnObra, moverProyecto,
   } = useProyectosStore();
 
   const abrirProyecto = onAbrirProyecto ?? setProyectoActivo;
@@ -51,6 +55,17 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
   const [planoPendiente, setPlanoPendiente] = useState<Proyecto | null>(null);
   const [torreNuevoPlano, setTorreNuevoPlano] = useState<Proyecto | null>(null);
   const [nombreNuevoPlano, setNombreNuevoPlano] = useState('');
+  const [archivoNuevoPlano, setArchivoNuevoPlano] = useState<File | null>(null);
+  const [carpetaNuevoPlano, setCarpetaNuevoPlano] = useState<string | null>(null);
+  const [carpetas, setCarpetas] = useState<Carpeta[]>([]);
+  const [carpetaActual, setCarpetaActual] = useState<string | null>(null);
+  const [modalCarpeta, setModalCarpeta] = useState(false);
+  const [nombreCarpeta, setNombreCarpeta] = useState('');
+  const [creandoCarpeta, setCreandoCarpeta] = useState(false);
+  const [proyectoMover, setProyectoMover] = useState<Proyecto | null>(null);
+  const [carpetaMover, setCarpetaMover] = useState<Carpeta | null>(null);
+  const [menuCarpeta, setMenuCarpeta] = useState<string | null>(null);
+  const [busquedaCarpeta, setBusquedaCarpeta] = useState('');
   const [creandoPlano, setCreandoPlano] = useState(false);
   const [subiendoPlano, setSubiendoPlano] = useState(false);
   const [busqueda,       setBusqueda]       = useState('');
@@ -59,6 +74,19 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
   const menuRef    = useRef<HTMLDivElement>(null);
 
   useEffect(() => { void cargarProyectos(); }, [cargarProyectos, empresaId]);
+  useEffect(() => {
+    let vigente = true;
+    const ticket = sessionTicket();
+    let query = supabase.from('plan_carpetas').select('id,tenant_id,padre_id,nombre,profundidad,created_by').order('nombre');
+    if (empresaId) query = query.eq('tenant_id', empresaId);
+    void query.then(({ data, error }) => {
+      if (!vigente) return;
+      try { assertSession(ticket); } catch { return; }
+      if (error) setAccionError(`No se pudieron cargar las carpetas: ${error.message}`);
+      else setCarpetas(data as Carpeta[]);
+    });
+    return () => { vigente = false; };
+  }, [empresaId]);
 
   // Cargar conteos reales de OTs por proyecto desde Supabase.
   // Una sola query con .in() agrupa todas las stats en memoria.
@@ -104,16 +132,31 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const carpetaSeleccionada = carpetas.find(c => c.id === carpetaActual);
+  const empresaDestino = carpetaSeleccionada?.tenant_id ?? empresaId;
+  const obrasDisponibles = useMemo(() => proyectos.filter(p => !p.proyecto_padre_id &&
+    (!empresaDestino || p.tenant_id === empresaDestino) &&
+    contexto?.obras.some(o => o.id === p.id && o.editar)), [proyectos, empresaDestino, contexto]);
+  const carpetasFiltradas = useMemo(() => carpetas.filter(c =>
+    (!empresaId || c.tenant_id === empresaId) &&
+    (busqueda ? c.nombre.toLocaleLowerCase().includes(busqueda.toLocaleLowerCase()) : c.padre_id === carpetaActual)
+  ), [carpetas, empresaId, busqueda, carpetaActual]);
+  const rutaCarpeta = useMemo(() => {
+    const ruta: Carpeta[] = []; let actual = carpetaSeleccionada;
+    while (actual && ruta.length < 5) { ruta.unshift(actual); actual = carpetas.find(c => c.id === actual?.padre_id); }
+    return ruta;
+  }, [carpetaSeleccionada, carpetas]);
+
   // Filtro por nombre o cliente (case-insensitive)
   const proyectosFiltrados = useMemo(() => {
     const q = busqueda.toLowerCase();
     const visibles = empresaId ? proyectos.filter(p => p.tenant_id === empresaId) : proyectos;
-    if (!q) return visibles;
+    if (!q) return visibles.filter(p => (p.carpeta_id ?? null) === carpetaActual);
     return visibles.filter(p =>
       p.nombre.toLowerCase().includes(q) ||
       (p.cliente ?? '').toLowerCase().includes(q)
     );
-  }, [proyectos, busqueda, empresaId]);
+  }, [proyectos, busqueda, empresaId, carpetaActual]);
 
   async function handleEliminar(proyecto: Proyecto) {
     try {
@@ -148,13 +191,55 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
   }
 
   async function handleNuevoPlano() {
-    if (!torreNuevoPlano || !nombreNuevoPlano.trim() || creandoPlano) return;
+    if (!torreNuevoPlano || !nombreNuevoPlano.trim() || !archivoNuevoPlano || creandoPlano) return;
     setCreandoPlano(true); setAccionError(null);
     try {
-      await crearPlanoEnObra(torreNuevoPlano.id, nombreNuevoPlano);
-      setTorreNuevoPlano(null); setNombreNuevoPlano('');
+      const validacion = await validarCalidadPlano(archivoNuevoPlano);
+      if (!validacion.valido) throw new Error(validacion.error ?? 'Plano inválido.');
+      const planoFile = esPDFFile(archivoNuevoPlano) ? archivoNuevoPlano :
+        new File([await procesarPlanoCanvas(archivoNuevoPlano)], 'plano_procesado.png', { type: 'image/png' });
+      const resultado = await crearPlanoEnObra(torreNuevoPlano.id, nombreNuevoPlano, carpetaNuevoPlano, planoFile);
+      setTorreNuevoPlano(null); setNombreNuevoPlano(''); setArchivoNuevoPlano(null);
+      if (resultado.errorCarga) setAccionError(`El proyecto quedó creado, pero el plano no terminó de subir: ${resultado.errorCarga}. Abrí su tarjeta para reintentar.`);
     } catch (error) { setAccionError(error instanceof Error ? error.message : 'No se pudo crear el plano.'); }
     finally { setCreandoPlano(false); }
+  }
+
+  async function handleCrearCarpeta() {
+    if (!empresaDestino || !nombreCarpeta.trim() || creandoCarpeta) return;
+    setCreandoCarpeta(true); setAccionError(null);
+    try {
+      const ticket = sessionTicket();
+      const { data, error } = await supabase.rpc('plan_crear_carpeta', {
+        p_tenant: empresaDestino, p_padre: carpetaActual, p_nombre: nombreCarpeta.trim(),
+      }).single();
+      assertSession(ticket);
+      if (error || !data) throw new Error(error?.message ?? 'No se pudo crear la carpeta.');
+      setCarpetas(prev => [...prev, data as Carpeta]);
+      setNombreCarpeta(''); setModalCarpeta(false);
+    } catch (error) { setAccionError(error instanceof Error ? error.message : 'No se pudo crear la carpeta.'); }
+    finally { setCreandoCarpeta(false); }
+  }
+
+  async function handleMoverProyecto(carpetaId: string | null) {
+    if (!proyectoMover) return;
+    setAccionError(null);
+    try { await moverProyecto(proyectoMover.id, carpetaId); setProyectoMover(null); }
+    catch (error) { setAccionError(error instanceof Error ? error.message : 'No se pudo mover el proyecto.'); }
+  }
+  async function handleMoverCarpeta(padreId: string | null) {
+    if (!carpetaMover) return;
+    setAccionError(null);
+    try {
+      const ticket = sessionTicket();
+      const { error } = await supabase.rpc('plan_mover_carpeta', { p_carpeta: carpetaMover.id, p_padre: padreId });
+      assertSession(ticket);
+      if (error) throw new Error(error.message);
+      const { data, error: cargaError } = await supabase.from('plan_carpetas').select('id,tenant_id,padre_id,nombre,profundidad,created_by').order('nombre');
+      assertSession(ticket);
+      if (cargaError) throw new Error(cargaError.message);
+      setCarpetas(data as Carpeta[]); setCarpetaMover(null);
+    } catch (error) { setAccionError(error instanceof Error ? error.message : 'No se pudo mover la carpeta.'); }
   }
 
   return (
@@ -173,7 +258,7 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
             <span className={styles.companyLabel}>Empresa activa</span>
             <span className={styles.companySelectWrap}>
               <svg className={styles.companyIcon} viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V7h6V4h4v3h6v13h-6v-4h-4v4H4Zm3-9h2V9H7v2Zm0 4h2v-2H7v2Zm8-4h2V9h-2v2Zm0 4h2v-2h-2v2Z" /></svg>
-              <select className={styles.companySelect} aria-label="Empresa" value={empresaId} onChange={e=>{setProyectoActivo(null);useAccessStore.setState({empresaId:e.target.value});}}>
+              <select className={styles.companySelect} aria-label="Empresa" value={empresaId} onChange={e=>{setProyectoActivo(null);setCarpetaActual(null);useAccessStore.setState({empresaId:e.target.value});}}>
                 <option value="">Todas las obras autorizadas</option>
                 {contexto?.empresas.map(e=><option key={e.id} value={e.id}>{e.nombre}</option>)}
               </select>
@@ -189,10 +274,22 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
             />
             <svg className={styles.searchIcon} viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5" /><path d="m16 16 4 4" /></svg>
           </div>
-          <button disabled={!puedeCrear} title={puedeCrear ? undefined : "Selecciona una empresa donde tengas permiso para crear obras"} className={styles.newBtn} onClick={() => setModalAbierto(true)}>
-            <span className={styles.newBtnIcon}>+</span> Nuevo proyecto
+          <button disabled={!empresaDestino || (carpetaSeleccionada?.profundidad ?? 0) >= 5} className={styles.secondaryBtn} onClick={() => { setAccionError(null); setModalCarpeta(true); }}>
+            + Crear carpeta
+          </button>
+          <button disabled={obrasDisponibles.length === 0} className={styles.newBtn} onClick={() => {
+            setAccionError(null); setArchivoNuevoPlano(null); setCarpetaNuevoPlano(carpetaActual);
+            setTorreNuevoPlano(obrasDisponibles[0]);
+          }}>
+            <span className={styles.newBtnIcon}>+</span> Crear proyecto
           </button>
         </div>
+        {puedeCrear && <button className={styles.newWorkBtn} onClick={() => setModalAbierto(true)}>+ Nueva obra</button>}
+        <nav className={styles.breadcrumbs} aria-label="Ruta de carpetas">
+          <button type="button" onClick={() => setCarpetaActual(null)}>Proyectos</button>
+          {rutaCarpeta.map(c => <span key={c.id}> / <button type="button" onClick={() => setCarpetaActual(c.id)}>{c.nombre}</button></span>)}
+          {busqueda && <span className={styles.searchHint}>Buscando en todas las carpetas</span>}
+        </nav>
 
         {/* Errores / loading */}
         {(error || accionError) && (
@@ -207,13 +304,27 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
 
         {/* Grid de proyectos */}
         <div className={styles.grid}>
-          {loading && proyectosFiltrados.length === 0 ? (
+          {carpetasFiltradas.map(c => <div key={c.id} className={styles.folderCard}>
+            <button type="button" className={styles.folderOpen} onClick={() => { setBusqueda(''); setCarpetaActual(c.id); }}>
+              <span className={styles.folderIcon} aria-hidden="true">▣</span>
+              <span className={styles.folderName}>{c.nombre}</span>
+              <span className={styles.folderMeta}>Carpeta · nivel {c.profundidad}</span>
+              <span className={styles.folderArrow} aria-hidden="true">›</span>
+            </button>
+            {(contexto?.creador || c.created_by === identityId()) && <button type="button" className={styles.folderMenu} aria-label={`Opciones de ${c.nombre}`} aria-expanded={menuCarpeta === c.id}
+              onClick={() => setMenuCarpeta(menuCarpeta === c.id ? null : c.id)}>···</button>
+            }
+            {menuCarpeta === c.id && <div className={styles.folderActions}>
+              <button type="button" onClick={() => { setMenuCarpeta(null); setBusquedaCarpeta(''); setCarpetaMover(c); }}>Mover carpeta</button>
+            </div>}
+          </div>)}
+          {loading && proyectosFiltrados.length === 0 && carpetasFiltradas.length === 0 ? (
             <div className={styles.empty}>Cargando proyectos…</div>
-          ) : proyectosFiltrados.length === 0 ? (
+          ) : proyectosFiltrados.length === 0 && carpetasFiltradas.length === 0 ? (
             <div className={styles.empty}>
               {busqueda
                 ? `No hay proyectos que coincidan con "${busqueda}".`
-                : 'No hay obras asignadas en esta selección.'}
+                : 'Esta carpeta todavía no tiene proyectos ni subcarpetas.'}
             </div>
           ) : proyectosFiltrados.map(proyecto => {
             const hijos = proyecto.proyecto_padre_id ? [] : proyectos.filter(p => p.proyecto_padre_id === proyecto.id);
@@ -245,7 +356,8 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
                 onClick={() => {
                   if (menuAbierto === proyecto.id) { setMenuAbierto(null); return; }
                   if (proyecto.plano_url === PLANO_PENDIENTE) {
-                    if (contexto?.obras.find(p => p.id === proyecto.id)?.administrar) setPlanoPendiente(proyecto);
+                    if (contexto?.obras.find(p => p.id === proyecto.id)?.editar &&
+                      (proyecto.proyecto_padre_id || contexto?.obras.find(p => p.id === proyecto.id)?.administrar)) setPlanoPendiente(proyecto);
                     else setAccionError('Esta obra todavía no tiene plano. Pedí al supervisor que lo cargue.');
                   } else abrirProyecto(proyecto);
                 }}
@@ -292,7 +404,7 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
                   >
                     <button
                       type="button"
-                      disabled={!contexto?.obras.find(p=>p.id===proyecto.id)?.administrar}
+                      disabled={!contexto?.obras.find(p=>p.id===proyecto.id)?.editar}
                       className={styles.cardMenu}
                       onClick={() => setMenuAbierto(prev => prev === proyecto.id ? null : proyecto.id)}
                       title="Opciones"
@@ -306,16 +418,19 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
                 </div>
 
                 {menuAbierto === proyecto.id && <div id={`acciones-proyecto-${proyecto.id}`} className={styles.cardActions} onClick={e => e.stopPropagation()}>
-                  {!proyecto.proyecto_padre_id && <button type="button" className={styles.cardAction} onClick={() => { setMenuAbierto(null); setTorreNuevoPlano(proyecto); }}>
+                  {!proyecto.proyecto_padre_id && <button type="button" className={styles.cardAction} onClick={() => { setMenuAbierto(null); setCarpetaNuevoPlano(proyecto.carpeta_id ?? null); setArchivoNuevoPlano(null); setTorreNuevoPlano(proyecto); }}>
                     + Nuevo plano en esta obra
                   </button>}
-                  {proyecto.plano_url === PLANO_PENDIENTE && <button type="button" className={styles.cardAction} onClick={() => { setMenuAbierto(null); setPlanoPendiente(proyecto); }}>
+                  {proyecto.plano_url === PLANO_PENDIENTE && (proyecto.proyecto_padre_id || contexto?.obras.find(p => p.id === proyecto.id)?.administrar) && <button type="button" className={styles.cardAction} onClick={() => { setMenuAbierto(null); setPlanoPendiente(proyecto); }}>
                     ↑ Cargar plano inicial
                   </button>}
-                  <button type="button" className={styles.cardAction} disabled={proyecto.plano_url === PLANO_PENDIENTE} onClick={() => handleDuplicar(proyecto)}>
+                  {(proyecto.proyecto_padre_id || contexto?.obras.find(p => p.id === proyecto.id)?.administrar) && <button type="button" className={styles.cardAction} onClick={() => { setMenuAbierto(null); setBusquedaCarpeta(''); setProyectoMover(proyecto); }}>
+                    ▣ Mover a carpeta
+                  </button>}
+                  <button type="button" className={styles.cardAction} disabled={proyecto.plano_url === PLANO_PENDIENTE || !contexto?.obras.find(p => p.id === proyecto.id)?.administrar} onClick={() => handleDuplicar(proyecto)}>
                     ⧉ Duplicar proyecto
                   </button>
-                  <button type="button" className={`${styles.cardAction} ${styles.cardActionDanger}`} onClick={() => { setMenuAbierto(null); setConfirmDelete(proyecto); }}>
+                  <button type="button" disabled={!contexto?.obras.find(p => p.id === proyecto.id)?.administrar} className={`${styles.cardAction} ${styles.cardActionDanger}`} onClick={() => { setMenuAbierto(null); setConfirmDelete(proyecto); }}>
                     🗑 Eliminar proyecto
                   </button>
                 </div>}
@@ -329,7 +444,7 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
                   <div className={styles.cardClient}>
                     {proyecto.cliente ?? 'Sin cliente'}
                   </div>
-                  {proyecto.plano_url === PLANO_PENDIENTE && <p style={{ margin: '8px 0', color: 'var(--text-secondary)', fontSize: 13 }}>Plano pendiente · {contexto?.obras.find(p => p.id === proyecto.id)?.administrar ? 'tocá para cargarlo' : 'esperando al supervisor'}</p>}
+                  {proyecto.plano_url === PLANO_PENDIENTE && <p style={{ margin: '8px 0', color: 'var(--text-secondary)', fontSize: 13 }}>Plano pendiente · {contexto?.obras.find(p => p.id === proyecto.id)?.editar ? 'tocá para cargarlo' : 'esperando al responsable'}</p>}
                   <div className={styles.cardDivider} />
 
                   {/* Stats por estado — vienen de statsService (Supabase) */}
@@ -382,20 +497,59 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
         <ModalNuevoProyecto onCerrar={() => setModalAbierto(false)} />
       )}
 
+      {modalCarpeta && <div style={{ ...modalOverlayStyle, padding: 16 }} onClick={() => !creandoCarpeta && setModalCarpeta(false)}>
+        <div className={styles.newPlanDialog} role="dialog" aria-modal="true" aria-labelledby="nueva-carpeta-titulo" onClick={e => e.stopPropagation()}>
+          <h3 id="nueva-carpeta-titulo" className={styles.newPlanTitle}>Crear carpeta</h3>
+          <p className={styles.newPlanDescription}>Dentro de {carpetaSeleccionada?.nombre ?? 'Proyectos'} · nivel {(carpetaSeleccionada?.profundidad ?? 0) + 1} de 5</p>
+          <label className={styles.newPlanField}>Nombre de la carpeta
+            <input className={styles.newPlanInput} autoFocus maxLength={180} value={nombreCarpeta} onChange={e => setNombreCarpeta(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') void handleCrearCarpeta(); }} placeholder="Ej.: Distrito Perseverancia" />
+          </label>
+          {accionError && <p role="alert" style={{ color: '#b91c1c' }}>{accionError}</p>}
+          <div className={styles.newPlanActions}>
+            <button type="button" disabled={creandoCarpeta} onClick={() => setModalCarpeta(false)}>Cancelar</button>
+            <button type="button" disabled={creandoCarpeta || !nombreCarpeta.trim()} onClick={() => void handleCrearCarpeta()}>{creandoCarpeta ? 'Creando…' : 'Crear carpeta'}</button>
+          </div>
+        </div>
+      </div>}
+
       {torreNuevoPlano && <div style={{ ...modalOverlayStyle, padding: 16 }} onClick={() => !creandoPlano && setTorreNuevoPlano(null)}>
         <div className={styles.newPlanDialog} role="dialog" aria-modal="true" aria-labelledby="nuevo-plano-titulo" onClick={e => e.stopPropagation()}>
-          <h3 id="nuevo-plano-titulo" className={styles.newPlanTitle}>Nuevo plano en {torreNuevoPlano.nombre}</h3>
-          <p className={styles.newPlanDescription}>Creá el sector o piso y cargá su plano después. El equipo asignado a esta obra tendrá acceso.</p>
-          <label className={styles.newPlanField}>Nombre del plano
+          <h3 id="nuevo-plano-titulo" className={styles.newPlanTitle}>Crear proyecto</h3>
+          <p className={styles.newPlanDescription}>Cada proyecto es un plano. Quedará en {carpetas.find(c => c.id === carpetaNuevoPlano)?.nombre ?? 'Proyectos'} y solo lo verá el equipo de la obra elegida.</p>
+          <label className={styles.newPlanField}>Obra asignada
+            <select className={styles.newPlanInput} value={torreNuevoPlano.id} onChange={e => setTorreNuevoPlano(obrasDisponibles.find(p => p.id === e.target.value) ?? null)}>
+              {obrasDisponibles.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+            </select>
+          </label>
+          <label className={styles.newPlanField}>Nombre del proyecto
             <input className={styles.newPlanInput} autoFocus value={nombreNuevoPlano} maxLength={180} onChange={e => setNombreNuevoPlano(e.target.value)} placeholder="Ej.: Piso 3 · instalaciones" />
+          </label>
+          <label className={styles.newPlanField}>Archivo del plano
+            <input className={styles.newPlanInput} type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" onChange={e => setArchivoNuevoPlano(e.target.files?.[0] ?? null)} />
           </label>
           {accionError && <p role="alert" style={{ color: '#b91c1c' }}>{accionError}</p>}
           <div className={styles.newPlanActions}>
             <button type="button" disabled={creandoPlano} onClick={() => setTorreNuevoPlano(null)}>Cancelar</button>
-            <button type="button" disabled={creandoPlano || !nombreNuevoPlano.trim()} onClick={() => void handleNuevoPlano()}>
-              {creandoPlano ? 'Creando…' : 'Crear plano'}
+            <button type="button" disabled={creandoPlano || !nombreNuevoPlano.trim() || !archivoNuevoPlano} onClick={() => void handleNuevoPlano()}>
+              {creandoPlano ? 'Creando…' : 'Crear proyecto'}
             </button>
           </div>
+        </div>
+      </div>}
+
+      {(proyectoMover || carpetaMover) && <div style={{ ...modalOverlayStyle, padding: 16 }} onClick={() => { setProyectoMover(null); setCarpetaMover(null); }}>
+        <div className={styles.newPlanDialog} role="dialog" aria-modal="true" aria-labelledby="mover-titulo" onClick={e => e.stopPropagation()}>
+          <h3 id="mover-titulo" className={styles.newPlanTitle}>Mover {proyectoMover?.nombre ?? carpetaMover?.nombre}</h3>
+          <p className={styles.newPlanDescription}>Elegí la carpeta de destino. Los permisos de las obras no cambian.</p>
+          <input className={styles.newPlanInput} value={busquedaCarpeta} onChange={e => setBusquedaCarpeta(e.target.value)} placeholder="Buscar carpeta por nombre…" aria-label="Buscar carpeta" />
+          <div className={styles.folderChoices}>
+            <button type="button" onClick={() => void (proyectoMover ? handleMoverProyecto(null) : handleMoverCarpeta(null))}>Proyectos (nivel principal)</button>
+            {carpetas.filter(c => c.tenant_id === (proyectoMover?.tenant_id ?? carpetaMover?.tenant_id) && c.id !== carpetaMover?.id && c.nombre.toLocaleLowerCase().includes(busquedaCarpeta.toLocaleLowerCase())).map(c =>
+              <button type="button" key={c.id} onClick={() => void (proyectoMover ? handleMoverProyecto(c.id) : handleMoverCarpeta(c.id))}>▣ {c.nombre} <small>· nivel {c.profundidad}</small></button>)}
+          </div>
+          {accionError && <p role="alert" style={{ color: '#b91c1c' }}>{accionError}</p>}
+          <div className={styles.newPlanActions}><button type="button" onClick={() => { setProyectoMover(null); setCarpetaMover(null); }}>Cancelar</button></div>
         </div>
       </div>}
 

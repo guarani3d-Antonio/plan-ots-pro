@@ -2,7 +2,7 @@
 import { create } from 'zustand';
 import { supabase } from '../db/supabase';
 import { assertSession, sessionTicket } from '../security/sessionScope';
-import { useAccessStore, exigirPermiso } from './accessStore';
+import { useAccessStore, exigirPermiso, permisoObra } from './accessStore';
 import { useOrdenesStore } from './ordenesStore';
 let loadSequence = 0;
 let loadedEmpresa: string | null = null;
@@ -12,6 +12,7 @@ export interface Proyecto {
   id: string;
   tenant_id?: string | null;
   proyecto_padre_id?: string | null;
+  carpeta_id?: string | null;
   nombre: string;
   cliente: string | null;
   descripcion: string | null;
@@ -60,7 +61,8 @@ interface ProyectosState {
   cargarProyectos: () => Promise<void>;
   crearProyecto: (datos: { nombre: string; cliente: string; descripcion: string; planoFile: File }) => Promise<void>;
   crearProyectoBorrador: (datos: { nombre: string; cliente: string; descripcion: string }) => Promise<void>;
-  crearPlanoEnObra: (torreId: string, nombre: string) => Promise<void>;
+  crearPlanoEnObra: (torreId: string, nombre: string, carpetaId?: string | null, file?: File) => Promise<{ errorCarga: string | null }>;
+  moverProyecto: (id: string, carpetaId: string | null) => Promise<void>;
   cargarPlanoInicial: (id: string, file: File) => Promise<void>;
   eliminarProyecto: (id: string) => Promise<void>;
   duplicarProyecto: (proyecto: Proyecto) => Promise<void>;
@@ -121,25 +123,45 @@ export const useProyectosStore = create<ProyectosState>((set, get) => ({
       set({ error: error instanceof Error ? error.message : 'No se pudo crear la obra.', loading: false });
     }
   },
-  crearPlanoEnObra: async (torreId, nombre) => {
-    exigirPermiso(torreId, 'administrar');
+  crearPlanoEnObra: async (torreId, nombre, carpetaId = null, file) => {
+    exigirPermiso(torreId, 'editar');
+    const permisoPadre = permisoObra(torreId);
     const ticket = sessionTicket();
-    const { data, error } = await supabase.rpc('plan_crear_plano_en_obra', {
-      p_torre: torreId, p_nombre: nombre.trim(),
+    const { data, error } = await supabase.rpc('plan_crear_plano_en_carpeta', {
+      p_torre: torreId, p_nombre: nombre.trim(), p_carpeta: carpetaId,
     }).single();
     assertSession(ticket);
     if (error || !data) throw new Error(error?.message ?? 'No se pudo crear el plano.');
-    set(state => ({ proyectos: [data as Proyecto, ...state.proyectos] }));
-    await useAccessStore.getState().refresh();
+    const nuevo = data as Proyecto;
+    set(state => ({ proyectos: [nuevo, ...state.proyectos] }));
+    const access = useAccessStore.getState();
+    if (access.contexto && permisoPadre) useAccessStore.setState({ contexto: {
+      ...access.contexto, obras: [...access.contexto.obras, { ...permisoPadre, id: nuevo.id, nombre: nuevo.nombre }],
+    } });
+    if (!file) return { errorCarga: null };
+    try { await get().cargarPlanoInicial(nuevo.id, file); return { errorCarga: null }; }
+    catch (error) { return { errorCarga: error instanceof Error ? error.message : 'No se pudo subir el plano.' }; }
+  },
+  moverProyecto: async (id, carpetaId) => {
+    const ticket = sessionTicket();
+    const { data, error } = await supabase.rpc('plan_ubicar_proyecto', {
+      p_proyecto: id, p_carpeta: carpetaId,
+    }).single();
+    assertSession(ticket);
+    if (error || !data) throw new Error(error?.message ?? 'No se pudo mover el proyecto.');
+    set(state => ({ proyectos: state.proyectos.map(p => p.id === id ? data as Proyecto : p) }));
   },
   cargarPlanoInicial: async (id, file) => {
-    exigirPermiso(id, 'administrar');
     const ticket = sessionTicket();
     const proyecto = get().proyectos.find(p => p.id === id);
+    if (!permisoObra(id)?.editar && !(proyecto?.proyecto_padre_id && permisoObra(proyecto.proyecto_padre_id)?.editar))
+      throw new Error('Tu rol no permite cargar este plano.');
     if (!proyecto || proyecto.plano_url !== PLANO_PENDIENTE) throw new Error('La obra ya tiene un plano principal.');
     const uploaded = await subirArchivo('planos', id, file, file.name.split('.').pop() ?? 'pdf');
     try {
-      const { data, error } = await supabase.from('proyectos').update({ plano_url: uploaded.ref }).eq('id', id).eq('plano_url', PLANO_PENDIENTE).select().single();
+      const { data, error } = await supabase.rpc('plan_vincular_plano_inicial', {
+        p_proyecto: id, p_url: uploaded.ref,
+      }).single();
       assertSession(ticket);
       if (error || !data) throw new Error(error?.message ?? 'No se pudo vincular el plano a la obra.');
       set(state => ({ proyectos: state.proyectos.map(p => p.id === id ? data as Proyecto : p) }));
