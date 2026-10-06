@@ -560,14 +560,14 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
                 {/* Cuerpo */}
                 <div className={styles.cardBody}>
                   <div className={styles.cardIdentity}>
-                    {proyecto.proyecto_padre_id && <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginBottom: 4 }}>
+                    {proyecto.proyecto_padre_id && <div className={styles.cardParentLabel} style={{ color: 'var(--text-secondary)', fontSize: 12, marginBottom: 4 }}>
                       Plano de {proyectos.find(p => p.id === proyecto.proyecto_padre_id)?.nombre ?? 'obra asignada'}
                     </div>}
                     <div className={styles.cardName}>{proyecto.nombre}</div>
                     <div className={styles.cardClient}>
                       {proyecto.cliente ?? 'Sin cliente'}
                     </div>
-                    {proyecto.plano_url === PLANO_PENDIENTE && <p style={{ margin: '8px 0', color: 'var(--text-secondary)', fontSize: 13 }}>Plano pendiente · {contexto?.obras.find(p => p.id === proyecto.id)?.editar ? 'tocá para cargarlo' : 'esperando al responsable'}</p>}
+                    {proyecto.plano_url === PLANO_PENDIENTE && <p className={styles.cardPendingNote} style={{ margin: '8px 0', color: 'var(--text-secondary)', fontSize: 13 }}>Plano pendiente · {contexto?.obras.find(p => p.id === proyecto.id)?.editar ? 'tocá para cargarlo' : 'esperando al responsable'}</p>}
                   </div>
                   <div className={styles.cardDivider} />
 
