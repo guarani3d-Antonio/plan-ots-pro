@@ -314,6 +314,14 @@
 .docFirmada   { background: #F0FDF4; color: #166534; border-color: #86EFAC; }
 .docNoAplica  { background: #F9FAFB; color: #4B5563; border-color: #E5E7EB; }
 
+.reportList { display: grid; gap: 6px; }
+.reportRow { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 38px; padding: 5px 0; border-bottom: 1px solid var(--border-default); }
+.reportRow:last-child { border-bottom: 0; }
+.reportRow span { min-width: 0; overflow-wrap: anywhere; }
+.reportRow em { color: var(--text-secondary); font-style: normal; }
+.reportRow button { flex: 0 0 auto; width: auto; min-height: 36px; padding: 6px 12px; border: 1px solid var(--border-default); border-radius: 8px; background: var(--bg-surface); color: var(--accent); font: inherit; font-weight: 600; cursor: pointer; }
+.reportRow button:hover { border-color: var(--accent); background: var(--bg-subtle); }
+
 /* ═══════════════════════════════════════════════ Fotos ══ */
 .fotoGrupo {
   background: #fff;

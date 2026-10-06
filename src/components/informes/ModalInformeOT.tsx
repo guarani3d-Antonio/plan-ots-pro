@@ -62,6 +62,8 @@ interface Props {
   proyectoNombre: string;
   tipo: TipoInforme;
   puedeRevisar?: boolean;
+  soloVistaPrevia?: boolean;
+  documentoInicialId?: string;
 }
 
 // S33: incluye descripcion_observacion para que aparezca en los informes
@@ -425,7 +427,8 @@ const PREGUNTAS_ENCUESTA: {
   { clave: 'sugerencias', etiqueta: '10. Sugerencias o comentarios' },
 ];
 
-export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, puedeRevisar = false }: Props) {
+export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, puedeRevisar = false,
+  soloVistaPrevia = false, documentoInicialId }: Props) {
   const emisionDisponible = import.meta.env.VITE_DOCUMENT_ISSUANCE_ENABLED === 'true';
   const esCreador = useAccessStore(s => s.disponible && s.contexto?.creador === true);
   const usuarioId = useAuthStore(s => s.user?.id);
@@ -473,7 +476,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
   const solicitudEmisionRef = useRef<{ candidato: string; id: string } | null>(null);
   const [motivoRevision, setMotivoRevision] = useState('');
   const [congelandoRevision, setCongelandoRevision] = useState(false);
-  const [seleccionId, setSeleccionId] = useState<string | null>(null);
+  const [seleccionId, setSeleccionId] = useState<string | null>(documentoInicialId ?? null);
   const [versionBorrador, setVersionBorrador] = useState(0);
   const [guardado, setGuardado] = useState<string | null>(null);
   const [persistenciaDisponible, setPersistenciaDisponible] = useState(false);
@@ -589,7 +592,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
     solicitudDecisionRef.current = null;
     solicitudEmisionRef.current = null;
     setMotivoRevision('');
-    setSeleccionId(null);
+    setSeleccionId(documentoInicialId ?? null);
     setVersionBorrador(0);
     setGuardado(null);
     setPersistenciaDisponible(false);
@@ -599,10 +602,10 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
     solicitudRevisionRef.current = null;
     // Se reinicia solo al cambiar la identidad de la OT o el tipo de documento.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orden.id, tipo]);
+  }, [orden.id, tipo, documentoInicialId]);
 
   useEffect(() => {
-    if (!emisionDisponible || !isOpen || !documento?.id) return;
+    if ((!emisionDisponible && !soloVistaPrevia) || !isOpen || !documento?.id) return;
     const documentoId = documento.id;
     let cancelado = false;
     cargarEstadoEmision(documentoId).then(estado => {
@@ -614,7 +617,23 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
       if (!cancelado) setErrorEmision(error instanceof Error ? error.message : 'No se pudo cargar el estado documental.');
     });
     return () => { cancelado = true; };
-  }, [documento?.id, emisionDisponible, isOpen]);
+  }, [documento?.id, emisionDisponible, isOpen, soloVistaPrevia]);
+
+  // La lectura rápida muestra el PDF definitivo verificado cuando existe una emisión.
+  useEffect(() => {
+    if (!soloVistaPrevia || !isOpen || !emisiones.length) return;
+    const emitido = candidatos.find(c => c.id === emisiones[0].candidato_id);
+    if (!emitido || emitido.estado !== 'listo') return;
+    let cancelado = false;
+    descargarCandidatoVerificado(emitido).then(blob => {
+      if (cancelado) return;
+      setPdfBlobUrl(URL.createObjectURL(blob));
+      setPdfVerificadoId(emitido.id);
+    }).catch(error => {
+      if (!cancelado) setErrorEmision(error instanceof Error ? error.message : 'No se pudo verificar el PDF emitido.');
+    });
+    return () => { cancelado = true; };
+  }, [soloVistaPrevia, isOpen, emisiones, candidatos]);
 
   useEffect(() => () => {
     if (pdfBlobUrl) URL.revokeObjectURL(pdfBlobUrl);
@@ -1157,12 +1176,13 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
   const aprobacionEmitible = aprobaciones.find(a => a.candidato_id === candidatoEmitible?.id);
   const emisionActual = emisiones.find(e => e.candidato_id === candidatoEmitible?.id);
   const candidatoEmitido = candidatos.find(c => c.id === emisiones[0]?.candidato_id);
+  const pdfEmitidoPendiente = soloVistaPrevia && emisiones.length > 0 && !pdfBlobUrl;
   return (
     <div className={styles.backdrop} onClick={onClose}>
-      <div className={styles.modal} onClick={e => e.stopPropagation()}>
+      <div className={`${styles.modal} ${soloVistaPrevia ? styles.modalPreviewOnly : ''}`} onClick={e => e.stopPropagation()}>
         {/* HEADER */}
         <div className={styles.header}>
-          <div className={styles.title}>{cfg.titulo}</div>
+          <div className={styles.title}>{soloVistaPrevia ? `Vista previa · ${cfg.titulo}` : cfg.titulo}</div>
           <span className={`${styles.badge} ${styles.badgeOT}`}>OT {orden.ot}</span>
           <span className={styles.badge}>
             <span
@@ -1181,17 +1201,17 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
           </button>
         </div>
 
-        <nav className={styles.quickNav} aria-label="Navegación del informe">
+        {!soloVistaPrevia && <nav className={styles.quickNav} aria-label="Navegación del informe">
           <button type="button" onClick={() => editorRef.current?.scrollTo({ top: 0, behavior: 'smooth' })}>Datos</button>
           {muestraTextarea && <button type="button" onClick={() => editorRef.current?.querySelector('[data-report-section="texto"]')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>Texto</button>}
           {necesitaFotos && <button type="button" onClick={() => editorRef.current?.querySelector('[data-report-section="fotos"]')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>Fotos</button>}
           <button type="button" onClick={() => previewRef.current?.scrollTo({ top: 0, behavior: 'smooth' })}>Inicio de la vista previa</button>
-        </nav>
+        </nav>}
 
         {/* BODY */}
-        <div className={styles.body}>
+        <div className={`${styles.body} ${soloVistaPrevia ? styles.bodyPreviewOnly : ''}`}>
           {/* IZQUIERDA */}
-          <div className={styles.left} ref={editorRef}>
+          {!soloVistaPrevia && <div className={styles.left} ref={editorRef}>
             {tipoRepetible && (
               <div className={styles.section}>
                 <label className={styles.originField}>
@@ -1744,12 +1764,16 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                 Actualizar preview
               </button>
             </div>
-          </div>
+          </div>}
 
           {/* DERECHA */}
           <div className={styles.right} ref={previewRef}>
             <div className={styles.previewHeading}>
-              {pdfBlobUrl ? (emisiones.length ? 'PDF emitido verificado' : 'PDF candidato verificado · aún no emitido') : 'Vista previa del borrador'}
+              {pdfBlobUrl ? (emisiones.length ? 'PDF emitido verificado' : 'PDF candidato verificado · aún no emitido')
+                : pdfEmitidoPendiente ? 'PDF emitido · verificando archivo' : 'Vista previa del borrador'}
+              {soloVistaPrevia && documento && <span> · {documento.codigo}</span>}
+              {soloVistaPrevia && (errorBorrador || errorInforme || errorEmision) &&
+                <p role="alert" className={styles.documentError}>{errorBorrador || errorEmision || errorInforme}</p>}
               {pdfBlobUrl && <div className={styles.documentActions}>
                 <a className={styles.btnSecondary} href={pdfBlobUrl}
                   download={`${documento?.codigo ?? 'informe'}_${emisiones.length ? 'emitido' : 'candidato'}.pdf`}>
@@ -1760,6 +1784,8 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
             </div>
             {pdfBlobUrl ? (
               <PdfVerificado url={pdfBlobUrl} />
+            ) : pdfEmitidoPendiente ? (
+              <div className={styles.emptyState}>{errorEmision || (candidatoEmitido ? 'Verificando el PDF emitido…' : 'No se encontró el archivo emitido.')}</div>
             ) : htmlPreview ? (
               <div className={styles.previewSheet} style={{ width: 794 * escalaPreview, height: previewAlto * escalaPreview }}>
                 <iframe
@@ -1789,6 +1815,10 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
 
         {/* FOOTER */}
         <div className={styles.footer}>
+          {soloVistaPrevia ? <>
+            <span className={styles.avisoImpresion}>{emisiones.length && pdfBlobUrl ? 'Documento definitivo emitido.' : 'Vista previa de borrador; no equivale a un documento emitido.'}</span>
+            <button type="button" className={styles.btnCancelar} onClick={onClose}>Cerrar</button>
+          </> : <>
           <span className={styles.avisoImpresion}>
             {errorBorrador ?? errorInforme ?? (documento
               ? `${documento.codigo} · borrador v${versionBorrador}${cambiosBorrador ? ' · cambios sin guardar' : ''}`
@@ -1819,6 +1849,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
           >
             Imprimir PDF borrador →
           </button>
+          </>}
         </div>
       </div>
     </div>

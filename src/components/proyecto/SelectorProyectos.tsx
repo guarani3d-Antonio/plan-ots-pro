@@ -102,6 +102,7 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
   const [statsMap,       setStatsMap]       = useState<Record<string, ProyectoStats>>(() => Object.fromEntries(statsCache));
   const [thumbnails,     setThumbnails]     = useState<Record<string, string>>({});
   const menuRef    = useRef<HTMLDivElement>(null);
+  const menuCarpetaRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     try { localStorage.setItem(VISTA_PROYECTOS_KEY, vistaProyectos); }
@@ -109,6 +110,7 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
   }, [vistaProyectos]);
 
   function navegarCarpeta(id: string | null) {
+    setMenuCarpeta(null);
     setHistorialCarpetas(prev => {
       if (prev.rutas[prev.indice] === id) return prev;
       const rutas = [...prev.rutas.slice(0, prev.indice + 1), id];
@@ -163,17 +165,30 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [proyectos]);
 
-  // Cerrar el dropdown ⋯ de cada card al hacer click fuera.
+  // Cerrar los menús ⋯ al pulsar fuera o Escape, también en pantallas táctiles.
   useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
+    function handleClickOutside(e: PointerEvent) {
       const t = e.target as Node;
-      if (menuRef.current && !menuRef.current.contains(t)) {
+      if (menuAbierto && !menuRef.current?.contains(t)) {
         setMenuAbierto(null);
       }
+      if (menuCarpeta && !menuCarpetaRef.current?.contains(t)) {
+        setMenuCarpeta(null);
+      }
     }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+    function handleEscape(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        setMenuAbierto(null);
+        setMenuCarpeta(null);
+      }
+    }
+    document.addEventListener('pointerdown', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('pointerdown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [menuAbierto, menuCarpeta]);
 
   const carpetaSeleccionada = carpetas.find(c => c.id === carpetaActual);
   const empresaDestino = carpetaSeleccionada?.tenant_id ?? empresaId ?? '';
@@ -486,7 +501,7 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
         {avisoAccion && !accionError && <div className={styles.actionNotice} role="status">{avisoAccion}</div>}
 
         {carpetasFiltradas.length > 0 && <div className={`${styles.folderGrid} ${vistaProyectos === 'lista' ? styles.folderGridList : ''}`}>
-          {carpetasFiltradas.map(c => <div key={c.id} className={`${styles.folderCard} ${menuCarpeta === c.id ? styles.folderCardOpen : ''}`}>
+          {carpetasFiltradas.map(c => <div key={c.id} ref={menuCarpeta === c.id ? menuCarpetaRef : null} className={`${styles.folderCard} ${menuCarpeta === c.id ? styles.folderCardOpen : ''}`}>
             <button type="button" className={styles.folderOpen} onClick={() => { setBusqueda(''); navegarCarpeta(c.id); }}>
               <svg className={styles.folderIcon} viewBox="0 0 96 80" aria-hidden="true">
                 <path d="M8 15a7 7 0 0 1 7-7h22l9 9h35a7 7 0 0 1 7 7v43a7 7 0 0 1-7 7H15a7 7 0 0 1-7-7Z" fill="#5D79B0" />

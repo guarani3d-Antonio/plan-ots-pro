@@ -12,6 +12,8 @@ import {
   type CategoriaFoto,
 } from '../../services/fotosService';
 import { usePuedeVerCostos } from '../../hooks/usePuedeVerCostos';
+import { listarDocumentosDeOrden, type DocumentoRegistro, type TipoDocumento } from '../../services/documentService';
+import { informeDisponible } from '../../services/reportService';
 
 // ─────────────────────────────────────────────────────────────────── Types ──
 
@@ -60,6 +62,7 @@ interface Props {
   onClose: () => void;
   onGuardado: () => void;
   onEditar?: () => void;
+  onVerInforme?: (tipo: TipoDocumento, documentoId?: string) => void;
 }
 
 // ─────────────────────────────────────────────────────────────────── Helpers ──
@@ -119,6 +122,16 @@ const DOC_LABEL: Record<string, string> = {
   'no aplica': 'N.A.',
 };
 
+const TIPOS_DOCUMENTO: { tipo: TipoDocumento; nombre: string }[] = [
+  { tipo: 'orden_servicio', nombre: 'Orden de Servicio' },
+  { tipo: 'visita', nombre: 'Ficha de Visita Técnica' },
+  { tipo: 'relevamiento', nombre: 'Informe de Relevamiento' },
+  { tipo: 'avance', nombre: 'Informe de Avance' },
+  { tipo: 'cierre', nombre: 'Informe de Cierre' },
+  { tipo: 'acta', nombre: 'Acta de Conformidad' },
+  { tipo: 'encuesta', nombre: 'Encuesta de Satisfacción' },
+];
+
 const InformeChip: React.FC<{ valor?: string }> = ({ valor }) => {
   if (!valor) return <Dash />;
   const norm = valor.toLowerCase();
@@ -155,9 +168,13 @@ type FotoConId = FotoSubida & { id: string };
 // ─────────────────────────────────────────────────────────────────── Componente ──
 
 export const ModalDetalleOT: React.FC<Props> = ({
-  orden, onClose, onEditar,
+  orden, onClose, onEditar, onVerInforme,
 }) => {
   const [fotos, setFotos] = useState<FotoConId[]>([]);
+  const [documentos, setDocumentos] = useState<DocumentoRegistro[]>([]);
+  const [cargandoDocumentos, setCargandoDocumentos] = useState(true);
+  const [errorDocumentos, setErrorDocumentos] = useState<string | null>(null);
+  const ordenId = orden?.id;
   const puedeVerCostos = usePuedeVerCostos(orden?.proyecto_id ?? null);
   const onCloseRef = useRef(onClose);
   useLayoutEffect(() => { onCloseRef.current = onClose; }, [onClose]);
@@ -179,11 +196,22 @@ export const ModalDetalleOT: React.FC<Props> = ({
   };
 
   useEffect(() => {
-    if (!orden) return;
-    cargarFotosDeOrden(orden.id)
+    if (!ordenId) return;
+    cargarFotosDeOrden(ordenId)
       .then(setFotos)
       .catch(err => console.error('[ModalDetalleOT] fotos:', err));
-  }, [orden?.id]);
+  }, [ordenId]);
+
+  useEffect(() => {
+    if (!ordenId) return;
+    let vigente = true;
+    listarDocumentosDeOrden(ordenId).then(lista => {
+      if (vigente) { setDocumentos(lista); setErrorDocumentos(null); }
+    }).catch(error => {
+      if (vigente) setErrorDocumentos(error instanceof Error ? error.message : 'No se pudieron cargar los informes.');
+    }).finally(() => { if (vigente) setCargandoDocumentos(false); });
+    return () => { vigente = false; };
+  }, [ordenId]);
 
   if (!orden) return null;
 
@@ -347,6 +375,24 @@ export const ModalDetalleOT: React.FC<Props> = ({
             <Campo label="Informe relevamiento"><InformeChip valor={orden.informe_relevamiento} /></Campo>
             <Campo label="Informe avance"><InformeChip valor={orden.informe_avance} /></Campo>
             <Campo label="Informe cierre"><InformeChip valor={orden.informe_cierre} /></Campo>
+            {onVerInforme && <Campo label="Vistas previas" full>
+              <div className={styles.reportList}>
+                {cargandoDocumentos && <span>Cargando documentos…</span>}
+                {errorDocumentos && <span role="alert">{errorDocumentos}</span>}
+                {!cargandoDocumentos && !errorDocumentos && <>
+                  {documentos.map(doc => <div className={styles.reportRow} key={doc.id}>
+                    <span><strong>{TIPOS_DOCUMENTO.find(item => item.tipo === doc.tipo)?.nombre ?? doc.tipo}</strong> · {doc.codigo}</span>
+                    <button type="button" onClick={() => onVerInforme(doc.tipo, doc.id)}>Vista previa</button>
+                  </div>)}
+                  {TIPOS_DOCUMENTO.filter(item => !documentos.some(doc => doc.tipo === item.tipo) &&
+                    informeDisponible(item.tipo === 'acta' ? 'acta_conformidad' : item.tipo, orden.estado)).map(item =>
+                    <div className={styles.reportRow} key={item.tipo}>
+                      <span>{item.nombre} · <em>sin guardar</em></span>
+                      <button type="button" onClick={() => onVerInforme(item.tipo)}>Ver borrador</button>
+                    </div>)}
+                </>}
+              </div>
+            </Campo>}
           </Seccion>
 
           {/* ────── Sección 5 – Fotos ────── */}

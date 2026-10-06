@@ -28,6 +28,9 @@
   color: var(--text-primary, #111827);
 }
 
+.modalPreviewOnly { width: min(900px, calc(100vw - 32px)); }
+.body.bodyPreviewOnly { grid-template-columns: minmax(0, 1fr); }
+
 /* ── Header (full width, light) ─────────────────────────────────────────── */
 .header {
   background: #FFFFFF;
@@ -539,6 +542,7 @@
     grid-template-rows: minmax(240px, 42%) minmax(0, 1fr);
     overflow: hidden;
   }
+  .body.bodyPreviewOnly { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
   .left {
     border-right: 0;
     border-bottom: 1px solid #E5E7EB;

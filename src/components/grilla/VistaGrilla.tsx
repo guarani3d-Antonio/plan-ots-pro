@@ -9,6 +9,8 @@ import { supabase } from '../../db/supabase';
 import { assertSession, sessionTicket } from '../../security/sessionScope';
 import { ModalDetalleOT } from './ModalDetalleOT';
 import { PanelOT } from '../plano/PanelOT';
+import { ModalInformeOT } from '../informes/ModalInformeOT';
+import type { TipoDocumento } from '../../services/documentService';
 import { type CampoDefinicion } from '../../services/camposService';
 import { colorEstado, diasAbierto } from '../../utils/calculos';
 import { usePuedeVerCostosMultiple } from '../../hooks/usePuedeVerCostos';
@@ -553,8 +555,10 @@ export const VistaGrilla: React.FC = () => {
   const [carpetaFiltro, setCarpetaFiltro] = useState('');
   const [planoFiltro, setPlanoFiltro] = useState('');
   const [informeOrdenId, setInformeOrdenId] = useState<string | null>(null);
+  const [vistaPreviaInforme, setVistaPreviaInforme] = useState<{ ordenId: string; tipo: TipoDocumento; documentoId?: string } | null>(null);
   const [panelTab, setPanelTab] = useState<'datos' | 'informes'>('informes');
   const informeOrden = ordenes.find(o => o.id === informeOrdenId && proyectos.some(p => p.id === o.proyecto_id));
+  const ordenVistaPrevia = ordenes.find(o => o.id === vistaPreviaInforme?.ordenId && proyectos.some(p => p.id === o.proyecto_id));
 
   useEffect(() => {
     let vigente = true;
@@ -1073,10 +1077,16 @@ export const VistaGrilla: React.FC = () => {
       </main>
 
       {modalOrden && (
-        <ModalDetalleOT orden={modalOrden} proyectoId={modalOrden.proyecto_id} onClose={() => setModalOrden(null)}
+        <ModalDetalleOT orden={modalOrden} proyectoId={modalOrden.proyecto_id} onClose={() => { setModalOrden(null); setVistaPreviaInforme(null); }}
           onGuardado={() => { setModalOrden(null); void cargarOrdenesDeProyectos(idsCatalogo); }}
-          onEditar={() => { setModalOrden(null); setPanelTab('datos'); setInformeOrdenId(modalOrden.id); }} />
+          onEditar={() => { setModalOrden(null); setPanelTab('datos'); setInformeOrdenId(modalOrden.id); }}
+          onVerInforme={(tipo, documentoId) => setVistaPreviaInforme({ ordenId: modalOrden.id, tipo, documentoId })} />
       )}
+      {vistaPreviaInforme && ordenVistaPrevia &&
+        <ModalInformeOT key={`${ordenVistaPrevia.id}-${vistaPreviaInforme.tipo}-${vistaPreviaInforme.documentoId ?? 'borrador'}`}
+          isOpen orden={ordenVistaPrevia} proyectoNombre={porId.get(ordenVistaPrevia.proyecto_id)?.nombre ?? ''}
+          tipo={vistaPreviaInforme.tipo} documentoInicialId={vistaPreviaInforme.documentoId}
+          soloVistaPrevia onClose={() => setVistaPreviaInforme(null)} />}
       {informeOrden && <PanelOT key={informeOrden.id} orden={informeOrden}
         proyectoNombre={porId.get(informeOrden.proyecto_id)?.nombre ?? ''}
         tabInicial={panelTab} onCerrar={() => setInformeOrdenId(null)} />}
