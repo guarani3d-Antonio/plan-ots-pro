@@ -52,6 +52,7 @@ import { colorEstado } from '../../utils/calculos';
 import styles from './ModalInformeOT.module.css';
 import { VoiceInputButton } from '../ui/VoiceInputButton';
 import { PLANTILLA_CONTROLADA_VERSION } from '../../services/controlledReportService';
+import { generarContextoPlano, type PlanoContexto } from '../../services/planLocationService';
 
 export type TipoInforme = 'cierre' | 'orden_servicio' | 'visita' | 'relevamiento' | 'avance' | 'acta' | 'encuesta';
 
@@ -441,6 +442,8 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
   const [identificacion, setIdentificacion] = useState<IdentificacionInforme>(() => prepararAutocompletado(orden, proyectoNombre).identificacion);
   const precargaRef = useRef(prepararAutocompletado(orden, proyectoNombre));
   const [avisoFuentes, setAvisoFuentes] = useState('');
+  const [planoContexto, setPlanoContexto] = useState<PlanoContexto | null>(null);
+  const [avisoPlano, setAvisoPlano] = useState('');
   const [origenServicio, setOrigenServicio] = useState<OrigenOrdenServicio>(() => origenInicial(orden));
   const [datosVisita, setDatosVisita] = useState<DatosVisita>({ ...VISITA_INICIAL });
   const [datosRelevamiento, setDatosRelevamiento] = useState<DatosRelevamiento>({ ...RELEVAMIENTO_INICIAL });
@@ -563,6 +566,8 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
     setObservaciones('');
     setIdentificacion(prepararAutocompletado(orden, proyectoNombre).identificacion);
     setAvisoFuentes('');
+    setPlanoContexto(null);
+    setAvisoPlano('');
     setOrigenServicio(origenInicial(orden));
     setDatosVisita({ ...VISITA_INICIAL });
     setDatosRelevamiento({ ...RELEVAMIENTO_INICIAL });
@@ -640,7 +645,8 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
   }, [pdfBlobUrl]);
 
   const construirHtml = (textoActual: string): string => {
-    const ordenDocumento = ordenParaInforme(orden, identificacion);
+    const base = ordenParaInforme(orden, identificacion);
+    const ordenDocumento = { ...base, campos: { ...base.campos, plano_contexto: planoContexto } };
     const codigoDocumento = documento?.codigo;
     const seleccion = new Set(fotoIds);
     const fa  = incluirFotos ? fotosAntes.filter(f => seleccion.has(f.id)) : [];
@@ -687,9 +693,24 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
     });
 
     Promise.all([promFotos, promBorrador])
-      .then(([fotos, resultado]) => {
+      .then(async ([fotos, resultado]) => {
         if (cancelado) return;
         const datos = resultado?.borrador?.datos;
+        const guardadoPlano = datos?.planoContexto as PlanoContexto | undefined;
+        let contextoPlano: PlanoContexto | null = null;
+        let errorPlano = '';
+        if (guardadoPlano && typeof guardadoPlano.imagen === 'string' &&
+            /^data:image\/(?:jpeg|png);base64,[A-Za-z0-9+/]+={0,2}$/.test(guardadoPlano.imagen) &&
+            guardadoPlano.imagen.length <= 400_000 && guardadoPlano.posX === orden.pos_x &&
+            guardadoPlano.posY === orden.pos_y && typeof guardadoPlano.planoRef === 'string') {
+          contextoPlano = guardadoPlano;
+        } else {
+          try { contextoPlano = await generarContextoPlano(orden); }
+          catch (error) { errorPlano = error instanceof Error ? error.message : 'No se pudo preparar la ubicación en el plano.'; }
+        }
+        if (cancelado) return;
+        setPlanoContexto(contextoPlano);
+        setAvisoPlano(errorPlano);
         const inicial = prepararAutocompletado(orden, proyectoNombre, resultado.contexto.cliente, resultado.contexto.fuentes);
         precargaRef.current = inicial;
         const identidad = restaurarCampos(inicial.identificacion, datos?.identificacion);
@@ -735,6 +756,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
         setMotivoRevision('');
         setVersionBorrador(resultado?.borrador?.version ?? 0);
         setGuardado(JSON.stringify({ identificacion: datos?.identificacion ?? (resultado?.borrador ? undefined : identidad), observaciones: texto,
+          planoContexto: datos?.planoContexto ?? null,
           incluirFotos: datos?.incluirFotos !== false,
           ...(necesitaFotos ? { fotoIds: idsFotos } : {}),
           ...(tipo === 'orden_servicio' ? { origen } : {}),
@@ -852,6 +874,17 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
 
   if (!isOpen) return null;
 
+  const reintentarPlano = async () => {
+    setAvisoPlano('Preparando la referencia visual del plano…');
+    try {
+      const contexto = await generarContextoPlano(orden);
+      setPlanoContexto(contexto);
+      setAvisoPlano('');
+    } catch (error) {
+      setAvisoPlano(error instanceof Error ? error.message : 'No se pudo preparar la ubicación en el plano.');
+    }
+  };
+
   const handleActualizarAhora = async () => {
     if (cargandoComentario) return;
     setGenerandoPreview(true);
@@ -864,7 +897,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
     } finally { setGenerandoPreview(false); }
   };
 
-  const datosBorrador = { identificacion, observaciones, incluirFotos,
+  const datosBorrador = { identificacion, observaciones, incluirFotos, planoContexto,
     ...(necesitaFotos ? { fotoIds } : {}),
     ...(tipo === 'orden_servicio' ? { origen: origenServicio } : {}),
     ...(tipo === 'visita' ? { visita: datosVisita } : {}),
@@ -873,6 +906,8 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
     ...(tipo === 'cierre' ? { cierre: datosCierre, itemsCierre } : {}),
     ...(tipo === 'acta' ? { acta: datosActa } : {}),
     ...(tipo === 'encuesta' ? { encuesta: datosEncuesta } : {}) };
+  const planoRequerido = orden.pos_x != null && orden.pos_y != null &&
+    Number.isFinite(orden.pos_x) && Number.isFinite(orden.pos_y);
   const cambiosBorrador = borradorModificado(guardado, datosBorrador);
   const revisionActual = revisiones.find(revision => revision.borrador_version === versionBorrador);
   const tipoRepetible = tipo === 'visita' || tipo === 'relevamiento' || tipo === 'avance' || tipo === 'encuesta';
@@ -935,6 +970,10 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
   const handleCongelarRevision = async () => {
     if (!puedeRevisar || !documento || emisiones.length > 0 || !versionBorrador || cambiosBorrador ||
       cargandoComentario || guardandoBorrador || congelandoRevision) return;
+    if (planoRequerido && !planoContexto) {
+      setErrorBorrador('Falta la referencia visual del plano. Reintentá la carga antes de congelar esta revisión.');
+      return;
+    }
     const motivo = motivoRevision.trim();
     if (revisiones.length && !motivo) {
       setErrorBorrador('Indicá por qué se corrige la revisión anterior.');
@@ -1047,6 +1086,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
 
   const handleExportarHTML = async () => {
     if (cargandoComentario) return;
+    if (planoRequerido && !planoContexto) { setErrorInforme('Falta la referencia visual del plano. Reintentá la carga antes de exportar.'); return; }
     setGenerandoPreview(true);
     try {
       if (incluirFotos && fotosFaltantes.length) throw new Error(`${fotosFaltantes.length} foto(s) seleccionadas ya no están disponibles. Revisá la evidencia antes de exportar.`);
@@ -1067,6 +1107,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
 
   const handleExportarPDF = async () => {
     if (cargandoComentario) return;
+    if (planoRequerido && !planoContexto) { setErrorInforme('Falta la referencia visual del plano. Reintentá la carga antes de imprimir.'); return; }
     const w = window.open('', '_blank');
     if (!w) { setErrorInforme('El navegador bloqueó la ventana del PDF. Permití las ventanas emergentes para este sitio.'); return; }
     w.document.write('<p style="font-family:Arial;padding:24px">Preparando informe portable…</p>');
@@ -1250,6 +1291,11 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
               <div className={styles.sectionTitle}>Datos de la OT y del cliente</div>
               <p className={styles.sublabel}>Datos precargados de la OT, del cliente vinculado y de los documentos anteriores disponibles. Revisalos antes de generar. Las ediciones se guardan solo en este informe.</p>
               {avisoFuentes && <p role="alert">{avisoFuentes}</p>}
+              {planoRequerido && !planoContexto && <div role="alert" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, margin: '8px 0', fontSize: 12 }}>
+                <span>{avisoPlano || 'La ubicación del plano todavía no está lista para este informe.'}</span>
+                <button type="button" className={styles.btnSecondary} onClick={() => void reintentarPlano()} disabled={cargandoComentario}>Reintentar plano</button>
+              </div>}
+              {!planoRequerido && <p className={styles.sublabel}>Esta OT no tiene un punto ubicado en el plano; el informe no mostrará un recorte hasta que la ubiquen.</p>}
               <details>
                 <summary>Ver y editar datos de identificación</summary>
                 <div className={styles.originGrid}>

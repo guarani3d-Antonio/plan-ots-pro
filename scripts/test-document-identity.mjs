@@ -34,6 +34,7 @@ try {
     create table public.proyectos(
       id uuid primary key, tenant_id uuid not null references public.tenants(id),
       nombre text, cliente text, descripcion text,
+      plano_url text not null default 'storage://planos/qa/plano.pdf',
       deleted_at timestamptz, unique(tenant_id,id));
     create table public.ordenes(
       id uuid primary key, proyecto_id uuid not null references public.proyectos(id),
@@ -301,6 +302,7 @@ try {
   await db.exec('set role postgres;');
   await db.exec(await readFile(new URL('../supabase/migrations/202610040025_pilot_document_review.sql', import.meta.url), 'utf8'));
   await db.exec(await readFile(new URL('../supabase/migrations/202610040026_document_issuer_snapshot.sql', import.meta.url), 'utf8'));
+  await db.exec(await readFile(new URL('../supabase/migrations/202610070001_document_plan_location.sql', import.meta.url), 'utf8'));
   await db.exec(`create or replace function public.plan_es_creador() returns boolean
     language sql stable as $$select auth.uid() = '${revisor}'::uuid$$;`);
   await db.exec('set role authenticated;');
@@ -317,6 +319,8 @@ try {
   const pendienteDraft = await save(pendiente.id, {fotoIds: [], observaciones: 'Original'}, 0, uuid(106));
   const pendienteRevision = await freeze(pendiente.id, pendienteDraft.version, null, uuid(107));
   assert.equal((await one(`select fuentes->'empresa'->>'nombre' as nombre from public.plan_documento_fuentes where revision_id='${pendienteRevision.id}'`)).nombre,'Empresa ficticia QA');
+  const fuentePlano = await one(`select fuentes->'proyecto'->>'plano_url' as plano_url from public.plan_documento_fuentes where revision_id='${pendienteRevision.id}'`);
+  assert.equal(fuentePlano.plano_url, 'storage://planos/qa/plano.pdf');
   const pendientePdf = await call('plan_documento_preparar', [pendienteRevision.id, uuid(108)]);
   const pendientePath = `${tenant}/${proyecto}/documentos/${pendienteRevision.id}/${pdfHash}.pdf`;
   await db.exec('set role postgres;');

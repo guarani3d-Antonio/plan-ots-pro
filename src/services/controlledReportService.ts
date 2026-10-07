@@ -17,7 +17,8 @@ import type {
 
 type Registro = Record<string, unknown>;
 type Foto = { id: string; file_url: string; descripcion: string | null; descripcion_observacion: string | null };
-export const PLANTILLA_CONTROLADA_VERSION = 'expediente-controlado-2026-10-04';
+export const PLANTILLA_CONTROLADA_VERSION = 'expediente-controlado-2026-10-07';
+const PLANTILLA_ANTERIOR = 'expediente-controlado-2026-10-04';
 const PLANTILLA_LEGACY = 'expediente-controlado-2026-09-29';
 
 function objeto(valor: unknown, etiqueta: string): Registro {
@@ -68,7 +69,7 @@ export function materializarHtmlControlado(
   if (!Number.isInteger(anio) || anio < 2020 || anio > 2100)
     throw new Error('Año documental inválido');
   const contexto: ContextoReporteControlado = { codigo, anio, revision: revision.revision };
-  if (![PLANTILLA_CONTROLADA_VERSION, PLANTILLA_LEGACY].includes(revision.plantilla_version))
+  if (![PLANTILLA_CONTROLADA_VERSION, PLANTILLA_ANTERIOR, PLANTILLA_LEGACY].includes(revision.plantilla_version))
     throw new Error('Versión de plantilla no compatible con este renderizador');
   if (revision.plantilla_version !== PLANTILLA_LEGACY && fuentes.empresa) {
     const empresa = objeto(fuentes.empresa, 'Empresa emisora');
@@ -122,6 +123,23 @@ export function materializarHtmlControlado(
   const orden = revision.plantilla_version === PLANTILLA_LEGACY ? ordenOriginal
     : ordenParaInforme(ordenOriginal, restaurarCampos(
       prepararAutocompletado(ordenOriginal, proyectoNombre).identificacion, identidadGuardada));
+  if (revision.plantilla_version === PLANTILLA_CONTROLADA_VERSION) {
+    const tienePunto = ordenOriginal.pos_x != null && ordenOriginal.pos_y != null &&
+      Number.isFinite(ordenOriginal.pos_x) && Number.isFinite(ordenOriginal.pos_y);
+    if (tienePunto) {
+      const plano = objeto(datos.planoContexto, 'Referencia visual del plano');
+      const imagen = texto(plano.imagen, 'Imagen del plano');
+      const ref = texto(plano.planoRef, 'Referencia del plano');
+      if (!/^data:image\/(?:jpeg|png);base64,[A-Za-z0-9+/]+={0,2}$/.test(imagen) || imagen.length > 400_000 ||
+          ref !== texto(proyecto.plano_url, 'Plano congelado del proyecto') ||
+          plano.posX !== ordenOriginal.pos_x || plano.posY !== ordenOriginal.pos_y)
+        throw new Error('La referencia visual no coincide con la ubicación congelada de la OT');
+      orden.campos = { ...orden.campos, plano_contexto: {
+        imagen, planoRef: ref, posX: plano.posX, posY: plano.posY } };
+    } else if (datos.planoContexto != null) {
+      throw new Error('La OT no tiene un punto válido en el plano');
+    }
+  }
 
   switch (tipo) {
     case 'orden_servicio':

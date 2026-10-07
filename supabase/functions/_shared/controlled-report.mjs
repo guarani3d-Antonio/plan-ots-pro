@@ -447,7 +447,18 @@ function _bloqueDatosCliente(orden) {
       <span class="text-body-md text-on-surface">${escapeHtml(orden.responsable || "No asignado")}</span>
     </div>
     ${extras}
-  </section>`;
+  </section>${_bloquePlanoContexto(orden)}`;
+}
+function _bloquePlanoContexto(orden) {
+	const valor = orden.campos?.plano_contexto;
+	if (!valor || typeof valor !== "object" || Array.isArray(valor)) return "";
+	const plano = valor;
+	if (typeof plano.imagen !== "string" || !/^data:image\/(?:jpeg|png);base64,[A-Za-z0-9+/]+={0,2}$/.test(plano.imagen) || plano.imagen.length > 4e5 || typeof plano.posX !== "number" || typeof plano.posY !== "number" || !Number.isFinite(plano.posX) || !Number.isFinite(plano.posY) || plano.posX < 0 || plano.posX > 1 || plano.posY < 0 || plano.posY > 1) return "";
+	return `<figure class="no-break" style="margin:0 0 20px;padding:12px;border:1px solid #c3c6d1;border-radius:8px;break-inside:avoid;page-break-inside:avoid">
+    <figcaption style="font-size:11px;font-weight:700;color:#003366;margin-bottom:8px">Ubicación de la OT en el plano · vista ampliada y plano general</figcaption>
+    <img src="${escapeHtml(plano.imagen)}" alt="Recorte del plano con la ubicación de la OT marcada" style="display:block;width:100%;max-width:135mm;height:auto;margin:auto;border:1px solid #c3c6d1;object-fit:contain" />
+    <p style="font-size:9px;color:#475569;margin:7px 0 0">Punto registrado: ${Math.round(plano.posX * 1e3) / 10}% horizontal · ${Math.round(plano.posY * 1e3) / 10}% vertical. Referencia relativa al plano, no coordenada GPS.</p>
+  </figure>`;
 }
 function _bloqueNaranjaIzquierdo(titulo, contenido, vacioPlaceholder, id = "bloque-texto-naranja") {
 	const tieneContenido = contenido.trim().length > 0;
@@ -704,7 +715,8 @@ ${_seccionInforme(3, "Condiciones y formalización")}
 }
 //#endregion
 //#region src/services/controlledReportService.ts
-const PLANTILLA_CONTROLADA_VERSION = "expediente-controlado-2026-10-04";
+const PLANTILLA_CONTROLADA_VERSION = "expediente-controlado-2026-10-07";
+const PLANTILLA_ANTERIOR = "expediente-controlado-2026-10-04";
 const PLANTILLA_LEGACY = "expediente-controlado-2026-09-29";
 function objeto(valor, etiqueta) {
 	if (!valor || typeof valor !== "object" || Array.isArray(valor)) throw new Error(`${etiqueta} inválido`);
@@ -741,7 +753,11 @@ function materializarHtmlControlado(revision, fuentesValor, imagenesVerificadas)
 		anio,
 		revision: revision.revision
 	};
-	if (!["expediente-controlado-2026-10-04", PLANTILLA_LEGACY].includes(revision.plantilla_version)) throw new Error("Versión de plantilla no compatible con este renderizador");
+	if (![
+		"expediente-controlado-2026-10-07",
+		PLANTILLA_ANTERIOR,
+		PLANTILLA_LEGACY
+	].includes(revision.plantilla_version)) throw new Error("Versión de plantilla no compatible con este renderizador");
 	if (revision.plantilla_version !== PLANTILLA_LEGACY && fuentes.empresa) {
 		const empresa = objeto(fuentes.empresa, "Empresa emisora");
 		if (empresa.id !== documento.tenant_id) throw new Error("Empresa emisora ajena al documento");
@@ -790,6 +806,23 @@ function materializarHtmlControlado(revision, fuentesValor, imagenesVerificadas)
 	const ordenOriginal = ordenFuente;
 	const identidadGuardada = datos.identificacion === void 0 ? void 0 : camposTexto(datos.identificacion, "Identificación");
 	const orden = revision.plantilla_version === PLANTILLA_LEGACY ? ordenOriginal : ordenParaInforme(ordenOriginal, restaurarCampos(prepararAutocompletado(ordenOriginal, proyectoNombre).identificacion, identidadGuardada));
+	if (revision.plantilla_version === "expediente-controlado-2026-10-07") {
+		if (ordenOriginal.pos_x != null && ordenOriginal.pos_y != null && Number.isFinite(ordenOriginal.pos_x) && Number.isFinite(ordenOriginal.pos_y)) {
+			const plano = objeto(datos.planoContexto, "Referencia visual del plano");
+			const imagen = texto(plano.imagen, "Imagen del plano");
+			const ref = texto(plano.planoRef, "Referencia del plano");
+			if (!/^data:image\/(?:jpeg|png);base64,[A-Za-z0-9+/]+={0,2}$/.test(imagen) || imagen.length > 4e5 || ref !== texto(proyecto.plano_url, "Plano congelado del proyecto") || plano.posX !== ordenOriginal.pos_x || plano.posY !== ordenOriginal.pos_y) throw new Error("La referencia visual no coincide con la ubicación congelada de la OT");
+			orden.campos = {
+				...orden.campos,
+				plano_contexto: {
+					imagen,
+					planoRef: ref,
+					posX: plano.posX,
+					posY: plano.posY
+				}
+			};
+		} else if (datos.planoContexto != null) throw new Error("La OT no tiene un punto válido en el plano");
+	}
 	switch (tipo) {
 		case "orden_servicio": return generarInformeOrdenServicio(orden, observaciones, camposTexto(datos.origen, "Origen"), codigo, antes, contexto);
 		case "visita": return generarFichaVisita(orden, camposTexto(datos.visita, "Visita"), antes, codigo, contexto);

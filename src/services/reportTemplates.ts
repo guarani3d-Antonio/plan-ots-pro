@@ -210,7 +210,22 @@ export function _bloqueDatosCliente(orden: OrdenLocal): string {
       <span class="text-body-md text-on-surface">${escapeHtml(orden.responsable || 'No asignado')}</span>
     </div>
     ${extras}
-  </section>`;
+  </section>${_bloquePlanoContexto(orden)}`;
+}
+
+function _bloquePlanoContexto(orden: OrdenLocal): string {
+  const valor = orden.campos?.plano_contexto;
+  if (!valor || typeof valor !== 'object' || Array.isArray(valor)) return '';
+  const plano = valor as Record<string, unknown>;
+  if (typeof plano.imagen !== 'string' || !/^data:image\/(?:jpeg|png);base64,[A-Za-z0-9+/]+={0,2}$/.test(plano.imagen) ||
+      plano.imagen.length > 400_000 || typeof plano.posX !== 'number' || typeof plano.posY !== 'number' ||
+      !Number.isFinite(plano.posX) || !Number.isFinite(plano.posY) ||
+      plano.posX < 0 || plano.posX > 1 || plano.posY < 0 || plano.posY > 1) return '';
+  return `<figure class="no-break" style="margin:0 0 20px;padding:12px;border:1px solid #c3c6d1;border-radius:8px;break-inside:avoid;page-break-inside:avoid">
+    <figcaption style="font-size:11px;font-weight:700;color:#003366;margin-bottom:8px">Ubicación de la OT en el plano · vista ampliada y plano general</figcaption>
+    <img src="${escapeHtml(plano.imagen)}" alt="Recorte del plano con la ubicación de la OT marcada" style="display:block;width:100%;max-width:135mm;height:auto;margin:auto;border:1px solid #c3c6d1;object-fit:contain" />
+    <p style="font-size:9px;color:#475569;margin:7px 0 0">Punto registrado: ${Math.round(plano.posX * 1000) / 10}% horizontal · ${Math.round(plano.posY * 1000) / 10}% vertical. Referencia relativa al plano, no coordenada GPS.</p>
+  </figure>`;
 }
 
 // Bloque "Datos de la OT" (Rubro / Fechas / Reincidente / Prioridad).

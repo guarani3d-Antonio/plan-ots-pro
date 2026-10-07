@@ -78,6 +78,8 @@ assert.match(ordenConFotos, /Ref\. evidencia: foto-a/);
 assert.match(ordenConFotos, /Ref\. evidencia: foto-b/);
 const { materializarHtmlControlado, PLANTILLA_CONTROLADA_VERSION } =
   await loadTs('src/services/controlledReportService.ts');
+const { materializarHtmlControlado: materializarHtmlServidor } =
+  await import('../supabase/functions/_shared/controlled-report.mjs');
 const nombres = ['orden_servicio', 'visita', 'relevamiento', 'avance', 'cierre', 'acta', 'encuesta'];
 const claves = ['origen', 'visita', 'relevamiento', 'avance', 'cierre', 'acta', 'encuesta'];
 for (let i = 0; i < nombres.length; i++) {
@@ -167,6 +169,49 @@ for (let i = 0; i < nombres.length; i++) {
     assert.throws(() => materializarHtmlControlado(revision,
       { ...fuentes, fotos: [{ ...fuentes.fotos[0], categoria: 'DESPUES' }] }, {}),
     /categoría de foto/);
+  }
+}
+const imagenPlano = `data:image/png;base64,${(await readFile('scripts/fixtures/document-photo-qa.png')).toString('base64')}`;
+const ordenUbicada = { ...orden, pos_x: 0.42, pos_y: 0.63 };
+for (let i = 0; i < nombres.length; i++) {
+  const planoContexto = { imagen: imagenPlano,
+    planoRef: `storage://planos/tenant-qa/${orden.proyecto_id}/plano.png`, posX: 0.42, posY: 0.63 };
+  const revision = { id: '00000000-0000-4000-8000-000000000103',
+    documento_id: '00000000-0000-4000-8000-000000000104', revision: 0,
+    contenido_sha256: 'b'.repeat(64), plantilla_version: PLANTILLA_CONTROLADA_VERSION,
+    datos: { observaciones: '', incluirFotos: false, [claves[i]]: {}, planoContexto } };
+  const fuentes = { version: 1, empresa: { id: 'tenant-qa', nombre: 'Emisor' },
+    documento: { id: revision.documento_id, codigo, tipo: nombres[i], orden_id: orden.id,
+      proyecto_id: orden.proyecto_id, tenant_id: 'tenant-qa' },
+    revision: { id: revision.id, numero: 0, datos_sha256: revision.contenido_sha256,
+      plantilla_version: revision.plantilla_version },
+    orden: ordenUbicada, proyecto: { id: orden.proyecto_id, tenant_id: 'tenant-qa', nombre: 'Obra de prueba',
+      plano_url: planoContexto.planoRef },
+    fotos: [] };
+  const html = materializarHtmlControlado(revision, fuentes, {});
+  assert.equal(materializarHtmlServidor(revision, fuentes, {}), html,
+    `${nombres[i]} debe coincidir entre cliente y renderizador definitivo`);
+  assert.match(html, /Ubicación de la OT en el plano/);
+  assert.match(html, /42% horizontal · 63% vertical/);
+  assert.match(html, /Referencia relativa al plano, no coordenada GPS/);
+  assert.ok(html.includes(imagenPlano), `${nombres[i]} debe incluir el recorte en su PDF`);
+  if (i === 0 && process.argv.includes('--write-qa-html'))
+    await writeFile('tmp/pdfs/controlado-plano.html', html);
+  assert.throws(() => materializarHtmlControlado({ ...revision, datos: {
+    ...revision.datos, planoContexto: { ...planoContexto, posX: 0.5 },
+  } }, fuentes, {}), /no coincide/);
+  assert.throws(() => materializarHtmlControlado(revision, { ...fuentes, proyecto: {
+    ...fuentes.proyecto, plano_url: 'storage://planos/otro.pdf',
+  } }, {}), /no coincide/);
+  assert.throws(() => materializarHtmlControlado({ ...revision, datos: {
+    ...revision.datos, planoContexto: null,
+  } }, fuentes, {}), /Referencia visual/);
+  if (i === 0) {
+    const anterior = { ...revision, plantilla_version: 'expediente-controlado-2026-10-04',
+      datos: { ...revision.datos, planoContexto: null } };
+    const previo = materializarHtmlControlado(anterior, { ...fuentes,
+      revision: { ...fuentes.revision, plantilla_version: anterior.plantilla_version } }, {});
+    assert.doesNotMatch(previo, /Ubicación de la OT en el plano/);
   }
 }
 console.log('Siete plantillas, fuentes congeladas y controles de identidad: OK');
