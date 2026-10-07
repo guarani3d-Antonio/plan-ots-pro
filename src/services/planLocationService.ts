@@ -54,13 +54,18 @@ async function rasterizarPlano(ref: string): Promise<HTMLCanvasElement> {
     } finally { await pdf.destroy(); }
   }
   if (!blob.type.startsWith('image/')) throw new Error('El formato del plano no admite una vista de ubicación.');
-  const imagen = await createImageBitmap(blob);
+  const urlImagen = URL.createObjectURL(blob);
   try {
-    const escala = Math.min(1, 1800 / imagen.width, 2600 / imagen.height);
-    const canvas = lienzo(Math.max(1, Math.round(imagen.width * escala)), Math.max(1, Math.round(imagen.height * escala)));
+    const imagen = new Image();
+    imagen.src = urlImagen;
+    await imagen.decode();
+    if (!imagen.naturalWidth || !imagen.naturalHeight)
+      throw new Error('El plano no tiene dimensiones válidas.');
+    const escala = Math.min(1, 1800 / imagen.naturalWidth, 2600 / imagen.naturalHeight);
+    const canvas = lienzo(Math.max(1, Math.round(imagen.naturalWidth * escala)), Math.max(1, Math.round(imagen.naturalHeight * escala)));
     canvas.getContext('2d')?.drawImage(imagen, 0, 0, canvas.width, canvas.height);
     return canvas;
-  } finally { imagen.close(); }
+  } finally { URL.revokeObjectURL(urlImagen); }
 }
 
 function marcar(ctx: CanvasRenderingContext2D, x: number, y: number, radio: number): void {
@@ -81,19 +86,29 @@ function componerRecorte(fuente: HTMLCanvasElement, posX: number, posY: number):
   const canvas = lienzo(ANCHO, ALTO);
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('No se pudo preparar la imagen del plano.');
-  const cropW = Math.min(fuente.width, fuente.height * ANCHO / ALTO) * 0.5;
-  const cropH = cropW * ALTO / ANCHO;
+  const margen = 16;
+  const vistaW = ANCHO - margen * 2;
+  const vistaH = ALTO - margen * 2;
+  const cropW = Math.min(fuente.width, fuente.height * vistaW / vistaH) * 0.5;
+  const cropH = cropW * vistaH / vistaW;
   const px = posX * fuente.width;
   const py = posY * fuente.height;
   const sx = Math.max(0, Math.min(fuente.width - cropW, px - cropW / 2));
   const sy = Math.max(0, Math.min(fuente.height - cropH, py - cropH / 2));
   ctx.fillStyle = '#fff';
   ctx.fillRect(0, 0, ANCHO, ALTO);
-  ctx.drawImage(fuente, sx, sy, cropW, cropH, 0, 0, ANCHO, ALTO);
-  marcar(ctx, (px - sx) / cropW * ANCHO, (py - sy) / cropH * ALTO, 10);
+  ctx.drawImage(fuente, sx, sy, cropW, cropH, margen, margen, vistaW, vistaH);
+  const marcadorX = margen + (px - sx) / cropW * vistaW;
+  const marcadorY = margen + (py - sy) / cropH * vistaH;
+  marcar(ctx, marcadorX, marcadorY, 10);
 
   // Miniatura del plano completo: deja claro dónde cae el recorte ampliado.
-  const inset = { x: ANCHO - 207, y: 15, w: 192, h: 136 };
+  // Ubica el plano general en la esquina opuesta para no tapar el punto.
+  const inset = {
+    x: marcadorX > ANCHO / 2 ? 15 : ANCHO - 207,
+    y: marcadorY < ALTO / 2 ? ALTO - 151 : 15,
+    w: 192, h: 136,
+  };
   ctx.fillStyle = '#fff';
   ctx.fillRect(inset.x - 5, inset.y - 5, inset.w + 10, inset.h + 10);
   ctx.strokeStyle = '#3B599B';
