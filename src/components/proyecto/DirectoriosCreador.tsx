@@ -3,6 +3,10 @@ import { supabase } from '../../db/supabase';
 import styles from './AdministracionCreador.module.css';
 import { DialogDirectorioOT } from '../plano/DialogDirectorioOT';
 import { VoiceInputButton } from '../ui/VoiceInputButton';
+import { FotoDirectorio } from '../plano/FotoDirectorio';
+import { guardarFotoDirectorio } from '../../services/directoryPhotoService';
+import { assertSession,sessionTicket } from '../../security/sessionScope';
+import fichaStyles from '../plano/FichaDirectorio.module.css';
 
 type Obra = { id: string; nombre: string; tenant_id: string | null };
 type Cliente = { id: string; nombre: string; identificacion: string | null; contacto: string | null;
@@ -44,10 +48,11 @@ export const DirectoriosCreador=forwardRef<DirectoriosCreadorHandle,{tenantId:st
   const [cliente, setCliente] = useState<Ficha>(emptyFicha);
   const [sitio, setSitio] = useState<Sitio>(emptySitio);
   const [contratista, setContratista] = useState<Ficha>(emptyFicha);
+  const [fotoCliente,setFotoCliente]=useState<File|null>(null),[fotoContratista,setFotoContratista]=useState<File|null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
 
-  useImperativeHandle(ref,()=>({nuevoCliente:()=>{setClienteId('');setCliente(emptyFicha());setUbicacionId('');setSitio(emptySitio());setMessage('');setModal('cliente')},nuevoContratista:()=>{setContratistaId('');setContratista(emptyFicha());setMessage('');setModal('contratista')}}));
+  useImperativeHandle(ref,()=>({nuevoCliente:()=>{setClienteId('');setCliente(emptyFicha());setFotoCliente(null);setUbicacionId('');setSitio(emptySitio());setMessage('');setModal('cliente')},nuevoContratista:()=>{setContratistaId('');setContratista(emptyFicha());setFotoContratista(null);setMessage('');setModal('contratista')}}));
   const coincide=(nombre:string,texto:string)=>nombre.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().includes(texto.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase());
   const reload = useCallback(async (active: () => boolean = () => true) => {
     const [c, u, k] = await Promise.all([
@@ -78,6 +83,7 @@ export const DirectoriosCreador=forwardRef<DirectoriosCreadorHandle,{tenantId:st
   }, [clienteId]);
 
   function chooseClient(id: string) {
+    setFotoCliente(null);
     setClienteId(id); setUbicacionId(''); setSitio(emptySitio()); setHistorial([]);
     const found = clientes.find(c => c.id === id);
     setCliente(found ? { nombre: found.nombre, identificacion: found.identificacion ?? '', contacto: found.contacto ?? '', telefono: found.telefono ?? '', correo: found.correo ?? '', direccion: found.direccion ?? '', activo: found.activo } : emptyFicha());
@@ -88,6 +94,7 @@ export const DirectoriosCreador=forwardRef<DirectoriosCreadorHandle,{tenantId:st
     setSitio(found ? { proyecto_id: found.proyecto_id ?? '', tipo_inmueble: found.tipo_inmueble, nombre_obra: found.nombre_obra, direccion: found.direccion ?? '', piso: found.piso ?? '', unidad: found.unidad ?? '', sector: found.sector ?? '', activo: found.activo } : emptySitio());
   }
   function chooseContractor(id: string) {
+    setFotoContratista(null);
     setContratistaId(id);
     const found = contratistas.find(c => c.id === id);
     const related = found?.plan_contratista_fichas;
@@ -98,7 +105,9 @@ export const DirectoriosCreador=forwardRef<DirectoriosCreadorHandle,{tenantId:st
     if (busy) return;
     setBusy(true); setMessage('');
     try {
+      const ticket=sessionTicket();
       const result = await operation();
+      assertSession(ticket);
       if (result.error) throw new Error(result.error.message);
       await reload(); after(result.data); setMessage(success);
     } catch (e) { setMessage(e instanceof Error ? e.message : 'No se pudo guardar.'); }
@@ -106,6 +115,24 @@ export const DirectoriosCreador=forwardRef<DirectoriosCreadorHandle,{tenantId:st
   }
   const selectedLocations = ubicaciones.filter(u => u.cliente_id === clienteId);
   const works = obras.filter(p => p.tenant_id === tenantId);
+
+  async function guardarPersona(kind:'cliente'|'contratista') {
+    const value=kind==='cliente'?cliente:contratista;
+    if(value.correo&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.correo))throw new Error('Revisá el correo.');
+    const ticket=sessionTicket();
+    const result=await supabase.rpc(kind==='cliente'?'plan_guardar_cliente':'plan_guardar_contratista_ficha',{
+      p_tenant:tenantId,p_id:(kind==='cliente'?clienteId:contratistaId)||null,p_nombre:value.nombre,
+      p_identificacion:value.identificacion,p_contacto:value.contacto,p_telefono:value.telefono,
+      p_correo:value.correo,p_direccion:value.direccion,p_activo:value.activo});
+    assertSession(ticket);if(result.error)return result;
+    const id=kind==='cliente'?(result.data as Cliente).id:String(result.data);
+    // Conservar el ID incluso si la foto falla evita duplicar un alta al reintentar.
+    if(kind==='cliente')setClienteId(id);else setContratistaId(id);
+    const photo=kind==='cliente'?fotoCliente:fotoContratista;
+    if(photo){try{await guardarFotoDirectorio(kind,id,photo)}catch(e){throw new Error('La ficha se guardó, pero la foto no: '+(e instanceof Error?e.message:'Reintentá.'),{cause:e});}}
+    if(kind==='cliente')setFotoCliente(null);else setFotoContratista(null);
+    return result;
+  }
 
   function fichaInputs(value: Ficha, update: (next: Ficha) => void, kind: 'cliente' | 'contratista') {
     const entries: { key: keyof Ficha; label: string; max: number }[] = [
@@ -125,17 +152,18 @@ export const DirectoriosCreador=forwardRef<DirectoriosCreadorHandle,{tenantId:st
       <summary className={styles.titulo}>Clientes</summary>
       <div className={styles.contenido}>
     <label style={field}>Buscar cliente<input style={control} type="search" placeholder="Nombre o documento…" value={buscarCliente} onChange={e=>setBuscarCliente(e.target.value)}/></label>
-    <button style={button} type="button" onClick={()=>{setClienteId('');setCliente(emptyFicha());setUbicacionId('');setSitio(emptySitio());setModal('cliente')}}>+ Crear cliente</button>
+    <button style={button} type="button" onClick={()=>{setClienteId('');setCliente(emptyFicha());setFotoCliente(null);setUbicacionId('');setSitio(emptySitio());setModal('cliente')}}>+ Crear cliente</button>
     {clientes.filter(c=>coincide(`${c.nombre} ${c.identificacion??''}`,buscarCliente)).map(c=><button key={c.id} style={{...control,textAlign:'left'}} type="button" onClick={()=>{chooseClient(c.id);setModal('cliente')}}>{c.nombre}{c.identificacion?` · ${c.identificacion}`:''}</button>)}
     {modal==='cliente'&&<DialogDirectorioOT titulo={clienteId?'Ficha del cliente':'Crear cliente'} busy={busy} onCerrar={()=>setModal(null)}>    <section>
       <h2 style={{ margin: '0 0 8px', fontSize: 18 }}>Clientes y sus ubicaciones</h2>
       <p style={{ color: 'var(--text-secondary)', margin: '0 0 14px' }}>Una ficha identifica al cliente. Cada departamento, oficina o planta se registra como ubicación y puede acumular varias OTs.</p>
       <label style={field}>Ficha existente
-        <select className="app-select" style={selectControl} value={clienteId} onChange={e => chooseClient(e.target.value)}><option value="">+ Nuevo cliente</option>{clientes.map(c => <option key={c.id} value={c.id}>{c.nombre}{c.identificacion ? ` · ${c.identificacion}` : ''}</option>)}</select>
+        <select className="app-select" style={selectControl} disabled={busy} value={clienteId} onChange={e => chooseClient(e.target.value)}><option value="">+ Nuevo cliente</option>{clientes.map(c => <option key={c.id} value={c.id}>{c.nombre}{c.identificacion ? ` · ${c.identificacion}` : ''}</option>)}</select>
       </label>
-      <div style={{ marginTop: 12 }}>{fichaInputs(cliente, setCliente, 'cliente')}</div>
+      <div className={fichaStyles.editorPhoto}><FotoDirectorio tipo="cliente" id={clienteId||undefined} nombre={cliente.nombre||'Nuevo cliente'} archivo={fotoCliente} onArchivo={setFotoCliente} disabled={busy}/></div>
+      <fieldset disabled={busy} style={{border:0,padding:0,margin:0,minWidth:0}}><div style={{ marginTop: 8 }}>{fichaInputs(cliente, setCliente, 'cliente')}</div></fieldset>
       <button style={{ ...button, marginTop: 12 }} disabled={busy || !cliente.nombre.trim()} onClick={() => void run(
-        () => supabase.rpc('plan_guardar_cliente', { p_tenant: tenantId, p_id: clienteId || null, p_nombre: cliente.nombre, p_identificacion: cliente.identificacion, p_contacto: cliente.contacto, p_telefono: cliente.telefono, p_correo: cliente.correo, p_direccion: cliente.direccion, p_activo: cliente.activo }),
+        () => guardarPersona('cliente'),
         data => { const saved = data as Cliente; setClienteId(saved.id); }, 'Cliente guardado.')}>Guardar cliente</button>
       {clienteId && <div style={{ marginTop: 22, borderTop: '1px solid var(--border-default)', paddingTop: 18 }}>
         <h3 style={{ margin: '0 0 10px', fontSize: 16 }}>Ubicaciones de {cliente.nombre}</h3>
@@ -172,15 +200,16 @@ export const DirectoriosCreador=forwardRef<DirectoriosCreadorHandle,{tenantId:st
       <summary className={styles.titulo}>Contratistas</summary>
       <div className={styles.contenido}>
     <label style={field}>Buscar contratista<input style={control} type="search" placeholder="Nombre o razón social…" value={buscarContratista} onChange={e=>setBuscarContratista(e.target.value)}/></label>
-    <button style={button} type="button" onClick={()=>{setContratistaId('');setContratista(emptyFicha());setModal('contratista')}}>+ Crear contratista</button>
+    <button style={button} type="button" onClick={()=>{setContratistaId('');setContratista(emptyFicha());setFotoContratista(null);setModal('contratista')}}>+ Crear contratista</button>
     {contratistas.filter(c=>coincide(c.nombre,buscarContratista)).map(c=><button key={c.id} style={{...control,textAlign:'left'}} type="button" onClick={()=>{chooseContractor(c.id);setModal('contratista')}}>{c.nombre}</button>)}
     {modal==='contratista'&&<DialogDirectorioOT titulo={contratistaId?'Ficha del contratista':'Crear contratista'} busy={busy} onCerrar={()=>setModal(null)}>    <section>
       <h2 style={{ margin: '0 0 8px', fontSize: 18 }}>Directorio de contratistas</h2>
       <p style={{ color: 'var(--text-secondary)', margin: '0 0 14px' }}>Los usuarios eligen contratistas ya cargados al editar una OT.</p>
-      <label style={field}>Contratista existente<select className="app-select" style={selectControl} value={contratistaId} onChange={e => chooseContractor(e.target.value)}><option value="">+ Nuevo contratista</option>{contratistas.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}</select></label>
-      <div style={{ marginTop: 12 }}>{fichaInputs(contratista, setContratista, 'contratista')}</div>
+      <label style={field}>Contratista existente<select className="app-select" style={selectControl} disabled={busy} value={contratistaId} onChange={e => chooseContractor(e.target.value)}><option value="">+ Nuevo contratista</option>{contratistas.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}</select></label>
+      <div className={fichaStyles.editorPhoto}><FotoDirectorio tipo="contratista" id={contratistaId||undefined} nombre={contratista.nombre||'Nuevo contratista'} archivo={fotoContratista} onArchivo={setFotoContratista} disabled={busy}/></div>
+      <fieldset disabled={busy} style={{border:0,padding:0,margin:0,minWidth:0}}><div style={{ marginTop: 8 }}>{fichaInputs(contratista, setContratista, 'contratista')}</div></fieldset>
       <button style={{ ...button, marginTop: 12 }} disabled={busy || !contratista.nombre.trim()} onClick={() => void run(
-        () => supabase.rpc('plan_guardar_contratista_ficha', { p_tenant: tenantId, p_id: contratistaId || null, p_nombre: contratista.nombre, p_identificacion: contratista.identificacion, p_contacto: contratista.contacto, p_telefono: contratista.telefono, p_correo: contratista.correo, p_direccion: contratista.direccion, p_activo: contratista.activo }),
+        () => guardarPersona('contratista'),
         data => setContratistaId(String(data)), 'Contratista guardado.')}>Guardar contratista</button>
     </section>{message&&<p role="status">{message}</p>}</DialogDirectorioOT>}
 

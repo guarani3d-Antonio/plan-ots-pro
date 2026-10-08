@@ -4,9 +4,10 @@ import { LEGACY_OFFLINE_ENABLED } from '../../security/sessionScope';
 import { useAccessStore, usePermisoObra } from '../../stores/accessStore';
 import { BuscarDirectorioOT, DialogDirectorioOT } from './DialogDirectorioOT';
 import { AltaContratistaOT } from './AltaContratistaOT';
-import { fichasContratista,contratistasDeOT,type FichaContratista } from '../../services/workDirectoryService';
+import { fichaCliente,fichasContratista,contratistasDeOT,type FichaContratista,type FichaCliente } from '../../services/workDirectoryService';
+import { FichaPersonaOT } from './FichaPersonaOT';
+import fichaStyles from './FichaDirectorio.module.css';
 import { FichaObraOT } from './FichaObraOT';
-import datosStyles from './DatosVinculados.module.css';
 // src/components/plano/PanelOT.tsx
 import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import type { OrdenLocal, EstadoOT, PrioridadOT } from '../../types/orden';
@@ -265,6 +266,8 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
   const [clientesDirectorio, setClientesDirectorio] = useState<{ id:string; nombre:string; identificacion:string | null }[]>([]);
   const [contratistasGlobales, setContratistasGlobales] = useState<string[]>([]);
   const [contratistaFichas,setContratistaFichas]=useState<FichaContratista[]>([]);
+  const [clienteFicha,setClienteFicha]=useState<FichaCliente|null>(null);
+  const [errorClienteFicha,setErrorClienteFicha]=useState('');
   const [contratistasVinculados,setContratistasVinculados]=useState<FichaContratista[]>([]);
   const [errorDirectorio, setErrorDirectorio] = useState<string | null>(null);
   const [responsablesCuenta, setResponsablesCuenta] = useState<ResponsableCuenta[]>([]);
@@ -522,6 +525,13 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
   ]).values()];
   const ubicacionesCliente = clientesObra.filter(c => c.cliente_id === form.cliente_id);
   const ubicacionElegida = ubicacionesCliente.find(c => c.ubicacion_id === form.cliente_ubicacion_id);
+  useEffect(()=>{
+    if(!form.cliente_id||!ordenFresca?.proyecto_id||!puedeEditar)return;
+    let active=true;
+    void fichaCliente(form.cliente_id,ordenFresca.proyecto_id).then(f=>{if(active){setClienteFicha(f);setErrorClienteFicha('')}})
+      .catch(e=>{if(active){setClienteFicha(null);setErrorClienteFicha(e instanceof Error?e.message:'No se pudo cargar la ficha del cliente.')}});
+    return()=>{active=false};
+  },[form.cliente_id,ordenFresca?.proyecto_id,puedeEditar]);
   const cambiosSinGuardar = etapasDirty || altaCliente !== null || JSON.stringify(form) !== JSON.stringify(ordenToForm(baseVisible))
     || JSON.stringify(valoresCampos) !== JSON.stringify(baseVisible?.campos ?? {});
   useLayoutEffect(() => { cambiosRef.current = cambiosSinGuardar; }, [cambiosSinGuardar]);
@@ -1114,7 +1124,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
             <div hidden={tab !== 'datos'}>
               <div className={styles.identificationMeta}><label>Ingreso <input aria-label="Fecha de ingreso" className={styles.input} type="date" value={toDateInput(form.fecha_ingreso)} onChange={e=>set('fecha_ingreso',e.target.value)}/></label><span>Creado por: {creadoPor}</span><span>{diasAb} {diasAb===1?'día abierto':'días abiertos'}</span></div>
               <details className={styles.dataGroup}><summary>Datos de la obra <small>{proyectoNombre??proyectoActivo?.nombre}</small></summary><div className={styles.dataContent}>
-                <FichaObraOT proyectoId={ordenFresca.proyecto_id} puedeGestionar={esSupervisor}/>
+                <FichaObraOT proyectoId={ordenFresca.proyecto_id} puedeGestionar={esSupervisor} tenantId={permiso?.tenant_id}/>
                 <div className={`${styles.section} ${styles.formSection}`}><div className={`${styles.field} ${styles.fieldMedium}`}><label className={styles.label}>Proyecto / plano de origen</label><input className={styles.input} value={proyectoNombre??(proyectoActivo?.id===ordenFresca.proyecto_id?proyectoActivo.nombre:form.obra??'')} readOnly title="La OT permanece vinculada al plano donde se creó"/></div>
                 <div className={styles.field}>
                   <div className={styles.labelRow}><label className={styles.label}>Unidad / Amenities</label>
@@ -1122,43 +1132,35 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
                   <input className={styles.input} value={form.unidad_amenities ?? ''} onChange={e => set('unidad_amenities', e.target.value)} placeholder="ej: Dpto 401 / Gym" />
                 </div>
 </div></div></details>
-              <details className={styles.dataGroup}><summary>Datos del cliente <small>{directorioClientes.find(c=>c.id===form.cliente_id)?.nombre??(form.cliente_id?'Cliente vinculado':'Sin cliente vinculado')}</small></summary><div className={`${styles.dataContent} ${styles.clientGroup} ${styles.formSection}`}>
-                <div className={`${styles.field} ${styles.fieldMedium}`}>
-                  <label className={styles.label}>Cliente</label>
-                  <div className={styles.directoryActions}>
-                    <button type="button" className={styles.directoryBtn} onClick={() => setBuscador('cliente')}>Buscar cliente</button>
-                    <button type="button" className={styles.directoryBtn} disabled={!esSupervisor} onClick={() => setAltaCliente({})}>+ Nuevo cliente</button>
+              <details className={styles.dataGroup}><summary>Datos del cliente <small>{clienteFicha&&clienteFicha.id===form.cliente_id?clienteFicha.nombre:directorioClientes.find(c=>c.id===form.cliente_id)?.nombre??(form.cliente_id?'Cliente vinculado':'Sin cliente vinculado')}</small></summary><div className={styles.dataContent}>
+                {form.cliente_id&&<FichaPersonaOT tipo="cliente" tenantId={permiso?.tenant_id} puedeGestionar={creador}
+                  ficha={clienteFicha&&clienteFicha.id===form.cliente_id?clienteFicha:{id:form.cliente_id,nombre:directorioClientes.find(c=>c.id===form.cliente_id)?.nombre??'Cliente vinculado',identificacion:ubicacionElegida?.identificacion??null,contacto:ubicacionElegida?.contacto??null,telefono:ubicacionElegida?.telefono??null,correo:ubicacionElegida?.correo??null,direccion:ubicacionElegida?.domicilio??null,activo:true}}
+                  onGuardar={f=>{setClienteFicha({...f,tenant_id:permiso?.tenant_id??''});setClientesDirectorio(rows=>rows.map(c=>c.id===f.id?{...c,nombre:f.nombre,identificacion:f.identificacion}:c));setClientesObra(rows=>rows.map(c=>c.cliente_id===f.id?{...c,nombre:f.nombre,identificacion:f.identificacion,contacto:f.contacto,telefono:f.telefono,correo:f.correo,domicilio:f.direccion}:c))}}>
+                  <div className={fichaStyles.location}><label htmlFor="ot-ubicacion-cliente">Ubicación para esta OT</label>
+                    <select id="ot-ubicacion-cliente" aria-label="Ubicación del cliente" value={form.cliente_ubicacion_id??''} disabled={!ubicacionesCliente.length} onChange={e=>{
+                      const site=ubicacionesCliente.find(c=>c.ubicacion_id===e.target.value);
+                      setForm(f=>({...f,cliente_ubicacion_id:site?.ubicacion_id??null,obra:site?.nombre_obra??(proyectoNombre??(proyectoActivo?.id===ordenFresca.proyecto_id?proyectoActivo.nombre:'')),unidad_amenities:site?(site.unidad||site.sector||''):''}));
+                    }}>
+                      <option value="">— Elegir ubicación —</option>
+                      {ubicacionesCliente.map(c=><option key={c.ubicacion_id} value={c.ubicacion_id}>{c.nombre_obra}{c.piso?' · Piso '+c.piso:''}{c.unidad?' · Unidad '+c.unidad:''}{!c.unidad&&c.sector?' · '+c.sector:''}</option>)}
+                      {form.cliente_ubicacion_id&&!ubicacionElegida&&<option value={form.cliente_ubicacion_id}>Ubicación vinculada anteriormente</option>}
+                    </select>
+                    <button type="button" className={fichaStyles.button} disabled={!esSupervisor} onClick={()=>setAltaCliente({clienteId:form.cliente_id!})}>+ Agregar ubicación</button>
                   </div>
-                  <span className={styles.selectedName}>{directorioClientes.find(c => c.id === form.cliente_id)?.nombre ?? (form.cliente_id ? 'Cliente vinculado anteriormente' : 'Sin cliente vinculado')}</span>
-                  {errorClientes && <small role="alert">No se pudo cargar el directorio: {errorClientes}</small>}
-                  <button type="button" className={styles.locationBtn} disabled={!esSupervisor || !form.cliente_id} onClick={() => setAltaCliente({ clienteId: form.cliente_id! })}>+ Agregar ubicación</button>
-                  {!ubicacionesCliente.length && form.cliente_id && <small>Este cliente no tiene ubicación activa en esta obra.{esSupervisor ? ' Agregá una ubicación para vincularlo.' : ' Pedí al supervisor que la registre.'}</small>}
+                  {ubicacionElegida&&<p className={fichaStyles.muted}>Dirección del inmueble: {ubicacionElegida.direccion_obra||'Sin registrar'}{ubicacionElegida.piso?' · Piso '+ubicacionElegida.piso:''}{ubicacionElegida.unidad?' · Unidad '+ubicacionElegida.unidad:''}{ubicacionElegida.sector?' · '+ubicacionElegida.sector:''}</p>}
+                  {!ubicacionesCliente.length&&<p className={fichaStyles.muted}>Este cliente no tiene ubicación activa en esta obra.{esSupervisor?' Agregá una ubicación para vincularlo.':' Pedí al supervisor que la registre.'}</p>}
+                  {ubicacionesCliente.length>1&&!form.cliente_ubicacion_id&&<p className={fichaStyles.muted}>Elegí la ubicación correspondiente a esta OT.</p>}
+                </FichaPersonaOT>}
+                <div className={fichaStyles.actions} style={{marginTop:8}}>
+                  <button type="button" className={fichaStyles.button} onClick={()=>setBuscador('cliente')}>Buscar cliente</button>
+                  <button type="button" className={fichaStyles.button} disabled={!esSupervisor} onClick={()=>setAltaCliente({})}>+ Nuevo cliente</button>
                 </div>
-                {form.cliente_id && ubicacionesCliente.length > 1 && <div className={styles.field}>
-                  <label className={styles.label}>Ubicación del cliente</label>
-                  <select aria-label="Ubicación del cliente" className={styles.select} value={form.cliente_ubicacion_id ?? ''} onChange={e => {
-                    const site = ubicacionesCliente.find(c => c.ubicacion_id === e.target.value);
-                    setForm(f => ({ ...f, cliente_ubicacion_id: site?.ubicacion_id ?? null,
-                      obra: site?.nombre_obra ?? (proyectoNombre ?? (proyectoActivo?.id === ordenFresca.proyecto_id ? proyectoActivo.nombre : '')),
-                      unidad_amenities: site ? (site.unidad || site.sector || '') : '' }));
-                  }}>
-                    <option value="">— Elegir ubicación —</option>
-                    {ubicacionesCliente.map(c => <option key={c.ubicacion_id} value={c.ubicacion_id}>{c.nombre_obra}{c.unidad ? ` · ${c.unidad}` : ''}{c.piso ? ` · Piso ${c.piso}` : ''}</option>)}
-                    {form.cliente_ubicacion_id && !ubicacionElegida &&
-                      <option value={form.cliente_ubicacion_id}>Ubicación vinculada anteriormente</option>}
-                  </select>
-                  {ubicacionesCliente.length > 1 && !form.cliente_ubicacion_id && <small>Este cliente tiene varias ubicaciones. Elegí una para completar la OT.</small>}
-                </div>}
-                {ubicacionElegida && <div className={`${styles.field} ${styles.fieldWide}`}>
-                  <small>Cliente: {ubicacionElegida.nombre}{ubicacionElegida.identificacion ? ` · ${ubicacionElegida.identificacion}` : ''}</small>
-                  <small>Contacto: {ubicacionElegida.contacto || '—'} · {ubicacionElegida.telefono || 'Sin teléfono'} · {ubicacionElegida.correo || 'Sin correo'}</small>
-                  <small>Domicilio del cliente: {ubicacionElegida.domicilio || 'Sin registrar'}</small>
-                  <small>Inmueble: {ubicacionElegida.nombre_obra} · {ubicacionElegida.direccion_obra || 'Sin dirección'}{ubicacionElegida.piso ? ` · Piso ${ubicacionElegida.piso}` : ''}{ubicacionElegida.unidad ? ` · Unidad ${ubicacionElegida.unidad}` : ''}</small>
-                </div>}
-</div></details>
+                {errorClientes&&<p role="alert">No se pudo cargar el directorio: {errorClientes}</p>}
+                {form.cliente_id&&errorClienteFicha&&<p role="alert">No se pudo actualizar la ficha: {errorClienteFicha}</p>}
+              </div></details>
               <details className={styles.dataGroup}><summary>Datos del contratista <small>{(form.contratistas??[]).length?`${form.contratistas?.length} seleccionado(s)`:'Sin asignar · planificación'}</small></summary><div className={styles.dataContent}>
+{[...new Map([...contratistaFichas,...contratistasVinculados].map(f=>[f.id,f])).values()].filter(f=>(form.contratistas??[]).includes(f.nombre_ot??f.nombre)).map(f=><FichaPersonaOT key={f.id} tipo="contratista" ficha={f} tenantId={permiso?.tenant_id} puedeGestionar={creador} onGuardar={saved=>{if(!contratistasVinculados.some(c=>c.id===saved.id))setForm(current=>({...current,contratistas:(current.contratistas??[]).map(nombre=>nombre===f.nombre?saved.nombre:nombre)}));setContratistaFichas(rows=>rows.map(c=>c.id===saved.id?{...saved,nombre_ot:c.nombre_ot}:c));setContratistasVinculados(rows=>rows.map(c=>c.id===saved.id?{...saved,nombre_ot:c.nombre_ot}:c))}}/>)}
                 <div className={styles.field}>
-                  <label className={styles.label}>Contratista(s)</label>
                   {(form.contratistas ?? []).length > 0 && (
                     <div className={styles.chipsWrap} style={{ marginBottom: 6 }}>
                       {(form.contratistas ?? []).map(c => (
@@ -1173,7 +1175,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
                   </div>
                   {!contratistasGlobales.length && <small>Sin contratistas disponibles. El Creador puede registrarlos.</small>}
                 </div>
-{[...new Map([...contratistaFichas,...contratistasVinculados].map(f=>[f.id,f])).values()].filter(f=>(form.contratistas??[]).includes(f.nombre_ot??f.nombre)).map(f=><dl key={f.id} className={datosStyles.ficha}><div><dt>Nombre / razón social</dt><dd>{f.nombre}</dd></div><div><dt>RUC / documento</dt><dd>{f.identificacion||'Sin registrar'}</dd></div><div><dt>Contacto</dt><dd>{f.contacto||'Sin registrar'}</dd></div><div><dt>Teléfono</dt><dd>{f.telefono||'Sin registrar'}</dd></div><div><dt>Correo</dt><dd>{f.correo||'Sin registrar'}</dd></div><div><dt>Dirección</dt><dd>{f.direccion||'Sin registrar'}</dd></div></dl>)}</div></details>
+</div></details>
               <details className={styles.dataGroup} open><summary>Datos del reclamo <small>Pedido, visitas y seguimiento</small></summary><div className={styles.dataContent}>
               <EtapasOT ref={etapasRef} orden={{...ordenFresca,...form,campos:valoresCampos}} cliente={ubicacionElegida} proyectoNombre={proyectoNombre ?? ''}
                 disabled={!puedeEditar || guardando || guardandoCliente} puedeRevisar={esSupervisor} onDirty={setEtapasDirty} refresh={0}
