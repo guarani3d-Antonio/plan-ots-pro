@@ -1123,7 +1123,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
                   <input className={styles.input} value={form.unidad_amenities ?? ''} onChange={e => set('unidad_amenities', e.target.value)} placeholder="ej: Dpto 401 / Gym" />
                 </div>
 </div></div></details>
-              <details className={styles.dataGroup}><summary>Datos del cliente <small>{directorioClientes.find(c=>c.id===form.cliente_id)?.nombre??'Sin cliente vinculado'}</small></summary><div className={`${styles.dataContent} ${styles.clientGroup} ${styles.formSection}`}>
+              <details className={styles.dataGroup}><summary>Datos del cliente <small>{directorioClientes.find(c=>c.id===form.cliente_id)?.nombre??(form.cliente_id?'Cliente vinculado':'Sin cliente vinculado')}</small></summary><div className={`${styles.dataContent} ${styles.clientGroup} ${styles.formSection}`}>
                 <div className={`${styles.field} ${styles.fieldMedium}`}>
                   <label className={styles.label}>Cliente</label>
                   <div className={styles.directoryActions}>
