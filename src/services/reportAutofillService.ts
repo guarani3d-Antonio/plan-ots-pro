@@ -7,7 +7,7 @@ export interface ClienteInforme {
   correo?: string | null; domicilio?: string | null; nombre_obra?: string | null;
   direccion_obra?: string | null; piso?: string | null; unidad?: string | null; sector?: string | null;
 }
-export type FuentesInforme = Partial<Record<'visita' | 'relevamiento' | 'avance' | 'cierre', Record<string, unknown>>>;
+export type FuentesInforme = Partial<Record<'orden_servicio' | 'visita' | 'relevamiento' | 'avance' | 'cierre', Record<string, unknown>>>;
 export const CAMPOS_IDENTIFICACION = [
   ['obra', 'Obra'], ['unidad_amenities', 'Unidad o sector'], ['ubicacion', 'Ubicación referencial'],
   ['responsable', 'Responsable asignado'], ['rubro', 'Rubro'], ['fecha_ingreso', 'Fecha de ingreso de la OT'],
@@ -53,11 +53,12 @@ export function prepararAutocompletado(orden: OrdenLocal, proyectoNombre: string
     solicitante: campo('solicitante') || identificacion.cliente,
     contacto: campo('contacto_solicitante') || identificacion.telefono || identificacion.correo || identificacion.contacto,
     referencia: campo('referencia_solicitud'), urgencia: campo('urgencia_solicitada'), proximoPaso: campo('proximo_paso'),
+    ...objetoFuente(fuentes.orden_servicio?.origen),
   };
   const visita: Partial<DatosVisita> = { propietario: origen.solicitante, contacto: origen.contacto,
     edificio: identificacion.obra, unidad: identificacion.unidad_amenities || identificacion.ubicacion,
     responsableVisita: identificacion.responsable, descripcion: identificacion.descripcion,
-    observacionesTecnicas: textoFuente(orden.comentarios), compromisos: origen.proximoPaso };
+    compromisos: origen.proximoPaso };
   const relevamiento: Partial<DatosRelevamiento> = {
     tecnico: textoFuente(v.responsableVisita) || identificacion.responsable,
     fechaIntervencion: textoFuente(v.fechaVisita), participantes: textoFuente(v.participantes),
@@ -68,7 +69,7 @@ export function prepararAutocompletado(orden: OrdenLocal, proyectoNombre: string
     porcentaje: typeof orden.porcentaje_avance === 'number' ? String(orden.porcentaje_avance) : '',
   };
   const cierre: Partial<DatosCierre> = {
-    inicioReal: textoFuente(orden.fecha_inicio_trabajos), finReal: textoFuente(orden.fecha_fin_trabajos),
+    inicioReal: textoFuente(orden.fecha_inicio_trabajos).slice(0,10), finReal: textoFuente(orden.fecha_fin_trabajos).slice(0,10),
     planoReferencia: textoFuente(r.planoReferencia) || identificacion.ubicacion,
     // References are carried only when explicitly recorded; a draft's code is not an approval.
     alcanceReferencia: textoFuente(a.alcanceReferencia),

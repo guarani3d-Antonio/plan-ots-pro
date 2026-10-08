@@ -1,374 +1,3 @@
-//#region src/services/otStageSchema.ts
-const text = (key, label, span = 6) => ({
-	key,
-	label,
-	span
-});
-const area = (key, label, span = 6) => ({
-	key,
-	label,
-	type: "textarea",
-	span
-});
-const date = (key, label) => ({
-	key,
-	label,
-	type: "date",
-	span: 3
-});
-const time = (key, label) => ({
-	key,
-	label,
-	type: "time",
-	span: 2
-});
-const select = (key, label, options, span = 6) => ({
-	key,
-	label,
-	options,
-	span
-});
-const ENCUESTA_PREGUNTAS = [
-	["rapidez", "Tiempo de respuesta a tu solicitud"],
-	["plazoPrometido", "Cumplimiento del plazo acordado"],
-	["calidadTrabajo", "Calidad del trabajo realizado"],
-	["profesionalismo", "Profesionalismo y trato del personal"],
-	["confianza", "Confianza que te transmitió el servicio"],
-	["recontratacion", "¿Volverías a contratar este servicio?"],
-	["recomendacion", "¿Recomendarías este servicio?"]
-];
-const TEXTO_ACTA = "La presente acta deja constancia de la entrega y de la decisión expresamente indicada por el receptor respecto de los trabajos individualizados y de los documentos referenciados. La conformidad, cuando sea otorgada, se limita al alcance entregado y verificable a la fecha de firma, con las reservas que se consignen. Este registro podrá aportarse como antecedente documental ante comunicaciones o reclamos posteriores relativos a esos trabajos. No comprende prestaciones ajenas al alcance ni implica renuncia a garantías, defectos ocultos o derechos irrenunciables que resulten aplicables.";
-const TIPOS_CON_PLANO = [
-	"visita",
-	"relevamiento",
-	"avance",
-	"cierre"
-];
-const ETAPAS_OT = [
-	{
-		tipo: "orden_servicio",
-		name: "Orden de Servicio",
-		subtitle: "Pedido recibido · qué se pidió y cuándo",
-		tag: "Origen de la OT",
-		record: "Solicitud",
-		newLabel: "",
-		help: "Nace al recibir el pedido, incluso sin visita. Una solicitud inicial por OT. Crear versión corregida conserva la versión anterior y registra el motivo de la corrección.",
-		groups: [{
-			title: "Recepción del pedido",
-			fields: [
-				{
-					key: "fechaRecepcion",
-					label: "Fecha y hora de recepción",
-					type: "datetime-local",
-					span: 6
-				},
-				select("canal", "Canal", [
-					"WhatsApp",
-					"Correo",
-					"Teléfono",
-					"Presencial",
-					"Otro"
-				], 3),
-				select("urgencia", "Urgencia manifestada", [
-					"Normal",
-					"Urgente",
-					"Por evaluar"
-				], 3),
-				text("solicitante", "Solicitante"),
-				text("contacto", "Contacto"),
-				text("referencia", "Referencia del mensaje", 12),
-				area("proximoPaso", "Derivación / próximo paso", 12)
-			]
-		}]
-	},
-	{
-		tipo: "visita",
-		name: "Ficha de Visita Técnica",
-		subtitle: "Qué ocurrió en la visita y qué se pudo verificar",
-		tag: "Una por visita",
-		record: "Visita",
-		newLabel: "Nueva visita",
-		help: "Nueva visita registra otra visita o intento de acceso, con sus propios hechos y horarios. Crear versión corregida corrige esta misma visita y conserva la anterior. No copies los resultados de una visita a otra.",
-		groups: [
-			{
-				title: "1 · Motivo",
-				fields: [
-					select("tipoVisita", "Tipo de visita", [
-						"Inspección inicial",
-						"Seguimiento",
-						"Verificación",
-						"Intento de acceso",
-						"Otra"
-					]),
-					date("fechaVisita", "Fecha"),
-					area("descripcion", "Motivo de la visita", 12)
-				]
-			},
-			{
-				title: "2 · Horarios",
-				fields: [
-					time("horaAcordada", "Hora acordada"),
-					time("horaLlegada", "Llegada"),
-					time("horaInicio", "Inicio efectivo"),
-					time("horaFin", "Fin del control"),
-					time("horaSalida", "Salida"),
-					text("esperaMotivo", "Motivo de la espera", 12)
-				]
-			},
-			{
-				title: "3 · Acceso",
-				fields: [
-					select("acceso", "Acceso al sector", [
-						"Habilitado",
-						"Parcial",
-						"Impedido"
-					]),
-					text("autorizaAcceso", "Quién autorizó / gestionó el ingreso"),
-					area("restricciones", "Condiciones y restricciones de acceso", 12)
-				]
-			},
-			{
-				title: "4 · Participantes",
-				fields: [
-					text("responsableVisita", "Técnico que realizó la visita"),
-					text("recibidoPor", "Persona que recibió"),
-					text("propietario", "Propietario o solicitante"),
-					text("contacto", "Contacto"),
-					area("participantes", "Acompañantes y función", 12)
-				]
-			},
-			{
-				title: "5 · Recorrido",
-				fields: [
-					text("edificio", "Edificio u obra visitada"),
-					text("unidad", "Unidad o sector"),
-					area("recorrido", "Sectores efectivamente recorridos"),
-					area("sectoresNoVisitados", "Sectores no inspeccionados y motivo")
-				]
-			},
-			{
-				title: "6 · Seguridad de la actividad prevista",
-				fields: [
-					select("seguridad", "Condiciones observadas", [
-						"Sin evaluar",
-						"Aptas para la actividad",
-						"Aptas con medidas registradas",
-						"No aptas / visita suspendida"
-					]),
-					text("permiso", "Permiso / autorización aplicable"),
-					area("riesgos", "Riesgos identificados"),
-					area("medidasSeguridad", "Medidas adoptadas y limitaciones")
-				]
-			},
-			{
-				title: "7 · Actividad",
-				fields: [area("actividad", "Qué se verificó"), area("metodo", "Método / mediciones / evidencia de esta visita")]
-			},
-			{
-				title: "8 · Resultado",
-				fields: [
-					select("resultado", "Resultado de la visita", [
-						"Completa",
-						"Parcial",
-						"No realizada"
-					]),
-					area("observacionesTecnicas", "Observaciones técnicas"),
-					area("limitesVerificacion", "Qué no pudo comprobar el técnico"),
-					area("compromisos", "Próximo paso: compromiso, responsable y fecha"),
-					text("representantesPrevistos", "Representantes previstos para la firma", 12)
-				]
-			}
-		]
-	},
-	{
-		tipo: "relevamiento",
-		name: "Informe de Relevamiento",
-		subtitle: "Diagnóstico · plan de trabajo · cronograma previsto",
-		tag: "Planificación",
-		record: "Relevamiento",
-		newLabel: "Nuevo relevamiento",
-		help: "Nuevo relevamiento registra otra evaluación técnica. Crear versión corregida ajusta la misma evaluación sin borrar su historia. El cronograma previsto no acredita las fechas reales de ejecución.",
-		groups: [
-			{
-				title: "Diagnóstico y evidencia",
-				fields: [
-					text("visitaReferencia", "Visita de referencia"),
-					select("modalidad", "Modalidad", ["Visita", "Remota"]),
-					date("fechaIntervencion", "Fecha de intervención"),
-					text("tecnico", "Técnico interviniente"),
-					text("participantes", "Participantes"),
-					area("antecedentes", "Antecedentes de la solicitud"),
-					area("condiciones", "Condiciones y límites de observación"),
-					area("hallazgos", "Hallazgos"),
-					area("pruebas", "Pruebas y mediciones"),
-					area("causa", "Causa confirmada, probable o no determinada; fundamento"),
-					text("planoReferencia", "Ubicación referencial del hallazgo")
-				]
-			},
-			{
-				title: "Plan de trabajo",
-				fields: [
-					area("alcance", "Objetivo de la intervención"),
-					area("exclusiones", "Exclusiones y supuestos"),
-					area("criterios", "Criterios generales de aceptación", 12)
-				]
-			},
-			{
-				title: "Cronograma previsto de los trabajos",
-				fields: [
-					date("inicioPrevisto", "Inicio previsto"),
-					date("finPrevisto", "Fin previsto"),
-					select("decisionAlcance", "Estado del plan", [
-						"Propuesto",
-						"Pendiente de aprobación",
-						"Aprobado con referencia"
-					]),
-					area("cronograma", "Condiciones y referencia del cronograma"),
-					area("condicionesOperativas", "Condiciones de ejecución y tiempos técnicos")
-				]
-			},
-			{
-				title: "Garantía",
-				fields: [select("decisionGarantia", "Evaluación de garantía", [
-					"Por determinar",
-					"Aplica con fundamento",
-					"No aplica con fundamento"
-				]), area("fundamentoGarantia", "Fundamento de la decisión")]
-			}
-		]
-	},
-	{
-		tipo: "avance",
-		name: "Informe de Avance",
-		subtitle: "Trabajo del período, desvíos y próximos pasos",
-		tag: "Opcional",
-		record: "Avance",
-		newLabel: "Nuevo avance",
-		help: "Registrá un avance si el trabajo requiere informar un período o etapa. Puede haber ninguno, uno o varios; omitirlo no bloquea el cierre. Una versión corregida modifica el mismo corte.",
-		groups: [{
-			title: "Período y referencia",
-			fields: [
-				date("periodoDesde", "Período desde"),
-				date("periodoHasta", "Corte hasta"),
-				text("alcanceReferencia", "Plan aprobado: código y revisión")
-			]
-		}, {
-			title: "Ejecución del período",
-			fields: [
-				area("acumulado", "Acumulado y saldo por ítem"),
-				text("porcentaje", "Porcentaje declarado al corte", 3),
-				text("metodoPorcentaje", "Método y base del porcentaje"),
-				area("desvios", "Desvíos, impedimentos y efecto en fechas"),
-				area("proximoPeriodo", "Próxima etapa y dependencias")
-			]
-		}]
-	},
-	{
-		tipo: "cierre",
-		name: "Informe de Cierre Técnico",
-		subtitle: "Ejecución real y comprobación del resultado",
-		tag: "Resultado técnico",
-		record: "Cierre",
-		newLabel: "Nuevo cierre",
-		help: "Registra trabajos efectivamente ejecutados y su comprobación. Una versión corregida conserva el cierre anterior. No declara por sí solo la aceptación del cliente.",
-		groups: [{
-			title: "Ejecución real",
-			fields: [
-				date("inicioReal", "Inicio real del trabajo"),
-				date("finReal", "Fin real del trabajo"),
-				text("alcanceReferencia", "Plan aprobado: código y revisión"),
-				text("cambiosAprobados", "Cambios aprobados: referencias"),
-				area("ejecucionPorItem", "Trabajos efectivamente ejecutados", 12)
-			]
-		}, {
-			title: "Verificación final",
-			fields: [
-				area("verificacion", "Criterio, método, resultado, verificador y fecha", 12),
-				text("planoReferencia", "Ubicación referencial del trabajo", 12),
-				area("limpiezaVerificada", "Limpieza: comprobación, responsable y fecha"),
-				area("danosVerificados", "Daños: comprobación, responsable y fecha"),
-				area("pendientes", "Pendientes, restricciones y acciones"),
-				area("entregables", "Entregables efectivamente entregados"),
-				area("conclusion", "Conclusión técnica"),
-				text("autorizacionInterna", "Autorización interna: actor y referencia")
-			]
-		}]
-	},
-	{
-		tipo: "acta",
-		name: "Acta de Conformidad",
-		subtitle: "Entrega, decisión del cliente y firma",
-		tag: "Recepción del cliente",
-		record: "Acta",
-		newLabel: "",
-		help: "Deja constancia del alcance entregado y la decisión del receptor. La firma corresponde a la revisión exacta presentada; escribir el nombre no equivale a firmar. Una corrección requiere nueva revisión y, cuando corresponda, nueva firma.",
-		groups: [{
-			title: "Entrega y receptor",
-			fields: [
-				text("receptor", "Nombre del receptor"),
-				text("documentoReceptor", "Documento de identidad / RUC"),
-				text("organizacion", "Organización"),
-				text("cargo", "Cargo o calidad"),
-				text("facultad", "Facultad de representación"),
-				date("fechaEntrega", "Fecha de entrega"),
-				text("cierreReferencia", "Informe de cierre y revisión entregados"),
-				select("decisionPreparada", "Decisión declarada del cliente", [
-					"Pendiente",
-					"Conforme",
-					"Conforme con reservas",
-					"No conforme"
-				]),
-				area("objetoEntrega", "Trabajos entregados", 12),
-				area("observacionesCliente", "Observaciones del cliente"),
-				area("reservas", "Reservas y tratamiento"),
-				area("anexosEntregados", "Documentos y anexos entregados"),
-				text("garantiaReferencia", "Garantía: referencia contractual"),
-				area("garantiaCondiciones", "Cobertura, inicio, duración y exclusiones", 12)
-			]
-		}]
-	},
-	{
-		tipo: "encuesta",
-		name: "Encuesta de Satisfacción",
-		subtitle: "Tiempo, calidad, confianza y recomendación",
-		tag: "Escala de 1 a 10",
-		record: "Encuesta",
-		newLabel: "Nueva encuesta",
-		help: "Nueva encuesta registra una respuesta en otra ocasión. Crear versión corregida corrige una transcripción o dato de esta encuesta, conservando su versión anterior y el motivo. Las valoraciones las proporciona el cliente.",
-		groups: [
-			{
-				title: "Datos de la respuesta",
-				fields: [
-					text("respondente", "Cliente que responde"),
-					date("fechaRespuesta", "Fecha de respuesta"),
-					text("relacionConOT", "Relación con el servicio"),
-					select("modalidad", "Modalidad de captura", [
-						"Presencial",
-						"Teléfono",
-						"Correo",
-						"WhatsApp",
-						"Formulario"
-					]),
-					text("referenciaFuente", "Referencia de la respuesta original", 12)
-				]
-			},
-			{
-				title: "Tu experiencia",
-				fields: ENCUESTA_PREGUNTAS.map(([key, label]) => ({
-					key,
-					label,
-					type: "scale",
-					span: 12
-				}))
-			},
-			{
-				title: "Tu opinión",
-				fields: [area("sugerencias", "¿Qué podríamos mejorar? ¿Querés agregar alguna observación?", 12)]
-			}
-		]
-	}
-];
-//#endregion
 //#region src/services/reportAutofillService.ts
 const textoFuente = (value) => typeof value === "string" ? value : "";
 const objetoFuente = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : {};
@@ -409,8 +38,7 @@ function prepararAutocompletado(orden, proyectoNombre, cliente = null, fuentes =
 		contacto: campo("contacto_solicitante") || identificacion.telefono || identificacion.correo || identificacion.contacto,
 		referencia: campo("referencia_solicitud"),
 		urgencia: campo("urgencia_solicitada"),
-		proximoPaso: campo("proximo_paso"),
-		...objetoFuente(fuentes.orden_servicio?.origen)
+		proximoPaso: campo("proximo_paso")
 	};
 	const visita = {
 		propietario: origen.solicitante,
@@ -419,6 +47,7 @@ function prepararAutocompletado(orden, proyectoNombre, cliente = null, fuentes =
 		unidad: identificacion.unidad_amenities || identificacion.ubicacion,
 		responsableVisita: identificacion.responsable,
 		descripcion: identificacion.descripcion,
+		observacionesTecnicas: textoFuente(orden.comentarios),
 		compromisos: origen.proximoPaso
 	};
 	const relevamiento = {
@@ -432,8 +61,8 @@ function prepararAutocompletado(orden, proyectoNombre, cliente = null, fuentes =
 	};
 	const avance = { porcentaje: typeof orden.porcentaje_avance === "number" ? String(orden.porcentaje_avance) : "" };
 	const cierre = {
-		inicioReal: textoFuente(orden.fecha_inicio_trabajos).slice(0, 10),
-		finReal: textoFuente(orden.fecha_fin_trabajos).slice(0, 10),
+		inicioReal: textoFuente(orden.fecha_inicio_trabajos),
+		finReal: textoFuente(orden.fecha_fin_trabajos),
 		planoReferencia: textoFuente(r.planoReferencia) || identificacion.ubicacion,
 		alcanceReferencia: textoFuente(a.alcanceReferencia)
 	};
@@ -856,14 +485,16 @@ ${_seccionInforme(1, "Procedencia de las respuestas")}
 </section>
 <section class="p-4 border border-outline-variant rounded-lg mb-4"><strong>Referencia al formulario o comunicación de origen</strong>${campo("referenciaFuente")}</section>
 ${_seccionInforme(2, "Evaluación de la atención")}
-${ENCUESTA_PREGUNTAS.map(([clave, titulo], i) => pregunta(i + 1, titulo, "1 = valoración mínima · 10 = máxima · N/A = no corresponde", clave)).join("")}
-${pregunta(8, "Sugerencias o comentarios adicionales", "Respuesta libre", "sugerencias")}
-${[
-		"satisfaccionGeneral",
-		"resolucion",
-		"comunicacion",
-		"expectativas"
-	].filter((k) => datos?.[k]).map((k) => pregunta(0, `Registro anterior: ${k}`, "Respuesta anterior conservada sin conversión de escala", k)).join("")}
+${pregunta(1, "Satisfacción general con el servicio", "Muy insatisfecho · Insatisfecho · Neutral · Satisfecho · Muy satisfecho", "satisfaccionGeneral")}
+${pregunta(2, "¿Se resolvió completamente el problema o necesidad?", "Sí · No · Parcialmente", "resolucion")}
+${pregunta(3, "Calidad del trabajo realizado", "Escala de 1 a 10", "calidadTrabajo")}
+${pregunta(4, "¿Se completó dentro del plazo prometido?", "Sí · No · Parcialmente", "plazoPrometido")}
+${pregunta(5, "Claridad y eficiencia de la comunicación", "Muy deficiente · Deficiente · Neutral · Eficiente · Muy eficiente", "comunicacion")}
+${pregunta(6, "Profesionalismo y respeto del personal", "Sí · No · Parcialmente", "profesionalismo")}
+${pregunta(7, "Rapidez y eficacia percibidas", "Muy insatisfecho · Insatisfecho · Neutral · Satisfecho · Muy satisfecho", "rapidez")}
+${pregunta(8, "¿El resultado final cumplió sus expectativas?", "Sí · No · Parcialmente", "expectativas")}
+${pregunta(9, "Probabilidad de recomendar el servicio", "Nada probable · Poco probable · Neutral · Probable · Muy probable", "recomendacion")}
+${pregunta(10, "Sugerencias o comentarios adicionales", "Respuesta libre", "sugerencias")}
 <p class="text-xs text-on-surface-variant">${contexto ? "Respuestas registradas. Este documento no acredita por sí solo autoría verificada del cliente, firma, conformidad con el trabajo ni decisión sobre el acta." : "Borrador de respuestas registradas. No acredita autoría verificada del cliente, firma, conformidad con el trabajo ni decisión sobre el acta."}</p>
 </div>`;
 	return _envolverInforme(`Encuesta de satisfacción${contexto ? "" : " — borrador"}`, contenido, contexto);
@@ -874,7 +505,26 @@ function generarFichaVisita(orden, datos, fotosVisita = [], codigoDocumento, con
 	const contenido = `<div class="a4-page">
 ${_paginaHeader(orden, "FICHA DE VISITA TÉCNICA", contexto ? "Registro de la visita técnica documentada." : "Registro de visita en preparación. Debe completarse con lo observado cuando la visita haya ocurrido.", codigoDocumento, contexto)}
 ${_bloqueDatosCliente(orden)}
-${ETAPAS_OT.find((e) => e.tipo === "visita").groups.map((g, i) => `${_seccionInforme(i + 1, g.title.replace(/^\d+ · /, ""))}<section class="grid grid-cols-2 gap-4 mb-6">${g.fields.map((f) => bloque(f.label, f.key)).join("")}</section>`).join("")}
+${_seccionInforme(1, "Visita y participantes")}
+<section class="grid grid-cols-2 gap-4 mb-6">
+  <div class="p-4 border border-outline-variant rounded-lg"><strong>Fecha de visita</strong>${campo("fechaVisita")}</div>
+  <div class="p-4 border border-outline-variant rounded-lg"><strong>Horario: inicio</strong>${campo("horaInicio")}</div>
+  <div class="p-4 border border-outline-variant rounded-lg"><strong>Horario: fin</strong>${campo("horaFin")}</div>
+  <div class="p-4 border border-outline-variant rounded-lg"><strong>Prioridad registrada en la OT</strong><p>${escapeHtml(orden.prioridad || "No registrada")}</p></div>
+  <div class="p-4 border border-outline-variant rounded-lg"><strong>Propietario o solicitante</strong>${campo("propietario")}</div>
+  <div class="p-4 border border-outline-variant rounded-lg"><strong>Contacto</strong>${campo("contacto")}</div>
+  <div class="p-4 border border-outline-variant rounded-lg"><strong>Edificio u obra visitada</strong>${campo("edificio")}</div>
+  <div class="p-4 border border-outline-variant rounded-lg"><strong>Departamento, unidad o sector</strong>${campo("unidad")}</div>
+  <div class="p-4 border border-outline-variant rounded-lg"><strong>Responsable de la visita</strong>${campo("responsableVisita")}</div>
+  <div class="p-4 border border-outline-variant rounded-lg"><strong>Otros participantes</strong>${campo("participantes")}</div>
+</section>
+${_seccionInforme(2, "Registro de campo")}
+${bloque("Descripción del motivo de la visita", "descripcion")}
+${bloque("Observaciones técnicas realizadas en la visita", "observacionesTecnicas")}
+${bloque("Restricciones y límites de observación", "restricciones")}
+${bloque("Compromisos y próximo paso declarados", "compromisos")}
+${_seccionInforme(3, "Participación y formalización")}
+${bloque("Representantes previstos para la firma", "representantesPrevistos")}
 <p class="text-xs text-on-surface-variant">${contexto ? "Esta ficha no acredita firma ni conformidad del propietario. Las firmas requieren un registro vinculado a esta revisión exacta." : "Este borrador no acredita firma, conformidad del propietario ni aprobación técnica. Las firmas requieren un registro vinculado a esta revisión exacta."}</p>
 ${fotosVisita.length ? `<h3 class="font-section-header text-section-header text-primary uppercase tracking-widest">Evidencia vinculada a la visita</h3>${generarGridFotos(fotosVisita)}` : ""}
 </div>`;
@@ -953,8 +603,8 @@ function generarInformeRelevamiento(orden, comentarioInicial, fotosAntes, datos,
 	};
 	const bloque = (titulo, clave) => `<section class="p-4 border border-outline-variant rounded-lg mb-4"><strong>${titulo}</strong>${campo(clave)}</section>`;
 	const tablaAlcance = itemsAlcance.length ? `<table class="report-data-table">
-  <thead><tr><th>Ítem</th><th>Trabajo propuesto</th><th>Rubro / profesional</th><th>Criterio de aceptación propuesto</th></tr></thead>
-  <tbody>${itemsAlcance.map((item, index) => `<tr><td>${escapeHtml(item.id)}</td><td id="rel-item-${index}-trabajo">${escapeHtml(item.trabajo.trim() || "No registrado")}</td><td>${escapeHtml(item.rubro || "No registrado")}<br/>${escapeHtml(item.profesional || "No registrado")}</td><td id="rel-item-${index}-criterio">${escapeHtml(item.criterio.trim() || "No registrado")}</td></tr>`).join("")}</tbody>
+  <thead><tr><th>Ítem</th><th>Trabajo propuesto</th><th>Criterio de aceptación propuesto</th></tr></thead>
+  <tbody>${itemsAlcance.map((item, index) => `<tr><td>${escapeHtml(item.id)}</td><td id="rel-item-${index}-trabajo">${escapeHtml(item.trabajo.trim() || "No registrado")}</td><td id="rel-item-${index}-criterio">${escapeHtml(item.criterio.trim() || "No registrado")}</td></tr>`).join("")}</tbody>
 </table>` : "";
 	const contenido = `<div class="a4-page relevamiento-page">
 ${_paginaHeader(orden, "INFORME DE RELEVAMIENTO", "Diagnóstico técnico inicial y detección del alcance de la intervención requerida.", codigoDocumento, contexto)}
@@ -966,7 +616,6 @@ ${_seccionInforme(1, "Hallazgo y diagnóstico")}
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Técnico interviniente</strong>${campo("tecnico")}</div>
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Participantes</strong>${campo("participantes")}</div>
 </section>
-${bloque("Visita de referencia", "visitaReferencia")}
 ${bloque("Antecedentes pertinentes de la solicitud", "antecedentes")}
 ${bloque("Condiciones, acceso y límites de observación", "condiciones")}
 ${bloque("Hallazgos y evidencia relacionada", "hallazgos")}
@@ -974,12 +623,11 @@ ${bloque("Pruebas y mediciones realizadas", "pruebas")}
 ${_bloqueNaranjaIzquierdo("Diagnóstico Inicial", comentarioInicial, "Sin diagnóstico registrado.")}
 ${bloque("Causa confirmada, probable o no determinada y sustento", "causa")}
 ${bloque("Ubicación y referencia en plano", "planoReferencia")}
-${_seccionInforme(2, "Plan de trabajo y cronograma previsto")}
+${_seccionInforme(2, "Alcance y criterios propuestos")}
 ${tablaAlcance}
 ${itemsAlcance.length ? datos?.alcance?.trim() ? bloque("Notas generales del alcance", "alcance") : "" : bloque("Alcance propuesto", "alcance")}
 ${bloque("Exclusiones y supuestos", "exclusiones")}
 ${itemsAlcance.length ? datos?.criterios?.trim() ? bloque("Criterios adicionales", "criterios") : "" : bloque("Criterios de aceptación propuestos", "criterios")}
-<section class="grid grid-cols-2 gap-4 mb-6">${bloque("Inicio previsto", "inicioPrevisto")}${bloque("Fin previsto", "finPrevisto")}</section>
 ${bloque("Cronograma propuesto o aprobado y su referencia", "cronograma")}
 ${bloque("Condiciones operativas acordadas para esta intervención", "condicionesOperativas")}
 ${_seccionInforme(3, "Cobertura y decisión")}
@@ -1039,10 +687,7 @@ function generarInformeActaConformidad(orden, datos, codigoDocumento, contexto) 
 ${_paginaHeader(orden, "ACTA DE CONFORMIDAD", "Instrumento de recepción pendiente de decisión expresa del cliente.", codigoDocumento, contexto)}
 ${_bloqueDatosCliente(orden)}
 ${_seccionInforme(1, "Objeto de recepción")}
-<p>Solicitud recibida el ${escapeHtml(String(orden.campos?.fecha_solicitud || orden.fecha_ingreso || "No registrado"))}. Orden de trabajo: <strong>${escapeHtml(orden.ot)}</strong>. Alcance individualizado en los documentos referenciados a continuación.</p>
 ${bloque("Objeto breve de la entrega", "objetoEntrega")}
-${bloque("Fecha de entrega", "fechaEntrega")}
-${bloque("Documento del receptor", "documentoReceptor")}
 <section class="grid grid-cols-2 gap-4 mb-6">
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Cierre técnico (código y revisión)</strong>${campo("cierreReferencia")}</div>
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Anexos entregados</strong>${campo("anexosEntregados")}</div>
@@ -1064,15 +709,13 @@ ${_seccionInforme(3, "Condiciones y formalización")}
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Garantía contractual de referencia</strong>${campo("garantiaReferencia")}</div>
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Cobertura y condiciones acordadas</strong>${campo("garantiaCondiciones")}</div>
 </section>
-<section class="p-4 border border-outline-variant rounded-lg mb-4"><strong>Alcance de la conformidad</strong><p>${escapeHtml(TEXTO_ACTA)}</p><small>Texto sujeto a revisión jurídica de BBC.</small><p>Pendientes de manifestación expresa del receptor autorizado y vínculo con la revisión exacta del acta. ${contexto ? "La emisión de esta acta no acredita por sí sola aceptación, firma ni garantía nueva." : "Este borrador no acredita aceptación, firma ni garantía nueva."}</p></section>
-<section class="grid grid-cols-2 gap-4 no-break" style="margin-top:40px"><div style="border-top:1px solid #94a3b8;padding-top:8px">Firma del cliente o representante<br/>Nombre y documento: ____________________<br/>Carácter: ____________________<br/>Fecha y hora: ____________________</div><div style="border-top:1px solid #94a3b8;padding-top:8px">Representante de la empresa<br/>Nombre y documento: ____________________<br/>Carácter: ____________________<br/>Fecha y hora: ____________________</div></section>
+<section class="p-4 border border-outline-variant rounded-lg mb-4"><strong>Decisión y formalización</strong><p>Pendientes de manifestación expresa del receptor autorizado y vínculo con la revisión exacta del acta. ${contexto ? "La emisión de esta acta no acredita por sí sola aceptación, firma ni garantía nueva." : "Este borrador no acredita aceptación, firma ni garantía nueva."}</p></section>
 </div>`;
 	return _envolverInforme(`Acta de Conformidad${contexto ? "" : " — borrador"}`, contenido, contexto);
 }
 //#endregion
 //#region src/services/controlledReportService.ts
-const PLANTILLA_CONTROLADA_VERSION = "expediente-controlado-2026-10-08";
-const PLANTILLA_PLANO = "expediente-controlado-2026-10-07";
+const PLANTILLA_CONTROLADA_VERSION = "expediente-controlado-2026-10-07";
 const PLANTILLA_ANTERIOR = "expediente-controlado-2026-10-04";
 const PLANTILLA_LEGACY = "expediente-controlado-2026-09-29";
 function objeto(valor, etiqueta) {
@@ -1111,8 +754,7 @@ function materializarHtmlControlado(revision, fuentesValor, imagenesVerificadas)
 		revision: revision.revision
 	};
 	if (![
-		"expediente-controlado-2026-10-08",
-		PLANTILLA_PLANO,
+		"expediente-controlado-2026-10-07",
 		PLANTILLA_ANTERIOR,
 		PLANTILLA_LEGACY
 	].includes(revision.plantilla_version)) throw new Error("Versión de plantilla no compatible con este renderizador");
@@ -1164,7 +806,7 @@ function materializarHtmlControlado(revision, fuentesValor, imagenesVerificadas)
 	const ordenOriginal = ordenFuente;
 	const identidadGuardada = datos.identificacion === void 0 ? void 0 : camposTexto(datos.identificacion, "Identificación");
 	const orden = revision.plantilla_version === PLANTILLA_LEGACY ? ordenOriginal : ordenParaInforme(ordenOriginal, restaurarCampos(prepararAutocompletado(ordenOriginal, proyectoNombre).identificacion, identidadGuardada));
-	if (revision.plantilla_version === PLANTILLA_PLANO || revision.plantilla_version === "expediente-controlado-2026-10-08" && TIPOS_CON_PLANO.includes(tipo)) {
+	if (revision.plantilla_version === "expediente-controlado-2026-10-07") {
 		if (ordenOriginal.pos_x != null && ordenOriginal.pos_y != null && Number.isFinite(ordenOriginal.pos_x) && Number.isFinite(ordenOriginal.pos_y)) {
 			const plano = objeto(datos.planoContexto, "Referencia visual del plano");
 			const imagen = texto(plano.imagen, "Imagen del plano");

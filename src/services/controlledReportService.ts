@@ -1,6 +1,7 @@
 // Materializa un candidato desde una revisión y sus fuentes congeladas.
 // Debe ejecutarse en el servicio, después de verificar los SHA-256 del registro
 // y los bytes de cada foto. El cliente nunca aporta HTML al renderizador.
+import { TIPOS_CON_PLANO } from './otStageSchema';
 import type { OrdenLocal } from '../types/orden';
 import type { RevisionDocumento, TipoDocumento } from './documentService';
 import type { ContextoReporteControlado } from './reportTemplates';
@@ -17,7 +18,8 @@ import type {
 
 type Registro = Record<string, unknown>;
 type Foto = { id: string; file_url: string; descripcion: string | null; descripcion_observacion: string | null };
-export const PLANTILLA_CONTROLADA_VERSION = 'expediente-controlado-2026-10-07';
+export const PLANTILLA_CONTROLADA_VERSION = 'expediente-controlado-2026-10-08';
+const PLANTILLA_PLANO = 'expediente-controlado-2026-10-07';
 const PLANTILLA_ANTERIOR = 'expediente-controlado-2026-10-04';
 const PLANTILLA_LEGACY = 'expediente-controlado-2026-09-29';
 
@@ -69,7 +71,7 @@ export function materializarHtmlControlado(
   if (!Number.isInteger(anio) || anio < 2020 || anio > 2100)
     throw new Error('Año documental inválido');
   const contexto: ContextoReporteControlado = { codigo, anio, revision: revision.revision };
-  if (![PLANTILLA_CONTROLADA_VERSION, PLANTILLA_ANTERIOR, PLANTILLA_LEGACY].includes(revision.plantilla_version))
+  if (![PLANTILLA_CONTROLADA_VERSION, PLANTILLA_PLANO, PLANTILLA_ANTERIOR, PLANTILLA_LEGACY].includes(revision.plantilla_version))
     throw new Error('Versión de plantilla no compatible con este renderizador');
   if (revision.plantilla_version !== PLANTILLA_LEGACY && fuentes.empresa) {
     const empresa = objeto(fuentes.empresa, 'Empresa emisora');
@@ -123,7 +125,7 @@ export function materializarHtmlControlado(
   const orden = revision.plantilla_version === PLANTILLA_LEGACY ? ordenOriginal
     : ordenParaInforme(ordenOriginal, restaurarCampos(
       prepararAutocompletado(ordenOriginal, proyectoNombre).identificacion, identidadGuardada));
-  if (revision.plantilla_version === PLANTILLA_CONTROLADA_VERSION) {
+  if (revision.plantilla_version === PLANTILLA_PLANO || (revision.plantilla_version === PLANTILLA_CONTROLADA_VERSION && TIPOS_CON_PLANO.includes(tipo))) {
     const tienePunto = ordenOriginal.pos_x != null && ordenOriginal.pos_y != null &&
       Number.isFinite(ordenOriginal.pos_x) && Number.isFinite(ordenOriginal.pos_y);
     if (tienePunto) {

@@ -191,6 +191,7 @@ for (let i = 0; i < nombres.length; i++) {
   const html = materializarHtmlControlado(revision, fuentes, {});
   assert.equal(materializarHtmlServidor(revision, fuentes, {}), html,
     `${nombres[i]} debe coincidir entre cliente y renderizador definitivo`);
+  if (['visita','relevamiento','avance','cierre'].includes(nombres[i])) {
   assert.match(html, /Ubicación de la OT en el plano/);
   assert.match(html, /42% horizontal · 63% vertical/);
   assert.match(html, /Referencia relativa al plano, no coordenada GPS/);
@@ -206,6 +207,11 @@ for (let i = 0; i < nombres.length; i++) {
   assert.throws(() => materializarHtmlControlado({ ...revision, datos: {
     ...revision.datos, planoContexto: null,
   } }, fuentes, {}), /Referencia visual/);
+  } else {
+    assert.doesNotMatch(html,/Ubicación de la OT en el plano/);
+    assert.ok(!html.includes(imagenPlano));
+    assert.doesNotThrow(()=>materializarHtmlControlado({...revision,datos:{...revision.datos,planoContexto:null}},fuentes,{}));
+  }
   if (i === 0) {
     const anterior = { ...revision, plantilla_version: 'expediente-controlado-2026-10-04',
       datos: { ...revision.datos, planoContexto: null } };
@@ -215,3 +221,20 @@ for (let i = 0; i < nombres.length; i++) {
   }
 }
 console.log('Siete plantillas, fuentes congeladas y controles de identidad: OK');
+
+const {ETAPAS_OT, camposVacios, validarEtapa}=await loadTs('src/services/otStageSchema.ts');
+const {EJEMPLOS_ETAPA}=await loadTs('src/services/otStageExamples.ts');
+for(const e of ETAPAS_OT){
+  assert.ok(Object.values(camposVacios(e.tipo)).every(v=>v===''),'Placeholders are never defaults');
+}
+const visitaData=Object.fromEntries(ETAPAS_OT.find(e=>e.tipo==='visita').groups.flatMap(g=>g.fields.map(f=>[f.key,`QA-${f.key} <literal>`])));
+const visitaHtml=report.generarFichaVisita(orden,visitaData);
+for(const key of Object.keys(visitaData))assert.ok(visitaHtml.includes(`QA-${key} &lt;literal&gt;`),key);
+const relHtml=report.generarInformeRelevamiento(orden,'',[],{inicioPrevisto:'2026-10-10',finPrevisto:'2026-10-15'},undefined,[{id:'A-01',trabajo:'Actividad QA',criterio:'Criterio QA',rubro:'Rubro QA',profesional:'Profesional QA'}]);
+for(const v of ['2026-10-10','2026-10-15','Rubro QA','Profesional QA'])assert.ok(relHtml.includes(v));
+const encuestaHtml=report.generarEncuestaSatisfaccion(orden,{rapidez:'7',plazoPrometido:'N/A',confianza:'9',recontratacion:'10',satisfaccionGeneral:'Muy satisfecho'});
+assert.match(encuestaHtml,/Muy satisfecho/);assert.match(encuestaHtml,/enc-confianza/);assert.match(encuestaHtml,/enc-recontratacion/);
+assert.ok(validarEtapa('relevamiento',{relevamiento:{inicioPrevisto:'2026-10-10',finPrevisto:'2026-10-09'}}));
+assert.equal(validarEtapa('avance',{avance:{}}),null);
+for(const example of Object.values(EJEMPLOS_ETAPA))assert.ok(!visitaHtml.includes(example));
+console.log('Seven stages, literal field output, planned dates, legacy survey and empty placeholders: OK');

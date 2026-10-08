@@ -1,3 +1,4 @@
+import { EtapasOT, type EtapasOTHandle } from '../informes/EtapasOT';
 import { AltaClienteOT, type ClienteObra } from './AltaClienteOT';
 import { LEGACY_OFFLINE_ENABLED } from '../../security/sessionScope';
 import { useAccessStore, usePermisoObra } from '../../stores/accessStore';
@@ -274,6 +275,10 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
   const [guardando,       setGuardando]       = useState(false);
   const [guardadoEn,      setGuardadoEn]      = useState<Date | null>(null);
   const [errorGuardado,    setErrorGuardado]   = useState(false);
+  const etapasRef = useRef<EtapasOTHandle>(null);
+  const [etapasDirty,setEtapasDirty] = useState(false);
+  const [etapasRefresh,setEtapasRefresh] = useState(0);
+  const [documentoInicialId,setDocumentoInicialId] = useState<string>();
   const [modalCierre,     setModalCierre]     = useState(false);
   const [tipoInforme,     setTipoInforme]     = useState<TipoInformeModal>('cierre');
 
@@ -514,7 +519,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
   ]).values()];
   const ubicacionesCliente = clientesObra.filter(c => c.cliente_id === form.cliente_id);
   const ubicacionElegida = ubicacionesCliente.find(c => c.ubicacion_id === form.cliente_ubicacion_id);
-  const cambiosSinGuardar = altaCliente !== null || JSON.stringify(form) !== JSON.stringify(ordenToForm(baseVisible))
+  const cambiosSinGuardar = etapasDirty || altaCliente !== null || JSON.stringify(form) !== JSON.stringify(ordenToForm(baseVisible))
     || JSON.stringify(valoresCampos) !== JSON.stringify(baseVisible?.campos ?? {});
   useLayoutEffect(() => { cambiosRef.current = cambiosSinGuardar; }, [cambiosSinGuardar]);
   useEffect(() => {
@@ -816,6 +821,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
         if (fromStore) setForm(ordenToForm(fromStore));
       }
       const ordenPersistida = actualizada ?? useOrdenesStore.getState().ordenes.find(o => o.id === ordenFresca.id);
+      if (ordenPersistida) await etapasRef.current?.guardar(ordenPersistida);
       const posUbicada = ordenPersistida?.pos_x != null && ordenPersistida?.pos_y != null;
       const pendientes = useOrdenesStore.getState().otsPendientesImport;
       if (posUbicada && pendientes.includes(ordenFresca.id)) {
@@ -828,6 +834,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
       setGuardadoEn(new Date());
       setHistorialRefresh(r => r + 1);
       if (modoForzadoFotos) cerrarPanel();
+      return true;
     } catch(err) {
       setErrorGuardado(true);
       mostrar(err instanceof Error?err.message:'No se pudieron guardar los cambios.','error');
@@ -1079,7 +1086,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
             <button disabled={guardandoCliente} onClick={() => setTabActivo('historial')} className={tabActivo === 'historial' ? styles.viewTabActive : ''}>Historial</button>
           </div>
 
-          {tabActivo === 'detalle' && (<>
+          <div className={styles.detailPane} hidden={tabActivo !== 'detalle'}>
 
           <div className={styles.tabs}>
             {(['datos', 'fotos', 'informes', 'campos'] as const).map(t => (
@@ -1101,7 +1108,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
 
           <fieldset disabled={!puedeEditar || guardando} className={`${styles.body} ${tab === 'fotos' ? styles.bodyFotos : styles.bodyFormulario}`} style={{ border: 0, margin: 0, minWidth: 0 }}>
 
-            {tab === 'datos' && <>
+            <div hidden={tab !== 'datos'}>
               <div className={`${styles.section} ${styles.formSection}`}>
                 <div className={styles.sectionTitle}>Identificación</div>
                 <div className={`${styles.field} ${styles.fieldShort}`}>
@@ -1158,50 +1165,25 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
                     <VoiceInputButton compact value={form.unidad_amenities ?? ''} onChange={value => set('unidad_amenities', value)} /></div>
                   <input className={styles.input} value={form.unidad_amenities ?? ''} onChange={e => set('unidad_amenities', e.target.value)} placeholder="ej: Dpto 401 / Gym" />
                 </div>
-                <div className={`${styles.field} ${styles.fieldNarrative}`}>
-                  <div className={styles.labelRow}>
-                    <label className={styles.label}>Descripción del reclamo</label>
-                    <VoiceInputButton value={form.descripcion ?? ''} onChange={value => set('descripcion', value)} />
-                  </div>
-                  <textarea className={styles.textarea} rows={3} placeholder="Descripción del problema según el cliente..." value={form.descripcion ?? ''} onChange={e => set('descripcion', e.target.value)} />
-                </div>
                 <div className={styles.metadataRow}>
                   <span><strong>Creado por</strong> {creadoPor}</span>
                   <span><strong>Días abierto</strong> {diasAb} {diasAb === 1 ? 'día' : 'días'}</span>
                 </div>
               </div>
 
-              <div className={`${styles.section} ${styles.formSection}`}>
-                <div className={styles.sectionTitle}>Origen de la solicitud</div>
-                <div className={styles.field}>
-                  <label className={styles.label}>Canal de recepción</label>
-                  <select className={styles.select} value={String(valoresCampos.canal_solicitud ?? '')} onChange={e => setValorCampo('canal_solicitud', e.target.value)}>
-                    <option value="">— No registrado —</option>
-                    <option value="Teléfono">Teléfono</option><option value="Correo">Correo</option>
-                    <option value="WhatsApp">WhatsApp</option><option value="Presencial">Presencial</option>
-                    <option value="Otro">Otro</option>
-                  </select>
-                </div>
-                <div className={styles.field}>
-                  <label className={styles.label}>Fecha y hora de recepción declarada</label>
-                  <input className={styles.input} type="datetime-local" value={String(valoresCampos.fecha_solicitud ?? '')} onChange={e => setValorCampo('fecha_solicitud', e.target.value)} />
-                </div>
-                <div className={styles.field}>
-                  <div className={styles.labelRow}><label className={styles.label}>Solicitante</label>
-                    <VoiceInputButton compact value={String(valoresCampos.solicitante ?? '')} onChange={value => setValorCampo('solicitante', value)} /></div>
-                  <input className={styles.input} value={String(valoresCampos.solicitante ?? '')} onChange={e => setValorCampo('solicitante', e.target.value)} placeholder="Nombre y organización" />
-                </div>
-                <div className={`${styles.field} ${styles.fieldWide}`}>
+              <EtapasOT ref={etapasRef} orden={{...ordenFresca,...form,campos:valoresCampos}} cliente={ubicacionElegida} proyectoNombre={proyectoNombre ?? ''}
+                disabled={!puedeEditar || guardando || guardandoCliente} puedeRevisar={esSupervisor} onDirty={setEtapasDirty} refresh={etapasRefresh}
+                onFechasReales={(inicio,fin)=>setForm(f=>({...f,fecha_inicio_trabajos:inicio,fecha_fin_trabajos:fin}))}
+                onOrigen={d=>setValoresCampos(c=>({...c,canal_solicitud:d.canal,fecha_solicitud:d.fechaRecepcion,solicitante:d.solicitante,contacto_solicitante:d.contacto,referencia_solicitud:d.referencia,urgencia_solicitada:d.urgencia,proximo_paso:d.proximoPaso}))}
+                onPreview={async tipo=>{if(await handleGuardar()){setDocumentoInicialId(etapasRef.current?.documento(tipo));setTipoInforme(tipo);setModalCierre(true);}}}
+                solicitud={<>                <div className={`${styles.field} ${styles.fieldNarrative}`}>
                   <div className={styles.labelRow}>
-                    <label className={styles.label}>Referencia del contacto de origen</label>
-                    <VoiceInputButton value={String(valoresCampos.referencia_solicitud ?? '')} onChange={value => setValorCampo('referencia_solicitud', value)} />
+                    <label className={styles.label}>Descripción del reclamo</label>
+                    <VoiceInputButton value={form.descripcion ?? ''} onChange={value => set('descripcion', value)} />
                   </div>
-                  <input className={styles.input} value={String(valoresCampos.referencia_solicitud ?? '')} onChange={e => setValorCampo('referencia_solicitud', e.target.value)} placeholder="Asunto del correo, WhatsApp o fecha de llamada" />
+                  <textarea className={styles.textarea} rows={3} placeholder="Descripción del problema según el cliente..." value={form.descripcion ?? ''} onChange={e => set('descripcion', e.target.value)} />
                 </div>
-                <p className={styles.metadataRow}>La orden registra lo declarado por el cliente. Una visita realizada se documenta en su ficha; el diagnóstico va en el relevamiento.</p>
-              </div>
-
-              <div className={`${styles.section} ${styles.formSection}`}>
+</>} gestion={<>              <div className={`${styles.section} ${styles.formSection}`}>
                 <div className={styles.sectionTitle}>Clasificación</div>
                 <div className={`${styles.field} ${styles.fieldWide}`}>
                   <label className={styles.label}>
@@ -1280,24 +1262,9 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
                   </div>
                   {!contratistasGlobales.length && <small>Sin contratistas disponibles. El Creador puede registrarlos.</small>}
                 </div>
-                {estado !== 'No aplica' && (
-                  <div className={styles.field}>
-                    <label className={styles.label}>Fecha inicio trabajos</label>
-                    <div className={styles.dateTimeGroup}>
-                      <input className={styles.input} type="date" value={toDateInput(form.fecha_inicio_trabajos)} onChange={e => set('fecha_inicio_trabajos', e.target.value)} />
-                      <input className={styles.input} type="time" value={(valoresCampos.hora_inicio_trabajos as string | undefined) ?? ''} onChange={e => setValorCampo('hora_inicio_trabajos', e.target.value)} />
-                    </div>
-                  </div>
-                )}
-                {estado !== 'No aplica' && (
-                  <div className={styles.field}>
-                    <label className={styles.label}>Fecha fin trabajos</label>
-                    <div className={styles.dateTimeGroup}>
-                      <input className={styles.input} type="date" value={toDateInput(form.fecha_fin_trabajos)} onChange={e => set('fecha_fin_trabajos', e.target.value)} />
-                      <input className={styles.input} type="time" value={(valoresCampos.hora_fin_trabajos as string | undefined) ?? ''} onChange={e => setValorCampo('hora_fin_trabajos', e.target.value)} />
-                    </div>
-                  </div>
-                )}
+              </div>
+</>} ejecucion={<><details><summary>Seguimiento operativo, horarios y observaciones</summary><div className={`${styles.section} ${styles.formSection} ${styles.executionGrid}`}>
+<div className={styles.field}><label className={styles.label}>Hora real de inicio</label><input className={styles.input} type="time" value={String(valoresCampos.hora_inicio_trabajos ?? '')} onChange={e=>setValorCampo('hora_inicio_trabajos',e.target.value)}/></div><div className={styles.field}><label className={styles.label}>Hora real de fin</label><input className={styles.input} type="time" value={String(valoresCampos.hora_fin_trabajos ?? '')} onChange={e=>setValorCampo('hora_fin_trabajos',e.target.value)}/></div>
                 <div className={styles.field}>
                   <label className={styles.label}>% Avance</label>
                   <div className={styles.sliderWrap}>
@@ -1310,7 +1277,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
                 </div>
                 {puedeVerCostos && (
                   <div className={styles.field}>
-                    <label className={styles.label}>Costo (Gs.)</label>
+                    <div className={styles.labelRow}><label className={styles.label}>Costo (Gs.)</label><VoiceInputButton compact value={String(form.costo??'')} onChange={v=>set('costo',parsearGuaranies(v))}/></div>
                     <input className={styles.input} value={form.costo != null && form.costo > 0 ? form.costo.toLocaleString('es-PY') : ''} onChange={e => set('costo', parsearGuaranies(e.target.value))} placeholder="0" />
                   </div>
                 )}
@@ -1323,12 +1290,13 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
                 </div>
               </div>
 
+</details></>} />
               {form.pos_x != null && form.pos_y != null && (
                 <div className={styles.posicion}>
                   📍 {((form.pos_x ?? 0) * 100).toFixed(1)}% · {((form.pos_y ?? 0) * 100).toFixed(1)}%
                 </div>
               )}
-            </>}
+            </div>
 
             {tab === 'fotos' && (
               <div className={`${styles.section} ${styles.photosWorkspace}`}>
@@ -1402,7 +1370,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
                         </div>
                         <span className={`${styles.informeEstado} ${disponible ? styles.informeOk : styles.informeNo}`}>{disponible ? 'Disponible' : 'No disponible'}</span>
                       </div>
-                      <button className={styles.btnGenerar} onClick={() => { if (cambiosSinGuardar) { mostrar('Guardá los cambios de la OT antes de generar el informe.', 'info'); return; } const tipoModal: TipoInformeModal = tipo === 'acta_conformidad' ? 'acta' : tipo; setTipoInforme(tipoModal); setModalCierre(true); }} disabled={!disponible} type="button">🖨️ Generar</button>
+                      <button className={styles.btnGenerar} onClick={() => { if (cambiosSinGuardar) { mostrar('Guardá los cambios de la OT antes de generar el informe.', 'info'); return; } const tipoModal: TipoInformeModal = tipo === 'acta_conformidad' ? 'acta' : tipo; setDocumentoInicialId(undefined); setTipoInforme(tipoModal); setModalCierre(true); }} disabled={!disponible} type="button">🖨️ Generar</button>
                     </div>
                   );
                 })}
@@ -1422,7 +1390,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
             )}
 
           </fieldset>
-          </>)}
+          </div>
 
           {tabActivo === 'historial' && (
             <div className={styles.historyBody}>
@@ -1538,7 +1506,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
 
       {modalCierre && (
         <InformeErrorBoundary key={`${ordenFresca.id}:${tipoInforme}`} onClose={() => setModalCierre(false)}>
-          <ModalInformeOT isOpen={modalCierre} onClose={() => setModalCierre(false)} orden={ordenFresca} proyectoNombre={proyectoNombre ?? (proyectoActivo?.id === ordenFresca.proyecto_id ? proyectoActivo.nombre : '')} tipo={tipoInforme} puedeRevisar={esSupervisor} />
+          <ModalInformeOT isOpen={modalCierre} onClose={() => {setModalCierre(false);setEtapasRefresh(v=>v+1);}} documentoInicialId={documentoInicialId} orden={ordenFresca} proyectoNombre={proyectoNombre ?? (proyectoActivo?.id === ordenFresca.proyecto_id ? proyectoActivo.nombre : '')} tipo={tipoInforme} puedeRevisar={esSupervisor} />
         </InformeErrorBoundary>
       )}
 

@@ -12,7 +12,7 @@ export async function cargarFuentesInforme(orden: OrdenLocal, tipo: TipoDocument
   const ticket = sessionTicket();
   const avisos: string[] = [];
   const fuentes: FuentesInforme = {};
-  const previos = Promise.all(PREVIOS[tipo].map(async tipoPrevio => {
+  const previos = Promise.all([...new Set([...PREVIOS[tipo], ...(tipo==='orden_servicio'?[]:['orden_servicio'] as const)])].map(async tipoPrevio => {
     const doc = documentos.filter(d => d.tipo === tipoPrevio && d.orden_id === orden.id && d.ciclo === 1)
       .sort((a, b) => a.creado_en.localeCompare(b.creado_en)).at(-1);
     if (!doc) return;

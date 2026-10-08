@@ -335,6 +335,44 @@ try {
   await save(pendiente.id, {fotoIds: [], observaciones: 'Correccion posterior'}, pendienteDraft.version, uuid(111));
   await db.query("select set_config('request.jwt.claim.sub',$1,false)", [revisor]);
   await rejectsCode(() => call('plan_documento_emitir', [pendientePdf.id, uuid(112)]), '40001');
+
+  // New rollout: additional closing events and corrected issued revisions.
+  await db.exec('set role postgres;');
+  await db.exec(await readFile(new URL('../supabase/migrations/202610080001_ot_document_stages.sql', import.meta.url), 'utf8'));
+  await db.exec('set role authenticated;');
+  await db.query("select set_config('request.jwt.claim.sub',$1,false)",[actor]);
+  const otherClose=await reserve('cierre',uuid(120));
+  assert.notEqual(otherClose.id,pendiente.id);
+  assert.notEqual(otherClose.codigo,pendiente.codigo);
+  assert.equal((await reserve('orden_servicio',uuid(121))).id,os.id);
+  const correction=await save(os.id,{fotoIds:[],observaciones:'Corrected issued OS'},luegoDeEmitir.version,uuid(122));
+  await rejectsCode(()=>freeze(os.id,correction.version,null,uuid(123)),'22023');
+  const correctedRev=await freeze(os.id,correction.version,'Correction QA, original preserved',uuid(124));
+  assert.ok(correctedRev.revision>rev1.revision);
+  const correctedCandidate=await call('plan_documento_preparar',[correctedRev.id,uuid(125)]);
+  const correctedPath=`${tenant}/${proyecto}/documentos/${correctedRev.id}/${pdfHash}.pdf`;
+  await db.exec('set role postgres;');
+  await db.query('insert into storage.objects(bucket_id,name) values($1,$2)',['exports',correctedPath]);
+  await db.exec('set role service_role;');
+  await db.query('select public.plan_documento_render_reclamar($1,$2)',[correctedCandidate.id,uuid(126)]);
+  await call('plan_documento_pdf_listo',[correctedCandidate.id,uuid(126),correctedPath,pdfHash,700,[]]);
+  await db.exec('set role authenticated;');
+  await rejectsCode(()=>call('plan_documento_emitir',[correctedCandidate.id,uuid(127)]),'42501');
+  await db.query("select set_config('request.jwt.claim.sub',$1,false)",[revisor]);
+  await rejectsCode(()=>call('plan_documento_emitir',[correctedCandidate.id,uuid(128)]),'22023');
+  await call('plan_documento_revisar_pdf',[correctedCandidate.id,pdfHash,'aprobado',null,uuid(129)]);
+  const secondEmission=await call('plan_documento_emitir',[correctedCandidate.id,uuid(130)]);
+  assert.notEqual(secondEmission.id,emitido.id);
+  assert.equal((await call('plan_documento_emitir',[correctedCandidate.id,uuid(130)])).id,secondEmission.id);
+  await db.exec('set role postgres;');
+  assert.equal((await one(`select count(*)::int as n from public.plan_documento_emisiones where documento_id='${os.id}'`)).n,2);
+  assert.equal((await one(`select pdf_path from public.plan_documento_emisiones where id='${emitido.id}'`)).pdf_path,emitido.pdf_path);
+  await rejectsCode(()=>db.query('delete from public.plan_documento_emisiones where id=$1',[emitido.id]),'42501');
+  await rejectsCode(()=>db.query('update public.plan_documento_revisiones set motivo=$1 where id=$2',['overwrite',rev1.id]),'42501');
+  await db.exec('set role authenticated;');
+  await db.query("select set_config('request.jwt.claim.sub',$1,false)",[intruso]);
+  await rejectsCode(()=>reserve('cierre',uuid(131)),'42501');
+  console.log('Corrected issued revisions retain prior PDF; new approval mandatory; closing events and permissions: OK');
   console.log('Expediente: identidad, fuentes, doble persona, emision exclusiva del Creador y bloqueo de borrador posterior OK');
 } finally {
   await db.close();

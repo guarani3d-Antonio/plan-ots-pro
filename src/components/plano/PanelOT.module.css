@@ -31,6 +31,9 @@
   flex-direction: column;
 }
 
+.detailPane { display:flex; flex-direction:column; flex:1; min-height:0; }
+.detailPane[hidden] { display:none; }
+
 .header {
   display: flex;
   align-items: center;

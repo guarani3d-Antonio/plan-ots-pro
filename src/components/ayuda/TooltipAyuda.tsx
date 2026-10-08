@@ -83,7 +83,9 @@ export default function TooltipAyuda({ texto, titulo, size = 16 }: TooltipAyudaP
         className={styles.icono}
         style={{ width: size, height: size, fontSize: size * 0.7 }}
         aria-label={titulo || 'Ayuda'}
-        onClick={(e) => { e.stopPropagation(); setAbierto(v => !v); }}
+        onFocus={() => setAbierto(true)}
+        onBlur={() => setAbierto(false)}
+        onClick={(e) => { e.stopPropagation(); setAbierto(true); }}
       >
         ?
       </button>

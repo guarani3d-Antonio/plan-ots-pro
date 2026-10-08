@@ -89,7 +89,8 @@ export async function cargarEstadoEmision(documentoId: string): Promise<{
   assertSession(ticket);
   if (errorAprobaciones) throw errorDocumento(errorAprobaciones);
   const { data: emisiones, error: errorEmisiones } = await supabase
-    .from('plan_documento_emisiones').select('*').eq('documento_id', documentoId);
+    .from('plan_documento_emisiones').select('*').eq('documento_id', documentoId)
+    .order('emitido_en', { ascending: false }).order('id', { ascending: false });
   assertSession(ticket);
   if (errorEmisiones) throw errorDocumento(errorEmisiones);
   return {

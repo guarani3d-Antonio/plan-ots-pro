@@ -1,3 +1,6 @@
+import { EtapaCampos } from './EtapaCampos';
+import { camposVacios, TIPOS_CON_PLANO, ETAPAS_OT, validarEtapa } from '../../services/otStageSchema';
+import TooltipAyuda from '../ayuda/TooltipAyuda';
 import { CampoTextoInforme } from './CampoTextoInforme';
 import { PdfVerificado } from './PdfVerificado';
 import { registrarExportacion } from '../../services/trustService';
@@ -50,7 +53,6 @@ import {
 import { supabase } from '../../db/supabase';
 import { colorEstado } from '../../utils/calculos';
 import styles from './ModalInformeOT.module.css';
-import { VoiceInputButton } from '../ui/VoiceInputButton';
 import { PLANTILLA_CONTROLADA_VERSION } from '../../services/controlledReportService';
 import { generarContextoPlano, type PlanoContexto } from '../../services/planLocationService';
 
@@ -170,12 +172,6 @@ function fechaCorta(fecha: string | null | undefined): string {
 
 const DEBOUNCE_MS = 150;
 
-function siguienteIdItem(items: { id: string }[]): string {
-  const usados = new Set(items.map(item => item.id));
-  let numero = 1;
-  while (usados.has(`A-${String(numero).padStart(2, '0')}`)) numero++;
-  return `A-${String(numero).padStart(2, '0')}`;
-}
 
 function origenInicial(orden: OrdenLocal): OrigenOrdenServicio {
   const campo = (clave: string) => typeof orden.campos?.[clave] === 'string'
@@ -199,6 +195,7 @@ function origenGuardado(valor: unknown, inicial: OrigenOrdenServicio): OrigenOrd
 }
 
 const VISITA_INICIAL: DatosVisita = {
+  ...camposVacios('visita'),
   fechaVisita: '', horaInicio: '', horaFin: '', propietario: '', contacto: '',
   edificio: '', unidad: '', responsableVisita: '', participantes: '',
   descripcion: '', observacionesTecnicas: '', restricciones: '',
@@ -215,21 +212,9 @@ function visitaGuardada(valor: unknown, inicial: DatosVisita = VISITA_INICIAL): 
   return resultado;
 }
 
-const CAMPOS_VISITA: [keyof DatosVisita, string][] = [
-  ['fechaVisita', 'Fecha de visita'], ['horaInicio', 'Hora de inicio'],
-  ['horaFin', 'Hora de fin'], ['propietario', 'Propietario o solicitante'],
-  ['contacto', 'Contacto'], ['edificio', 'Edificio u obra visitada'],
-  ['unidad', 'Departamento, unidad o sector'],
-  ['responsableVisita', 'Responsable de la visita'],
-  ['participantes', 'Otros participantes'],
-  ['descripcion', 'Descripción del motivo de la visita'],
-  ['observacionesTecnicas', 'Observaciones técnicas'],
-  ['restricciones', 'Restricciones y límites de observación'],
-  ['compromisos', 'Compromisos y próximo paso declarados'],
-  ['representantesPrevistos', 'Representantes previstos para la firma'],
-];
 
 const RELEVAMIENTO_INICIAL: DatosRelevamiento = {
+  ...camposVacios('relevamiento'),
   modalidad: '', fechaIntervencion: '', tecnico: '', participantes: '',
   antecedentes: '', condiciones: '', hallazgos: '', pruebas: '', causa: '',
   planoReferencia: '', alcance: '', exclusiones: '', criterios: '',
@@ -259,30 +244,16 @@ function itemsAlcanceGuardados(valor: unknown): ItemAlcance[] {
     return [{
       id,
       trabajo: typeof item.trabajo === 'string' ? item.trabajo : '',
+      rubro: typeof item.rubro === 'string' ? item.rubro : '',
+      profesional: typeof item.profesional === 'string' ? item.profesional : '',
       criterio: typeof item.criterio === 'string' ? item.criterio : '',
     }];
   });
 }
 
-const CAMPOS_RELEVAMIENTO: [keyof DatosRelevamiento, string][] = [
-  ['modalidad', 'Modalidad: visita o remota'], ['fechaIntervencion', 'Fecha de intervención'],
-  ['tecnico', 'Técnico interviniente'], ['participantes', 'Participantes'],
-  ['antecedentes', 'Antecedentes relevantes de la solicitud'],
-  ['condiciones', 'Condiciones y límites de observación'],
-  ['hallazgos', 'Hallazgos y evidencia relacionada'],
-  ['pruebas', 'Pruebas y mediciones realizadas'],
-  ['causa', 'Causa confirmada, probable o no determinada; sustento'],
-  ['planoReferencia', 'Plano y ubicación referencial del hallazgo'],
-  ['alcance', 'Alcance propuesto'], ['exclusiones', 'Exclusiones y supuestos'],
-  ['criterios', 'Criterios de aceptación propuestos'],
-  ['cronograma', 'Cronograma propuesto o aprobado; referencia'],
-  ['condicionesOperativas', 'Condiciones operativas acordadas para esta intervención'],
-  ['decisionGarantia', 'Garantía: aplica, no aplica o por determinar'],
-  ['fundamentoGarantia', 'Fundamento de la decisión de garantía'],
-  ['decisionAlcance', 'Estado declarado del alcance'],
-];
 
 const AVANCE_INICIAL: DatosAvance = {
+  ...camposVacios('avance'),
   periodoDesde: '', periodoHasta: '', alcanceReferencia: '', acumulado: '',
   porcentaje: '', metodoPorcentaje: '', desvios: '', proximoPeriodo: '',
 };
@@ -311,17 +282,9 @@ function itemsAvanceGuardados(valor: unknown): ItemAvance[] {
   });
 }
 
-const CAMPOS_AVANCE: [keyof DatosAvance, string][] = [
-  ['periodoDesde', 'Período desde'], ['periodoHasta', 'Corte hasta'],
-  ['alcanceReferencia', 'Alcance aprobado: código y revisión'],
-  ['acumulado', 'Acumulado y saldo por ítem'],
-  ['porcentaje', 'Porcentaje declarado al corte'],
-  ['metodoPorcentaje', 'Método y base del porcentaje'],
-  ['desvios', 'Desvíos, impacto y acciones'],
-  ['proximoPeriodo', 'Próximo período y dependencias'],
-];
 
 const CIERRE_INICIAL: DatosCierre = {
+  ...camposVacios('cierre'),
   alcanceReferencia: '', cambiosAprobados: '', inicioReal: '', finReal: '',
   ejecucionPorItem: '', verificacion: '', planoReferencia: '',
   limpiezaVerificada: '', danosVerificados: '', pendientes: '', entregables: '',
@@ -353,22 +316,9 @@ function itemsCierreGuardados(valor: unknown): ItemCierre[] {
   });
 }
 
-const CAMPOS_CIERRE: [keyof DatosCierre, string][] = [
-  ['alcanceReferencia', 'Alcance aprobado: código y revisión'],
-  ['cambiosAprobados', 'Cambios aprobados: referencias'],
-  ['inicioReal', 'Inicio real'], ['finReal', 'Fin real'],
-  ['ejecucionPorItem', 'Ejecución final por ítem'],
-  ['verificacion', 'Criterio, método, resultado, verificador y fecha'],
-  ['planoReferencia', 'Plano y ubicación referencial del trabajo'],
-  ['limpiezaVerificada', 'Limpieza: comprobación, responsable y fecha'],
-  ['danosVerificados', 'Daños: comprobación, responsable y fecha'],
-  ['pendientes', 'Pendientes, restricciones y acciones'],
-  ['entregables', 'Entregables efectivamente entregados'],
-  ['conclusion', 'Conclusión técnica declarada'],
-  ['autorizacionInterna', 'Autorización interna: actor y referencia'],
-];
 
 const ACTA_INICIAL: DatosActa = {
+  ...camposVacios('acta'),
   cierreReferencia: '', objetoEntrega: '', anexosEntregados: '', receptor: '',
   organizacion: '', cargo: '', facultad: '', decisionPreparada: '',
   observacionesCliente: '', reservas: '', garantiaReferencia: '', garantiaCondiciones: '',
@@ -384,19 +334,9 @@ function actaGuardada(valor: unknown, inicial: DatosActa = ACTA_INICIAL): DatosA
   return resultado;
 }
 
-const CAMPOS_ACTA: [keyof DatosActa, string][] = [
-  ['cierreReferencia', 'Cierre técnico: código y revisión'],
-  ['objetoEntrega', 'Objeto breve de la entrega'],
-  ['anexosEntregados', 'Documentos y anexos entregados'],
-  ['receptor', 'Receptor previsto'], ['organizacion', 'Organización'],
-  ['cargo', 'Cargo o calidad'], ['facultad', 'Facultad para recibir'],
-  ['observacionesCliente', 'Observaciones del cliente para revisión'],
-  ['reservas', 'Reservas propuestas y tratamiento'],
-  ['garantiaReferencia', 'Garantía: referencia contractual'],
-  ['garantiaCondiciones', 'Cobertura, inicio, duración y exclusiones'],
-];
 
 const ENCUESTA_INICIAL: DatosEncuesta = {
+  ...camposVacios('encuesta'),
   fechaRespuesta: '', respondente: '', relacionConOT: '', modalidad: '', referenciaFuente: '',
   satisfaccionGeneral: '', resolucion: '', calidadTrabajo: '', plazoPrometido: '',
   comunicacion: '', profesionalismo: '', rapidez: '', expectativas: '',
@@ -413,20 +353,6 @@ function encuestaGuardada(valor: unknown, inicial: DatosEncuesta = ENCUESTA_INIC
   return resultado;
 }
 
-const PREGUNTAS_ENCUESTA: {
-  clave: keyof DatosEncuesta; etiqueta: string; opciones?: string[];
-}[] = [
-  { clave: 'satisfaccionGeneral', etiqueta: '1. Satisfacción general', opciones: ['Muy insatisfecho', 'Insatisfecho', 'Neutral', 'Satisfecho', 'Muy satisfecho'] },
-  { clave: 'resolucion', etiqueta: '2. Problema resuelto completamente', opciones: ['Sí', 'No', 'Parcialmente'] },
-  { clave: 'calidadTrabajo', etiqueta: '3. Calidad del trabajo (1 a 10)', opciones: Array.from({ length: 10 }, (_, i) => String(i + 1)) },
-  { clave: 'plazoPrometido', etiqueta: '4. Completado en el plazo prometido', opciones: ['Sí', 'No', 'Parcialmente'] },
-  { clave: 'comunicacion', etiqueta: '5. Comunicación', opciones: ['Muy deficiente', 'Deficiente', 'Neutral', 'Eficiente', 'Muy eficiente'] },
-  { clave: 'profesionalismo', etiqueta: '6. Profesionalismo y respeto', opciones: ['Sí', 'No', 'Parcialmente'] },
-  { clave: 'rapidez', etiqueta: '7. Rapidez y eficacia', opciones: ['Muy insatisfecho', 'Insatisfecho', 'Neutral', 'Satisfecho', 'Muy satisfecho'] },
-  { clave: 'expectativas', etiqueta: '8. Resultado conforme a expectativas', opciones: ['Sí', 'No', 'Parcialmente'] },
-  { clave: 'recomendacion', etiqueta: '9. Probabilidad de recomendar', opciones: ['Nada probable', 'Poco probable', 'Neutral', 'Probable', 'Muy probable'] },
-  { clave: 'sugerencias', etiqueta: '10. Sugerencias o comentarios' },
-];
 
 export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, puedeRevisar = false,
   soloVistaPrevia = false, documentoInicialId }: Props) {
@@ -477,6 +403,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
   const solicitudPdfRef = useRef<{ revision: string; id: string } | null>(null);
   const solicitudDecisionRef = useRef<{ clave: string; id: string } | null>(null);
   const solicitudEmisionRef = useRef<{ candidato: string; id: string } | null>(null);
+  const [correccionAbierta,setCorreccionAbierta] = useState(false);
   const [motivoRevision, setMotivoRevision] = useState('');
   const [congelandoRevision, setCongelandoRevision] = useState(false);
   const [seleccionId, setSeleccionId] = useState<string | null>(documentoInicialId ?? null);
@@ -597,6 +524,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
     solicitudDecisionRef.current = null;
     solicitudEmisionRef.current = null;
     setMotivoRevision('');
+    setCorreccionAbierta(false);
     setSeleccionId(documentoInicialId ?? null);
     setVersionBorrador(0);
     setGuardado(null);
@@ -646,7 +574,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
 
   const construirHtml = (textoActual: string): string => {
     const base = ordenParaInforme(orden, identificacion);
-    const ordenDocumento = { ...base, campos: { ...base.campos, plano_contexto: planoContexto } };
+    const ordenDocumento = { ...base, campos: { ...base.campos, plano_contexto: TIPOS_CON_PLANO.includes(tipo) ? planoContexto : null } };
     const codigoDocumento = documento?.codigo;
     const seleccion = new Set(fotoIds);
     const fa  = incluirFotos ? fotosAntes.filter(f => seleccion.has(f.id)) : [];
@@ -699,12 +627,12 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
         const guardadoPlano = datos?.planoContexto as PlanoContexto | undefined;
         let contextoPlano: PlanoContexto | null = null;
         let errorPlano = '';
-        if (guardadoPlano && typeof guardadoPlano.imagen === 'string' &&
+        if (TIPOS_CON_PLANO.includes(tipo) && guardadoPlano && typeof guardadoPlano.imagen === 'string' &&
             /^data:image\/(?:jpeg|png);base64,[A-Za-z0-9+/]+={0,2}$/.test(guardadoPlano.imagen) &&
             guardadoPlano.imagen.length <= 400_000 && guardadoPlano.posX === orden.pos_x &&
             guardadoPlano.posY === orden.pos_y && typeof guardadoPlano.planoRef === 'string') {
           contextoPlano = guardadoPlano;
-        } else {
+        } else if(TIPOS_CON_PLANO.includes(tipo)) {
           try { contextoPlano = await generarContextoPlano(orden); }
           catch (error) { errorPlano = error instanceof Error ? error.message : 'No se pudo preparar la ubicación en el plano.'; }
         }
@@ -753,9 +681,10 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
         setDocumento(resultado?.vigente ?? null);
         setDocumentosTipo(resultado?.disponibles ?? []);
         setRevisiones(resultado?.revisiones ?? []);
-        setMotivoRevision('');
+        setMotivoRevision(String(datos?.motivoCorreccion??''));
+        setCorreccionAbierta(false);
         setVersionBorrador(resultado?.borrador?.version ?? 0);
-        setGuardado(JSON.stringify({ identificacion: datos?.identificacion ?? (resultado?.borrador ? undefined : identidad), observaciones: texto,
+        setGuardado(JSON.stringify({ motivoCorreccion:String(datos?.motivoCorreccion??''), identificacion: datos?.identificacion ?? (resultado?.borrador ? undefined : identidad), observaciones: texto,
           planoContexto: datos?.planoContexto ?? null,
           incluirFotos: datos?.incluirFotos !== false,
           ...(necesitaFotos ? { fotoIds: idsFotos } : {}),
@@ -862,6 +791,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
     fotosDespues,
     fotosDurante,
     fotoIds,
+    planoContexto,
     orden,
     proyectoNombre,
     tipo,
@@ -897,7 +827,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
     } finally { setGenerandoPreview(false); }
   };
 
-  const datosBorrador = { identificacion, observaciones, incluirFotos, planoContexto,
+  const datosBorrador = { motivoCorreccion:motivoRevision, identificacion, observaciones, incluirFotos, planoContexto,
     ...(necesitaFotos ? { fotoIds } : {}),
     ...(tipo === 'orden_servicio' ? { origen: origenServicio } : {}),
     ...(tipo === 'visita' ? { visita: datosVisita } : {}),
@@ -906,11 +836,12 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
     ...(tipo === 'cierre' ? { cierre: datosCierre, itemsCierre } : {}),
     ...(tipo === 'acta' ? { acta: datosActa } : {}),
     ...(tipo === 'encuesta' ? { encuesta: datosEncuesta } : {}) };
-  const planoRequerido = orden.pos_x != null && orden.pos_y != null &&
+  const planoRequerido = TIPOS_CON_PLANO.includes(tipo) && orden.pos_x != null && orden.pos_y != null &&
     Number.isFinite(orden.pos_x) && Number.isFinite(orden.pos_y);
   const cambiosBorrador = borradorModificado(guardado, datosBorrador);
   const revisionActual = revisiones.find(revision => revision.borrador_version === versionBorrador);
-  const tipoRepetible = tipo === 'visita' || tipo === 'relevamiento' || tipo === 'avance' || tipo === 'encuesta';
+  const camposBloqueados = cargandoComentario || (!!revisionActual && !correccionAbierta);
+  const tipoRepetible = tipo === 'visita' || tipo === 'relevamiento' || tipo === 'avance' || tipo === 'encuesta' || tipo === 'cierre';
   const fotosElegibles = [
     ...fotosAntes.map(foto => ({ ...foto, fase: 'Antes' })),
     ...fotosDurante.map(foto => ({ ...foto, fase: 'Durante' })),
@@ -937,12 +868,15 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
     solicitudGuardadoRef.current = null;
     solicitudReservaRef.current = null;
     solicitudRevisionRef.current = null;
+    setCorreccionAbierta(false);
     setSeleccionId(id);
   };
 
   const handleGuardarBorrador = async () => {
     if (cargandoComentario || guardandoBorrador || !persistenciaDisponible) return;
-    const datos = datosBorrador;
+    if(correccionAbierta&&!motivoRevision.trim()){setErrorBorrador('Indicá el motivo de la versión corregida.');return;}
+    const validation=validarEtapa(tipo,datosBorrador);if(validation){setErrorBorrador(validation);return;}
+    const datos = {...datosBorrador, motivoCorreccion:motivoRevision};
     const contenido = JSON.stringify(datos);
     const intento = solicitudGuardadoRef.current;
     const solicitud = intento?.datos === contenido && intento.version === versionBorrador
@@ -958,6 +892,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
       const borrador = await guardarBorradorDocumento(vigente.id, datos, versionBorrador, solicitud);
       setVersionBorrador(borrador.version);
       setGuardado(JSON.stringify(datos));
+      setCorreccionAbierta(false);
       if (!documento && tipoRepetible) setSeleccionId(vigente.id);
       solicitudGuardadoRef.current = null;
     } catch (error) {
@@ -968,7 +903,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
   };
 
   const handleCongelarRevision = async () => {
-    if (!puedeRevisar || !documento || emisiones.length > 0 || !versionBorrador || cambiosBorrador ||
+    if (!puedeRevisar || !documento || !versionBorrador || cambiosBorrador ||
       cargandoComentario || guardandoBorrador || congelandoRevision) return;
     if (planoRequerido && !planoContexto) {
       setErrorBorrador('Falta la referencia visual del plano. Reintentá la carga antes de congelar esta revisión.');
@@ -992,7 +927,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
       await congelarRevisionDocumento(documento.id, versionBorrador, motivo || null,
         1, PLANTILLA_CONTROLADA_VERSION, solicitud);
       setRevisiones(await listarRevisionesDocumento(documento.id));
-      setMotivoRevision('');
+      setCorreccionAbierta(false);
       solicitudRevisionRef.current = null;
     } catch (error) {
       setErrorBorrador(error instanceof Error ? error.message : 'No se pudo congelar la revisión.');
@@ -1125,101 +1060,21 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
     } finally { setGenerandoPreview(false); }
   };
 
-  const actualizarRelevamiento = (clave: keyof DatosRelevamiento, valor: string) => {
-    const recortado = valor;
-    setDatosRelevamiento(actual => ({ ...actual, [clave]: recortado }));
-    const el = iframeRef.current?.contentDocument?.getElementById(`rel-${clave}`);
-    if (el) el.textContent = recortado.trim() || 'No registrado';
-  };
-
-  const agregarItemAlcance = () => {
-    if (itemsAlcance.length >= 30) return;
-    setItemsAlcance(actual => {
-      if (actual.length >= 30) return actual;
-      return [...actual, { id: siguienteIdItem(actual), trabajo: '', criterio: '' }];
-    });
-  };
-
-  const actualizarItemAlcance = (id: string, clave: 'trabajo' | 'criterio', valor: string) => {
-    const recortado = valor;
-    const index = itemsAlcance.findIndex(item => item.id === id);
-    setItemsAlcance(actual => actual.map(item => item.id === id
-      ? { ...item, [clave]: recortado } : item));
-    const el = iframeRef.current?.contentDocument?.getElementById(`rel-item-${index}-${clave}`);
-    if (el) el.textContent = recortado.trim() || 'No registrado';
-  };
-
-  const agregarItemAvance = () => {
-    if (itemsAvance.length >= 30) return;
-    setItemsAvance(actual => actual.length >= 30 ? actual
-      : [...actual, { id: siguienteIdItem(actual), previsto: '', realizado: '', saldo: '' }]);
-  };
-  const actualizarItemAvance = (id: string, clave: 'previsto' | 'realizado' | 'saldo', valor: string) => {
-    const recortado = valor;
-    const index = itemsAvance.findIndex(item => item.id === id);
-    setItemsAvance(actual => actual.map(item => item.id === id ? { ...item, [clave]: recortado } : item));
-    const el = iframeRef.current?.contentDocument?.getElementById(`av-item-${index}-${clave}`);
-    if (el) el.textContent = recortado.trim() || 'No registrado';
-  };
-
-  const agregarItemCierre = () => {
-    if (itemsCierre.length >= 30) return;
-    setItemsCierre(actual => actual.length >= 30 ? actual
-      : [...actual, { id: siguienteIdItem(actual), trabajo: '', criterio: '', resultado: '', verificadorFecha: '' }]);
-  };
-  const actualizarItemCierre = (id: string, clave: 'trabajo' | 'criterio' | 'resultado' | 'verificadorFecha', valor: string) => {
-    const recortado = valor;
-    const index = itemsCierre.findIndex(item => item.id === id);
-    setItemsCierre(actual => actual.map(item => item.id === id ? { ...item, [clave]: recortado } : item));
-    const el = iframeRef.current?.contentDocument?.getElementById(`cie-item-${index}-${clave}`);
-    if (el) el.textContent = recortado.trim() || 'No registrado';
-  };
-
-  const actualizarVisita = (clave: keyof DatosVisita, valor: string) => {
-    const recortado = valor;
-    setDatosVisita(actual => ({ ...actual, [clave]: recortado }));
-    const el = iframeRef.current?.contentDocument?.getElementById(`vis-${clave}`);
-    if (el) el.textContent = recortado.trim() || 'No registrado';
-  };
-
-  const actualizarAvance = (clave: keyof DatosAvance, valor: string) => {
-    if (clave === 'porcentaje' && valor !== '' && (!Number.isFinite(Number(valor)) || Number(valor) < 0 || Number(valor) > 100)) return;
-    const recortado = valor;
-    setDatosAvance(actual => ({ ...actual, [clave]: recortado }));
-    const el = iframeRef.current?.contentDocument?.getElementById(`av-${clave}`);
-    if (el) el.textContent = recortado.trim() || 'No registrado';
-  };
-
-  const actualizarCierre = (clave: keyof DatosCierre, valor: string) => {
-    const recortado = valor;
-    setDatosCierre(actual => ({ ...actual, [clave]: recortado }));
-    const el = iframeRef.current?.contentDocument?.getElementById(`cie-${clave}`);
-    if (el) el.textContent = recortado.trim() || 'No registrado';
-  };
-
-  const actualizarActa = (clave: keyof DatosActa, valor: string) => {
-    const recortado = valor;
-    setDatosActa(actual => ({ ...actual, [clave]: recortado }));
-    const el = iframeRef.current?.contentDocument?.getElementById(`act-${clave}`);
-    if (el) el.textContent = recortado.trim() || 'No registrado';
-  };
-
-  const actualizarEncuesta = (clave: keyof DatosEncuesta, valor: string) => {
-    const recortado = valor;
-    setDatosEncuesta(actual => ({ ...actual, [clave]: recortado }));
-    const el = iframeRef.current?.contentDocument?.getElementById(`enc-${clave}`);
-    if (el) el.textContent = recortado.trim() || 'Sin respuesta';
-  };
-
   // ── Render ───────────────────────────────────────────────────────────────
   const revisionEmitible = revisiones.at(-1);
   const candidatoEmitible = candidatos.find(c => c.revision_id === revisionEmitible?.id);
   const aprobacionEmitible = aprobaciones.find(a => a.candidato_id === candidatoEmitible?.id);
   const emisionActual = emisiones.find(e => e.candidato_id === candidatoEmitible?.id);
   const candidatoEmitido = candidatos.find(c => c.id === emisiones[0]?.candidato_id);
+  const cerrarInforme = () => {
+    if (guardandoBorrador || congelandoRevision || procesandoDocumento) return;
+    if (!soloVistaPrevia && !cargandoComentario && cambiosBorrador &&
+      !window.confirm('Hay cambios sin guardar en este informe. ¿Querés descartarlos y cerrar?')) return;
+    onClose();
+  };
   const pdfEmitidoPendiente = soloVistaPrevia && emisiones.length > 0 && !pdfBlobUrl;
   return (
-    <div className={styles.backdrop} onClick={onClose}>
+    <div className={styles.backdrop} onClick={cerrarInforme}>
       <div className={`${styles.modal} ${soloVistaPrevia ? styles.modalPreviewOnly : ''}`} onClick={e => e.stopPropagation()}>
         {/* HEADER */}
         <div className={styles.header}>
@@ -1235,7 +1090,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
           <button
             type="button"
             className={styles.closeBtn}
-            onClick={onClose}
+            onClick={cerrarInforme}
             aria-label="Cerrar"
           >
             ✕
@@ -1256,7 +1111,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
             {tipoRepetible && (
               <div className={styles.section}>
                 <label className={styles.originField}>
-                  <span>{tipo === 'avance' ? 'Informe de avance' : tipo === 'visita' ? 'Visita que querés documentar' : tipo === 'encuesta' ? 'Encuesta de satisfacción' : 'Informe de relevamiento'}</span>
+                  <span>{ETAPAS_OT.find(e=>e.tipo===tipo)?.name}</span>
                   <select value={seleccionId ?? documento?.id ?? 'nuevo'}
                     onChange={e => {
                       if (e.target.value === 'continuar') cambiarDocumento(documento?.id ?? documentosTipo[0]?.id ?? 'nuevo');
@@ -1269,12 +1124,12 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                         {doc.codigo}
                       </option>
                     ))}
-                    <option value="nuevo">{tipo === 'visita' ? (documentosTipo.length ? '+ Registrar otra visita' : '+ Registrar primera visita') : '+ Nuevo borrador'}</option>
+                    <option value="nuevo">{`+ ${ETAPAS_OT.find(e=>e.tipo===tipo)?.newLabel || 'Nuevo borrador'}`}</option>
                     <option value="continuar" disabled={!documentosTipo.length}>Continuar documento guardado{!documentosTipo.length ? ' · todavía no hay' : ''}</option>
                     <option value="emitido" disabled={!emisionDisponible || !candidatoEmitido}>Ver PDF emitido{!emisionDisponible ? ' · emisión formal no habilitada' : !candidatoEmitido ? ' · todavía no hay' : ''}</option>
                   </select>
                 </label>
-                {tipo === 'visita' && <p className={styles.sublabel}>Para empezar, elegí «Registrar primera visita». Para continuar o corregir una ya guardada, seleccioná su código. Creá otra solo cuando se realice una nueva visita.</p>}
+                {tipo === 'visita' && <p className={styles.sublabel}>Elegí «Nueva visita» cuando se realice otra visita. Para consultar o corregir una ya guardada, seleccioná su código.</p>}
                 {cambiosBorrador && !cargandoComentario && (
                   <p className={styles.sublabel}>Guardá el borrador antes de cambiar de documento.</p>
                 )}
@@ -1295,15 +1150,15 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                 <span>{avisoPlano || 'La ubicación del plano todavía no está lista para este informe.'}</span>
                 <button type="button" className={styles.btnSecondary} onClick={() => void reintentarPlano()} disabled={cargandoComentario}>Reintentar plano</button>
               </div>}
-              {!planoRequerido && <p className={styles.sublabel}>Esta OT no tiene un punto ubicado en el plano; el informe no mostrará un recorte hasta que la ubiquen.</p>}
+              {TIPOS_CON_PLANO.includes(tipo) && !planoRequerido && <p className={styles.sublabel}>Esta OT no tiene un punto ubicado en el plano; el informe no mostrará un recorte hasta que la ubiquen.</p>}
               <details>
                 <summary>Ver y editar datos de identificación</summary>
                 <div className={styles.originGrid}>
-                  {CAMPOS_IDENTIFICACION.map(([clave, etiqueta]) => <CampoTextoInforme key={clave} etiqueta={etiqueta} multiline={clave === 'descripcion'} rows={3} value={identificacion[clave]} disabled={cargandoComentario}
+                  {CAMPOS_IDENTIFICACION.map(([clave, etiqueta]) => <CampoTextoInforme key={clave} etiqueta={etiqueta} multiline={clave === 'descripcion'} rows={3} value={identificacion[clave]} disabled={camposBloqueados}
                       onChange={value => setIdentificacion(actual => ({ ...actual, [clave]: value }))} placeholder="No registrado"  />)}
                 </div>
               </details>
-              <button type="button" className={styles.btnSecondary} disabled={cargandoComentario} onClick={() => {
+              <button type="button" className={styles.btnSecondary} disabled={camposBloqueados} onClick={() => {
                 const p = precargaRef.current;
                 const completar = <T extends object>(actual: T, origen: Partial<T>): T => {
                   const siguiente = { ...actual };
@@ -1348,10 +1203,10 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                     ))}
                   </ol>
                 ) : <p className={styles.sublabel}>Aún no hay revisiones congeladas.</p>}
-                {puedeRevisar && !emisiones.length && versionBorrador > 0 && !revisionActual && (
+                {puedeRevisar && versionBorrador > 0 && !revisionActual && (
                   <>
                     {revisiones.length > 0 && (
-                      <CampoTextoInforme etiqueta="Motivo de la nueva revisión" multiline value={motivoRevision} maxLength={500}
+                      <CampoTextoInforme etiqueta="Motivo de la versión corregida" multiline value={motivoRevision} maxLength={500}
                         onChange={setMotivoRevision} placeholder="Explicá qué se corrigió respecto de la revisión anterior" />
                     )}
                     <button type="button" className={styles.btnSecondary}
@@ -1362,6 +1217,8 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                     </button>
                   </>
                 )}
+                {revisionActual && correccionAbierta && <CampoTextoInforme etiqueta="Motivo de la versión corregida" multiline value={motivoRevision} onChange={setMotivoRevision}/>}
+                {revisionActual && <div><button type="button" className={styles.btnSecondary} disabled={!puedeRevisar||cargandoComentario||cambiosBorrador} onClick={()=>{setMotivoRevision('');setCorreccionAbierta(true);}}>Crear versión corregida</button><TooltipAyuda titulo="Crear versión corregida" texto="Corrige este mismo documento y conserva la versión anterior. Registrá el motivo y guardá los cambios antes de preparar otro PDF."/></div>}
                 {revisionActual && <p className={styles.sublabel}>Esta versión del borrador quedó congelada como R{String(revisionActual.revision).padStart(2, '0')}.</p>}
               </section>
             )}
@@ -1379,7 +1236,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                 {emisiones.length > 0 && (
                   <>
                     <p className={styles.documentSuccess}>
-                      Emitido el {new Date(emisiones[0].emitido_en).toLocaleString('es-PY')}.
+                      Última emisión: {new Date(emisiones[0].emitido_en).toLocaleString('es-PY')}.
                       El archivo y su hash quedaron registrados.
                     </p>
                     {candidatoEmitido && (
@@ -1388,15 +1245,20 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                         Verificar y abrir PDF emitido
                       </button>
                     )}
+                    {emisiones.length > 1 && <details><summary>PDF de versiones anteriores</summary>{emisiones.slice(1).map(emision=>{
+                      const candidato=candidatos.find(c=>c.id===emision.candidato_id);
+                      const revision=revisiones.find(r=>r.id===emision.revision_id);
+                      return <button key={emision.id} type="button" className={styles.btnSecondary} disabled={!candidato||procesandoDocumento} onClick={()=>candidato&&void handleVerPdf(candidato)}>Ver R{String(revision?.revision??0).padStart(2,'0')} · {new Date(emision.emitido_en).toLocaleDateString('es-PY')}</button>;
+                    })}</details>}
                   </>
                 )}
-                {!emisiones.length && revisionEmitible &&
+                {!emisionActual && revisionEmitible &&
                   revisionEmitible.plantilla_version !== PLANTILLA_CONTROLADA_VERSION && (
                     <p className={styles.sublabel}>
                       Esta revisión usa una plantilla anterior. Guardá una nueva versión del borrador y congelá otra revisión para generar el PDF controlado.
                     </p>
                   )}
-                {!emisiones.length && revisionEmitible &&
+                {!emisionActual && revisionEmitible &&
                   revisionEmitible.plantilla_version === PLANTILLA_CONTROLADA_VERSION && (
                     <>
                       <p className={styles.sublabel}>
@@ -1457,301 +1319,20 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
               </section>
             )}
 
-            {tipo === 'orden_servicio' && (
-              <div className={styles.section}>
-                <div className={styles.sectionTitle}>Procedencia de la solicitud</div>
-                <div className={styles.originGrid}>
-                  {([
-                    ['canal', 'Canal'], ['fechaRecepcion', 'Fecha y hora de recepción'],
-                    ['solicitante', 'Solicitante'], ['contacto', 'Contacto'],
-                    ['referencia', 'Referencia del mensaje'], ['urgencia', 'Urgencia manifestada'],
-                    ['proximoPaso', 'Próximo paso'],
-                  ] as [keyof OrigenOrdenServicio, string][]).map(([clave, etiqueta]) => (
-                    <CampoTextoInforme key={clave} etiqueta={etiqueta} type="text" value={origenServicio[clave]} disabled={cargandoComentario}
-                        onChange={value => {
-                          const valor = value;
-                          setOrigenServicio(actual => ({ ...actual, [clave]: valor }));
-                          const el = iframeRef.current?.contentDocument?.getElementById(`os-${clave}`);
-                          if (el) el.textContent = (clave === 'fechaRecepcion' ? valor.replace('T', ' ') : valor) || 'No registrado';
-                        }}
-                        placeholder="No registrado"  />
-                  ))}
-                </div>
-                <p className={styles.sublabel}>Son datos del pedido recibido; no acreditan una visita ni un diagnóstico.</p>
-              </div>
-            )}
-
-            {tipo === 'visita' && (
-              <div className={styles.section}>
-                <div className={styles.sectionTitle}>Visita técnica realizada</div>
-                <div className={styles.originGrid}>
-                  {CAMPOS_VISITA.slice(0, 9).map(([clave, etiqueta]) => (
-                    <CampoTextoInforme key={clave} etiqueta={etiqueta} type={clave === 'fechaVisita' ? 'date' : clave === 'horaInicio' || clave === 'horaFin' ? 'time' : 'text'}
-                        value={datosVisita[clave]}
-                        onChange={value => actualizarVisita(clave, value)}
-                        disabled={cargandoComentario} placeholder="No registrado"  />
-                  ))}
-                </div>
-                {CAMPOS_VISITA.slice(9).map(([clave, etiqueta]) => (
-                  <CampoTextoInforme key={clave} etiqueta={etiqueta} multiline value={datosVisita[clave]}
-                      onChange={value => actualizarVisita(clave, value)}
-                      disabled={cargandoComentario} rows={2}
-                      placeholder="No registrado"  />
-                ))}
-                <p className={styles.sublabel}>Registrá únicamente una visita que ocurrió. Los nombres de los asistentes no acreditan firmas; este documento sigue siendo borrador.</p>
-              </div>
-            )}
-
-            {tipo === 'relevamiento' && (
-              <div className={styles.section}>
-                <div className={styles.sectionTitle}>Hechos y alcance del relevamiento</div>
-                <div className={styles.originGrid}>
-                  {CAMPOS_RELEVAMIENTO.slice(0, 4).map(([clave, etiqueta]) => (
-                    <CampoTextoInforme key={clave} etiqueta={etiqueta} type="text" value={datosRelevamiento[clave]}
-                        onChange={value => actualizarRelevamiento(clave, value)}
-                        disabled={cargandoComentario} placeholder="No registrado"  />
-                  ))}
-                </div>
-                {CAMPOS_RELEVAMIENTO.slice(4).map(([clave, etiqueta]) => (
-                  <CampoTextoInforme key={clave} etiqueta={etiqueta} multiline value={datosRelevamiento[clave]}
-                      onChange={value => actualizarRelevamiento(clave, value)}
-                      disabled={cargandoComentario} rows={2}
-                      placeholder="No registrado"  />
-                ))}
-                <div className={styles.scopeHeader}>
-                  <span className={styles.sectionTitle}>Trabajos y criterios por ítem</span>
-                  <button type="button" onClick={agregarItemAlcance}
-                    disabled={cargandoComentario || itemsAlcance.length >= 30}>+ Agregar ítem</button>
-                </div>
-                {itemsAlcance.map(item => (
-                  <div className={styles.scopeItem} key={item.id}>
-                    <div className={styles.scopeHeader}>
-                      <strong>{item.id}</strong>
-                      <button type="button" onClick={() => setItemsAlcance(actual => actual.filter(fila => fila.id !== item.id))}
-                        disabled={cargandoComentario} aria-label={`Quitar ítem ${item.id}`}>Quitar</button>
-                    </div>
-                    <CampoTextoInforme etiqueta="Trabajo propuesto" multiline value={item.trabajo} onChange={value => actualizarItemAlcance(item.id, 'trabajo', value)}
-                      disabled={cargandoComentario} rows={2} placeholder="Describí una acción concreta" />
-                    <CampoTextoInforme etiqueta="Criterio de aceptación propuesto" multiline value={item.criterio} onChange={value => actualizarItemAlcance(item.id, 'criterio', value)}
-                      disabled={cargandoComentario} rows={2} placeholder="Cómo se comprobará el resultado" />
-                  </div>
-                ))}
-                <p className={styles.sublabel}>La aprobación del alcance requiere una decisión vinculada a una revisión; este campo solo describe el estado declarado.</p>
-              </div>
-            )}
-
-            {tipo === 'avance' && (
-              <div className={styles.section}>
-                <div className={styles.sectionTitle}>Período, base y desvíos</div>
-                <div className={styles.originGrid}>
-                  {CAMPOS_AVANCE.slice(0, 3).map(([clave, etiqueta]) => (
-                    <CampoTextoInforme key={clave} etiqueta={etiqueta} type="text" value={datosAvance[clave]}
-                        onChange={value => actualizarAvance(clave, value)}
-                        disabled={cargandoComentario} placeholder="No registrado"  />
-                  ))}
-                  <label className={styles.originField}>
-                    <span>Porcentaje declarado al corte</span>
-                    <input type="number" min="0" max="100" step="0.1" value={datosAvance.porcentaje}
-                      onChange={e => actualizarAvance('porcentaje', e.target.value)}
-                      disabled={cargandoComentario} placeholder="0–100" />
-                  </label>
-                </div>
-                {CAMPOS_AVANCE.filter(([clave]) => !['periodoDesde', 'periodoHasta', 'alcanceReferencia', 'porcentaje'].includes(clave))
-                  .map(([clave, etiqueta]) => (
-                    <CampoTextoInforme key={clave} etiqueta={etiqueta} multiline value={datosAvance[clave]}
-                        onChange={value => actualizarAvance(clave, value)}
-                        disabled={cargandoComentario} rows={2}
-                        placeholder="No registrado"  />
-                  ))}
-                <div className={styles.scopeHeader}>
-                  <span className={styles.sectionTitle}>Resultado por ítem del alcance</span>
-                  <button type="button" onClick={agregarItemAvance}
-                    disabled={cargandoComentario || itemsAvance.length >= 30}>+ Agregar ítem</button>
-                </div>
-                {itemsAvance.map(item => (
-                  <div className={styles.scopeItem} key={item.id}>
-                    <div className={styles.scopeHeader}>
-                      <strong>{item.id}</strong>
-                      <button type="button" onClick={() => setItemsAvance(actual => actual.filter(fila => fila.id !== item.id))}
-                        disabled={cargandoComentario} aria-label={`Quitar ítem ${item.id}`}>Quitar</button>
-                    </div>
-                    {([['previsto', 'Previsto para el corte'], ['realizado', 'Realizado y evidencia'],
-                      ['saldo', 'Saldo pendiente']] as const).map(([clave, etiqueta]) => (
-                      <CampoTextoInforme key={clave} etiqueta={etiqueta} multiline value={item[clave]} onChange={value => actualizarItemAvance(item.id, clave, value)}
-                          disabled={cargandoComentario} rows={2} placeholder="No registrado"  />
-                    ))}
-                  </div>
-                ))}
-                <p className={styles.sublabel}>El porcentaje se copia de la OT. Revisalo para este corte y completá el método, la base de cálculo y la referencia del alcance aprobado.</p>
-              </div>
-            )}
-
-            {tipo === 'cierre' && (
-              <div className={styles.section}>
-                <div className={styles.sectionTitle}>Ejecución y verificación final</div>
-                <div className={styles.originGrid}>
-                  {CAMPOS_CIERRE.slice(0, 4).map(([clave, etiqueta]) => (
-                    <CampoTextoInforme key={clave} etiqueta={etiqueta} type="text" value={datosCierre[clave]}
-                        onChange={value => actualizarCierre(clave, value)}
-                        disabled={cargandoComentario} placeholder="No registrado"  />
-                  ))}
-                </div>
-                {CAMPOS_CIERRE.slice(4).map(([clave, etiqueta]) => (
-                  <CampoTextoInforme key={clave} etiqueta={etiqueta} multiline value={datosCierre[clave]}
-                      onChange={value => actualizarCierre(clave, value)}
-                      disabled={cargandoComentario} rows={2}
-                      placeholder="No registrado"  />
-                ))}
-                <div className={styles.scopeHeader}>
-                  <span className={styles.sectionTitle}>Trabajo y comprobación por ítem</span>
-                  <button type="button" onClick={agregarItemCierre}
-                    disabled={cargandoComentario || itemsCierre.length >= 30}>+ Agregar ítem</button>
-                </div>
-                {itemsCierre.map(item => (
-                  <div className={styles.scopeItem} key={item.id}>
-                    <div className={styles.scopeHeader}>
-                      <strong>{item.id}</strong>
-                      <button type="button" onClick={() => setItemsCierre(actual => actual.filter(fila => fila.id !== item.id))}
-                        disabled={cargandoComentario} aria-label={`Quitar ítem ${item.id}`}>Quitar</button>
-                    </div>
-                    {([['trabajo', 'Trabajo del alcance (verificar ejecución)'], ['criterio', 'Criterio y método de comprobación'],
-                      ['resultado', 'Resultado observado'], ['verificadorFecha', 'Verificador y fecha']] as const)
-                      .map(([clave, etiqueta]) => (
-                        <CampoTextoInforme key={clave} etiqueta={etiqueta} multiline value={item[clave]} onChange={value => actualizarItemCierre(item.id, clave, value)}
-                            disabled={cargandoComentario} rows={2} placeholder="No registrado"  />
-                      ))}
-                  </div>
-                ))}
-                <p className={styles.sublabel}>El cierre técnico no implica aceptación del cliente. La autorización interna debe vincularse a la revisión emitida.</p>
-              </div>
-            )}
-
-            {tipo === 'acta' && (
-              <div className={styles.section}>
-                <div className={styles.sectionTitle}>Recepción propuesta</div>
-                <div className={styles.originGrid}>
-                  {CAMPOS_ACTA.filter(([clave]) => ['cierreReferencia', 'receptor', 'organizacion', 'cargo', 'facultad', 'garantiaReferencia'].includes(clave))
-                    .map(([clave, etiqueta]) => (
-                      <CampoTextoInforme key={clave} etiqueta={etiqueta} type="text" value={datosActa[clave]}
-                          onChange={value => actualizarActa(clave, value)}
-                          disabled={cargandoComentario} placeholder="No registrado"  />
-                    ))}
-                </div>
-                {CAMPOS_ACTA.filter(([clave]) => !['cierreReferencia', 'receptor', 'organizacion', 'cargo', 'facultad', 'garantiaReferencia'].includes(clave))
-                  .map(([clave, etiqueta]) => (
-                    <CampoTextoInforme key={clave} etiqueta={etiqueta} multiline value={datosActa[clave]}
-                        onChange={value => actualizarActa(clave, value)}
-                        disabled={cargandoComentario} rows={2}
-                        placeholder="No registrado"  />
-                  ))}
-                <label className={styles.originField}>
-                  <span>Opción preparada para decisión</span>
-                  <select value={datosActa.decisionPreparada}
-                    onChange={e => actualizarActa('decisionPreparada', e.target.value)}
-                    disabled={cargandoComentario}>
-                    <option value="">Sin preparar</option>
-                    <option value="Aceptar">Aceptar</option>
-                    <option value="Aceptar con reservas">Aceptar con reservas</option>
-                    <option value="Rechazar">Rechazar</option>
-                  </select>
-                </label>
-                <p className={styles.sublabel}>Esta opción no registra una decisión. Solo el receptor autorizado podrá manifestarla y firmar la revisión exacta.</p>
-              </div>
-            )}
-
-            {tipo === 'encuesta' && (
-              <div className={styles.section}>
-                <div className={styles.sectionTitle}>Encuesta separada del acta</div>
-                <div className={styles.originGrid}>
-                  {([
-                    ['fechaRespuesta', 'Fecha de respuesta declarada'],
-                    ['respondente', 'Persona consultada (verificar al responder)'],
-                    ['relacionConOT', 'Relación con la OT'],
-                    ['modalidad', 'Modalidad de captura'],
-                    ['referenciaFuente', 'Referencia al formulario o mensaje de origen'],
-                  ] as [keyof DatosEncuesta, string][]).map(([clave, etiqueta]) => (
-                    <CampoTextoInforme key={clave} etiqueta={etiqueta} type={clave === 'fechaRespuesta' ? 'date' : 'text'} value={datosEncuesta[clave]}
-                        onChange={value => actualizarEncuesta(clave, value)}
-                        disabled={cargandoComentario} placeholder="Sin registrar"  />
-                  ))}
-                </div>
-                {PREGUNTAS_ENCUESTA.map(({ clave, etiqueta, opciones }) => (
-                  <div className={styles.originField} key={clave}>
-                    {opciones && <span>{etiqueta}</span>}
-                    {opciones ? <select value={datosEncuesta[clave]}
-                      onChange={e => actualizarEncuesta(clave, e.target.value)}
-                      disabled={cargandoComentario}>
-                      <option value="">Sin respuesta</option>
-                      {opciones.map(opcion => <option key={opcion} value={opcion}>{opcion}</option>)}
-                    </select> : <CampoTextoInforme etiqueta={etiqueta} multiline value={datosEncuesta[clave]}
-                      onChange={value => actualizarEncuesta(clave, value)} disabled={cargandoComentario} rows={3} placeholder="Sin respuesta" />}
-                  </div>
-                ))}
-                <p className={styles.sublabel}>Estas respuestas son un borrador registrado por el equipo. No acreditan por sí solas autoría verificada del cliente ni sustituyen su decisión sobre el acta.</p>
-              </div>
-            )}
-
-            {muestraTextarea && (
-              <div className={styles.section} data-report-section="texto">
-                <div className={styles.voiceLabelRow}>
-                  <label className={styles.label} htmlFor="obs-informe">{cfg.labelTextarea}</label>
-                  <VoiceInputButton
-                    value={observaciones}
-                    onChange={value => {
-                      const nuevoTexto = value;
-                      setObservaciones(nuevoTexto);
-                      const doc = iframeRef.current?.contentDocument;
-                      const el = doc?.getElementById('antecedentes-texto') ?? doc?.getElementById('bloque-texto-naranja');
-                      if (el) el.textContent = nuevoTexto || (tipo === 'orden_servicio' ? 'Sin aclaraciones posteriores.' : 'Sin observaciones registradas.');
-                      else setHtmlPreview(construirHtml(nuevoTexto));
-                    }}
-
-                  />
-                </div>
-                <div className={styles.sublabel}>
-                  Texto que aparecerá en el informe. Editá libremente.
-                </div>
-                {cargandoComentario ? (
-                  <div className={styles.skeletonLineas} aria-busy="true">
-                    <div className={styles.skeletonLinea} />
-                    <div className={styles.skeletonLinea} />
-                    <div className={styles.skeletonLinea} />
-                  </div>
-                ) : (
-                  <>
-                    <textarea
-                      id="obs-informe"
-                      className={styles.textarea}
-                      value={observaciones}
-                      onChange={e => {
-                        const nuevoTexto = e.target.value;
-                        setObservaciones(nuevoTexto);
-
-                        // Patch directo del DOM del iframe — sin reload
-                        const doc = iframeRef.current?.contentDocument;
-                        const el =
-                          doc?.getElementById('antecedentes-texto') ??
-                          doc?.getElementById('bloque-texto-naranja');
-                        if (el) {
-                          el.textContent =
-                            nuevoTexto || (tipo === 'orden_servicio' ? 'Sin aclaraciones posteriores.' : 'Sin observaciones registradas.');
-                          return;
-                        }
-
-                        // Fallback: iframe aún no cargado — regen completa
-                        setHtmlPreview(construirHtml(nuevoTexto));
-                      }}
-                      rows={7}
-
-                      placeholder={cfg.placeholderTextarea}
-                    />
-                    <div className={styles.contador}>
-                      {observaciones.length} caracteres
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
+            <EtapaCampos tipo={tipo} datos={datosBorrador} disabled={camposBloqueados}
+              onChange={d=>{
+                setObservaciones(String(d.observaciones??''));
+                if(d.origen)setOrigenServicio(d.origen as OrigenOrdenServicio);
+                if(d.visita)setDatosVisita(d.visita as DatosVisita);
+                if(d.relevamiento)setDatosRelevamiento(d.relevamiento as DatosRelevamiento);
+                if(d.avance)setDatosAvance(d.avance as DatosAvance);
+                if(d.cierre)setDatosCierre(d.cierre as DatosCierre);
+                if(d.acta)setDatosActa(d.acta as DatosActa);
+                if(d.encuesta)setDatosEncuesta(d.encuesta as DatosEncuesta);
+                if(d.itemsAlcance)setItemsAlcance(d.itemsAlcance as ItemAlcance[]);
+                if(d.itemsAvance)setItemsAvance(d.itemsAvance as ItemAvance[]);
+                if(d.itemsCierre)setItemsCierre(d.itemsCierre as ItemCierre[]);
+              }}/>
 
             {necesitaFotos && (
               <div className={styles.section} data-report-section="fotos">
@@ -1760,6 +1341,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                   <input
                     type="checkbox"
                     checked={incluirFotos}
+                    disabled={camposBloqueados}
                     onChange={e => setIncluirFotos(e.target.checked)}
                   />
                   <span className={styles.checkboxText}>
@@ -1774,7 +1356,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                     {fotosElegibles.map(foto => (
                       <label className={styles.photoChoice} key={foto.id}>
                         <input type="checkbox" checked={fotoIds.includes(foto.id)}
-                          disabled={cargandoComentario || !incluirFotos}
+                          disabled={camposBloqueados || !incluirFotos}
                           onChange={e => setFotoIds(actual => e.target.checked
                             ? [...actual, foto.id] : actual.filter(id => id !== foto.id))} />
                         <img src={foto.file_url} alt="" loading="lazy" />
@@ -1863,7 +1445,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
         <div className={styles.footer}>
           {soloVistaPrevia ? <>
             <span className={styles.avisoImpresion}>{emisiones.length && pdfBlobUrl ? 'Documento definitivo emitido.' : 'Vista previa de borrador; no equivale a un documento emitido.'}</span>
-            <button type="button" className={styles.btnCancelar} onClick={onClose}>Cerrar</button>
+            <button type="button" className={styles.btnCancelar} onClick={cerrarInforme}>Cerrar</button>
           </> : <>
           <span className={styles.avisoImpresion}>
             {errorBorrador ?? errorInforme ?? (documento
@@ -1876,7 +1458,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
               {guardandoBorrador ? 'Guardando…' : 'Guardar borrador'}
             </button>
           )}
-          <button type="button" className={styles.btnCancelar} onClick={onClose}>
+          <button type="button" className={styles.btnCancelar} onClick={cerrarInforme}>
             Cancelar
           </button>
           <button

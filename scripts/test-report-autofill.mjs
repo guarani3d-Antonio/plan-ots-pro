@@ -33,10 +33,10 @@ const fuentes = {
 };
 const p = prepararAutocompletado(orden,'Proyecto',cliente,fuentes);
 assert.equal(p.observaciones,nota);
-assert.equal(p.visita.observacionesTecnicas,nota);
+assert.equal(p.visita.observacionesTecnicas,undefined,'A new visit must not inherit another visit outcome');
 assert.equal(p.relevamiento.hallazgos,nota);
-assert.equal(p.cierre.inicioReal,orden.fecha_inicio_trabajos);
-assert.equal(p.cierre.finReal,orden.fecha_fin_trabajos);
+assert.equal(p.cierre.inicioReal,orden.fecha_inicio_trabajos.slice(0,10));
+assert.equal(p.cierre.finReal,orden.fecha_fin_trabajos.slice(0,10));
 assert.equal(p.origen.solicitante,orden.campos.solicitante);
 assert.equal(p.origen.contacto,orden.campos.contacto_solicitante);
 assert.equal(p.avance.porcentaje,'0');
@@ -69,7 +69,7 @@ console.log('PASS: borrador conserva ediciones, vacíos intencionales y texto la
 const o = ordenParaInforme(orden,p.identificacion);
 const cases = {
   orden_servicio: report.generarInformeOrdenServicio(o,'',p.origen),
-  visita: report.generarFichaVisita(o,p.visita),
+  visita: report.generarFichaVisita(o,{...p.visita,observacionesTecnicas:nota}),
   relevamiento: report.generarInformeRelevamiento(o,p.observaciones,[],p.relevamiento),
   avance: report.generarInformeAvance(o,p.observaciones,[],[],p.avance,undefined,p.itemsAvance),
   cierre: report.generarInformeCierre(o,'Proyecto',p.observaciones,[],[],p.cierre,undefined,p.itemsCierre),

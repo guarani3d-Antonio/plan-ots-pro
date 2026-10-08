@@ -3,6 +3,7 @@
 
 import type { OrdenLocal } from '../types/orden';
 import type { ContextoReporteControlado } from './reportTemplates';
+import { ETAPAS_OT, ENCUESTA_PREGUNTAS, TEXTO_ACTA } from './otStageSchema';
 import {
   escapeHtml,
   formatearFechaCorta,
@@ -27,6 +28,11 @@ export interface OrigenOrdenServicio {
 }
 
 export interface DatosVisita {
+  tipoVisita?: string; horaAcordada?: string; horaLlegada?: string; horaSalida?: string;
+  esperaMotivo?: string; acceso?: string; autorizaAcceso?: string; recibidoPor?: string;
+  recorrido?: string; sectoresNoVisitados?: string; seguridad?: string; permiso?: string;
+  riesgos?: string; medidasSeguridad?: string; actividad?: string; metodo?: string;
+  resultado?: string; limitesVerificacion?: string;
   fechaVisita: string;
   horaInicio: string;
   horaFin: string;
@@ -44,6 +50,7 @@ export interface DatosVisita {
 }
 
 export interface DatosRelevamiento {
+  visitaReferencia?: string; inicioPrevisto?: string; finPrevisto?: string;
   modalidad: string;
   fechaIntervencion: string;
   tecnico: string;
@@ -65,6 +72,7 @@ export interface DatosRelevamiento {
 }
 
 export interface ItemAlcance {
+  rubro?: string; profesional?: string;
   id: string;
   trabajo: string;
   criterio: string;
@@ -113,6 +121,7 @@ export interface ItemCierre {
 }
 
 export interface DatosActa {
+  documentoReceptor?: string; fechaEntrega?: string;
   cierreReferencia: string;
   objetoEntrega: string;
   anexosEntregados: string;
@@ -128,6 +137,7 @@ export interface DatosActa {
 }
 
 export interface DatosEncuesta {
+  confianza?: string; recontratacion?: string;
   fechaRespuesta: string;
   respondente: string;
   relacionConOT: string;
@@ -181,16 +191,9 @@ ${_seccionInforme(1, 'Procedencia de las respuestas')}
 </section>
 <section class="p-4 border border-outline-variant rounded-lg mb-4"><strong>Referencia al formulario o comunicación de origen</strong>${campo('referenciaFuente')}</section>
 ${_seccionInforme(2, 'Evaluación de la atención')}
-${pregunta(1, 'Satisfacción general con el servicio', 'Muy insatisfecho · Insatisfecho · Neutral · Satisfecho · Muy satisfecho', 'satisfaccionGeneral')}
-${pregunta(2, '¿Se resolvió completamente el problema o necesidad?', 'Sí · No · Parcialmente', 'resolucion')}
-${pregunta(3, 'Calidad del trabajo realizado', 'Escala de 1 a 10', 'calidadTrabajo')}
-${pregunta(4, '¿Se completó dentro del plazo prometido?', 'Sí · No · Parcialmente', 'plazoPrometido')}
-${pregunta(5, 'Claridad y eficiencia de la comunicación', 'Muy deficiente · Deficiente · Neutral · Eficiente · Muy eficiente', 'comunicacion')}
-${pregunta(6, 'Profesionalismo y respeto del personal', 'Sí · No · Parcialmente', 'profesionalismo')}
-${pregunta(7, 'Rapidez y eficacia percibidas', 'Muy insatisfecho · Insatisfecho · Neutral · Satisfecho · Muy satisfecho', 'rapidez')}
-${pregunta(8, '¿El resultado final cumplió sus expectativas?', 'Sí · No · Parcialmente', 'expectativas')}
-${pregunta(9, 'Probabilidad de recomendar el servicio', 'Nada probable · Poco probable · Neutral · Probable · Muy probable', 'recomendacion')}
-${pregunta(10, 'Sugerencias o comentarios adicionales', 'Respuesta libre', 'sugerencias')}
+${ENCUESTA_PREGUNTAS.map(([clave,titulo],i)=>pregunta(i+1,titulo,'1 = valoración mínima · 10 = máxima · N/A = no corresponde',clave)).join('')}
+${pregunta(8, 'Sugerencias o comentarios adicionales', 'Respuesta libre', 'sugerencias')}
+${(['satisfaccionGeneral','resolucion','comunicacion','expectativas'] as const).filter(k=>datos?.[k]).map(k=>pregunta(0,`Registro anterior: ${k}`,'Respuesta anterior conservada sin conversión de escala',k)).join('')}
 <p class="text-xs text-on-surface-variant">${contexto ? 'Respuestas registradas. Este documento no acredita por sí solo autoría verificada del cliente, firma, conformidad con el trabajo ni decisión sobre el acta.' : 'Borrador de respuestas registradas. No acredita autoría verificada del cliente, firma, conformidad con el trabajo ni decisión sobre el acta.'}</p>
 </div>`;
   return _envolverInforme(`Encuesta de satisfacción${contexto ? '' : ' — borrador'}`, contenido, contexto);
@@ -212,26 +215,7 @@ export function generarFichaVisita(
   const contenido = `<div class="a4-page">
 ${_paginaHeader(orden, 'FICHA DE VISITA TÉCNICA', contexto ? 'Registro de la visita técnica documentada.' : 'Registro de visita en preparación. Debe completarse con lo observado cuando la visita haya ocurrido.', codigoDocumento, contexto)}
 ${_bloqueDatosCliente(orden)}
-${_seccionInforme(1, 'Visita y participantes')}
-<section class="grid grid-cols-2 gap-4 mb-6">
-  <div class="p-4 border border-outline-variant rounded-lg"><strong>Fecha de visita</strong>${campo('fechaVisita')}</div>
-  <div class="p-4 border border-outline-variant rounded-lg"><strong>Horario: inicio</strong>${campo('horaInicio')}</div>
-  <div class="p-4 border border-outline-variant rounded-lg"><strong>Horario: fin</strong>${campo('horaFin')}</div>
-  <div class="p-4 border border-outline-variant rounded-lg"><strong>Prioridad registrada en la OT</strong><p>${escapeHtml(orden.prioridad || 'No registrada')}</p></div>
-  <div class="p-4 border border-outline-variant rounded-lg"><strong>Propietario o solicitante</strong>${campo('propietario')}</div>
-  <div class="p-4 border border-outline-variant rounded-lg"><strong>Contacto</strong>${campo('contacto')}</div>
-  <div class="p-4 border border-outline-variant rounded-lg"><strong>Edificio u obra visitada</strong>${campo('edificio')}</div>
-  <div class="p-4 border border-outline-variant rounded-lg"><strong>Departamento, unidad o sector</strong>${campo('unidad')}</div>
-  <div class="p-4 border border-outline-variant rounded-lg"><strong>Responsable de la visita</strong>${campo('responsableVisita')}</div>
-  <div class="p-4 border border-outline-variant rounded-lg"><strong>Otros participantes</strong>${campo('participantes')}</div>
-</section>
-${_seccionInforme(2, 'Registro de campo')}
-${bloque('Descripción del motivo de la visita', 'descripcion')}
-${bloque('Observaciones técnicas realizadas en la visita', 'observacionesTecnicas')}
-${bloque('Restricciones y límites de observación', 'restricciones')}
-${bloque('Compromisos y próximo paso declarados', 'compromisos')}
-${_seccionInforme(3, 'Participación y formalización')}
-${bloque('Representantes previstos para la firma', 'representantesPrevistos')}
+${ETAPAS_OT.find(e=>e.tipo==='visita')!.groups.map((g,i)=>`${_seccionInforme(i+1,g.title.replace(/^\d+ · /,''))}<section class="grid grid-cols-2 gap-4 mb-6">${g.fields.map(f=>bloque(f.label,f.key as keyof DatosVisita)).join('')}</section>`).join('')}
 <p class="text-xs text-on-surface-variant">${contexto ? 'Esta ficha no acredita firma ni conformidad del propietario. Las firmas requieren un registro vinculado a esta revisión exacta.' : 'Este borrador no acredita firma, conformidad del propietario ni aprobación técnica. Las firmas requieren un registro vinculado a esta revisión exacta.'}</p>
 ${fotosVisita.length ? `<h3 class="font-section-header text-section-header text-primary uppercase tracking-widest">Evidencia vinculada a la visita</h3>${generarGridFotos(fotosVisita)}` : ''}
 </div>`;
@@ -352,8 +336,8 @@ export function generarInformeRelevamiento(
   const bloque = (titulo: string, clave: keyof DatosRelevamiento) =>
     `<section class="p-4 border border-outline-variant rounded-lg mb-4"><strong>${titulo}</strong>${campo(clave)}</section>`;
   const tablaAlcance = itemsAlcance.length ? `<table class="report-data-table">
-  <thead><tr><th>Ítem</th><th>Trabajo propuesto</th><th>Criterio de aceptación propuesto</th></tr></thead>
-  <tbody>${itemsAlcance.map((item, index) => `<tr><td>${escapeHtml(item.id)}</td><td id="rel-item-${index}-trabajo">${escapeHtml(item.trabajo.trim() || 'No registrado')}</td><td id="rel-item-${index}-criterio">${escapeHtml(item.criterio.trim() || 'No registrado')}</td></tr>`).join('')}</tbody>
+  <thead><tr><th>Ítem</th><th>Trabajo propuesto</th><th>Rubro / profesional</th><th>Criterio de aceptación propuesto</th></tr></thead>
+  <tbody>${itemsAlcance.map((item, index) => `<tr><td>${escapeHtml(item.id)}</td><td id="rel-item-${index}-trabajo">${escapeHtml(item.trabajo.trim() || 'No registrado')}</td><td>${escapeHtml(item.rubro || 'No registrado')}<br/>${escapeHtml(item.profesional || 'No registrado')}</td><td id="rel-item-${index}-criterio">${escapeHtml(item.criterio.trim() || 'No registrado')}</td></tr>`).join('')}</tbody>
 </table>` : '';
 
   const contenido = `<div class="a4-page relevamiento-page">
@@ -366,6 +350,7 @@ ${_seccionInforme(1, 'Hallazgo y diagnóstico')}
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Técnico interviniente</strong>${campo('tecnico')}</div>
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Participantes</strong>${campo('participantes')}</div>
 </section>
+${bloque('Visita de referencia', 'visitaReferencia')}
 ${bloque('Antecedentes pertinentes de la solicitud', 'antecedentes')}
 ${bloque('Condiciones, acceso y límites de observación', 'condiciones')}
 ${bloque('Hallazgos y evidencia relacionada', 'hallazgos')}
@@ -373,11 +358,12 @@ ${bloque('Pruebas y mediciones realizadas', 'pruebas')}
 ${_bloqueNaranjaIzquierdo('Diagnóstico Inicial', comentarioInicial, 'Sin diagnóstico registrado.')}
 ${bloque('Causa confirmada, probable o no determinada y sustento', 'causa')}
 ${bloque('Ubicación y referencia en plano', 'planoReferencia')}
-${_seccionInforme(2, 'Alcance y criterios propuestos')}
+${_seccionInforme(2, 'Plan de trabajo y cronograma previsto')}
 ${tablaAlcance}
 ${itemsAlcance.length ? (datos?.alcance?.trim() ? bloque('Notas generales del alcance', 'alcance') : '') : bloque('Alcance propuesto', 'alcance')}
 ${bloque('Exclusiones y supuestos', 'exclusiones')}
 ${itemsAlcance.length ? (datos?.criterios?.trim() ? bloque('Criterios adicionales', 'criterios') : '') : bloque('Criterios de aceptación propuestos', 'criterios')}
+<section class="grid grid-cols-2 gap-4 mb-6">${bloque('Inicio previsto', 'inicioPrevisto')}${bloque('Fin previsto', 'finPrevisto')}</section>
 ${bloque('Cronograma propuesto o aprobado y su referencia', 'cronograma')}
 ${bloque('Condiciones operativas acordadas para esta intervención', 'condicionesOperativas')}
 ${_seccionInforme(3, 'Cobertura y decisión')}
@@ -459,7 +445,10 @@ export function generarInformeActaConformidad(orden: OrdenLocal, datos?: DatosAc
 ${_paginaHeader(orden, 'ACTA DE CONFORMIDAD', 'Instrumento de recepción pendiente de decisión expresa del cliente.', codigoDocumento, contexto)}
 ${_bloqueDatosCliente(orden)}
 ${_seccionInforme(1, 'Objeto de recepción')}
+<p>Solicitud recibida el ${escapeHtml(String(orden.campos?.fecha_solicitud || orden.fecha_ingreso || 'No registrado'))}. Orden de trabajo: <strong>${escapeHtml(orden.ot)}</strong>. Alcance individualizado en los documentos referenciados a continuación.</p>
 ${bloque('Objeto breve de la entrega', 'objetoEntrega')}
+${bloque('Fecha de entrega', 'fechaEntrega')}
+${bloque('Documento del receptor', 'documentoReceptor')}
 <section class="grid grid-cols-2 gap-4 mb-6">
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Cierre técnico (código y revisión)</strong>${campo('cierreReferencia')}</div>
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Anexos entregados</strong>${campo('anexosEntregados')}</div>
@@ -481,7 +470,8 @@ ${_seccionInforme(3, 'Condiciones y formalización')}
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Garantía contractual de referencia</strong>${campo('garantiaReferencia')}</div>
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Cobertura y condiciones acordadas</strong>${campo('garantiaCondiciones')}</div>
 </section>
-<section class="p-4 border border-outline-variant rounded-lg mb-4"><strong>Decisión y formalización</strong><p>Pendientes de manifestación expresa del receptor autorizado y vínculo con la revisión exacta del acta. ${contexto ? 'La emisión de esta acta no acredita por sí sola aceptación, firma ni garantía nueva.' : 'Este borrador no acredita aceptación, firma ni garantía nueva.'}</p></section>
+<section class="p-4 border border-outline-variant rounded-lg mb-4"><strong>Alcance de la conformidad</strong><p>${escapeHtml(TEXTO_ACTA)}</p><small>Texto sujeto a revisión jurídica de BBC.</small><p>Pendientes de manifestación expresa del receptor autorizado y vínculo con la revisión exacta del acta. ${contexto ? 'La emisión de esta acta no acredita por sí sola aceptación, firma ni garantía nueva.' : 'Este borrador no acredita aceptación, firma ni garantía nueva.'}</p></section>
+<section class="grid grid-cols-2 gap-4 no-break" style="margin-top:40px"><div style="border-top:1px solid #94a3b8;padding-top:8px">Firma del cliente o representante<br/>Nombre y documento: ____________________<br/>Carácter: ____________________<br/>Fecha y hora: ____________________</div><div style="border-top:1px solid #94a3b8;padding-top:8px">Representante de la empresa<br/>Nombre y documento: ____________________<br/>Carácter: ____________________<br/>Fecha y hora: ____________________</div></section>
 </div>`;
 
   return _envolverInforme(`Acta de Conformidad${contexto ? '' : ' — borrador'}`, contenido, contexto);
