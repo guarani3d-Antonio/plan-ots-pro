@@ -16,6 +16,8 @@ import { colorEstado, diasAbierto } from '../../utils/calculos';
 import { usePuedeVerCostosMultiple } from '../../hooks/usePuedeVerCostos';
 import { scopedKey } from '../../security/sessionScope';
 import { fechaParaMostrar } from '../../utils/fechaCivil';
+import {EtiquetaObra} from '../ui/ColorObra';
+import {estiloObra} from '../../utils/colorObra';
 
 type EstadoOT    = 'Pendiente' | 'En proceso' | 'Cerrada' | 'No aplica';
 type PrioridadOT = 'Alta' | 'Media' | 'Baja';
@@ -56,6 +58,7 @@ interface OrdenTrabajo {
   informe_cierre?: 'Pendiente' | 'enviada' | 'no aplica';
   empresa_nombre?: string;
   obra_proyecto?: string;
+  obra_color?: string | null;
   plano_nombre?: string;
   carpeta_ruta?: string;
 }
@@ -280,9 +283,9 @@ const DocChip: React.FC<{ v?: string }> = ({ v }) => {
   return <span className={`${styles.docChip} ${s.cls}`}>{s.label}</span>;
 };
 
-const ObraPill: React.FC<{ obra?: string }> = ({ obra }) => {
+const ObraPill: React.FC<{ obra?: string; color?:string|null }> = ({ obra,color }) => {
   if (!obra) return <Dash />;
-  return <span style={{ display: 'inline-block', padding: '2px 8px', background: '#DCFCE7', color: '#166534', fontWeight: 700, fontSize: 11, borderRadius: 4, whiteSpace: 'nowrap' }}>{obra}</span>;
+  return <EtiquetaObra nombre={obra} color={color}/>;
 };
 
 const FechaIngresoCell: React.FC<{ fechaIngreso?: string; createdAt?: string }> = ({ fechaIngreso, createdAt }) => {
@@ -302,7 +305,7 @@ function renderizarCelda(key: string, orden: OrdenTrabajo): React.ReactNode {
 
   if (key === 'ot') return <span style={{ fontFamily: 'Menlo, Monaco, Consolas, monospace', fontWeight: 700, color: '#001E40', fontSize: 12 }}>{orden.ot}</span>;
   if (key === 'fecha_ingreso') return <FechaIngresoCell fechaIngreso={orden.fecha_ingreso} createdAt={orden.created_at} />;
-  if (key === 'obra') return <ObraPill obra={orden.obra} />;
+  if (key === 'obra' || key==='obra_proyecto') return <ObraPill obra={key==='obra'?orden.obra:orden.obra_proyecto} color={orden.obra_color} />;
   if (key === 'estado') return <EstadoBadge estado={orden.estado} />;
   if (key === 'prioridad') {
     const c = COLOR_PRIORIDAD[orden.prioridad];
@@ -546,6 +549,7 @@ export const VistaGrilla: React.FC = () => {
   const { ordenes, cargarOrdenesDeProyectos, cargando, error: errorOrdenes } = useOrdenesStore();
   const contexto = useAccessStore(s => s.contexto);
   const [proyectos, setProyectos] = useState<Proyecto[]>([]);
+  const [coloresObras,setColoresObras]=useState<Record<string,{obra_id:string;nombre:string;color:string|null}>>({});
   const [carpetas, setCarpetas] = useState<Carpeta[]>([]);
   const [cargandoCatalogo, setCargandoCatalogo] = useState(true);
   const [errorCatalogo, setErrorCatalogo] = useState<string | null>(null);
@@ -566,11 +570,18 @@ export const VistaGrilla: React.FC = () => {
     void Promise.all([
       supabase.from('proyectos').select('*').is('deleted_at', null).order('nombre'),
       supabase.from('plan_carpetas').select('id,tenant_id,padre_id,nombre').order('nombre'),
-    ]).then(([proyectosResult, carpetasResult]) => {
+    ]).then(async ([proyectosResult, carpetasResult]) => {
       assertSession(ticket);
       if (!vigente) return;
       if (proyectosResult.error) throw new Error(proyectosResult.error.message);
       if (carpetasResult.error) throw new Error(carpetasResult.error.message);
+      const ids=(proyectosResult.data as Proyecto[]).map(p=>p.id);
+      const batches=Array.from({length:Math.ceil(ids.length/500)},(_,i)=>ids.slice(i*500,(i+1)*500));
+      const colores=await Promise.all(batches.map(p_proyectos=>supabase.rpc('plan_colores_obras',{p_proyectos})));
+      assertSession(ticket);if(!vigente)return;
+      if(colores.some(r=>r.error))throw new Error(colores.find(r=>r.error)!.error!.message);
+      const rows=colores.flatMap(r=>(r.data??[]) as {proyecto_id:string;obra_id:string;nombre:string;color:string|null}[]);
+      setColoresObras(Object.fromEntries(rows.map(r=>[r.proyecto_id,r])));
       // Ambas consultas obedecen RLS: el catálogo nunca incluye obras ajenas.
       setProyectos(proyectosResult.data as Proyecto[]);
       setCarpetas(carpetasResult.data as Carpeta[]);
@@ -731,11 +742,12 @@ export const VistaGrilla: React.FC = () => {
       const obra = plano ? porId.get(plano.proyecto_padre_id ?? plano.id) : undefined;
       return { ...o,
         empresa_nombre: empresas.find(e => e.id === plano?.tenant_id)?.nombre ?? '',
-        obra_proyecto: obra?.nombre ?? plano?.nombre ?? '',
+        obra_proyecto: coloresObras[o.proyecto_id]?.nombre ?? obra?.nombre ?? plano?.nombre ?? '',
+        obra_color: coloresObras[o.proyecto_id]?.color,
         plano_nombre: plano?.nombre ?? '',
         carpeta_ruta: rutaCarpeta(plano?.carpeta_id),
       } as OrdenTrabajo;
-    }), [ordenes, idsAlcanceSet, porId, empresas, rutaCarpeta]);
+    }), [ordenes, idsAlcanceSet, porId, empresas, rutaCarpeta,coloresObras]);
   const rubrosUnicos = useMemo(() => [...new Set(proyecto_ordenes.map(o => o.rubro).filter(Boolean))].sort(), [proyecto_ordenes]);
 
   const filtradas = useMemo(() => {
@@ -889,7 +901,7 @@ export const VistaGrilla: React.FC = () => {
                 </select>
               </label>
               <label>Obra
-                <select aria-label="Filtrar por obra" value={obraFiltro} onChange={e => { setObraFiltro(e.target.value); setCarpetaFiltro(''); setPlanoFiltro(''); }}>
+                <select aria-label="Filtrar por obra" style={obraFiltro?estiloObra(coloresObras[obraFiltro]?.color):undefined} value={obraFiltro} onChange={e => { setObraFiltro(e.target.value); setCarpetaFiltro(''); setPlanoFiltro(''); }}>
                   <option value="">Todas las obras</option>
                   {obras.map(p => <option key={p.id} value={p.id}>{empresas.length > 1 ? `${empresas.find(e => e.id === p.tenant_id)?.nombre ?? ''} / ` : ''}{p.nombre}</option>)}
                 </select>
@@ -909,6 +921,7 @@ export const VistaGrilla: React.FC = () => {
               <button type="button" className={styles.alcanceActualizar} onClick={() => { setCargandoCatalogo(true); setRevisionCatalogo(n => n + 1); }} disabled={cargandoCatalogo || cargando} title="Actualizar obras y órdenes">Actualizar</button>
             </div>
           </div>
+          {obraFiltro&&<div style={{padding:'0 12px 8px'}}><EtiquetaObra nombre={coloresObras[obraFiltro]?.nombre??porId.get(obraFiltro)?.nombre??'Obra'} color={coloresObras[obraFiltro]?.color}/></div>}
           {(errorCatalogo || errorOrdenes) && <div role="alert" className={styles.alcanceError}>{errorCatalogo || errorOrdenes}</div>}
 
           {/* TOOLBAR */}
@@ -1035,7 +1048,7 @@ export const VistaGrilla: React.FC = () => {
                             <span style={{ fontWeight: 700, fontSize: 12, color: '#001E40' }}>{o.ot}</span>
                             {o.prioridad && <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 6, background: o.prioridad === 'Alta' ? '#FEE2E2' : o.prioridad === 'Media' ? '#FEF3C7' : '#F3F4F6', color: o.prioridad === 'Alta' ? '#DC2626' : o.prioridad === 'Media' ? '#D97706' : '#6B7280' }}>{o.prioridad}</span>}
                           </div>
-                           <div style={{ fontSize: 10, fontWeight: 600, color: '#64748B', marginBottom: 6 }}>{o.obra_proyecto}{o.plano_nombre && o.plano_nombre !== o.obra_proyecto ? ` · ${o.plano_nombre}` : ''}</div>
+                           <div style={{ fontSize: 10, fontWeight: 600, color: '#64748B', marginBottom: 6 }}><EtiquetaObra nombre={o.obra_proyecto??'Obra'} color={o.obra_color}/>{o.plano_nombre && o.plano_nombre !== o.obra_proyecto ? ` · ${o.plano_nombre}` : ''}</div>
                           {camposTarjeta.has('descripcion') && o.descripcion && <p style={{ fontSize: 11, color: '#43474F', margin: '0 0 8px', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{o.descripcion}</p>}
                           {camposTarjeta.has('comentarios') && o.comentarios && <p style={{ fontSize: 11, color: '#43474F', margin: '0 0 8px', fontStyle: 'italic', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{o.comentarios}</p>}
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 8 }}>

@@ -1,16 +1,19 @@
-import { useEffect, useRef,useState } from 'react';
+import { useEffect,useState } from 'react';
 import { supabase } from '../../db/supabase';
 import { useAccessStore } from '../../stores/accessStore';
 import { PoliticasDocumentales } from './PoliticasDocumentales';
-import { DirectoriosCreador,type DirectoriosCreadorHandle } from './DirectoriosCreador';
-import { DialogDirectorioOT } from '../plano/DialogDirectorioOT';
+import { DirectoriosCreador } from './DirectoriosCreador';
+import { PanelAdministracion as DialogDirectorioOT } from './PanelAdministracion';
+import {PanelAdministracionContext} from './panelAdministracionContext';
 import { VoiceInputButton } from '../ui/VoiceInputButton';
 import { ObrasCreador } from './ObrasCreador';
+import { EmpresasCreador } from './EmpresasCreador';
+import { assertSession,sessionTicket } from '../../security/sessionScope';
 import { ConfiguracionDashboardCreador } from './ConfiguracionDashboardCreador';
 import { MapaAccesosCreador } from './MapaAccesosCreador';
 import styles from './AdministracionCreador.module.css';
 
-const panel: React.CSSProperties = { border: '1px solid var(--border-default)', borderRadius: 12, padding: 20, background: 'var(--bg-surface)' };
+const panel: React.CSSProperties = { border: '1px solid var(--border-default)', borderRadius: 8, padding: 12, background: 'var(--bg-surface)' };
 const field: React.CSSProperties = { display: 'grid', gap: 6, minWidth: 0 };
 const control: React.CSSProperties = { minHeight: 34, padding: '8px 12px', border: '1px solid var(--border-default)', borderRadius: 8, background: 'var(--bg-surface)', color: 'var(--text-primary)', font: 'inherit' };
 const button: React.CSSProperties = { ...control, width: 'fit-content', cursor: 'pointer', background: 'var(--accent)', color: 'white', fontWeight: 600 };
@@ -19,10 +22,13 @@ const tiposNotificacion = [
 ] as const;
 const roles = [['administrador', 'Administrador'], ['supervisor', 'Supervisor'], ['tecnico', 'Técnico'], ['viewer', 'Lector']] as const;
 const empresaPiloto = '9159153b-eac0-49df-80d5-649ced2c7887';
+const secciones = [['empresas','Empresas'],['obras','Obras'],['clientes','Clientes'],['contratistas','Contratistas'],['usuarios','Usuarios y permisos'],['informes','Configuración de informes'],['dashboard','Dashboard']] as const;
+type Seccion = typeof secciones[number][0];
 
 export function AdministracionCreador() {
   const { contexto, empresaId, refresh } = useAccessStore();
-  const [nombre, setNombre] = useState('');
+  const [seccion,setSeccion]=useState<Seccion>('empresas');
+  const [crearEmpresa,setCrearEmpresa]=useState(false);
   const [email, setEmail] = useState('');
   const [nombreInvitado, setNombreInvitado] = useState('');
   const [apellidosInvitado, setApellidosInvitado] = useState('');
@@ -34,9 +40,10 @@ export function AdministracionCreador() {
   const [busy, setBusy] = useState(false);
   const [mensaje, setMensaje] = useState('');
   const [crearObra, setCrearObra] = useState(false);
-  const directoriosRef=useRef<DirectoriosCreadorHandle>(null);
+  const [editorDestino,setEditorDestino]=useState<HTMLDivElement|null>(null);
+  const [accesosCuenta,setAccesosCuenta]=useState<Record<string,string>>({});
   const [cuentaAbierta,setCuentaAbierta]=useState(false);
-  function abrirCuenta(esSupervisor=false){setEmail('');setNombreInvitado('');setApellidosInvitado('');setObra('');setActivo(true);setRol(esSupervisor?'supervisor':'viewer');setRolObra(esSupervisor?'supervisor':'viewer');setMensaje('');setCuentaAbierta(true)}
+  function abrirCuenta(esSupervisor=false){setAccesosCuenta({});setEmail('');setNombreInvitado('');setApellidosInvitado('');setObra('');setActivo(true);setRol(esSupervisor?'supervisor':'viewer');setRolObra(esSupervisor?'supervisor':'viewer');setMensaje('');setCuentaAbierta(true)}
   const [versionAccesos, setVersionAccesos] = useState(0);
 
   useEffect(() => {
@@ -53,14 +60,18 @@ export function AdministracionCreador() {
   if (!contexto?.creador) return null;
 
   async function ejecutar(action: () => PromiseLike<{ error: { message: string } | null }>) {
+    if(busy)return false;
     setBusy(true); setMensaje('');
     try {
+      const ticket=sessionTicket();
       const r = await action();
+      assertSession(ticket);
       if (r.error) throw new Error(r.error.message);
       setMensaje('Cambio guardado.');
       setVersionAccesos(version => version + 1);
       await refresh();
-    } catch (e) { setMensaje(e instanceof Error ? e.message : 'No se pudo completar el cambio.'); }
+      return true;
+    } catch (e) { setMensaje(e instanceof Error ? e.message : 'No se pudo completar el cambio.');return false; }
     finally { setBusy(false); }
   }
 
@@ -95,41 +106,27 @@ export function AdministracionCreador() {
 
   const empresa = contexto.empresas.find(e => e.id === empresaId);
   const limiteInvitaciones = empresaId === empresaPiloto ? 2 : 4;
-  return <div style={{ padding: '24px clamp(16px, 3vw, 36px)', display: 'grid', gap: 18, color: 'var(--text-primary)' }}>
-    <header>
-      <h1 style={{ margin: 0, fontSize: 26 }}>Espacio del Creador</h1>
+  return <PanelAdministracionContext.Provider value={editorDestino}><div className={styles.creator}>
+    <header className={styles.pageHeader}><div>
+      <h1 style={{ margin: 0, fontSize: 26 }}>Administración</h1>
       <p style={{ margin: '6px 0 0', color: 'var(--text-secondary)' }}>Administrá las empresas, las cuentas, los responsables y los directorios compartidos.</p>
-    </header>
-    <label style={{ ...field, maxWidth: 480 }}>Empresa activa
+    </div><label className={styles.companyContext}>Empresa seleccionada
       <select className="app-select" value={empresaId} onChange={e => useAccessStore.setState({ empresaId: e.target.value })}>
         <option value="">Seleccionar empresa</option>
         {contexto.empresas.map(e => <option key={e.id} value={e.id}>{e.nombre}</option>)}
       </select>
-    </label>
-    <section className={styles.creationChooser} aria-label="Qué querés crear"><strong>¿Qué querés crear?</strong><div className={styles.creationActions}>
-      <button style={button} type="button" disabled={!empresaId} onClick={()=>setCrearObra(true)}>Obra</button>
-      <button style={button} type="button" disabled={!empresaId} onClick={()=>directoriosRef.current?.nuevoCliente()}>Cliente</button>
-      <button style={button} type="button" disabled={!empresaId} onClick={()=>directoriosRef.current?.nuevoContratista()}>Contratista</button>
-      <button style={button} type="button" disabled={!empresaId} onClick={()=>abrirCuenta(true)}>Supervisor</button>
-      <button style={button} type="button" disabled={!empresaId} onClick={()=>abrirCuenta()}>Perfil con rol</button>
-    </div></section>
-    <details className={styles.seccion}>
-      <summary className={styles.titulo}>Empresas</summary>
-      <div className={styles.contenido}>
-        <div style={{ display: 'grid', justifyItems: 'start', gap: 10 }}>
-          <label style={{ ...field, width: 'min(100%, 420px)' }}>Nombre de la nueva empresa<input style={control} value={nombre} onChange={e => setNombre(e.target.value)} /></label>
-          <button style={button} disabled={busy || !nombre.trim()} onClick={() => void ejecutar(() => supabase.rpc('plan_admin_empresa', { p_nombre: nombre }))}>Crear empresa</button>
-        </div>
-        {empresaId && <section style={panel}><h2 style={{ margin: '0 0 14px', fontSize: 18 }}>Documentos de la empresa</h2><PoliticasDocumentales tenantId={empresaId} /></section>}
+    </label></header>
+    <div className={styles.administrationLayout}>
+    <nav className={styles.navigation} aria-label="Administrar registros y configuración">{secciones.map(([id,label])=><button key={id} type="button" aria-pressed={seccion===id} disabled={id!=='empresas'&&id!=='dashboard'&&!empresaId} onClick={()=>setSeccion(id)}>{label}</button>)}</nav>
+    <div className={styles.catalogArea}><main className={styles.catalogContent}>
+    {seccion==='empresas'&&<div><EmpresasCreador crear={crearEmpresa} onCerrarCrear={()=>setCrearEmpresa(false)}/></div>}
+    {empresaId&&seccion==='obras'&&<div><ObrasCreador key={`obras-${empresaId}`} tenantId={empresaId} crearAbierto={crearObra} onCerrarCrear={()=>setCrearObra(false)}/></div>}
+    {seccion==='usuarios'&&<section className={styles.workspace}>
+      <div className={styles.sectionHeader}><div><h2>Usuarios y permisos</h2><p>Buscá una persona para administrar su cuenta y las obras asignadas.</p></div>
+    <button style={button} type="button" disabled={!empresaId} onClick={()=>abrirCuenta()}>+ Crear usuario</button>
       </div>
-    </details>
-    {empresaId&&<ObrasCreador key={`obras-${empresaId}`} tenantId={empresaId} crearAbierto={crearObra} onCerrarCrear={()=>setCrearObra(false)}/>}
-    <details className={styles.seccion}>
-      <summary className={styles.titulo}>Usuarios y permisos</summary>
-      <div className={styles.contenido}>
-    <button style={button} type="button" disabled={!empresaId} onClick={()=>abrirCuenta()}>Administrar cuenta y permisos</button>
-    {empresaId && <MapaAccesosCreador key={`${empresaId}-${versionAccesos}`} empresaId={empresaId} />}
-    <section style={panel}>
+    {empresaId && <MapaAccesosCreador key={`${empresaId}-${versionAccesos}`} empresaId={empresaId} onEditar={cuenta=>{setAccesosCuenta(cuenta.accesos);setEmail(cuenta.email);setRol(cuenta.rol);setActivo(cuenta.activo);setObra('');setRolObra('viewer');setNombreInvitado('');setApellidosInvitado('');setMensaje('');setCuentaAbierta(true)}} />}
+    <details className={styles.seccion}><summary className={styles.titulo}>Opciones avanzadas: permisos y notificaciones</summary><div className={styles.contenido}><section style={panel}>
       <h2 style={{ margin: '0 0 8px', fontSize: 18 }}>Cómo se aplican los permisos</h2>
       <p style={{ margin: 0, lineHeight: 1.6, color: 'var(--text-secondary)' }}>El rol de empresa identifica a la persona. El acceso operativo se asigna obra por obra: Lector consulta, Técnico registra y actualiza OTs, y Supervisor además puede ver costos. Solo el Creador administra cuentas, directorios y notificaciones. Sin una obra asignada, la cuenta entra pero no ve OTs ni proyectos de campo.</p>
     </section>
@@ -145,14 +142,12 @@ export function AdministracionCreador() {
       </table></div>
       <button style={{ ...button, marginTop: 14 }} disabled={busy} onClick={() => void guardarNotificaciones()}>Guardar notificaciones</button>
     </section>}
-      </div>
-    </details>
-    {empresaId && <DirectoriosCreador ref={directoriosRef} key={`directorios-${empresaId}`} tenantId={empresaId} obras={contexto.obras} />}
-    <details className={styles.seccion}>
-      <summary className={styles.titulo}>Dashboard</summary>
-      <div className={styles.contenido}><ConfiguracionDashboardCreador /></div>
-    </details>
-    {cuentaAbierta&&<DialogDirectorioOT titulo="Cuenta, rol y acceso a obras" busy={busy} onCerrar={()=>setCuentaAbierta(false)}>    <section style={{display:"grid",gap:8}}>
+      </div></details>
+    </section>}
+    {empresaId && (seccion==='clientes'||seccion==='contratistas')&&<div><DirectoriosCreador key={`directorios-${empresaId}-${seccion}`} tenantId={empresaId} obras={contexto.obras} seccion={seccion==='contratistas'?'contratistas':'clientes'} /></div>}
+    {empresaId&&seccion==='informes'&&<div><PoliticasDocumentales key={empresaId} tenantId={empresaId}/></div>}
+    {seccion==='dashboard'&&<section className={styles.workspace}><ConfiguracionDashboardCreador /></section>}
+    {seccion==='usuarios'&&cuentaAbierta&&<DialogDirectorioOT titulo="Cuenta, rol y acceso a obras" busy={busy} onCerrar={()=>setCuentaAbierta(false)}>    <section style={{display:"grid",gap:8}}>
       <h2 style={{ margin: '0 0 14px', fontSize: 18 }}>Cuentas, roles y responsables</h2>
       <p style={{ margin: '0 0 14px', color: 'var(--text-secondary)' }}>Invitá cuentas nuevas por correo; para una cuenta existente, guardá su rol. Después asignale las obras correspondientes. Supervisor y técnico pueden figurar como responsables de OTs.</p>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))', gap: 16 }}>
@@ -167,9 +162,9 @@ export function AdministracionCreador() {
           <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}><input type="checkbox" checked={activo} onChange={e => setActivo(e.target.checked)} />Membresía activa</label>
           <button style={button} disabled={busy || !empresaId || !email.trim()} onClick={() => void ejecutar(() => supabase.rpc('plan_admin_miembro', { p_tenant: empresaId, p_email: email, p_rol: rol, p_activo: activo }))}>Guardar cuenta y rol</button>
           <button style={{ ...button, background: 'var(--bg-surface)', color: 'var(--text-primary)' }} disabled={busy || !empresaId || !email.trim() || !activo} onClick={() => void invitarUsuario()}>Invitar cuenta nueva por correo</button>
-          <label style={field}>Obra<select className="app-select" value={obra} onChange={e => setObra(e.target.value)}><option value="">Seleccionar obra</option>{contexto.obras.filter(p => p.tenant_id === empresaId).map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}</select></label>
+          <label style={field}>Obra<select className="app-select" value={obra} onChange={e => {setObra(e.target.value);setRolObra(accesosCuenta[e.target.value]??'sin_acceso')}}><option value="">Seleccionar obra</option>{contexto.obras.filter(p => p.tenant_id === empresaId).map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}</select></label>
           <label style={field}>Permiso en la obra<select className="app-select" value={rolObra} onChange={e => setRolObra(e.target.value)}><option value="supervisor">Supervisor</option><option value="tecnico">Técnico</option><option value="viewer">Lector</option><option value="sin_acceso">Retirar acceso</option></select></label>
-          <button style={button} disabled={busy || !email.trim() || !contexto.obras.some(p => p.id === obra && p.tenant_id === empresaId)} onClick={() => void ejecutar(() => supabase.rpc('plan_admin_obra_miembro', { p_proyecto: obra, p_email: email, p_rol: rolObra }))}>Guardar acceso a obra</button>
+          <button style={button} disabled={busy || !email.trim() || !contexto.obras.some(p => p.id === obra && p.tenant_id === empresaId)} onClick={() => void ejecutar(() => supabase.rpc('plan_admin_obra_miembro', { p_proyecto: obra, p_email: email, p_rol: rolObra })).then(ok=>{if(ok)setAccesosCuenta(a=>({...a,[obra]:rolObra}))})}>Guardar acceso a obra</button>
           <p style={{ margin: '8px 0 0', color: 'var(--text-secondary)' }}>Delegación de prueba: el supervisor podrá invitar hasta {limiteInvitaciones} Técnicos a las obras que supervisa.</p>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             <button style={button} disabled={busy || !empresaId || !email.trim() || rol !== 'supervisor'} onClick={() => void ejecutar(() => supabase.rpc('plan_configurar_delegacion_invitacion', { p_tenant: empresaId, p_email: email.trim(), p_limite: limiteInvitaciones, p_activa: true }))}>Habilitar {limiteInvitaciones} invitaciones</button>
@@ -180,5 +175,6 @@ export function AdministracionCreador() {
     </section>
 <p role="status" aria-live="polite">{mensaje}</p></DialogDirectorioOT>}
     <p role="status" aria-live="polite" style={{ margin: 0 }}>{mensaje}</p>
-  </div>;
+    </main><div className={styles.editorSlot} ref={setEditorDestino}/></div></div>
+  </div></PanelAdministracionContext.Provider>;
 }

@@ -7,6 +7,7 @@ import { useAccessStore } from '../../stores/accessStore';
 import { DialogDirectorioOT } from './DialogDirectorioOT';
 import { FotoDirectorio } from './FotoDirectorio';
 import { VoiceInputButton } from '../ui/VoiceInputButton';
+import {EtiquetaObra} from '../ui/ColorObra';
 import styles from './FichaDirectorio.module.css';
 
 const empty={nombre:'',cargo:'',telefono:'',correo:''};
@@ -36,7 +37,7 @@ export function FichaObraOT({proyectoId,puedeGestionar=false,tenantId,onActualiz
  const norm=(s:string)=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
  const items=ficha?.contactos.filter(c=>norm(c.nombre+' '+(c.cargo??'')+' '+(c.telefono??'')).includes(norm(texto)))??[];
  const contacts=(rows:ContactoObra[],editable=false)=>rows.map(c=><div key={c.id} className={styles.contact}><dl className={styles.grid}><div><dt>Contacto de la obra</dt><dd>{c.nombre}</dd></div><div><dt>Cargo / función</dt><dd>{c.cargo||'Sin registrar'}</dd></div><div><dt>Teléfono</dt><dd>{c.telefono||'Sin registrar'}</dd></div><div><dt>Correo</dt><dd>{c.correo||'Sin registrar'}</dd></div></dl>{editable&&<div className={styles.actions}><button type="button" className={styles.button} disabled={!puedeGestionar||busy} onClick={()=>editar(c)}>Editar contacto</button></div>}</div>);
- const identity=<><FotoDirectorio tipo="obra" id={ficha?.id} nombre={ficha?.nombre??'Obra'}/><div className={styles.name}><h3>{ficha?.nombre??'Cargando ficha…'}</h3><p className={styles.muted}>{ficha?.direccion||'Dirección sin registrar'}</p></div></>;
+ const identity=<><FotoDirectorio tipo="obra" id={ficha?.id} nombre={ficha?.nombre??'Obra'}/><div className={styles.name}><h3>{ficha?<EtiquetaObra nombre={ficha.nombre} color={ficha.color}/>:'Cargando ficha…'}</h3><p className={styles.muted}>{ficha?.direccion||'Dirección sin registrar'}</p></div></>;
  return <><div className={styles.sheet}>
   <div className={styles.identity}>{identity}<div className={styles.actions}><button type="button" className={styles.button} disabled={!ficha} onClick={()=>setDialog('ficha')}>Ver ficha de la obra</button></div></div>
   {contacts(ficha?.contactos??[])}{ficha&&!ficha.contactos.length&&<p className={styles.muted}>Sin contactos de obra registrados.</p>}

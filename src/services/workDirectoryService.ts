@@ -2,7 +2,7 @@ import { supabase } from '../db/supabase';
 import { assertSession, sessionTicket } from '../security/sessionScope';
 
 export interface ContactoObra { id:string; nombre:string; cargo:string|null; telefono:string|null; correo:string|null }
-export interface FichaObra { id:string; nombre:string; proyecto_nombre:string; direccion:string|null; contactos:ContactoObra[] }
+export interface FichaObra { id:string; nombre:string; proyecto_nombre:string; direccion:string|null; color?:string|null; contactos:ContactoObra[] }
 export interface FichaContratista { id:string; nombre:string; identificacion:string|null; contacto:string|null; telefono:string|null; correo:string|null; direccion:string|null; activo:boolean; nombre_ot?:string }
 export interface FichaCliente extends FichaContratista { tenant_id:string }
 export async function fichaCliente(clienteId:string,proyectoId:string):Promise<FichaCliente> {

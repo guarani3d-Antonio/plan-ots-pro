@@ -67,7 +67,7 @@ const NAV_GLOBALES: NavItem[] = [
 
 const ITEM_AYUDA:  NavItem = { vista: 'ayuda', icon: ICONS.ayuda, label: 'Ayuda' };
 const ITEM_CONFIG: NavItem = { vista: 'configuracion', icon: ICONS.configuracion, label: 'Configuración' };
-const ITEM_CREADOR: NavItem = { vista: 'creador', icon: ICONS.creador, label: 'Creador' };
+const ITEM_CREADOR: NavItem = { vista: 'creador', icon: ICONS.creador, label: 'Administración' };
 
 const AVATAR_PALETTE = ['#1E40AF', '#15803D', '#C2410C', '#7C3AED', '#0E7490', '#BE123C', '#B45309'];
 

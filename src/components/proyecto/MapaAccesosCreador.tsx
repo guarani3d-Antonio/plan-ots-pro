@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../db/supabase';
 import { useAuthStore } from '../../stores/authStore';
 import { useAccessStore } from '../../stores/accessStore';
+import styles from './AdministracionCreador.module.css';
 
 interface Usuario { user_id: string; email: string; nombre: string }
 interface Membresia { user_id: string; rol: string; activo: boolean }
@@ -18,8 +19,8 @@ interface Mapa {
   delegaciones: Delegacion[];
 }
 
-const panel: React.CSSProperties = { border: '1px solid var(--border-default)', borderRadius: 12, padding: 20, background: 'var(--bg-surface)' };
-const boton: React.CSSProperties = { minHeight: 40, width: 'fit-content', padding: '8px 14px', border: '1px solid var(--border-default)', borderRadius: 8, background: 'var(--bg-surface)', color: 'var(--text-primary)', font: 'inherit', cursor: 'pointer' };
+const panel: React.CSSProperties = { minWidth: 0, background: 'var(--bg-surface)' };
+const boton: React.CSSProperties = { minHeight: 34, width: 'fit-content', padding: '6px 9px', border: '1px solid var(--border-default)', borderRadius: 8, background: 'var(--bg-surface)', color: 'var(--text-primary)', font: 'inherit', cursor: 'pointer' };
 const etiquetas: Record<string, string> = { administrador: 'Administrador', supervisor: 'Supervisor', tecnico: 'Técnico', viewer: 'Lector' };
 
 function permisoEfectivo(rolEmpresa: string, rolObra: string): string {
@@ -28,7 +29,7 @@ function permisoEfectivo(rolEmpresa: string, rolObra: string): string {
   return 'Lector · consulta';
 }
 
-export function MapaAccesosCreador({ empresaId }: { empresaId: string }) {
+export function MapaAccesosCreador({ empresaId, onEditar }: { empresaId: string; onEditar?: (cuenta: {email:string;rol:string;activo:boolean;accesos:Record<string,string>})=>void }) {
   const creadorId = useAuthStore(s => s.user?.id);
   const contexto = useAccessStore(s => s.contexto);
   const [mapa, setMapa] = useState<Mapa | null>(null);
@@ -104,30 +105,31 @@ export function MapaAccesosCreador({ empresaId }: { empresaId: string }) {
   return <section style={panel} aria-labelledby="titulo-mapa-accesos">
     <div style={{ display: 'flex', alignItems: 'start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
       <div>
-        <h2 id="titulo-mapa-accesos" style={{ margin: '0 0 6px', fontSize: 18 }}>Accesos por usuario</h2>
+        <h2 id="titulo-mapa-accesos" style={{ margin: '0 0 4px', fontSize: 15 }}>Accesos por usuario</h2>
         <p style={{ margin: 0, color: 'var(--text-secondary)' }}>Personas de la empresa activa, obras asignadas y permiso efectivo. Los planos de cada obra heredan ese acceso.</p>
       </div>
       <button type="button" style={boton} onClick={cargar} disabled={cargando}>{cargando ? 'Actualizando…' : 'Actualizar'}</button>
     </div>
-    <label style={{ display: 'grid', gap: 6, maxWidth: 360, margin: '16px 0' }}>Buscar persona u obra
+    <label style={{ display: 'grid', gap: 6, maxWidth: 360, margin: '10px 0' }}>Buscar persona u obra
       <input type="search" value={busqueda} onChange={event => setBusqueda(event.target.value)} placeholder="Nombre, correo u obra"
-        style={{ minHeight: 42, width: '100%', padding: '8px 12px', border: '1px solid var(--border-default)', borderRadius: 8, background: 'var(--bg-surface)', color: 'var(--text-primary)', font: 'inherit' }} />
+        style={{ minHeight: 34, width: '100%', padding: '8px 12px', border: '1px solid var(--border-default)', borderRadius: 8, background: 'var(--bg-surface)', color: 'var(--text-primary)', font: 'inherit' }} />
     </label>
     {error && <p role="alert" style={{ color: 'var(--text-danger, #b42318)' }}>{error}</p>}
     {!error && cargando && !mapa && <p role="status">Cargando accesos…</p>}
     {!error && !cargando && filas.length === 0 && <p style={{ color: 'var(--text-secondary)' }}>No hay personas que coincidan con la búsqueda.</p>}
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 330px), 1fr))', gap: 12 }}>
-      {filas.map(fila => <article key={fila.user_id} style={{ border: '1px solid var(--border-default)', borderRadius: 10, padding: 14, minWidth: 0 }}>
+    <div className={styles.recordList}>
+      {filas.map(fila => <article key={fila.user_id} className={styles.userCard}>
         <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: 8 }}>
-          <div style={{ minWidth: 0 }}>
+          <div style={{ minWidth: 0 }} className={styles.recordIdentity}>
             <strong style={{ display: 'block' }}>{fila.nombre}</strong>
             <span style={{ color: 'var(--text-secondary)', overflowWrap: 'anywhere' }}>{fila.email}</span>
           </div>
           <span style={{ color: fila.miembro && !fila.miembro.activo ? 'var(--text-secondary)' : 'var(--accent)', fontWeight: 600 }}>
             {fila.esCreador ? 'Creador' : fila.miembro?.activo ? etiquetas[fila.miembro.rol] ?? fila.miembro.rol : 'Sin acceso'}
           </span>
+          {onEditar&&<button type="button" style={boton} disabled={fila.esCreador} title={fila.esCreador?'El rol de Creador se administra fuera de esta empresa':undefined} aria-label={`Editar cuenta de ${fila.nombre}`} onClick={()=>onEditar({email:fila.email,rol:fila.miembro?.rol??'viewer',activo:fila.miembro?.activo??false,accesos:Object.fromEntries((mapa?.accesos??[]).filter(a=>a.user_id===fila.user_id).map(a=>[a.proyecto_id,a.rol]))})}>Editar cuenta</button>}
         </div>
-        <div style={{ marginTop: 12, display: 'grid', gap: 6 }}>
+        <details className={styles.editorDetails}><summary>Obras y accesos · {fila.asignaciones.length}</summary><div style={{ display: 'grid', gap: 5 }}>
           {fila.esCreador && <span>Puede ver y administrar todas las obras de la plataforma.</span>}
           {!fila.esCreador && !fila.miembro?.activo && <span style={{ color: 'var(--text-secondary)' }}>Membresía inactiva: no ve obras.</span>}
           {!fila.esCreador && fila.miembro?.activo && fila.asignaciones.length === 0 &&
@@ -143,7 +145,7 @@ export function MapaAccesosCreador({ empresaId }: { empresaId: string }) {
             {fila.invitaciones.some(item => item.estado === 'enviada') ? 'Invitación enviada por correo.' : 'Invitación en preparación.'}
             {' '}Este panel no confirma si ya eligió su contraseña.
           </small>}
-        </div>
+        </div></details>
       </article>)}
     </div>
   </section>;

@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { supabase } from '../db/supabase';
 import { assertSession, sessionTicket } from '../security/sessionScope';
-export interface EmpresaAcceso { id: string; nombre: string; rol: string; puede_crear: boolean }
+export interface EmpresaAcceso { id: string; nombre: string; rol: string; puede_crear: boolean; activa?: boolean }
 export interface ObraAcceso { id: string; tenant_id: string | null; nombre: string; editar: boolean; administrar: boolean; ver_costos: boolean }
 export interface ContextoAcceso { creador: boolean; empresas: EmpresaAcceso[]; obras: ObraAcceso[] }
 interface AccessState { contexto:ContextoAcceso|null;empresaId:string;disponible:boolean;error:string|null;refresh:()=>Promise<void> }
