@@ -123,7 +123,7 @@ export function AdministracionCreador() {
         {empresaId && <section style={panel}><h2 style={{ margin: '0 0 14px', fontSize: 18 }}>Documentos de la empresa</h2><PoliticasDocumentales tenantId={empresaId} /></section>}
       </div>
     </details>
-    {empresaId&&<ObrasCreador key={empresaId} tenantId={empresaId} crearAbierto={crearObra} onCerrarCrear={()=>setCrearObra(false)}/>}
+    {empresaId&&<ObrasCreador key={`obras-${empresaId}`} tenantId={empresaId} crearAbierto={crearObra} onCerrarCrear={()=>setCrearObra(false)}/>}
     <details className={styles.seccion}>
       <summary className={styles.titulo}>Usuarios y permisos</summary>
       <div className={styles.contenido}>
@@ -147,7 +147,7 @@ export function AdministracionCreador() {
     </section>}
       </div>
     </details>
-    {empresaId && <DirectoriosCreador ref={directoriosRef} key={empresaId} tenantId={empresaId} obras={contexto.obras} />}
+    {empresaId && <DirectoriosCreador ref={directoriosRef} key={`directorios-${empresaId}`} tenantId={empresaId} obras={contexto.obras} />}
     <details className={styles.seccion}>
       <summary className={styles.titulo}>Dashboard</summary>
       <div className={styles.contenido}><ConfiguracionDashboardCreador /></div>
