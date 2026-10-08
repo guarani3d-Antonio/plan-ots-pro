@@ -281,7 +281,6 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
   const [errorGuardado,    setErrorGuardado]   = useState(false);
   const etapasRef = useRef<EtapasOTHandle>(null);
   const [etapasDirty,setEtapasDirty] = useState(false);
-  const [etapasRefresh,setEtapasRefresh] = useState(0);
   const [documentoInicialId,setDocumentoInicialId] = useState<string>();
   const [modalCierre,     setModalCierre]     = useState(false);
   const [tipoInforme,     setTipoInforme]     = useState<TipoInformeModal>('cierre');
@@ -1177,10 +1176,15 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
 {[...new Map([...contratistaFichas,...contratistasVinculados].map(f=>[f.id,f])).values()].filter(f=>(form.contratistas??[]).includes(f.nombre_ot??f.nombre)).map(f=><dl key={f.id} className={datosStyles.ficha}><div><dt>Nombre / razón social</dt><dd>{f.nombre}</dd></div><div><dt>RUC / documento</dt><dd>{f.identificacion||'Sin registrar'}</dd></div><div><dt>Contacto</dt><dd>{f.contacto||'Sin registrar'}</dd></div><div><dt>Teléfono</dt><dd>{f.telefono||'Sin registrar'}</dd></div><div><dt>Correo</dt><dd>{f.correo||'Sin registrar'}</dd></div><div><dt>Dirección</dt><dd>{f.direccion||'Sin registrar'}</dd></div></dl>)}</div></details>
               <details className={styles.dataGroup} open><summary>Datos del reclamo <small>Pedido, visitas y seguimiento</small></summary><div className={styles.dataContent}>
               <EtapasOT ref={etapasRef} orden={{...ordenFresca,...form,campos:valoresCampos}} cliente={ubicacionElegida} proyectoNombre={proyectoNombre ?? ''}
-                disabled={!puedeEditar || guardando || guardandoCliente} puedeRevisar={esSupervisor} onDirty={setEtapasDirty} refresh={etapasRefresh}
+                disabled={!puedeEditar || guardando || guardandoCliente} puedeRevisar={esSupervisor} onDirty={setEtapasDirty} refresh={0}
                 onFechasReales={(inicio,fin)=>setForm(f=>({...f,fecha_inicio_trabajos:inicio,fecha_fin_trabajos:fin}))}
                 onOrigen={d=>setValoresCampos(c=>({...c,canal_solicitud:d.canal,fecha_solicitud:d.fechaRecepcion,solicitante:d.solicitante,contacto_solicitante:d.contacto,referencia_solicitud:d.referencia,urgencia_solicitada:d.urgencia,proximo_paso:d.proximoPaso}))}
-                onPreview={async tipo=>{if(await handleGuardar()){setDocumentoInicialId(etapasRef.current?.documento(tipo));setTipoInforme(tipo);setModalCierre(true);}}}
+                onPreview={async tipo=>{
+                  if(saveLock.current||clienteBusyRef.current)return;
+                  if(cambiosSinGuardar&&!await handleGuardar())return;
+                  setDocumentoInicialId(etapasRef.current?.documento(tipo));
+                  setTipoInforme(tipo);setModalCierre(true);
+                }}
                 solicitud={<>                <div className={`${styles.field} ${styles.fieldNarrative}`}>
                   <div className={styles.labelRow}>
                     <label className={styles.label}>Descripción del reclamo</label>
@@ -1498,7 +1502,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
 
       {modalCierre && (
         <InformeErrorBoundary key={`${ordenFresca.id}:${tipoInforme}`} onClose={() => setModalCierre(false)}>
-          <ModalInformeOT isOpen={modalCierre} onClose={() => {setModalCierre(false);setEtapasRefresh(v=>v+1);}} documentoInicialId={documentoInicialId} orden={ordenFresca} proyectoNombre={proyectoNombre ?? (proyectoActivo?.id === ordenFresca.proyecto_id ? proyectoActivo.nombre : '')} tipo={tipoInforme} puedeRevisar={esSupervisor} />
+          <ModalInformeOT isOpen={modalCierre} onClose={() => setModalCierre(false)} onDocumentoChange={(doc,borrador,revisiones)=>etapasRef.current?.actualizarDocumento(doc,borrador,revisiones)} documentoInicialId={documentoInicialId} orden={ordenFresca} proyectoNombre={proyectoNombre ?? (proyectoActivo?.id === ordenFresca.proyecto_id ? proyectoActivo.nombre : '')} tipo={tipoInforme} puedeRevisar={esSupervisor} />
         </InformeErrorBoundary>
       )}
 

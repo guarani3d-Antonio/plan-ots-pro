@@ -23,7 +23,7 @@ import { borradorModificado } from '../../services/reportDraftComparison';
 // S33: FotoMin incluye descripcion_observacion (campo del EditorFoto).
 //      Los tres mapeos de fotos ahora pasan ese campo al generador de informes.
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAccessStore } from '../../stores/accessStore';
 import { useAuthStore } from '../../stores/authStore';
 import type { OrdenLocal } from '../../types/orden';
@@ -66,6 +66,7 @@ interface Props {
   puedeRevisar?: boolean;
   soloVistaPrevia?: boolean;
   documentoInicialId?: string;
+  onDocumentoChange?: (doc:DocumentoRegistro,borrador?:{datos:Record<string,unknown>;version:number},revisiones?:RevisionDocumento[])=>void;
 }
 
 // S33: incluye descripcion_observacion para que aparezca en los informes
@@ -354,7 +355,7 @@ function encuestaGuardada(valor: unknown, inicial: DatosEncuesta = ENCUESTA_INIC
 
 
 export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, puedeRevisar = false,
-  soloVistaPrevia = false, documentoInicialId }: Props) {
+  soloVistaPrevia = false, documentoInicialId, onDocumentoChange }: Props) {
   const emisionDisponible = import.meta.env.VITE_DOCUMENT_ISSUANCE_ENABLED === 'true';
   const esCreador = useAccessStore(s => s.disponible && s.contexto?.creador === true);
   const usuarioId = useAuthStore(s => s.user?.id);
@@ -381,6 +382,9 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
   const [cargandoComentario, setCargandoComentario] = useState(true);
   const [htmlPreview, setHtmlPreview] = useState('');
   const [generandoPreview, setGenerandoPreview] = useState(false);
+  const [vistaPreparada, setVistaPreparada] = useState(false);
+  const [estadoEmisionConsultado, setEstadoEmisionConsultado] = useState<string | null>(null);
+  const vistaLista = useCallback(() => setVistaPreparada(true), []);
   const [incluirFotos, setIncluirFotos] = useState(true);
   const [fotosAntes, setFotosAntes] = useState<FotoMin[]>([]);
   const [fotosDespues, setFotosDespues] = useState<FotoMin[]>([]);
@@ -417,17 +421,31 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
   const firstRenderRef = useRef(true);
   const prevIncluirFotosRef = useRef(incluirFotos);
   const editorRef = useRef<HTMLDivElement>(null);
+  const accionesRef = useRef<HTMLDetailsElement>(null);
   const [editorTab, setEditorTab] = useState<'datos' | 'texto' | 'fotos' | 'revision'>('texto');
   const [previewAmpliada, setPreviewAmpliada] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
     const escape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && accionesRef.current?.open) {
+        e.stopPropagation(); accionesRef.current.open=false; return;
+      }
       if (e.key === 'Escape' && previewAmpliada) { e.stopPropagation(); setPreviewAmpliada(false); }
     };
     document.addEventListener('keydown', escape, true);
     return () => document.removeEventListener('keydown', escape, true);
   }, [isOpen, previewAmpliada]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const fuera = (event:PointerEvent) => {
+      const menu=accionesRef.current;
+      if(menu?.open && event.target instanceof Node && !menu.contains(event.target))menu.open=false;
+    };
+    document.addEventListener('pointerdown',fuera);
+    return()=>document.removeEventListener('pointerdown',fuera);
+  },[isOpen]);
 
   // Reset de flags al cambiar de OT o tipo
   useEffect(() => {
@@ -435,6 +453,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
     // Restablece el editor cuando cambia la identidad de la OT.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setHtmlPreview('');
+    setVistaPreparada(false);
     setEditorTab('texto');
     setPreviewAmpliada(false);
     setObservaciones('');
@@ -493,8 +512,12 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
       setCandidatos(estado.candidatos);
       setAprobaciones(estado.aprobaciones);
       setEmisiones(estado.emisiones);
+      setEstadoEmisionConsultado(documentoId);
     }).catch(error => {
-      if (!cancelado) setErrorEmision(error instanceof Error ? error.message : 'No se pudo cargar el estado documental.');
+      if (!cancelado) {
+        setErrorEmision(error instanceof Error ? error.message : 'No se pudo cargar el estado documental.');
+        setEstadoEmisionConsultado(documentoId);
+      }
     });
     return () => { cancelado = true; };
   }, [documento?.id, emisionDisponible, isOpen, soloVistaPrevia]);
@@ -507,6 +530,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
     let cancelado = false;
     descargarCandidatoVerificado(emitido).then(blob => {
       if (cancelado) return;
+      setVistaPreparada(false);
       setPdfBlobUrl(URL.createObjectURL(blob));
       setPdfVerificadoId(emitido.id);
     }).catch(error => {
@@ -561,9 +585,11 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
       const vigente = seleccionId === 'nuevo' ? null
         : seleccionId ? disponibles.find(d => d.id === seleccionId) ?? null
           : disponibles.at(-1) ?? null;
-      const borrador = vigente ? await cargarBorradorDocumento(vigente.id) : null;
-      const revisiones = vigente ? await listarRevisionesDocumento(vigente.id) : [];
-      const contexto = await cargarFuentesInforme(orden, tipo, documentos);
+      const [borrador,revisiones,contexto] = await Promise.all([
+        vigente ? cargarBorradorDocumento(vigente.id) : Promise.resolve(null),
+        vigente ? listarRevisionesDocumento(vigente.id) : Promise.resolve([]),
+        cargarFuentesInforme(orden, tipo, documentos),
+      ]);
       return { vigente, borrador, revisiones, disponibles, contexto };
     });
 
@@ -800,6 +826,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
   const cambiarDocumento = (id: string) => {
     if (cargandoComentario || guardandoBorrador || cambiosBorrador) return;
     setCargandoComentario(true);
+    setVistaPreparada(false);
     setHtmlPreview('');
     setPdfBlobUrl(null);
     setPdfVerificadoId(null);
@@ -840,6 +867,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
       const borrador = await guardarBorradorDocumento(vigente.id, datos, versionBorrador, solicitud);
       setVersionBorrador(borrador.version);
       setGuardado(JSON.stringify(datos));
+      onDocumentoChange?.(vigente,borrador);
       setCorreccionAbierta(false);
       if (!documento && tipoRepetible) setSeleccionId(vigente.id);
       solicitudGuardadoRef.current = null;
@@ -874,7 +902,9 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
     try {
       await congelarRevisionDocumento(documento.id, versionBorrador, motivo || null,
         1, PLANTILLA_CONTROLADA_VERSION, solicitud);
-      setRevisiones(await listarRevisionesDocumento(documento.id));
+      const conservadas=await listarRevisionesDocumento(documento.id);
+      setRevisiones(conservadas);
+      onDocumentoChange?.(documento,undefined,conservadas);
       setCorreccionAbierta(false);
       solicitudRevisionRef.current = null;
     } catch (error) {
@@ -915,6 +945,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
     setErrorEmision(null);
     try {
       const blob = await descargarCandidatoVerificado(candidato);
+      setVistaPreparada(false);
       setPdfBlobUrl(URL.createObjectURL(blob));
       setPdfVerificadoId(candidato.id);
     } catch (error) {
@@ -1020,12 +1051,51 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
       !window.confirm('Hay cambios sin guardar en este informe. ¿Querés descartarlos y cerrar?')) return;
     onClose();
   };
-  const pdfEmitidoPendiente = soloVistaPrevia && emisiones.length > 0 && !pdfBlobUrl;
+  const verificandoEstado = soloVistaPrevia && !!documento && estadoEmisionConsultado !== documento.id;
+  const pdfEmitidoPendiente = soloVistaPrevia && (emisiones.length > 0 || !!errorEmision) && !pdfBlobUrl;
+  const preparandoApertura = cargandoComentario || verificandoEstado || (!vistaPreparada && !errorBorrador && !(errorInforme && !htmlPreview) && !pdfEmitidoPendiente);
+  const accionesInforme = <>
+          {soloVistaPrevia ? <>
+            <span className={styles.avisoImpresion}>{emisiones.length && pdfBlobUrl ? 'Documento definitivo emitido.' : 'Vista previa de borrador; no equivale a un documento emitido.'}</span>
+            <button type="button" className={styles.btnCancelar} onClick={cerrarInforme}>Cerrar</button>
+          </> : <>
+          <span className={styles.avisoImpresion}>
+            {errorBorrador ?? errorInforme ?? (documento
+              ? `${documento.codigo} · borrador v${versionBorrador}${cambiosBorrador ? ' · cambios sin guardar' : ''}`
+              : 'Descargas de borrador. No son documentos emitidos ni aprobados.')}
+          </span>
+          {persistenciaDisponible && (
+            <button type="button" className={styles.btnSecondary} onClick={handleGuardarBorrador}
+              disabled={cargandoComentario || guardandoBorrador || (!cambiosBorrador && documento !== null)}>
+              {guardandoBorrador ? 'Guardando…' : 'Guardar borrador'}
+            </button>
+          )}
+          <button type="button" className={styles.btnCancelar} onClick={cerrarInforme}>
+            Cancelar
+          </button>
+          <button
+            type="button"
+            className={styles.btnSecondary}
+            onClick={handleExportarHTML}
+            disabled={!htmlPreview || generandoPreview}
+          >
+            Descargar HTML borrador
+          </button>
+          <button
+            type="button"
+            className={styles.btnPrimary}
+            onClick={handleExportarPDF}
+            disabled={!htmlPreview || generandoPreview}
+          >
+            Imprimir PDF borrador →
+          </button>
+          </>}
+  </>;
   return (
     <div className={styles.backdrop} onClick={cerrarInforme}>
-      <div className={`${styles.modal} ${soloVistaPrevia ? styles.modalPreviewOnly : ''} ${previewAmpliada ? styles.modalAmpliada : ''}`} onClick={e => e.stopPropagation()}>
+      <div className={`${styles.modal} ${soloVistaPrevia ? styles.modalPreviewOnly : ''} ${previewAmpliada ? styles.modalAmpliada : ''} ${preparandoApertura ? styles.preparando : ''}`} aria-busy={preparandoApertura} onClick={e => e.stopPropagation()}>
         {/* HEADER */}
-        <div className={styles.header}>
+        <div className={styles.header} hidden={previewAmpliada}>
           <div className={styles.title}>{soloVistaPrevia ? `Vista previa · ${cfg.titulo}` : cfg.titulo}</div>
           <span className={`${styles.badge} ${styles.badgeOT}`}>OT {orden.ot}</span>
           <span className={styles.badge}>
@@ -1046,7 +1116,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
         </div>
 
         {/* BODY */}
-        <div className={`${styles.body} ${soloVistaPrevia || previewAmpliada ? styles.bodyPreviewOnly : ''}`}>
+        <div className={`${styles.body} ${soloVistaPrevia || previewAmpliada ? styles.bodyPreviewOnly : ''}`} inert={preparandoApertura}>
           {/* IZQUIERDA */}
           {!soloVistaPrevia && <div className={styles.left} ref={editorRef} hidden={previewAmpliada}>
             {tipoRepetible && (
@@ -1381,7 +1451,9 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
               <div className={styles.emptyState}>{errorEmision || (candidatoEmitido ? 'Verificando el PDF emitido…' : 'No se encontró el archivo emitido.')}</div>
             ) : (pdfBlobUrl || htmlPreview) ? (
               <VistaPreviaDocumento key={`${orden.id}-${tipo}-${seleccionId ?? 'nuevo'}-${pdfBlobUrl ?? 'borrador'}`} html={htmlPreview} pdfUrl={pdfBlobUrl} soloLectura={soloVistaPrevia} ampliada={previewAmpliada}
-                onAmpliar={()=>setPreviewAmpliada(actual=>!actual)} />
+                onAmpliar={()=>setPreviewAmpliada(actual=>!actual)} onReady={vistaLista}
+                titulo={`${cfg.titulo} · ${orden.ot} · ${pdfBlobUrl ? (emisiones.length ? 'Emitido' : 'Candidato sin emitir') : 'Borrador'}`} acciones={<details ref={accionesRef} className={styles.previewActions}><summary>Acciones</summary><div>{pdfBlobUrl && <><a className={styles.btnSecondary} href={pdfBlobUrl} download={`${documento?.codigo ?? 'informe'}_${emisiones.length ? 'emitido' : 'candidato'}.pdf`}>Descargar PDF {emisiones.length ? 'emitido' : 'candidato'}</a><button type="button" className={styles.btnSecondary} onClick={()=>setPdfBlobUrl(null)}>Volver al borrador</button></>}{accionesInforme}</div></details>}
+                onCerrar={cerrarInforme} />
             ) : !generandoPreview ? (
               <div className={styles.emptyState}>Hacé clic en <b>Actualizar vista previa</b></div>
             ) : null}
@@ -1394,44 +1466,8 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
           </div>
         </div>
 
-        {/* FOOTER */}
-        <div className={styles.footer}>
-          {soloVistaPrevia ? <>
-            <span className={styles.avisoImpresion}>{emisiones.length && pdfBlobUrl ? 'Documento definitivo emitido.' : 'Vista previa de borrador; no equivale a un documento emitido.'}</span>
-            <button type="button" className={styles.btnCancelar} onClick={cerrarInforme}>Cerrar</button>
-          </> : <>
-          <span className={styles.avisoImpresion}>
-            {errorBorrador ?? errorInforme ?? (documento
-              ? `${documento.codigo} · borrador v${versionBorrador}${cambiosBorrador ? ' · cambios sin guardar' : ''}`
-              : 'Descargas de borrador. No son documentos emitidos ni aprobados.')}
-          </span>
-          {persistenciaDisponible && (
-            <button type="button" className={styles.btnSecondary} onClick={handleGuardarBorrador}
-              disabled={cargandoComentario || guardandoBorrador || (!cambiosBorrador && documento !== null)}>
-              {guardandoBorrador ? 'Guardando…' : 'Guardar borrador'}
-            </button>
-          )}
-          <button type="button" className={styles.btnCancelar} onClick={cerrarInforme}>
-            Cancelar
-          </button>
-          <button
-            type="button"
-            className={styles.btnSecondary}
-            onClick={handleExportarHTML}
-            disabled={!htmlPreview || generandoPreview}
-          >
-            Descargar HTML borrador
-          </button>
-          <button
-            type="button"
-            className={styles.btnPrimary}
-            onClick={handleExportarPDF}
-            disabled={!htmlPreview || generandoPreview}
-          >
-            Imprimir PDF borrador →
-          </button>
-          </>}
-        </div>
+        {preparandoApertura && <div className={styles.apertura} role="status"><span className={styles.spinner}/><span>{cargandoComentario ? 'Recuperando el informe guardado…' : verificandoEstado ? 'Verificando el estado documental…' : 'Preparando la primera página…'}</span></div>}
+        {!previewAmpliada && <div className={styles.footer} inert={preparandoApertura}>{accionesInforme}</div>}
       </div>
     </div>
   );

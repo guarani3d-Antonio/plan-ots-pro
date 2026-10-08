@@ -7,3 +7,8 @@
 .pages{display:flex;align-items:center;justify-content:space-between;gap:5px;flex:none}.pages span{font-size:12px;white-space:nowrap;color:var(--text-secondary,#596b86)}
 .note{font-size:10px;color:var(--text-secondary,#596b86);text-align:center}
 @media(pointer:coarse){.preview button,.preview select{min-height:44px}}
+.expanded{gap:3px}.expanded .toolbar{gap:6px;flex:none;min-height:36px;padding:0 4px}
+.expanded .toolbar>button{flex:none}.expanded .title{flex:1;min-width:140px;font-size:12px;color:var(--text-secondary);overflow-wrap:anywhere}
+.expanded .pages{gap:6px}.expanded .toolbar label{font-size:0}.expanded select{font-size:12px}
+.expanded .stage{padding:4px 10px}
+@media(max-width:800px){.expanded .title{flex-basis:calc(100% - 190px)}.expanded .toolbar{justify-content:space-between}}

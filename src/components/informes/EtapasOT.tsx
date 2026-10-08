@@ -13,7 +13,11 @@ import styles from './EtapasOT.module.css';
 
 interface Registro { doc:DocumentoRegistro|null; datos:Record<string,unknown>; version:number; dirty:boolean; revisiones:RevisionDocumento[]; historical:string; correcting:boolean; motivo:string; request:string; saveRequest:string }
 type Estado=Record<TipoDocumento,Registro>;
-export interface EtapasOTHandle { guardar:(orden:OrdenLocal)=>Promise<void>; documento:(tipo:TipoDocumento)=>string|undefined }
+export interface EtapasOTHandle {
+ guardar:(orden:OrdenLocal)=>Promise<void>;
+ documento:(tipo:TipoDocumento)=>string|undefined;
+ actualizarDocumento:(doc:DocumentoRegistro,borrador?:{datos:Record<string,unknown>;version:number},revisiones?:RevisionDocumento[])=>void;
+}
 interface Props { orden:OrdenLocal; cliente?:ClienteInforme|null; proyectoNombre:string; disabled:boolean; puedeRevisar:boolean; onDirty:(dirty:boolean)=>void; onPreview:(tipo:TipoDocumento)=>void; onOrigen?:(datos:Record<string,unknown>)=>void; onFechasReales:(inicio:string,fin:string)=>void; solicitud:ReactNode; ejecucion:ReactNode; refresh:number }
 const vacio=():Registro=>({doc:null,datos:{},version:0,dirty:false,revisiones:[],historical:'',correcting:false,motivo:'',request:crypto.randomUUID(),saveRequest:crypto.randomUUID()});
 
@@ -67,7 +71,18 @@ export const EtapasOT=forwardRef<EtapasOTHandle,Props>(function EtapasOT({orden,
    setDocumentos(prev=>prev.some(d=>d.id===doc.id)?prev:[...prev,doc]);
   }
  };
- useImperativeHandle(ref,()=>({guardar,documento:tipo=>stateRef.current[tipo].doc?.id}));
+ useImperativeHandle(ref,()=>({guardar,documento:tipo=>stateRef.current[tipo].doc?.id,
+  actualizarDocumento:(doc,borrador,revisiones)=>{
+   if(doc.orden_id!==orden.id||doc.ciclo!==1)return;
+   setDocumentos(prev=>prev.some(d=>d.id===doc.id)?prev:[...prev,doc]);
+   const r=stateRef.current[doc.tipo];if(r.dirty)return;
+   const same=r.doc?.id===doc.id;
+   patch(doc.tipo,{...(same?{}:vacio()),doc,
+    ...(borrador?{datos:borrador.datos,version:borrador.version,dirty:false,correcting:false}:{}),
+    ...(revisiones?{revisiones}:{}),
+   });
+  }
+ }));
  const run=async(action:()=>Promise<void>)=>{if(lock.current)return;lock.current=true;setBusy(true);setError('');try{await action()}catch(e){if(alive.current)setError(e instanceof Error?e.message:'No se pudo completar la operación.')}finally{lock.current=false;if(alive.current)setBusy(false)}};
  const cambiar=async(tipo:TipoDocumento,id:string)=>{const r=stateRef.current[tipo];if(r.dirty)return;
   if(id==='nuevo'){patch(tipo,{...vacio(),dirty:true});return}
