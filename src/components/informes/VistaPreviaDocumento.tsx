@@ -20,18 +20,27 @@ export function VistaPreviaDocumento({ html, pdfUrl, ampliada, onAmpliar, soloLe
   useEffect(() => {
     const host = stage.current;
     if (!host) return;
-    const medir = () => { setAncho(Math.max(1, host.clientWidth - 20)); setAlto(Math.max(1, host.clientHeight - 20)); };
+    let animation = 0;
+    const medir = () => {
+      const width = Math.max(1, host.clientWidth - 20);
+      const height = Math.max(1, host.clientHeight - 20);
+      setAncho(actual => actual === width ? actual : width);
+      setAlto(actual => actual === height ? actual : height);
+    };
     medir();
-    const observer = new ResizeObserver(medir);
+    // React layout writes must run after ResizeObserver delivery, not inside it.
+    const observer = new ResizeObserver(() => {
+      cancelAnimationFrame(animation);
+      animation = requestAnimationFrame(medir);
+    });
     observer.observe(host);
-    return () => observer.disconnect();
+    return () => { observer.disconnect(); cancelAnimationFrame(animation); };
   }, []);
 
   useEffect(() => {
     const frame = iframe.current;
     if (!frame || pdfUrl || !html) return;
     let disposed = false;
-    let observer: ResizeObserver | undefined;
     let animation = 0;
     const medir = () => {
       if (disposed || !frame.contentDocument) return;
@@ -42,23 +51,21 @@ export function VistaPreviaDocumento({ html, pdfUrl, ampliada, onAmpliar, soloLe
       mostrarPaginaInforme(frame.contentDocument, actual);
     };
     const cargar = async () => {
-      observer?.disconnect();
       const doc = frame.contentDocument;
       if (!doc?.body) return;
       prepararPaginacionInforme(doc);
       await doc.fonts.ready;
       if (disposed) return;
-      medir();
-      observer = new ResizeObserver(() => { cancelAnimationFrame(animation); animation = requestAnimationFrame(medir); });
-      const flow = doc.getElementById('report-preview-flow');
-      if (flow) { observer.observe(flow); Array.from(flow.children).forEach(child => observer!.observe(child)); }
+      // The document has fixed A4 dimensions and changes only through srcDoc.
+      // Observe neither its fragmented columns nor their transformed rectangles.
+      animation = requestAnimationFrame(medir);
       doc.querySelectorAll('img').forEach(img => {
         if (!img.complete) img.addEventListener('load', medir, {once:true});
       });
     };
     frame.addEventListener('load', cargar);
     if (frame.contentDocument?.readyState === 'complete') void cargar();
-    return () => { disposed = true; frame.removeEventListener('load', cargar); observer?.disconnect(); cancelAnimationFrame(animation); };
+    return () => { disposed = true; frame.removeEventListener('load', cargar); cancelAnimationFrame(animation); };
   }, [html, pdfUrl]);
 
   useEffect(() => {

@@ -626,3 +626,6 @@
 
 .modal.modalAmpliada{width:min(1440px,calc(100vw - 24px))}
 @media(max-width:650px){.modal.modalAmpliada{width:100vw}}
+/* Refreshing a draft must not intercept the always available preview controls. */
+.overlay{inset:auto 10px 65px auto;padding:4px 7px;border-radius:6px;pointer-events:none;backdrop-filter:none;-webkit-backdrop-filter:none;font-size:11px;gap:6px}
+.overlay .spinner{width:14px;height:14px}
