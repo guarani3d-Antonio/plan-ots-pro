@@ -1,0 +1,9 @@
+.preview{display:flex;flex-direction:column;flex:1;min-height:0;min-width:0;width:100%;gap:7px}
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.toolbar>button{flex:1}.toolbar label{display:flex;align-items:center;gap:6px;font-size:12px}
+.preview button,.preview select{border:1px solid var(--border-default,#dbe3ef);border-radius:7px;background:var(--bg-surface,#fff);color:var(--accent,#3b599b);padding:6px 9px;min-height:32px;font-size:12px;font-weight:600;cursor:pointer;max-width:100%;white-space:normal}
+.preview button:disabled{opacity:.45;cursor:default}.preview button:focus-visible{outline:2px solid var(--accent,#3b599b);outline-offset:2px}
+.stage{flex:1;min-height:0;min-width:0;overflow:auto;display:flex;align-items:flex-start;justify-content:center;padding:10px;background:var(--bg-app,#f1f5fa);border-radius:6px}
+.sheet{flex:none;position:relative;background:white;box-shadow:0 2px 8px #17243a26;overflow:hidden}.sheet iframe{position:absolute;top:0;left:0;width:794px;height:1123px;transform-origin:top left;border:0;pointer-events:none}
+.pages{display:flex;align-items:center;justify-content:space-between;gap:5px;flex:none}.pages span{font-size:12px;white-space:nowrap;color:var(--text-secondary,#596b86)}
+.note{font-size:10px;color:var(--text-secondary,#596b86);text-align:center}
+@media(pointer:coarse){.preview button,.preview select{min-height:44px}}

@@ -1,0 +1,27 @@
+<!doctype html><html lang="es"><meta charset="utf-8"><title>Prueba de paginación de informes</title><body><h1>Paginación de informes · prueba local</h1><pre id="results">Preparando…</pre><div id="fixtures"></div><script type="module">
+import {prepararPaginacionInforme,contarPaginasInforme,mostrarPaginaInforme} from '/src/services/reportPreviewPagination.ts';
+import {generarInformeRelevamiento} from '/src/services/reportService.ts';
+const files=['orden-servicio-borrador','visita-borrador','relevamiento-borrador','avance-borrador','cierre-8-fotos','acta-borrador','encuesta-borrador','relevamiento-8-fotos-portable'];
+const ot={ot:'OT-QA',obra:'Obra QA',unidad_amenities:'1041',estado:'En proceso',rubro:'Albañilería',campos:{}};
+const long=generarInformeRelevamiento(ot,'Comprobación extensa con datos técnicos y referencias. '.repeat(500),[],{hallazgos:'Evidencia detallada. '.repeat(300),pruebas:'Medición registrada.'},undefined,Array.from({length:100},(_,i)=>({id:`A-${i+1}`,trabajo:`Actividad ${i+1}: verificar las condiciones.`,rubro:'Albañilería',profesional:'Técnico QA',criterio:'Resultado verificable.'})));
+const fixtures=await Promise.all(files.map(async f=>[f,await(await fetch(`/tmp/report-layout/${f}.html`)).text()]));fixtures.push(['texto-largo-100-actividades',long]);
+const results=[];
+for(const [name,html] of fixtures){
+ const frame=document.createElement('iframe');frame.style.cssText='width:794px;height:1123px;border:0;position:absolute;left:-10000px';document.querySelector('#fixtures').append(frame);
+ const loaded=new Promise(resolve=>frame.onload=resolve);frame.srcdoc=html;await loaded;
+ const d=frame.contentDocument;await d.fonts.ready;await Promise.all([...d.images].map(i=>i.decode().catch(()=>{})));
+ const original=d.body.textContent;prepararPaginacionInforme(d);const flow=d.querySelector('#report-preview-flow');
+ const pages=contarPaginasInforme(d);const mismatches=[];
+ if(flow.textContent!==original)mismatches.push('Texto alterado');
+ const walker=d.createTreeWalker(flow,NodeFilter.SHOW_TEXT);let n,rects=0;
+ while(n=walker.nextNode()){
+  if(!n.textContent.trim())continue;const range=d.createRange();range.selectNodeContents(n);
+  for(const r of range.getClientRects()){if(!r.width||!r.height)continue;rects++;if(r.top<48||r.bottom>1068)mismatches.push(`Texto fuera de hoja: ${n.textContent.slice(0,35)} / ${r.top}-${r.bottom}`);if(r.right>56.69+pages*794)mismatches.push('Página fuera del contador');}
+ }
+ for(let p=1;p<=pages;p++){mostrarPaginaInforme(d,p);if(contarPaginasInforme(d)!==pages)mismatches.push('Contador cambió al navegar');}
+ if(flow.textContent!==original)mismatches.push('Contenido alterado al navegar');
+ results.push({name,pages,rects,ok:!mismatches.length,errors:mismatches.slice(0,5)});frame.remove();
+ document.querySelector('#results').textContent=JSON.stringify(results,null,2);
+}
+const done=document.createElement('strong');done.textContent=results.every(r=>r.ok)?'PASS: todos los informes conservan contenido y navegan sin recorte':'FAIL: revisar resultados';document.body.append(done);
+</script></body></html>

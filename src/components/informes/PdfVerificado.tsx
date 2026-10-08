@@ -4,63 +4,54 @@ import * as pdfjs from 'pdfjs-dist';
 pdfjs.GlobalWorkerOptions.workerSrc =
   'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-/** Uses the already verified blob; no native PDF plugin or second server download. */
-export function PdfVerificado({url}: {url: string}) {
-  const container = useRef<HTMLDivElement>(null);
-  const [estado, setEstado] = useState('Preparando páginas del PDF…');
+/** Renders one page of the already verified blob, without a second server download. */
+export function PdfVerificado({url, pagina, onPaginas, ancho, alto}: {
+  url:string; pagina:number; onPaginas:(n:number)=>void; ancho:number; alto:number;
+}) {
+  const canvas = useRef<HTMLCanvasElement>(null);
+  const rendering = useRef<Promise<unknown>>(Promise.resolve());
+  const [pdf, setPdf] = useState<pdfjs.PDFDocumentProxy | null>(null);
+  const [estado, setEstado] = useState('Preparando PDF…');
   useEffect(() => {
-    const host = container.current;
-    if (!host) return;
     let disposed = false;
-    const observers: IntersectionObserver[] = [];
-    const tasks = new Set<pdfjs.RenderTask>();
-    const loading = pdfjs.getDocument({url, isEvalSupported: false, disableRange: true, disableStream: true});
-    setEstado('Preparando páginas del PDF…');
-    host.replaceChildren();
+    onPaginas(0);
+    const loading = pdfjs.getDocument({url, isEvalSupported:false, disableRange:true, disableStream:true});
+    void loading.promise.then(documento => {
+      if (disposed) return;
+      setPdf(documento); onPaginas(documento.numPages);
+    }).catch(() => { if (!disposed) setEstado('No se pudo mostrar el PDF. Podés descargar el archivo verificado.'); });
+    return () => { disposed = true; void loading.destroy().catch(() => undefined); };
+  }, [url, onPaginas]);
+
+  useEffect(() => {
+    if (!pdf || !canvas.current) return;
+    let disposed = false;
+    let task:pdfjs.RenderTask | undefined;
+    const target = canvas.current;
+    target.style.visibility = 'hidden';
     void (async () => {
       try {
-        const pdf = await loading.promise;
-        for (let number = 1; number <= pdf.numPages; number++) {
-          if (disposed) return;
-          const page = await pdf.getPage(number);
-          if (disposed) return;
-          const base = page.getViewport({scale: 1});
-          const canvas = document.createElement('canvas');
-          canvas.setAttribute('role', 'img');
-          canvas.setAttribute('aria-label', `Página ${number} de ${pdf.numPages} del PDF verificado`);
-          canvas.style.cssText = `display:block;width:100%;height:auto;aspect-ratio:${base.width}/${base.height};margin-bottom:12px;background:white;border:1px solid #dce2ea;`;
-          // Reserve the exact page proportion without allocating a full bitmap yet.
-          canvas.width = 1; canvas.height = 1;
-          host.append(canvas);
-          const observer = new IntersectionObserver(entries => {
-            if (disposed || !entries.some(entry => entry.isIntersecting)) return;
-            observer.disconnect();
-            const viewport = page.getViewport({scale: Math.min(1200, Math.max(600, host.clientWidth * Math.min(devicePixelRatio, 2))) / base.width});
-            canvas.width = Math.ceil(viewport.width); canvas.height = Math.ceil(viewport.height);
-            const context = canvas.getContext('2d');
-            if (!context) {setEstado('No se pudo mostrar una página. Descargá el PDF para revisarla.');return;}
-            const task = page.render({canvasContext: context, viewport}); tasks.add(task);
-            void task.promise.catch(() => {
-              if (!disposed) setEstado('No se pudo mostrar una página. Descargá el PDF para revisarla.');
-            }).finally(() => {tasks.delete(task);page.cleanup();});
-          }, {rootMargin: '300px'});
-          observers.push(observer); observer.observe(canvas);
-        }
-        if (!disposed) setEstado(`${pdf.numPages} página${pdf.numPages === 1 ? '' : 's'} · PDF verificado`);
-      } catch {
-        if (!disposed) setEstado('No se pudo mostrar el PDF. Podés descargar el archivo verificado.');
-      }
+        await rendering.current.catch(() => undefined);
+        if (disposed) return;
+        setEstado('Preparando página…');
+        const page = await pdf.getPage(Math.min(pagina, pdf.numPages));
+        if (disposed) return;
+        const base = page.getViewport({scale:1});
+        const scale = Math.min(ancho/base.width, alto/base.height);
+        const viewport = page.getViewport({scale:scale*Math.min(devicePixelRatio,2)});
+        target.width = Math.ceil(viewport.width); target.height = Math.ceil(viewport.height);
+        target.style.width = `${base.width*scale}px`; target.style.height = `${base.height*scale}px`;
+        const context = target.getContext('2d');
+        if (!context) throw new Error('Canvas unavailable');
+        task = page.render({canvasContext:context,viewport}); rendering.current = task.promise; await task.promise;
+        if (!disposed) { target.style.visibility = 'visible'; setEstado(''); }
+      } catch { if (!disposed) setEstado('No se pudo mostrar esta página. Descargá el PDF para revisarla.'); }
     })();
-    return () => {
-      disposed = true;
-      observers.forEach(observer => observer.disconnect());
-      tasks.forEach(task => task.cancel());
-      void loading.destroy().catch(() => undefined);
-      host.replaceChildren();
-    };
-  }, [url]);
-  return <div aria-label="Páginas del PDF verificado" style={{width:'100%', minWidth:0}}>
-    <p role="status" style={{fontSize:12, margin:'8px 0', color:'var(--text-secondary)'}}>{estado}</p>
-    <div ref={container} />
+    return () => { disposed = true; task?.cancel(); };
+  }, [pdf,pagina,ancho,alto]);
+  return <div style={{position:'relative',flex:'none',maxWidth:'100%'}}>
+    {estado && <p role="status" style={{fontSize:12,margin:8,color:'var(--text-secondary)'}}>{estado}</p>}
+    <canvas ref={canvas} role="img" aria-label={`Página ${pagina} de ${pdf?.numPages ?? '…'} del PDF verificado`}
+      style={{display:'block',background:'white',boxShadow:'0 2px 8px #17243a26'}} />
   </div>;
 }

@@ -65,11 +65,11 @@ assert.doesNotMatch(relevamiento, /Solicitud original\./);
 const relevamientoConItems = reports.generarInformeRelevamiento(orden, '', [], {
   alcance: '', criterios: '', exclusiones: '',
 }, undefined, [
-  { id: 'A-01', trabajo: 'Reemplazar filtro', criterio: 'Presión estable: 3 bar' },
+  { id: 'A-01', trabajo: 'Reemplazar filtro', rubro: 'Climatización', profesional: 'Técnico HVAC', criterio: 'Presión estable: 3 bar' },
   { id: 'A-02', trabajo: '<Verificar fuga>', criterio: 'Sin pérdida visible' },
 ]);
 assert.match(relevamientoConItems, /<table class="report-data-table">/);
-assert.match(relevamientoConItems, /A-01<\/td><td id="rel-item-0-trabajo">Reemplazar filtro<\/td><td id="rel-item-0-criterio">Presión estable: 3 bar/);
+assert.match(relevamientoConItems, /A-01<\/td><td id="rel-item-0-trabajo">Reemplazar filtro<\/td><td>Climatización<br\/>Técnico HVAC<\/td><td id="rel-item-0-criterio">Presión estable: 3 bar/);
 assert.match(relevamientoConItems, /&lt;Verificar fuga&gt;/);
 assert.doesNotMatch(relevamientoConItems, /<td><Verificar fuga><\/td>/);
 const apertura = reports.generarInformeOrdenServicio(orden, 'Aclaración posterior.');

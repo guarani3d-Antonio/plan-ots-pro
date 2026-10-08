@@ -2,24 +2,23 @@ import { EtapaCampos } from './EtapaCampos';
 import { camposVacios, TIPOS_CON_PLANO, ETAPAS_OT, validarEtapa } from '../../services/otStageSchema';
 import TooltipAyuda from '../ayuda/TooltipAyuda';
 import { CampoTextoInforme } from './CampoTextoInforme';
-import { PdfVerificado } from './PdfVerificado';
+import { VistaPreviaDocumento } from './VistaPreviaDocumento';
 import { registrarExportacion } from '../../services/trustService';
 import { borradorModificado } from '../../services/reportDraftComparison';
 // src/components/informes/ModalInformeOT.tsx
 //
 // Modal fullscreen para previsualizar/exportar los siete borradores de una OT.
 //
-// Layout: panel izquierdo (datos read-only + observaciones editable + opciones),
-// panel derecho (iframe srcdoc con el HTML generado).
+// Layout: editor principal con pestañas y página A4 navegable a la derecha.
+// Ampliar conserva el formulario montado y todos sus datos.
 //
 // Precarga campos de la OT y fuentes vinculadas; las ediciones se conservan
 // en el borrador. No convierte notas ni estados en aprobaciones o firmas.
 // Las fotos se muestran solo en la fase que corresponde a su categoría.
 //
 // Estrategia de actualización del preview:
-// - Tipeo en observaciones → parche del bloque editable del iframe.
-// - Cambio de opciones (incluirFotos), carga inicial, cambio de OT/tipo → regen
-//   completa del HTML y reload del iframe via srcDoc.
+// - Cambios de campos, fotos y opciones reconstruyen el HTML con el renderizador
+//   original; la paginación visual no modifica exportaciones ni revisiones.
 //
 // S33: FotoMin incluye descripcion_observacion (campo del EditorFoto).
 //      Los tres mapeos de fotos ahora pasan ese campo al generador de informes.
@@ -362,7 +361,6 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
   const cfg = TIPO_CFG[tipo];
   const necesitaFotos =
     cfg.necesitaFotosAntes || cfg.necesitaFotosDespues || cfg.necesitaFotosDurante;
-  const muestraTextarea = cfg.labelTextarea !== null;
 
   const [observaciones, setObservaciones] = useState('');
   const [identificacion, setIdentificacion] = useState<IdentificacionInforme>(() => prepararAutocompletado(orden, proyectoNombre).identificacion);
@@ -418,70 +416,18 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
 
   const firstRenderRef = useRef(true);
   const prevIncluirFotosRef = useRef(incluirFotos);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-  const previewRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<HTMLDivElement>(null);
-  const [previewAncho, setPreviewAncho] = useState(794);
-  const [previewAlto, setPreviewAlto] = useState(1123);
+  const [editorTab, setEditorTab] = useState<'datos' | 'texto' | 'fotos' | 'revision'>('texto');
+  const [previewAmpliada, setPreviewAmpliada] = useState(false);
 
   useEffect(() => {
-    if (!isOpen || !previewRef.current) return;
-    const panel = previewRef.current;
-    let frame = 0;
-    const medir = () => {
-      const ancho = Math.max(1, panel.clientWidth - 48);
-      setPreviewAncho(actual => actual === ancho ? actual : ancho);
+    if (!isOpen) return;
+    const escape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && previewAmpliada) { e.stopPropagation(); setPreviewAmpliada(false); }
     };
-    medir();
-    const observer = new ResizeObserver(() => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(medir);
-    });
-    observer.observe(panel);
-    return () => {
-      observer.disconnect();
-      cancelAnimationFrame(frame);
-    };
-  }, [isOpen]);
-
-  useEffect(() => {
-    if (!htmlPreview || !iframeRef.current) return;
-    const iframe = iframeRef.current;
-    let observer: ResizeObserver | undefined;
-    let frame = 0;
-    const medir = () => {
-      const doc = iframe.contentDocument;
-      if (!doc?.body) return;
-      const origen = doc.body.getBoundingClientRect().top;
-      const altoContenido = Array.from(doc.body.children).reduce((alto, elemento) => {
-        const rect = elemento.getBoundingClientRect();
-        return Math.max(alto, rect.bottom - origen);
-      }, 0);
-      const alto = Math.max(1123, Math.ceil(altoContenido + 8));
-      setPreviewAlto(actual => actual === alto ? actual : alto);
-    };
-    const alCargar = () => {
-      observer?.disconnect();
-      const doc = iframe.contentDocument;
-      if (!doc) return;
-      medir();
-      observer = new ResizeObserver(() => {
-        cancelAnimationFrame(frame);
-        frame = requestAnimationFrame(medir);
-      });
-      observer.observe(doc.documentElement);
-      if (doc.body) observer.observe(doc.body);
-    };
-    iframe.addEventListener('load', alCargar);
-    if (iframe.contentDocument?.readyState === 'complete') alCargar();
-    return () => {
-      iframe.removeEventListener('load', alCargar);
-      observer?.disconnect();
-      cancelAnimationFrame(frame);
-    };
-  }, [htmlPreview]);
-
-  const escalaPreview = Math.min(1, previewAncho / 794);
+    document.addEventListener('keydown', escape, true);
+    return () => document.removeEventListener('keydown', escape, true);
+  }, [isOpen, previewAmpliada]);
 
   // Reset de flags al cambiar de OT o tipo
   useEffect(() => {
@@ -489,7 +435,8 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
     // Restablece el editor cuando cambia la identidad de la OT.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setHtmlPreview('');
-    setPreviewAlto(1123);
+    setEditorTab('texto');
+    setPreviewAmpliada(false);
     setObservaciones('');
     setIdentificacion(prepararAutocompletado(orden, proyectoNombre).identificacion);
     setAvisoFuentes('');
@@ -773,7 +720,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
           if (cancelado) return;
           console.error('[Informe] No se pudo preparar la vista previa', error);
           setHtmlPreview('');
-          setErrorInforme('No se pudo preparar el informe. Podés reintentar con «Actualizar preview» o cerrar y volver a la OT.');
+          setErrorInforme('No se pudo preparar el informe. Podés reintentar con «Actualizar vista previa» o cerrar y volver a la OT.');
         })
         .finally(() => { if (!cancelado) setGenerandoPreview(false); });
     }, delay);
@@ -781,7 +728,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
       cancelado = true;
       window.clearTimeout(t);
     };
-    // `observaciones` fuera de deps a propósito — se parchea el DOM directamente
+    // Todos los campos reconstruyen la vista previa con el mismo renderizador del informe.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     isOpen,
@@ -1076,7 +1023,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
   const pdfEmitidoPendiente = soloVistaPrevia && emisiones.length > 0 && !pdfBlobUrl;
   return (
     <div className={styles.backdrop} onClick={cerrarInforme}>
-      <div className={`${styles.modal} ${soloVistaPrevia ? styles.modalPreviewOnly : ''}`} onClick={e => e.stopPropagation()}>
+      <div className={`${styles.modal} ${soloVistaPrevia ? styles.modalPreviewOnly : ''} ${previewAmpliada ? styles.modalAmpliada : ''}`} onClick={e => e.stopPropagation()}>
         {/* HEADER */}
         <div className={styles.header}>
           <div className={styles.title}>{soloVistaPrevia ? `Vista previa · ${cfg.titulo}` : cfg.titulo}</div>
@@ -1098,21 +1045,14 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
           </button>
         </div>
 
-        {!soloVistaPrevia && <nav className={styles.quickNav} aria-label="Navegación del informe">
-          <button type="button" onClick={() => editorRef.current?.scrollTo({ top: 0, behavior: 'smooth' })}>Datos</button>
-          {muestraTextarea && <button type="button" onClick={() => editorRef.current?.querySelector('[data-report-section="texto"]')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>Texto</button>}
-          {necesitaFotos && <button type="button" onClick={() => editorRef.current?.querySelector('[data-report-section="fotos"]')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>Fotos</button>}
-          <button type="button" onClick={() => previewRef.current?.scrollTo({ top: 0, behavior: 'smooth' })}>Inicio de la vista previa</button>
-        </nav>}
-
         {/* BODY */}
-        <div className={`${styles.body} ${soloVistaPrevia ? styles.bodyPreviewOnly : ''}`}>
+        <div className={`${styles.body} ${soloVistaPrevia || previewAmpliada ? styles.bodyPreviewOnly : ''}`}>
           {/* IZQUIERDA */}
-          {!soloVistaPrevia && <div className={styles.left} ref={editorRef}>
+          {!soloVistaPrevia && <div className={styles.left} ref={editorRef} hidden={previewAmpliada}>
             {tipoRepetible && (
               <div className={styles.section}>
                 <label className={styles.originField}>
-                  <span>{ETAPAS_OT.find(e=>e.tipo===tipo)?.name}</span>
+                  <span>Documento</span>
                   <select value={seleccionId ?? documento?.id ?? 'nuevo'}
                     onChange={e => {
                       if (e.target.value === 'continuar') cambiarDocumento(documento?.id ?? documentosTipo[0]?.id ?? 'nuevo');
@@ -1136,6 +1076,16 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                 )}
               </div>
             )}
+            <nav className={styles.editorTabs} aria-label="Edición del informe">
+              {([['datos','Datos'],['texto','Texto'],['fotos','Fotos y plano'],['revision','Revisión']] as const).map(([id,label]) =>
+                <button type="button" key={id} aria-pressed={editorTab===id} onClick={()=>{setEditorTab(id);editorRef.current?.scrollTo({top:0});}}>{label}</button>)}
+            </nav>
+            <div className={styles.identitySummary}>
+              <span><strong>Obra</strong> {identificacion.obra || proyectoNombre}</span>
+              <span><strong>Unidad</strong> {identificacion.unidad_amenities || '—'}</span>
+              <span><strong>Cliente</strong> {identificacion.cliente || '—'}</span>
+            </div>
+            <div hidden={editorTab !== 'datos'} className={styles.tabContent}>
             <div className={styles.section}>
               <div className={styles.sectionTitle}>Datos</div>
               <div className={styles.dataGrid}>
@@ -1152,11 +1102,14 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                 <button type="button" className={styles.btnSecondary} onClick={() => void reintentarPlano()} disabled={cargandoComentario}>Reintentar plano</button>
               </div>}
               {TIPOS_CON_PLANO.includes(tipo) && !planoRequerido && <p className={styles.sublabel}>Esta OT no tiene un punto ubicado en el plano; el informe no mostrará un recorte hasta que la ubiquen.</p>}
+              <div className={styles.originGrid}>
+                {CAMPOS_IDENTIFICACION.filter(([clave])=>['obra','unidad_amenities','cliente','contacto','telefono','correo'].includes(clave)).map(([clave,etiqueta])=><CampoTextoInforme key={clave} etiqueta={etiqueta} value={identificacion[clave]} disabled={camposBloqueados} onChange={value=>setIdentificacion(actual=>({...actual,[clave]:value}))} />)}
+              </div>
               <details>
-                <summary>Ver y editar datos de identificación</summary>
+                <summary>Documento, direcciones y otros datos de identificación</summary>
                 <div className={styles.originGrid}>
-                  {CAMPOS_IDENTIFICACION.map(([clave, etiqueta]) => <CampoTextoInforme key={clave} etiqueta={etiqueta} multiline={clave === 'descripcion'} rows={3} value={identificacion[clave]} disabled={camposBloqueados}
-                      onChange={value => setIdentificacion(actual => ({ ...actual, [clave]: value }))} placeholder="No registrado"  />)}
+                  {CAMPOS_IDENTIFICACION.filter(([clave])=>!['obra','unidad_amenities','cliente','contacto','telefono','correo'].includes(clave)).map(([clave, etiqueta]) => <CampoTextoInforme key={clave} etiqueta={etiqueta} multiline={clave === 'descripcion'} rows={4} value={identificacion[clave]} disabled={camposBloqueados}
+                      onChange={value => setIdentificacion(actual => ({ ...actual, [clave]: value }))} placeholder="No registrado" />)}
                 </div>
               </details>
               <button type="button" className={styles.btnSecondary} disabled={camposBloqueados} onClick={() => {
@@ -1187,6 +1140,8 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                 )}
               </div>
             </div>
+            </div>
+            <div hidden={editorTab !== 'revision'} className={styles.tabContent}>
             {documento && (
               <section className={styles.section} aria-label="Revisiones de datos">
                 <div className={styles.sectionTitle}>Revisiones de datos</div>
@@ -1207,7 +1162,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                 {puedeRevisar && versionBorrador > 0 && !revisionActual && (
                   <>
                     {revisiones.length > 0 && (
-                      <CampoTextoInforme etiqueta="Motivo de la versión corregida" multiline value={motivoRevision} maxLength={500}
+                      <CampoTextoInforme etiqueta="Motivo de la versión corregida" multiline rows={4} value={motivoRevision} maxLength={500}
                         onChange={setMotivoRevision} placeholder="Explicá qué se corrigió respecto de la revisión anterior" />
                     )}
                     <button type="button" className={styles.btnSecondary}
@@ -1218,7 +1173,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                     </button>
                   </>
                 )}
-                {revisionActual && correccionAbierta && <CampoTextoInforme etiqueta="Motivo de la versión corregida" multiline value={motivoRevision} onChange={setMotivoRevision}/>}
+                {revisionActual && correccionAbierta && <CampoTextoInforme etiqueta="Motivo de la versión corregida" multiline rows={4} value={motivoRevision} onChange={setMotivoRevision}/>}
                 {revisionActual && <div><button type="button" className={styles.btnSecondary} disabled={!puedeRevisar||cargandoComentario||guardandoBorrador||correccionAbierta} onClick={()=>{setMotivoRevision('');setCorreccionAbierta(true);}}>Crear versión corregida</button><TooltipAyuda titulo="Crear versión corregida" texto="Corrige este mismo documento y conserva la versión anterior. Registrá el motivo y guardá los cambios antes de preparar otro PDF."/></div>}
                 {revisionActual && <p className={styles.sublabel}>Esta versión del borrador quedó congelada como R{String(revisionActual.revision).padStart(2, '0')}.</p>}
               </section>
@@ -1292,7 +1247,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                               <button type="button" className={styles.btnPrimary}
                                 onClick={() => handleRevisarPdf(candidatoEmitible, 'aprobado')}
                                 disabled={procesandoDocumento || cambiosBorrador || !revisionActual || candidatoEmitible.solicitado_por === usuarioId}>Aprobar este PDF</button>
-                              <CampoTextoInforme etiqueta="Motivo si hay observaciones" multiline value={motivoObservacion}
+                              <CampoTextoInforme etiqueta="Motivo si hay observaciones" multiline rows={4} value={motivoObservacion}
                                 maxLength={1000} onChange={setMotivoObservacion} />
                               <button type="button" className={styles.btnSecondary}
                                 onClick={() => handleRevisarPdf(candidatoEmitible, 'observado')}
@@ -1320,7 +1275,10 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
               </section>
             )}
 
-            <EtapaCampos tipo={tipo} datos={datosBorrador} disabled={camposBloqueados}
+            {!documento && <p className={styles.sublabel}>Guardá el borrador para consultar sus revisiones y preparar el PDF controlado.</p>}
+            </div>
+            <div hidden={editorTab !== 'texto'} className={styles.tabContent}>
+            <EtapaCampos compact tipo={tipo} datos={datosBorrador} disabled={camposBloqueados}
               onChange={d=>{
                 setObservaciones(String(d.observaciones??''));
                 if(d.origen)setOrigenServicio(d.origen as OrigenOrdenServicio);
@@ -1335,6 +1293,13 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                 if(d.itemsCierre)setItemsCierre(d.itemsCierre as ItemCierre[]);
               }}/>
 
+            </div>
+            <div hidden={editorTab !== 'fotos'} className={styles.tabContent}>
+            {TIPOS_CON_PLANO.includes(tipo) && <section className={styles.section}>
+              <div className={styles.sectionTitle}>Ubicación en el plano</div>
+              {planoContexto?.imagen ? <img className={styles.planPreview} src={planoContexto.imagen} alt="Ubicación de la OT en el plano" /> : <p className={styles.sublabel}>{avisoPlano || 'La referencia del plano se incorpora automáticamente cuando la OT está ubicada.'}</p>}
+            </section>}
+            {!necesitaFotos && !TIPOS_CON_PLANO.includes(tipo) && <p className={styles.sublabel}>Este documento no incluye fotografías ni plano.</p>}
             {necesitaFotos && (
               <div className={styles.section} data-report-section="fotos">
                 <div className={styles.sectionTitle}>Opciones</div>
@@ -1383,6 +1348,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
               </div>
             )}
 
+            </div>
             <div className={styles.section}>
               <button
                 type="button"
@@ -1390,13 +1356,13 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                 onClick={handleActualizarAhora}
                 disabled={cargandoComentario || generandoPreview}
               >
-                Actualizar preview
+                Actualizar vista previa
               </button>
             </div>
           </div>}
 
           {/* DERECHA */}
-          <div className={styles.right} ref={previewRef}>
+          <div className={styles.right}>
             <div className={styles.previewHeading}>
               {pdfBlobUrl ? (emisiones.length ? 'PDF emitido verificado' : 'PDF candidato verificado · aún no emitido')
                 : pdfEmitidoPendiente ? 'PDF emitido · verificando archivo' : 'Vista previa del borrador'}
@@ -1411,27 +1377,13 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                 <button type="button" className={styles.btnSecondary} onClick={() => setPdfBlobUrl(null)}>Volver al borrador</button>
               </div>}
             </div>
-            {pdfBlobUrl ? (
-              <PdfVerificado url={pdfBlobUrl} />
-            ) : pdfEmitidoPendiente ? (
+            {pdfEmitidoPendiente ? (
               <div className={styles.emptyState}>{errorEmision || (candidatoEmitido ? 'Verificando el PDF emitido…' : 'No se encontró el archivo emitido.')}</div>
-            ) : htmlPreview ? (
-              <div className={styles.previewSheet} style={{ width: 794 * escalaPreview, height: previewAlto * escalaPreview }}>
-                <iframe
-                  key={`${orden.id}-${tipo}`}
-                  ref={iframeRef}
-                  className={styles.iframe}
-                  style={{ height: previewAlto, transform: `scale(${escalaPreview})` }}
-                  srcDoc={htmlPreview}
-                  sandbox="allow-same-origin"
-                  scrolling="no"
-                  title="Vista previa del informe"
-                />
-              </div>
+            ) : (pdfBlobUrl || htmlPreview) ? (
+              <VistaPreviaDocumento key={`${orden.id}-${tipo}-${seleccionId ?? 'nuevo'}-${pdfBlobUrl ?? 'borrador'}`} html={htmlPreview} pdfUrl={pdfBlobUrl} soloLectura={soloVistaPrevia} ampliada={previewAmpliada}
+                onAmpliar={()=>setPreviewAmpliada(actual=>!actual)} />
             ) : !generandoPreview ? (
-              <div className={styles.emptyState}>
-                Hacé clic en <b>Actualizar preview</b>
-              </div>
+              <div className={styles.emptyState}>Hacé clic en <b>Actualizar vista previa</b></div>
             ) : null}
             {generandoPreview && (
               <div className={styles.overlay}>
