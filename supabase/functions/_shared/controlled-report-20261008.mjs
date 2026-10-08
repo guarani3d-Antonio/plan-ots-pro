@@ -76,7 +76,7 @@ const ETAPAS_OT = [
 				], 3),
 				text("solicitante", "Solicitante"),
 				text("contacto", "Contacto"),
-				area("referencia", "Referencia del mensaje", 12),
+				text("referencia", "Referencia del mensaje", 12),
 				area("proximoPaso", "Derivación / próximo paso", 12)
 			]
 		}]
@@ -786,7 +786,7 @@ ${contenido}
 ${pie}
 </body></html>`;
 }
-function _bloqueDatosCliente(orden, incluirGestion = true) {
+function _bloqueDatosCliente(orden) {
 	const snapshot = orden.campos?.identificacion_informe;
 	const datos = snapshot && typeof snapshot === "object" && !Array.isArray(snapshot) ? snapshot : {};
 	const extras = [
@@ -800,7 +800,7 @@ function _bloqueDatosCliente(orden, incluirGestion = true) {
 		["domicilio", "Domicilio del cliente"],
 		["direccion_obra", "Dirección de la obra"],
 		["piso", "Piso"]
-	].filter(([clave]) => (incluirGestion || clave !== "rubro") && typeof datos[clave] === "string" && datos[clave] !== "").map(([clave, etiqueta]) => `<div class="flex flex-col gap-1"><span class="text-[10px] font-bold text-outline uppercase">${etiqueta}</span><span style="white-space:pre-wrap;overflow-wrap:anywhere">${escapeHtml(datos[clave])}</span></div>`).join("");
+	].filter(([clave]) => typeof datos[clave] === "string" && datos[clave] !== "").map(([clave, etiqueta]) => `<div class="flex flex-col gap-1"><span class="text-[10px] font-bold text-outline uppercase">${etiqueta}</span><span style="white-space:pre-wrap;overflow-wrap:anywhere">${escapeHtml(datos[clave])}</span></div>`).join("");
 	return `<section class="grid grid-cols-3 gap-6 bg-surface-container-lowest p-6 rounded-xl border border-outline-variant mb-6 shadow-sm no-break">
     <div class="col-span-3 border-b border-outline-variant/30 pb-2 mb-2">
       <h3 class="font-section-header text-[10px] text-primary uppercase tracking-widest">Identificación de la OT</h3>
@@ -813,10 +813,10 @@ function _bloqueDatosCliente(orden, incluirGestion = true) {
       <span class="text-[10px] font-bold text-outline uppercase tracking-wider">Unidad o Sector</span>
       <span class="text-body-md text-on-surface">${escapeHtml(orden.unidad_amenities || "No especificado")}</span>
     </div>
-    ${incluirGestion ? `<div class="flex flex-col gap-1">
+    <div class="flex flex-col gap-1">
       <span class="text-[10px] font-bold text-outline uppercase tracking-wider">Responsable asignado</span>
       <span class="text-body-md text-on-surface">${escapeHtml(orden.responsable || "No asignado")}</span>
-    </div>` : ""}
+    </div>
     ${extras}
   </section>${_bloquePlanoContexto(orden)}`;
 }
@@ -924,7 +924,7 @@ function generarInformeOrdenServicio(orden, aclaracion, origen, codigoDocumento,
 	};
 	const contenido = `<div class="a4-page os-page">
 ${_paginaHeader(orden, "ORDEN DE SERVICIO", "Registro de apertura de la orden de trabajo y procedencia de la solicitud. No certifica una visita ni un diagnóstico.", codigoDocumento, contexto)}
-${_bloqueDatosCliente(orden, false)}
+${_bloqueDatosCliente(orden)}
 ${_seccionInforme(1, "Origen y solicitud")}
 <section class="grid grid-cols-2 os-meta gap-4 mb-6 no-break">
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Fecha de ingreso de OT</strong><p>${escapeHtml(formatearFechaCorta(orden.fecha_ingreso))}</p></div>
@@ -940,7 +940,8 @@ ${fotosCliente.length ? `<section class="os-evidence"><strong>Evidencia aportada
   ${generarGridFotos(fotosCliente)}
   <p class="text-xs text-on-surface-variant">Las imágenes aportadas no acreditan por sí solas una visita técnica.</p></section>` : ""}
 ${_bloqueNaranjaIzquierdo("Aclaración posterior", aclaracion, "Sin aclaraciones posteriores.")}
-${_seccionInforme(2, "Seguimiento del pedido")}
+${_seccionInforme(2, "Clasificación y derivación")}
+<section class="p-4 border border-outline-variant rounded-lg no-break"><strong>Clasificación inicial</strong><p>${escapeHtml(orden.rubro || "Sin clasificar")} · Prioridad ${escapeHtml(orden.prioridad || "No registrada")} · Responsable ${escapeHtml(orden.responsable || "No asignado")}</p></section>
 <section class="p-4 border border-outline-variant rounded-lg no-break mt-4"><strong>Próximo paso acordado</strong><p id="os-proximoPaso">${escapeHtml(dato("proximoPaso", "proximo_paso"))}</p></section>
 </div>`;
 	return _envolverInforme(`Orden de servicio${contexto ? "" : " — borrador"}`, contenido, contexto);
@@ -1070,8 +1071,7 @@ ${_seccionInforme(3, "Condiciones y formalización")}
 }
 //#endregion
 //#region src/services/controlledReportService.ts
-const PLANTILLA_CONTROLADA_VERSION = "expediente-controlado-2026-10-08-datos";
-const PLANTILLA_ETAPAS = "expediente-controlado-2026-10-08";
+const PLANTILLA_CONTROLADA_VERSION = "expediente-controlado-2026-10-08";
 const PLANTILLA_PLANO = "expediente-controlado-2026-10-07";
 const PLANTILLA_ANTERIOR = "expediente-controlado-2026-10-04";
 const PLANTILLA_LEGACY = "expediente-controlado-2026-09-29";
@@ -1111,8 +1111,7 @@ function materializarHtmlControlado(revision, fuentesValor, imagenesVerificadas)
 		revision: revision.revision
 	};
 	if (![
-		"expediente-controlado-2026-10-08-datos",
-		PLANTILLA_ETAPAS,
+		"expediente-controlado-2026-10-08",
 		PLANTILLA_PLANO,
 		PLANTILLA_ANTERIOR,
 		PLANTILLA_LEGACY
@@ -1165,7 +1164,7 @@ function materializarHtmlControlado(revision, fuentesValor, imagenesVerificadas)
 	const ordenOriginal = ordenFuente;
 	const identidadGuardada = datos.identificacion === void 0 ? void 0 : camposTexto(datos.identificacion, "Identificación");
 	const orden = revision.plantilla_version === PLANTILLA_LEGACY ? ordenOriginal : ordenParaInforme(ordenOriginal, restaurarCampos(prepararAutocompletado(ordenOriginal, proyectoNombre).identificacion, identidadGuardada));
-	if (revision.plantilla_version === PLANTILLA_PLANO || ["expediente-controlado-2026-10-08-datos", PLANTILLA_ETAPAS].includes(revision.plantilla_version) && TIPOS_CON_PLANO.includes(tipo)) {
+	if (revision.plantilla_version === PLANTILLA_PLANO || revision.plantilla_version === "expediente-controlado-2026-10-08" && TIPOS_CON_PLANO.includes(tipo)) {
 		if (ordenOriginal.pos_x != null && ordenOriginal.pos_y != null && Number.isFinite(ordenOriginal.pos_x) && Number.isFinite(ordenOriginal.pos_y)) {
 			const plano = objeto(datos.planoContexto, "Referencia visual del plano");
 			const imagen = texto(plano.imagen, "Imagen del plano");

@@ -237,7 +237,7 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
   // Filtro por nombre o cliente (case-insensitive)
   const proyectosFiltrados = useMemo(() => {
     const q = busqueda.toLowerCase();
-    const visibles = empresaId ? proyectos.filter(p => p.tenant_id === empresaId) : proyectos;
+    const visibles = proyectos.filter(p => !p.es_ficha_obra && (!empresaId || p.tenant_id === empresaId));
     if (!q) return visibles.filter(p => (p.carpeta_id ?? null) === carpetaActual);
     return visibles.filter(p =>
       p.nombre.toLowerCase().includes(q) ||

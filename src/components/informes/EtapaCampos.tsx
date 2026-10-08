@@ -12,7 +12,7 @@ function Campo({campo,value,onChange,disabled}:{campo:CampoEtapa;value:string;on
  return <div className={styles.field} style={{'--field-span':campo.span??6} as React.CSSProperties}>
   <div className={styles.labelRow}><label htmlFor={id}>{campo.label}</label>{dictable&&<VoiceInputButton compact value={value} onChange={onChange} disabled={disabled}/>}</div>
   {campo.options?<select id={id} value={value} disabled={disabled} onChange={e=>onChange(e.target.value)}><option value="">Seleccionar…</option>{value&&!campo.options.includes(value)&&<option value={value}>{value} (registro anterior)</option>}{campo.options.map(v=><option key={v}>{v}</option>)}</select>
-   :campo.type==='textarea'?<textarea id={id} rows={2} value={value} placeholder={EJEMPLOS_ETAPA[campo.key]} onChange={e=>onChange(e.target.value)} disabled={disabled}/>
+   :campo.type==='textarea'?<textarea id={id} rows={4} value={value} placeholder={EJEMPLOS_ETAPA[campo.key]} onChange={e=>onChange(e.target.value)} disabled={disabled}/>
    :<input id={id} type={campo.type??'text'} value={value} placeholder={dictable?EJEMPLOS_ETAPA[campo.key]:undefined} onChange={e=>onChange(e.target.value)} disabled={disabled}/>}
  </div>;
 }

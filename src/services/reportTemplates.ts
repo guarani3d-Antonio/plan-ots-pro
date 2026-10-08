@@ -184,14 +184,14 @@ ${pie}
 }
 
 // Identificación mínima de la OT (no atribuye el responsable al cliente).
-export function _bloqueDatosCliente(orden: OrdenLocal): string {
+export function _bloqueDatosCliente(orden: OrdenLocal, incluirGestion = true): string {
   const snapshot = orden.campos?.identificacion_informe;
   const datos = snapshot && typeof snapshot === 'object' && !Array.isArray(snapshot) ? snapshot as Record<string, unknown> : {};
   const extras = [
     ['ubicacion', 'Ubicación referencial'], ['rubro', 'Rubro'], ['cliente', 'Cliente'], ['identificacion', 'RUC o documento'],
     ['contacto', 'Contacto'], ['telefono', 'Teléfono'], ['correo', 'Correo'], ['domicilio', 'Domicilio del cliente'],
     ['direccion_obra', 'Dirección de la obra'], ['piso', 'Piso'],
-  ].filter(([clave]) => typeof datos[clave] === 'string' && datos[clave] !== '')
+  ].filter(([clave]) => (incluirGestion || clave !== 'rubro') && typeof datos[clave] === 'string' && datos[clave] !== '')
     .map(([clave, etiqueta]) => `<div class="flex flex-col gap-1"><span class="text-[10px] font-bold text-outline uppercase">${etiqueta}</span><span style="white-space:pre-wrap;overflow-wrap:anywhere">${escapeHtml(datos[clave] as string)}</span></div>`).join('');
   return `<section class="grid grid-cols-3 gap-6 bg-surface-container-lowest p-6 rounded-xl border border-outline-variant mb-6 shadow-sm no-break">
     <div class="col-span-3 border-b border-outline-variant/30 pb-2 mb-2">
@@ -205,10 +205,10 @@ export function _bloqueDatosCliente(orden: OrdenLocal): string {
       <span class="text-[10px] font-bold text-outline uppercase tracking-wider">Unidad o Sector</span>
       <span class="text-body-md text-on-surface">${escapeHtml(orden.unidad_amenities || 'No especificado')}</span>
     </div>
-    <div class="flex flex-col gap-1">
+    ${incluirGestion ? `<div class="flex flex-col gap-1">
       <span class="text-[10px] font-bold text-outline uppercase tracking-wider">Responsable asignado</span>
       <span class="text-body-md text-on-surface">${escapeHtml(orden.responsable || 'No asignado')}</span>
-    </div>
+    </div>` : ''}
     ${extras}
   </section>${_bloquePlanoContexto(orden)}`;
 }

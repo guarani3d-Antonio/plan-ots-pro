@@ -13,6 +13,7 @@ export interface Proyecto {
   tenant_id?: string | null;
   proyecto_padre_id?: string | null;
   carpeta_id?: string | null;
+  es_ficha_obra?: boolean;
   nombre: string;
   cliente: string | null;
   descripcion: string | null;

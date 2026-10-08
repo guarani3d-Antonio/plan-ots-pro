@@ -4,7 +4,9 @@ import { LEGACY_OFFLINE_ENABLED } from '../../security/sessionScope';
 import { useAccessStore, usePermisoObra } from '../../stores/accessStore';
 import { BuscarDirectorioOT, DialogDirectorioOT } from './DialogDirectorioOT';
 import { AltaContratistaOT } from './AltaContratistaOT';
-import { cargarContratistas } from '../../services/trustService';
+import { fichasContratista,contratistasDeOT,type FichaContratista } from '../../services/workDirectoryService';
+import { FichaObraOT } from './FichaObraOT';
+import datosStyles from './DatosVinculados.module.css';
 // src/components/plano/PanelOT.tsx
 import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import type { OrdenLocal, EstadoOT, PrioridadOT } from '../../types/orden';
@@ -262,6 +264,8 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
   const creador = useAccessStore(s => s.disponible && !!s.contexto?.creador);
   const [clientesDirectorio, setClientesDirectorio] = useState<{ id:string; nombre:string; identificacion:string | null }[]>([]);
   const [contratistasGlobales, setContratistasGlobales] = useState<string[]>([]);
+  const [contratistaFichas,setContratistaFichas]=useState<FichaContratista[]>([]);
+  const [contratistasVinculados,setContratistasVinculados]=useState<FichaContratista[]>([]);
   const [errorDirectorio, setErrorDirectorio] = useState<string | null>(null);
   const [responsablesCuenta, setResponsablesCuenta] = useState<ResponsableCuenta[]>([]);
   const [errorResponsables, setErrorResponsables] = useState<string | null>(null);
@@ -478,11 +482,11 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
   }>({ abierto: false, estadoAnterior: '', estadoNuevo: '', esPorFoto: false, onConfirmar: null, onCancelar: null });
   useEffect(() => {
     let active = true;
-    if (permiso?.tenant_id) cargarContratistas(permiso.tenant_id).then(rows => {
-      if (active) { setContratistasGlobales(rows.map(r => r.nombre)); setErrorDirectorio(null); }
-    }).catch(e => { if (active) { setContratistasGlobales([]); setErrorDirectorio(e.message); } });
+    if (ordenFresca?.proyecto_id) Promise.all([fichasContratista(ordenFresca.proyecto_id),contratistasDeOT(ordenFresca.id)]).then(([rows,vinculados]) => {
+      if (active) { setContratistasGlobales(rows.filter(r=>r.activo).map(r => r.nombre)); setContratistaFichas(rows);setContratistasVinculados(vinculados);setErrorDirectorio(null); }
+    }).catch(e => { if (active) { setContratistasGlobales([]); setContratistaFichas([]); setContratistasVinculados([]); setErrorDirectorio(e.message); } });
     return () => { active = false; };
-  }, [permiso?.tenant_id]);
+  }, [ordenFresca?.proyecto_id,ordenFresca?.id]);
   useEffect(() => {
     const proyectoId = ordenFresca?.proyecto_id;
     if (!proyectoId) return;
@@ -1109,25 +1113,26 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
           <fieldset disabled={!puedeEditar || guardando} className={`${styles.body} ${tab === 'fotos' ? styles.bodyFotos : styles.bodyFormulario}`} style={{ border: 0, margin: 0, minWidth: 0 }}>
 
             <div hidden={tab !== 'datos'}>
-              <div className={`${styles.section} ${styles.formSection}`}>
-                <div className={styles.sectionTitle}>Identificación</div>
-                <div className={`${styles.field} ${styles.fieldShort}`}>
-                  <label className={styles.label}>Código OT</label>
-                  <input className={styles.input} value={form.ot ?? ''} readOnly aria-label="Código OT asignado por la plataforma" title="Código único asignado por la plataforma" />
+              <div className={styles.identificationMeta}><label>Ingreso <input aria-label="Fecha de ingreso" className={styles.input} type="date" value={toDateInput(form.fecha_ingreso)} onChange={e=>set('fecha_ingreso',e.target.value)}/></label><span>Creado por: {creadoPor}</span><span>{diasAb} {diasAb===1?'día abierto':'días abiertos'}</span></div>
+              <details className={styles.dataGroup}><summary>Datos de la obra <small>{proyectoNombre??proyectoActivo?.nombre}</small></summary><div className={styles.dataContent}>
+                <FichaObraOT proyectoId={ordenFresca.proyecto_id} puedeGestionar={esSupervisor}/>
+                <div className={`${styles.section} ${styles.formSection}`}><div className={`${styles.field} ${styles.fieldMedium}`}><label className={styles.label}>Proyecto / plano de origen</label><input className={styles.input} value={proyectoNombre??(proyectoActivo?.id===ordenFresca.proyecto_id?proyectoActivo.nombre:form.obra??'')} readOnly title="La OT permanece vinculada al plano donde se creó"/></div>
+                <div className={styles.field}>
+                  <div className={styles.labelRow}><label className={styles.label}>Unidad / Amenities</label>
+                    <VoiceInputButton compact value={form.unidad_amenities ?? ''} onChange={value => set('unidad_amenities', value)} /></div>
+                  <input className={styles.input} value={form.unidad_amenities ?? ''} onChange={e => set('unidad_amenities', e.target.value)} placeholder="ej: Dpto 401 / Gym" />
                 </div>
-                <div className={`${styles.field} ${styles.fieldShort}`}>
-                  <label className={styles.label}>Fecha de ingreso</label>
-                  <input className={styles.input} type="date" value={toDateInput(form.fecha_ingreso)} onChange={e => set('fecha_ingreso', e.target.value)} />
-                </div>
+</div></div></details>
+              <details className={styles.dataGroup}><summary>Datos del cliente <small>{directorioClientes.find(c=>c.id===form.cliente_id)?.nombre??'Sin cliente vinculado'}</small></summary><div className={`${styles.dataContent} ${styles.clientGroup} ${styles.formSection}`}>
                 <div className={`${styles.field} ${styles.fieldMedium}`}>
                   <label className={styles.label}>Cliente</label>
                   <div className={styles.directoryActions}>
                     <button type="button" className={styles.directoryBtn} onClick={() => setBuscador('cliente')}>Buscar cliente</button>
-                    {esSupervisor && <button type="button" className={styles.directoryBtn} onClick={() => setAltaCliente({})}>+ Nuevo cliente</button>}
+                    <button type="button" className={styles.directoryBtn} disabled={!esSupervisor} onClick={() => setAltaCliente({})}>+ Nuevo cliente</button>
                   </div>
                   <span className={styles.selectedName}>{directorioClientes.find(c => c.id === form.cliente_id)?.nombre ?? (form.cliente_id ? 'Cliente vinculado anteriormente' : 'Sin cliente vinculado')}</span>
                   {errorClientes && <small role="alert">No se pudo cargar el directorio: {errorClientes}</small>}
-                  {esSupervisor && form.cliente_id && <button type="button" className={styles.locationBtn} onClick={() => setAltaCliente({ clienteId: form.cliente_id! })}>+ Agregar ubicación</button>}
+                  <button type="button" className={styles.locationBtn} disabled={!esSupervisor || !form.cliente_id} onClick={() => setAltaCliente({ clienteId: form.cliente_id! })}>+ Agregar ubicación</button>
                   {!ubicacionesCliente.length && form.cliente_id && <small>Este cliente no tiene ubicación activa en esta obra.{esSupervisor ? ' Agregá una ubicación para vincularlo.' : ' Pedí al supervisor que la registre.'}</small>}
                 </div>
                 {form.cliente_id && ubicacionesCliente.length > 1 && <div className={styles.field}>
@@ -1151,26 +1156,26 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
                   <small>Domicilio del cliente: {ubicacionElegida.domicilio || 'Sin registrar'}</small>
                   <small>Inmueble: {ubicacionElegida.nombre_obra} · {ubicacionElegida.direccion_obra || 'Sin dirección'}{ubicacionElegida.piso ? ` · Piso ${ubicacionElegida.piso}` : ''}{ubicacionElegida.unidad ? ` · Unidad ${ubicacionElegida.unidad}` : ''}</small>
                 </div>}
-                <div className={`${styles.field} ${styles.fieldMedium}`}>
-                  <label className={styles.label}>Obra</label>
-                  <select className={styles.select} value={form.obra ?? ''} onChange={e => set('obra', e.target.value)}>
-                    <option value="">— Seleccionar obra —</option>
-                    {proyectoNombre && <option value={proyectoNombre}>{proyectoNombre}</option>}
-                    {!proyectoNombre && proyectoActivo?.id === ordenFresca.proyecto_id && <option value={proyectoActivo.nombre}>{proyectoActivo.nombre}</option>}
-                    {form.obra && form.obra !== (proyectoNombre ?? proyectoActivo?.nombre) && <option value={form.obra}>{form.obra} (registro anterior)</option>}
-                  </select>
-                </div>
+</div></details>
+              <details className={styles.dataGroup}><summary>Datos del contratista <small>{(form.contratistas??[]).length?`${form.contratistas?.length} seleccionado(s)`:'Sin asignar · planificación'}</small></summary><div className={styles.dataContent}>
                 <div className={styles.field}>
-                  <div className={styles.labelRow}><label className={styles.label}>Unidad / Amenities</label>
-                    <VoiceInputButton compact value={form.unidad_amenities ?? ''} onChange={value => set('unidad_amenities', value)} /></div>
-                  <input className={styles.input} value={form.unidad_amenities ?? ''} onChange={e => set('unidad_amenities', e.target.value)} placeholder="ej: Dpto 401 / Gym" />
+                  <label className={styles.label}>Contratista(s)</label>
+                  {(form.contratistas ?? []).length > 0 && (
+                    <div className={styles.chipsWrap} style={{ marginBottom: 6 }}>
+                      {(form.contratistas ?? []).map(c => (
+                        <span key={c} className={styles.chip}>{c}<button type="button" className={styles.chipRemove} onClick={() => set('contratistas', (form.contratistas ?? []).filter(x => x !== c))} aria-label={`Quitar ${c}`}>×</button></span>
+                      ))}
+                    </div>
+                  )}
+                  {errorDirectorio && <p role="alert">No se pudo cargar el directorio de contratistas: {errorDirectorio}. Volvé a intentarlo o avisá al Creador.</p>}
+                  <div className={styles.directoryActions}>
+                    <button type="button" className={styles.directoryBtn} onClick={() => setBuscador('contratista')}>Buscar contratista</button>
+                    <button type="button" className={styles.directoryBtn} disabled={!creador || !permiso?.tenant_id} title={creador ? 'Registrar una ficha en el directorio' : 'El Creador registra los contratistas de la empresa'} onClick={() => setAltaContratista(true)}>+ Nuevo contratista</button>
+                  </div>
+                  {!contratistasGlobales.length && <small>Sin contratistas disponibles. El Creador puede registrarlos.</small>}
                 </div>
-                <div className={styles.metadataRow}>
-                  <span><strong>Creado por</strong> {creadoPor}</span>
-                  <span><strong>Días abierto</strong> {diasAb} {diasAb === 1 ? 'día' : 'días'}</span>
-                </div>
-              </div>
-
+{[...new Map([...contratistaFichas,...contratistasVinculados].map(f=>[f.id,f])).values()].filter(f=>(form.contratistas??[]).includes(f.nombre_ot??f.nombre)).map(f=><dl key={f.id} className={datosStyles.ficha}><div><dt>Nombre / razón social</dt><dd>{f.nombre}</dd></div><div><dt>RUC / documento</dt><dd>{f.identificacion||'Sin registrar'}</dd></div><div><dt>Contacto</dt><dd>{f.contacto||'Sin registrar'}</dd></div><div><dt>Teléfono</dt><dd>{f.telefono||'Sin registrar'}</dd></div><div><dt>Correo</dt><dd>{f.correo||'Sin registrar'}</dd></div><div><dt>Dirección</dt><dd>{f.direccion||'Sin registrar'}</dd></div></dl>)}</div></details>
+              <details className={styles.dataGroup} open><summary>Datos del reclamo <small>Pedido, visitas y seguimiento</small></summary><div className={styles.dataContent}>
               <EtapasOT ref={etapasRef} orden={{...ordenFresca,...form,campos:valoresCampos}} cliente={ubicacionElegida} proyectoNombre={proyectoNombre ?? ''}
                 disabled={!puedeEditar || guardando || guardandoCliente} puedeRevisar={esSupervisor} onDirty={setEtapasDirty} refresh={etapasRefresh}
                 onFechasReales={(inicio,fin)=>setForm(f=>({...f,fecha_inicio_trabajos:inicio,fecha_fin_trabajos:fin}))}
@@ -1181,9 +1186,38 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
                     <label className={styles.label}>Descripción del reclamo</label>
                     <VoiceInputButton value={form.descripcion ?? ''} onChange={value => set('descripcion', value)} />
                   </div>
-                  <textarea className={styles.textarea} rows={3} placeholder="Descripción del problema según el cliente..." value={form.descripcion ?? ''} onChange={e => set('descripcion', e.target.value)} />
+                  <textarea className={styles.textarea} rows={4} placeholder="Descripción del problema según el cliente..." value={form.descripcion ?? ''} onChange={e => set('descripcion', e.target.value)} />
                 </div>
-</>} gestion={<>              <div className={`${styles.section} ${styles.formSection}`}>
+</>} ejecucion={<><details><summary>Seguimiento operativo, horarios y observaciones</summary><div className={`${styles.section} ${styles.formSection} ${styles.executionGrid}`}>
+<div className={styles.field}><label className={styles.label}>Hora real de inicio</label><input className={styles.input} type="time" value={String(valoresCampos.hora_inicio_trabajos ?? '')} onChange={e=>setValorCampo('hora_inicio_trabajos',e.target.value)}/></div><div className={styles.field}><label className={styles.label}>Hora real de fin</label><input className={styles.input} type="time" value={String(valoresCampos.hora_fin_trabajos ?? '')} onChange={e=>setValorCampo('hora_fin_trabajos',e.target.value)}/></div>
+                <div className={styles.field}>
+                  <label className={styles.label}>% Avance</label>
+                  <div className={styles.sliderWrap}>
+                    <input type="range" min={0} max={100} className={styles.slider} value={form.porcentaje_avance ?? 0} onChange={e => set('porcentaje_avance', +e.target.value)} style={{ accentColor: '#2563EB' }} />
+                    <span className={styles.sliderValue}>{form.porcentaje_avance ?? 0}%</span>
+                  </div>
+                  <div style={{ background: '#E5E7EB', borderRadius: 4, height: 6, marginTop: 3 }}>
+                    <div style={{ width: `${form.porcentaje_avance ?? 0}%`, background: '#3B82F6', height: '100%', borderRadius: 4, transition: 'width 0.2s' }} />
+                  </div>
+                </div>
+                {puedeVerCostos && (
+                  <div className={styles.field}>
+                    <div className={styles.labelRow}><label className={styles.label}>Costo (Gs.)</label><VoiceInputButton compact value={String(form.costo??'')} onChange={v=>set('costo',parsearGuaranies(v))}/></div>
+                    <input className={styles.input} value={form.costo != null && form.costo > 0 ? form.costo.toLocaleString('es-PY') : ''} onChange={e => set('costo', parsearGuaranies(e.target.value))} placeholder="0" />
+                  </div>
+                )}
+                <div className={`${styles.field} ${styles.fieldWide}`}>
+                  <div className={styles.labelRow}>
+                    <label className={styles.label}>Observaciones del técnico</label>
+                    <VoiceInputButton value={form.comentarios ?? ''} onChange={value => set('comentarios', value)} />
+                  </div>
+                  <textarea className={styles.textarea} rows={4} placeholder="Notas y observaciones del técnico..." value={form.comentarios ?? ''} onChange={e => set('comentarios', e.target.value)} />
+                </div>
+              </div>
+
+</details></>} />
+              </div></details>
+              <details className={styles.dataGroup}><summary>Gestión interna de la OT <small>Clasificación y asignación</small></summary><div className={styles.dataContent}>              <div className={`${styles.section} ${styles.formSection}`}>
                 <div className={styles.sectionTitle}>Clasificación</div>
                 <div className={`${styles.field} ${styles.fieldWide}`}>
                   <label className={styles.label}>
@@ -1233,7 +1267,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
               </div>
 
               <div className={`${styles.section} ${styles.formSection} ${styles.executionGrid}`}>
-                <div className={styles.sectionTitle}>Ejecución</div>
+                <div className={styles.sectionTitle}>Asignación interna</div>
                 <div className={styles.field}>
                   <label className={styles.label}>Supervisor / Responsable</label>
                   <select className={styles.select} value={form.responsable_id ?? ''} onChange={e => {
@@ -1246,51 +1280,8 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
                   {!form.responsable_id && form.responsable && <small>Registro anterior: {form.responsable}. Seleccioná una cuenta para vincularlo.</small>}
                   {errorResponsables && <small role="alert">No se pudieron cargar las cuentas: {errorResponsables}</small>}
                 </div>
-                <div className={styles.field}>
-                  <label className={styles.label}>Contratista(s)</label>
-                  {(form.contratistas ?? []).length > 0 && (
-                    <div className={styles.chipsWrap} style={{ marginBottom: 6 }}>
-                      {(form.contratistas ?? []).map(c => (
-                        <span key={c} className={styles.chip}>{c}<button type="button" className={styles.chipRemove} onClick={() => set('contratistas', (form.contratistas ?? []).filter(x => x !== c))} aria-label={`Quitar ${c}`}>×</button></span>
-                      ))}
-                    </div>
-                  )}
-                  {errorDirectorio && <p role="alert">No se pudo cargar el directorio de contratistas: {errorDirectorio}. Volvé a intentarlo o avisá al Creador.</p>}
-                  <div className={styles.directoryActions}>
-                    <button type="button" className={styles.directoryBtn} onClick={() => setBuscador('contratista')}>Buscar contratista</button>
-                    <button type="button" className={styles.directoryBtn} disabled={!creador || !permiso?.tenant_id} title={creador ? 'Registrar una ficha en el directorio' : 'El Creador registra los contratistas de la empresa'} onClick={() => setAltaContratista(true)}>+ Nuevo contratista</button>
-                  </div>
-                  {!contratistasGlobales.length && <small>Sin contratistas disponibles. El Creador puede registrarlos.</small>}
-                </div>
               </div>
-</>} ejecucion={<><details><summary>Seguimiento operativo, horarios y observaciones</summary><div className={`${styles.section} ${styles.formSection} ${styles.executionGrid}`}>
-<div className={styles.field}><label className={styles.label}>Hora real de inicio</label><input className={styles.input} type="time" value={String(valoresCampos.hora_inicio_trabajos ?? '')} onChange={e=>setValorCampo('hora_inicio_trabajos',e.target.value)}/></div><div className={styles.field}><label className={styles.label}>Hora real de fin</label><input className={styles.input} type="time" value={String(valoresCampos.hora_fin_trabajos ?? '')} onChange={e=>setValorCampo('hora_fin_trabajos',e.target.value)}/></div>
-                <div className={styles.field}>
-                  <label className={styles.label}>% Avance</label>
-                  <div className={styles.sliderWrap}>
-                    <input type="range" min={0} max={100} className={styles.slider} value={form.porcentaje_avance ?? 0} onChange={e => set('porcentaje_avance', +e.target.value)} style={{ accentColor: '#2563EB' }} />
-                    <span className={styles.sliderValue}>{form.porcentaje_avance ?? 0}%</span>
-                  </div>
-                  <div style={{ background: '#E5E7EB', borderRadius: 4, height: 6, marginTop: 3 }}>
-                    <div style={{ width: `${form.porcentaje_avance ?? 0}%`, background: '#3B82F6', height: '100%', borderRadius: 4, transition: 'width 0.2s' }} />
-                  </div>
-                </div>
-                {puedeVerCostos && (
-                  <div className={styles.field}>
-                    <div className={styles.labelRow}><label className={styles.label}>Costo (Gs.)</label><VoiceInputButton compact value={String(form.costo??'')} onChange={v=>set('costo',parsearGuaranies(v))}/></div>
-                    <input className={styles.input} value={form.costo != null && form.costo > 0 ? form.costo.toLocaleString('es-PY') : ''} onChange={e => set('costo', parsearGuaranies(e.target.value))} placeholder="0" />
-                  </div>
-                )}
-                <div className={`${styles.field} ${styles.fieldWide}`}>
-                  <div className={styles.labelRow}>
-                    <label className={styles.label}>Observaciones del técnico</label>
-                    <VoiceInputButton value={form.comentarios ?? ''} onChange={value => set('comentarios', value)} />
-                  </div>
-                  <textarea className={styles.textarea} rows={3} placeholder="Notas y observaciones del técnico..." value={form.comentarios ?? ''} onChange={e => set('comentarios', e.target.value)} />
-                </div>
-              </div>
-
-</details></>} />
+</div></details>
               {form.pos_x != null && form.pos_y != null && (
                 <div className={styles.posicion}>
                   📍 {((form.pos_x ?? 0) * 100).toFixed(1)}% · {((form.pos_y ?? 0) * 100).toFixed(1)}%
@@ -1456,7 +1447,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
             obra:sitio?.nombre_obra ?? proyectoNombre ?? (proyectoActivo?.id === ordenFresca.proyecto_id ? proyectoActivo.nombre : ''), unidad_amenities:sitio ? (sitio.unidad || sitio.sector || '') : '' }));
         }} />}
       {buscador === 'contratista' && <BuscarDirectorioOT titulo="Buscar contratistas" etiquetaBusqueda="Buscar por nombre" error={errorDirectorio} multiple
-        opciones={contratistasGlobales.map(nombre => ({ id:nombre,nombre }))} seleccionados={form.contratistas ?? []}
+        opciones={contratistaFichas.filter(f=>f.activo).map(f=>({id:contratistasVinculados.find(v=>v.id===f.id)?.nombre_ot??f.nombre,nombre:f.nombre,detalle:[f.identificacion,f.contacto,f.telefono].filter(Boolean).join(' · ')}))} seleccionados={form.contratistas ?? []}
         onCerrar={() => setBuscador(null)} onSeleccionar={nombre => set('contratistas', form.contratistas?.includes(nombre) ? form.contratistas.filter(c => c !== nombre) : [...(form.contratistas ?? []),nombre])} />}
       {altaCliente && <DialogDirectorioOT titulo={altaCliente.clienteId ? 'Agregar ubicación' : 'Nuevo cliente'} busy={guardandoCliente}
         onCerrar={() => setAltaCliente(null)}>
@@ -1476,6 +1467,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
         <AltaContratistaOT tenantId={permiso.tenant_id} onBusy={busy => { clienteBusyRef.current = busy; setGuardandoCliente(busy); }}
           onCancelar={() => setAltaContratista(false)} onGuardar={nombre => {
             setContratistasGlobales(actual => [...new Set([...actual,nombre])]); agregarContratista(nombre); setAltaContratista(false);
+            void fichasContratista(ordenFresca.proyecto_id).then(setContratistaFichas).catch(e=>setErrorDirectorio(e.message));
           }} />
       </DialogDirectorioOT>}
 

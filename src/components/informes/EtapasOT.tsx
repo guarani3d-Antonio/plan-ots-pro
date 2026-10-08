@@ -14,10 +14,10 @@ import styles from './EtapasOT.module.css';
 interface Registro { doc:DocumentoRegistro|null; datos:Record<string,unknown>; version:number; dirty:boolean; revisiones:RevisionDocumento[]; historical:string; correcting:boolean; motivo:string; request:string; saveRequest:string }
 type Estado=Record<TipoDocumento,Registro>;
 export interface EtapasOTHandle { guardar:(orden:OrdenLocal)=>Promise<void>; documento:(tipo:TipoDocumento)=>string|undefined }
-interface Props { orden:OrdenLocal; cliente?:ClienteInforme|null; proyectoNombre:string; disabled:boolean; puedeRevisar:boolean; onDirty:(dirty:boolean)=>void; onPreview:(tipo:TipoDocumento)=>void; onOrigen?:(datos:Record<string,unknown>)=>void; onFechasReales:(inicio:string,fin:string)=>void; solicitud:ReactNode; gestion:ReactNode; ejecucion:ReactNode; refresh:number }
+interface Props { orden:OrdenLocal; cliente?:ClienteInforme|null; proyectoNombre:string; disabled:boolean; puedeRevisar:boolean; onDirty:(dirty:boolean)=>void; onPreview:(tipo:TipoDocumento)=>void; onOrigen?:(datos:Record<string,unknown>)=>void; onFechasReales:(inicio:string,fin:string)=>void; solicitud:ReactNode; ejecucion:ReactNode; refresh:number }
 const vacio=():Registro=>({doc:null,datos:{},version:0,dirty:false,revisiones:[],historical:'',correcting:false,motivo:'',request:crypto.randomUUID(),saveRequest:crypto.randomUUID()});
 
-export const EtapasOT=forwardRef<EtapasOTHandle,Props>(function EtapasOT({orden,cliente,proyectoNombre,disabled,puedeRevisar,onDirty,onPreview,onOrigen,onFechasReales,solicitud,gestion,ejecucion,refresh},ref){
+export const EtapasOT=forwardRef<EtapasOTHandle,Props>(function EtapasOT({orden,cliente,proyectoNombre,disabled,puedeRevisar,onDirty,onPreview,onOrigen,onFechasReales,solicitud,ejecucion,refresh},ref){
  const [state,setState]=useState<Estado>(()=>Object.fromEntries(ETAPAS_OT.map(e=>[e.tipo,vacio()])) as Estado);
  const stateRef=useRef(state);stateRef.current=state;
  const [documentos,setDocumentos]=useState<DocumentoRegistro[]>([]);
@@ -94,11 +94,10 @@ export const EtapasOT=forwardRef<EtapasOTHandle,Props>(function EtapasOT({orden,
     </div>
     {r.revisiones.length>0&&<label className={styles.docbar}>Historial de versiones<select aria-label={`Historial de ${e.name}`} value={r.historical} disabled={blocked||r.dirty} onChange={event=>patch(e.tipo,{historical:event.target.value})}><option value="">Borrador actual</option>{r.revisiones.map(v=><option key={v.id} value={v.id}>R{String(v.revision).padStart(2,'0')} · {v.motivo??'Versión inicial'} · solo lectura</option>)}</select></label>}
     {readOnly&&<p className={styles.note}>Versión conservada · solo lectura. Usá «Crear versión corregida» para preparar cambios.</p>}
-    {r.correcting&&<div className={styles.reason}><div className={styles.labelRow}><label htmlFor={`motivo-${e.tipo}`}>Motivo de la versión corregida</label><VoiceInputButton compact value={r.motivo} onChange={v=>patch(e.tipo,{motivo:v,dirty:true,saveRequest:crypto.randomUUID()})} disabled={blocked}/></div><textarea id={`motivo-${e.tipo}`} value={r.motivo} disabled={blocked} onChange={event=>patch(e.tipo,{motivo:event.target.value,dirty:true,saveRequest:crypto.randomUUID()})}/></div>}
+    {r.correcting&&<div className={styles.reason}><div className={styles.labelRow}><label htmlFor={`motivo-${e.tipo}`}>Motivo de la versión corregida</label><VoiceInputButton compact value={r.motivo} onChange={v=>patch(e.tipo,{motivo:v,dirty:true,saveRequest:crypto.randomUUID()})} disabled={blocked}/></div><textarea rows={4} id={`motivo-${e.tipo}`} value={r.motivo} disabled={blocked} onChange={event=>patch(e.tipo,{motivo:event.target.value,dirty:true,saveRequest:crypto.randomUUID()})}/></div>}
     {e.tipo==='avance'&&!r.doc&&!r.dirty?<><p className={styles.note}>Sin informe de avance por ahora. Podés continuar con el cierre cuando corresponda.</p><button type="button" className={styles.button} disabled={blocked} onClick={()=>patch('avance',{dirty:true})}>Registrar un informe de avance</button></>:<>
      {e.tipo==='orden_servicio'&&solicitud}
      <EtapaCampos tipo={e.tipo} datos={datos} disabled={blocked||readOnly} onChange={d=>{patch(e.tipo,{datos:d,dirty:true,saveRequest:crypto.randomUUID()});if(e.tipo==='orden_servicio')onOrigen?.(objetoFuente(d.origen));if(e.tipo==='cierre'){const c=objetoFuente(d.cierre);onFechasReales(String(c.inicioReal??''),String(c.finReal??''));}}}/>
-     {e.tipo==='orden_servicio'&&<details className={styles.legacy}><summary>Clasificación, responsables y contratistas</summary>{gestion}</details>}
      {e.tipo==='cierre'&&ejecucion}
     </>}
     {r.dirty&&<p className={styles.note}>Cambios pendientes · se guardan con «Guardar cambios» de la OT.</p>}

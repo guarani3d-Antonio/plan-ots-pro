@@ -290,7 +290,7 @@ export function generarInformeOrdenServicio(
 
   const contenido = `<div class="a4-page os-page">
 ${_paginaHeader(orden, 'ORDEN DE SERVICIO', 'Registro de apertura de la orden de trabajo y procedencia de la solicitud. No certifica una visita ni un diagnóstico.', codigoDocumento, contexto)}
-${_bloqueDatosCliente(orden)}
+${_bloqueDatosCliente(orden, false)}
 ${_seccionInforme(1, 'Origen y solicitud')}
 <section class="grid grid-cols-2 os-meta gap-4 mb-6 no-break">
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Fecha de ingreso de OT</strong><p>${escapeHtml(formatearFechaCorta(orden.fecha_ingreso))}</p></div>
@@ -306,8 +306,7 @@ ${fotosCliente.length ? `<section class="os-evidence"><strong>Evidencia aportada
   ${generarGridFotos(fotosCliente)}
   <p class="text-xs text-on-surface-variant">Las imágenes aportadas no acreditan por sí solas una visita técnica.</p></section>` : ''}
 ${_bloqueNaranjaIzquierdo('Aclaración posterior', aclaracion, 'Sin aclaraciones posteriores.')}
-${_seccionInforme(2, 'Clasificación y derivación')}
-<section class="p-4 border border-outline-variant rounded-lg no-break"><strong>Clasificación inicial</strong><p>${escapeHtml(orden.rubro || 'Sin clasificar')} · Prioridad ${escapeHtml(orden.prioridad || 'No registrada')} · Responsable ${escapeHtml(orden.responsable || 'No asignado')}</p></section>
+${_seccionInforme(2, 'Seguimiento del pedido')}
 <section class="p-4 border border-outline-variant rounded-lg no-break mt-4"><strong>Próximo paso acordado</strong><p id="os-proximoPaso">${escapeHtml(dato('proximoPaso', 'proximo_paso'))}</p></section>
 </div>`;
 

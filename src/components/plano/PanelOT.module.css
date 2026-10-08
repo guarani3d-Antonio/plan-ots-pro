@@ -1144,3 +1144,24 @@
 .executionGrid > .fieldWide { grid-column:1 / -1; }
 .label, .labelRow, .labelRow .label { min-height:36px; }
 @media (pointer:coarse) { .label, .labelRow, .labelRow .label { min-height:44px; } }
+
+/* Compact directory groups inside the existing OT editor. */
+.header{min-height:44px;padding:5px 12px;gap:8px}.headerTitle{min-width:0;flex:1}
+.commentsToggle{min-height:32px;padding:5px 9px;font-size:13px}.closeBtn{width:32px;height:32px}
+.viewTabs{min-height:32px;padding:0 12px}.viewTabs button{min-height:32px;margin-right:16px}
+.tabs{padding:0 12px;gap:16px}.tab{flex:0 0 auto;min-height:32px;padding:5px 2px;font-size:13px}
+.footer{padding:6px 12px;gap:8px;min-height:44px}.deleteBtn,.saveBtn{min-height:32px;padding:5px 12px;font-size:13px;min-width:0}
+.identificationMeta{display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px;color:var(--text-secondary);font-size:12px;margin-bottom:8px}
+.identificationMeta label{display:flex;align-items:center;gap:8px}.identificationMeta .input{width:auto;min-height:30px;padding:4px 8px;font-size:13px;max-width:170px}
+.dataGroup{border:1px solid var(--border-default);border-radius:8px;margin:6px 0;background:var(--bg-surface)}
+.dataGroup>summary{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:7px 10px;font-size:14px;font-weight:600;cursor:pointer;list-style:none;min-height:34px}
+.dataGroup>summary::-webkit-details-marker{display:none}.dataGroup>summary::before{content:'›';color:var(--accent)}.dataGroup[open]>summary::before{transform:rotate(90deg)}
+.dataGroup>summary small{font-size:12px;font-weight:400;color:var(--text-secondary);margin-left:auto;overflow-wrap:anywhere}
+.dataContent{padding:3px 10px 10px;min-width:0}.dataContent .formSection{padding-bottom:6px;gap:8px 12px;margin-top:8px}
+.clientGroup>.fieldMedium{grid-column:1/-1}.clientGroup>.fieldWide{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:6px 12px}
+.dataContent .label{min-height:32px}.dataContent .labelRow{min-height:32px;margin-bottom:0}.dataContent .labelRow .label{min-height:20px}
+.dataContent .directoryBtn,.dataContent .locationBtn,.dataContent .estadoBtn{min-height:32px;padding:5px 10px;font-size:13px}
+.dataContent .input,.dataContent .select{min-height:34px;padding:6px 9px}.dataContent .textarea{min-height:96px;line-height:1.5}
+@media(pointer:coarse){.commentsToggle,.closeBtn,.viewTabs button,.tab,.deleteBtn,.saveBtn,.dataGroup>summary,.dataContent .directoryBtn,.dataContent .locationBtn,.dataContent .estadoBtn,.identificationMeta .input,.dataContent .input,.dataContent .select{min-height:44px}.closeBtn{width:44px;height:44px}.dataContent .input,.dataContent .select,.identificationMeta .input{font-size:16px}.dataContent .labelRow,.dataContent .label{min-height:44px}}
+.locationBtn:disabled{opacity:.5;cursor:not-allowed}
+@media(max-width:600px){.dataGroup>summary small{margin-left:16px;flex-basis:100%}.headerActions{gap:5px}.headerTitle{font-size:13px}.commentsToggle{font-size:12px}.dataContent{padding-inline:8px}.footer{padding:5px 10px}.tabs{gap:14px}}

@@ -1,16 +1,18 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef,useState } from 'react';
 import { supabase } from '../../db/supabase';
 import { useAccessStore } from '../../stores/accessStore';
 import { PoliticasDocumentales } from './PoliticasDocumentales';
-import { DirectoriosCreador } from './DirectoriosCreador';
-import { ModalNuevoProyecto } from './ModalNuevoProyecto';
+import { DirectoriosCreador,type DirectoriosCreadorHandle } from './DirectoriosCreador';
+import { DialogDirectorioOT } from '../plano/DialogDirectorioOT';
+import { VoiceInputButton } from '../ui/VoiceInputButton';
+import { ObrasCreador } from './ObrasCreador';
 import { ConfiguracionDashboardCreador } from './ConfiguracionDashboardCreador';
 import { MapaAccesosCreador } from './MapaAccesosCreador';
 import styles from './AdministracionCreador.module.css';
 
 const panel: React.CSSProperties = { border: '1px solid var(--border-default)', borderRadius: 12, padding: 20, background: 'var(--bg-surface)' };
 const field: React.CSSProperties = { display: 'grid', gap: 6, minWidth: 0 };
-const control: React.CSSProperties = { minHeight: 42, padding: '8px 12px', border: '1px solid var(--border-default)', borderRadius: 8, background: 'var(--bg-surface)', color: 'var(--text-primary)', font: 'inherit' };
+const control: React.CSSProperties = { minHeight: 34, padding: '8px 12px', border: '1px solid var(--border-default)', borderRadius: 8, background: 'var(--bg-surface)', color: 'var(--text-primary)', font: 'inherit' };
 const button: React.CSSProperties = { ...control, width: 'fit-content', cursor: 'pointer', background: 'var(--accent)', color: 'white', fontWeight: 600 };
 const tiposNotificacion = [
   ['nueva_ot', 'OT nuevas'], ['estado', 'Cambios de estado'], ['riesgo', 'Riesgo alto o extremo'],
@@ -32,6 +34,9 @@ export function AdministracionCreador() {
   const [busy, setBusy] = useState(false);
   const [mensaje, setMensaje] = useState('');
   const [crearObra, setCrearObra] = useState(false);
+  const directoriosRef=useRef<DirectoriosCreadorHandle>(null);
+  const [cuentaAbierta,setCuentaAbierta]=useState(false);
+  function abrirCuenta(esSupervisor=false){setEmail('');setNombreInvitado('');setApellidosInvitado('');setObra('');setActivo(true);setRol(esSupervisor?'supervisor':'viewer');setRolObra(esSupervisor?'supervisor':'viewer');setMensaje('');setCuentaAbierta(true)}
   const [versionAccesos, setVersionAccesos] = useState(0);
 
   useEffect(() => {
@@ -101,46 +106,28 @@ export function AdministracionCreador() {
         {contexto.empresas.map(e => <option key={e.id} value={e.id}>{e.nombre}</option>)}
       </select>
     </label>
+    <section className={styles.creationChooser} aria-label="Qué querés crear"><strong>¿Qué querés crear?</strong><div className={styles.creationActions}>
+      <button style={button} type="button" disabled={!empresaId} onClick={()=>setCrearObra(true)}>Obra</button>
+      <button style={button} type="button" disabled={!empresaId} onClick={()=>directoriosRef.current?.nuevoCliente()}>Cliente</button>
+      <button style={button} type="button" disabled={!empresaId} onClick={()=>directoriosRef.current?.nuevoContratista()}>Contratista</button>
+      <button style={button} type="button" disabled={!empresaId} onClick={()=>abrirCuenta(true)}>Supervisor</button>
+      <button style={button} type="button" disabled={!empresaId} onClick={()=>abrirCuenta()}>Perfil con rol</button>
+    </div></section>
     <details className={styles.seccion}>
-      <summary className={styles.titulo}>Empresas y obras</summary>
+      <summary className={styles.titulo}>Empresas</summary>
       <div className={styles.contenido}>
         <div style={{ display: 'grid', justifyItems: 'start', gap: 10 }}>
           <label style={{ ...field, width: 'min(100%, 420px)' }}>Nombre de la nueva empresa<input style={control} value={nombre} onChange={e => setNombre(e.target.value)} /></label>
           <button style={button} disabled={busy || !nombre.trim()} onClick={() => void ejecutar(() => supabase.rpc('plan_admin_empresa', { p_nombre: nombre }))}>Crear empresa</button>
         </div>
-        <div><button style={button} disabled={!empresaId} onClick={() => setCrearObra(true)}>Crear obra en la empresa activa</button></div>
         {empresaId && <section style={panel}><h2 style={{ margin: '0 0 14px', fontSize: 18 }}>Documentos de la empresa</h2><PoliticasDocumentales tenantId={empresaId} /></section>}
       </div>
     </details>
+    {empresaId&&<ObrasCreador key={empresaId} tenantId={empresaId} crearAbierto={crearObra} onCerrarCrear={()=>setCrearObra(false)}/>}
     <details className={styles.seccion}>
       <summary className={styles.titulo}>Usuarios y permisos</summary>
       <div className={styles.contenido}>
-    <section style={panel}>
-      <h2 style={{ margin: '0 0 14px', fontSize: 18 }}>Cuentas, roles y responsables</h2>
-      <p style={{ margin: '0 0 14px', color: 'var(--text-secondary)' }}>Invitá cuentas nuevas por correo; para una cuenta existente, guardá su rol. Después asignale las obras correspondientes. Supervisor y técnico pueden figurar como responsables de OTs.</p>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))', gap: 16 }}>
-        <div style={{ display: 'grid', alignContent: 'start', gap: 10 }}>
-          <p style={{ margin: 0, color: 'var(--text-secondary)' }}>{empresa ? `Empresa seleccionada: ${empresa.nombre}` : 'Elegí una empresa para administrar las cuentas.'}</p>
-          <label style={field}>Correo del usuario<input style={control} type="email" value={email} onChange={e => setEmail(e.target.value)} /></label>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
-            <label style={field}>Nombre para la invitación<input style={control} value={nombreInvitado} onChange={e => setNombreInvitado(e.target.value)} /></label>
-            <label style={field}>Apellidos para la invitación<input style={control} value={apellidosInvitado} onChange={e => setApellidosInvitado(e.target.value)} /></label>
-          </div>
-          <label style={field}>Rol en la empresa<select className="app-select" value={rol} onChange={e => setRol(e.target.value)}><option value="administrador">Administrador</option><option value="supervisor">Supervisor</option><option value="tecnico">Técnico</option><option value="viewer">Lector</option></select></label>
-          <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}><input type="checkbox" checked={activo} onChange={e => setActivo(e.target.checked)} />Membresía activa</label>
-          <button style={button} disabled={busy || !empresaId || !email.trim()} onClick={() => void ejecutar(() => supabase.rpc('plan_admin_miembro', { p_tenant: empresaId, p_email: email, p_rol: rol, p_activo: activo }))}>Guardar cuenta y rol</button>
-          <button style={{ ...button, background: 'var(--bg-surface)', color: 'var(--text-primary)' }} disabled={busy || !empresaId || !email.trim() || !activo} onClick={() => void invitarUsuario()}>Invitar cuenta nueva por correo</button>
-          <label style={field}>Obra<select className="app-select" value={obra} onChange={e => setObra(e.target.value)}><option value="">Seleccionar obra</option>{contexto.obras.filter(p => p.tenant_id === empresaId).map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}</select></label>
-          <label style={field}>Permiso en la obra<select className="app-select" value={rolObra} onChange={e => setRolObra(e.target.value)}><option value="supervisor">Supervisor</option><option value="tecnico">Técnico</option><option value="viewer">Lector</option><option value="sin_acceso">Retirar acceso</option></select></label>
-          <button style={button} disabled={busy || !email.trim() || !contexto.obras.some(p => p.id === obra && p.tenant_id === empresaId)} onClick={() => void ejecutar(() => supabase.rpc('plan_admin_obra_miembro', { p_proyecto: obra, p_email: email, p_rol: rolObra }))}>Guardar acceso a obra</button>
-          <p style={{ margin: '8px 0 0', color: 'var(--text-secondary)' }}>Delegación de prueba: el supervisor podrá invitar hasta {limiteInvitaciones} Técnicos a las obras que supervisa.</p>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            <button style={button} disabled={busy || !empresaId || !email.trim() || rol !== 'supervisor'} onClick={() => void ejecutar(() => supabase.rpc('plan_configurar_delegacion_invitacion', { p_tenant: empresaId, p_email: email.trim(), p_limite: limiteInvitaciones, p_activa: true }))}>Habilitar {limiteInvitaciones} invitaciones</button>
-            <button style={{ ...button, background: 'var(--bg-surface)', color: 'var(--text-primary)' }} disabled={busy || !empresaId || !email.trim()} onClick={() => void ejecutar(() => supabase.rpc('plan_configurar_delegacion_invitacion', { p_tenant: empresaId, p_email: email.trim(), p_limite: limiteInvitaciones, p_activa: false }))}>Desactivar invitaciones</button>
-          </div>
-        </div>
-      </div>
-    </section>
+    <button style={button} type="button" disabled={!empresaId} onClick={()=>abrirCuenta()}>Administrar cuenta y permisos</button>
     {empresaId && <MapaAccesosCreador key={`${empresaId}-${versionAccesos}`} empresaId={empresaId} />}
     <section style={panel}>
       <h2 style={{ margin: '0 0 8px', fontSize: 18 }}>Cómo se aplican los permisos</h2>
@@ -160,12 +147,38 @@ export function AdministracionCreador() {
     </section>}
       </div>
     </details>
-    {empresaId && <DirectoriosCreador key={empresaId} tenantId={empresaId} obras={contexto.obras} />}
+    {empresaId && <DirectoriosCreador ref={directoriosRef} key={empresaId} tenantId={empresaId} obras={contexto.obras} />}
     <details className={styles.seccion}>
       <summary className={styles.titulo}>Dashboard</summary>
       <div className={styles.contenido}><ConfiguracionDashboardCreador /></div>
     </details>
+    {cuentaAbierta&&<DialogDirectorioOT titulo="Cuenta, rol y acceso a obras" busy={busy} onCerrar={()=>setCuentaAbierta(false)}>    <section style={{display:"grid",gap:8}}>
+      <h2 style={{ margin: '0 0 14px', fontSize: 18 }}>Cuentas, roles y responsables</h2>
+      <p style={{ margin: '0 0 14px', color: 'var(--text-secondary)' }}>Invitá cuentas nuevas por correo; para una cuenta existente, guardá su rol. Después asignale las obras correspondientes. Supervisor y técnico pueden figurar como responsables de OTs.</p>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))', gap: 16 }}>
+        <div style={{ display: 'grid', alignContent: 'start', gap: 10 }}>
+          <p style={{ margin: 0, color: 'var(--text-secondary)' }}>{empresa ? `Empresa seleccionada: ${empresa.nombre}` : 'Elegí una empresa para administrar las cuentas.'}</p>
+          <label style={field}><span style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>Correo del usuario<VoiceInputButton compact value={email} onChange={setEmail}/></span><input style={control} type="email" value={email} onChange={e => setEmail(e.target.value)} /></label>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
+            <label style={field}><span style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>Nombre para la invitación<VoiceInputButton compact value={nombreInvitado} onChange={setNombreInvitado}/></span><input style={control} value={nombreInvitado} onChange={e => setNombreInvitado(e.target.value)} /></label>
+            <label style={field}><span style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>Apellidos para la invitación<VoiceInputButton compact value={apellidosInvitado} onChange={setApellidosInvitado}/></span><input style={control} value={apellidosInvitado} onChange={e => setApellidosInvitado(e.target.value)} /></label>
+          </div>
+          <label style={field}>Rol en la empresa<select className="app-select" value={rol} onChange={e => setRol(e.target.value)}><option value="administrador">Administrador</option><option value="supervisor">Supervisor</option><option value="tecnico">Técnico</option><option value="viewer">Lector</option></select></label>
+          <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}><input type="checkbox" checked={activo} onChange={e => setActivo(e.target.checked)} />Membresía activa</label>
+          <button style={button} disabled={busy || !empresaId || !email.trim()} onClick={() => void ejecutar(() => supabase.rpc('plan_admin_miembro', { p_tenant: empresaId, p_email: email, p_rol: rol, p_activo: activo }))}>Guardar cuenta y rol</button>
+          <button style={{ ...button, background: 'var(--bg-surface)', color: 'var(--text-primary)' }} disabled={busy || !empresaId || !email.trim() || !activo} onClick={() => void invitarUsuario()}>Invitar cuenta nueva por correo</button>
+          <label style={field}>Obra<select className="app-select" value={obra} onChange={e => setObra(e.target.value)}><option value="">Seleccionar obra</option>{contexto.obras.filter(p => p.tenant_id === empresaId).map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}</select></label>
+          <label style={field}>Permiso en la obra<select className="app-select" value={rolObra} onChange={e => setRolObra(e.target.value)}><option value="supervisor">Supervisor</option><option value="tecnico">Técnico</option><option value="viewer">Lector</option><option value="sin_acceso">Retirar acceso</option></select></label>
+          <button style={button} disabled={busy || !email.trim() || !contexto.obras.some(p => p.id === obra && p.tenant_id === empresaId)} onClick={() => void ejecutar(() => supabase.rpc('plan_admin_obra_miembro', { p_proyecto: obra, p_email: email, p_rol: rolObra }))}>Guardar acceso a obra</button>
+          <p style={{ margin: '8px 0 0', color: 'var(--text-secondary)' }}>Delegación de prueba: el supervisor podrá invitar hasta {limiteInvitaciones} Técnicos a las obras que supervisa.</p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            <button style={button} disabled={busy || !empresaId || !email.trim() || rol !== 'supervisor'} onClick={() => void ejecutar(() => supabase.rpc('plan_configurar_delegacion_invitacion', { p_tenant: empresaId, p_email: email.trim(), p_limite: limiteInvitaciones, p_activa: true }))}>Habilitar {limiteInvitaciones} invitaciones</button>
+            <button style={{ ...button, background: 'var(--bg-surface)', color: 'var(--text-primary)' }} disabled={busy || !empresaId || !email.trim()} onClick={() => void ejecutar(() => supabase.rpc('plan_configurar_delegacion_invitacion', { p_tenant: empresaId, p_email: email.trim(), p_limite: limiteInvitaciones, p_activa: false }))}>Desactivar invitaciones</button>
+          </div>
+        </div>
+      </div>
+    </section>
+<p role="status" aria-live="polite">{mensaje}</p></DialogDirectorioOT>}
     <p role="status" aria-live="polite" style={{ margin: 0 }}>{mensaje}</p>
-    {crearObra && <ModalNuevoProyecto onCerrar={() => { setCrearObra(false); void refresh(); }} />}
   </div>;
 }

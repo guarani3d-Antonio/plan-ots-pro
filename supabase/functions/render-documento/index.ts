@@ -1,4 +1,5 @@
 import { materializarHtmlControlado as materializarAnterior } from '../_shared/controlled-report-20261007.mjs';
+import { materializarHtmlControlado as materializarEtapas } from '../_shared/controlled-report-20261008.mjs';
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2.105.4';
 import { materializarHtmlControlado } from '../_shared/controlled-report.mjs';
 import { leerSolicitudDocumento } from '../_shared/document-request.mjs';
@@ -190,7 +191,7 @@ Deno.serve(async request => {
     const previo = await pdfExistente(admin, prefijo);
     let pdf = previo;
     if (!pdf) {
-      const render = rev.plantilla_version === 'expediente-controlado-2026-10-08' ? materializarHtmlControlado : materializarAnterior;
+      const render = rev.plantilla_version === 'expediente-controlado-2026-10-08-datos' ? materializarHtmlControlado : rev.plantilla_version === 'expediente-controlado-2026-10-08' ? materializarEtapas : materializarAnterior;
       const html = render(rev, fuentes, imagenes);
       const payload = JSON.stringify({ html,
         pdfOptions: opcionesPdfDocumento(doc.codigo, rev.revision) });
