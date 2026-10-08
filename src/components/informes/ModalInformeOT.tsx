@@ -707,6 +707,8 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
               })),
           );
         }
+        // Keep the OT's selected document current using the same successful read.
+        if(resultado.vigente)onDocumentoChange?.(resultado.vigente,resultado.borrador??undefined,resultado.revisiones);
         setCargandoComentario(false);
       })
       .catch(err => {
