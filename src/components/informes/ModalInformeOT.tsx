@@ -874,6 +874,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
 
   const handleGuardarBorrador = async () => {
     if (cargandoComentario || guardandoBorrador || !persistenciaDisponible) return;
+    if (revisionActual && !correccionAbierta) { setErrorBorrador('Elegí «Crear versión corregida» antes de guardar cambios sobre una versión conservada.'); return; }
     if(correccionAbierta&&!motivoRevision.trim()){setErrorBorrador('Indicá el motivo de la versión corregida.');return;}
     const validation=validarEtapa(tipo,datosBorrador);if(validation){setErrorBorrador(validation);return;}
     const datos = {...datosBorrador, motivoCorreccion:motivoRevision};
@@ -1218,7 +1219,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                   </>
                 )}
                 {revisionActual && correccionAbierta && <CampoTextoInforme etiqueta="Motivo de la versión corregida" multiline value={motivoRevision} onChange={setMotivoRevision}/>}
-                {revisionActual && <div><button type="button" className={styles.btnSecondary} disabled={!puedeRevisar||cargandoComentario||cambiosBorrador} onClick={()=>{setMotivoRevision('');setCorreccionAbierta(true);}}>Crear versión corregida</button><TooltipAyuda titulo="Crear versión corregida" texto="Corrige este mismo documento y conserva la versión anterior. Registrá el motivo y guardá los cambios antes de preparar otro PDF."/></div>}
+                {revisionActual && <div><button type="button" className={styles.btnSecondary} disabled={!puedeRevisar||cargandoComentario||guardandoBorrador||correccionAbierta} onClick={()=>{setMotivoRevision('');setCorreccionAbierta(true);}}>Crear versión corregida</button><TooltipAyuda titulo="Crear versión corregida" texto="Corrige este mismo documento y conserva la versión anterior. Registrá el motivo y guardá los cambios antes de preparar otro PDF."/></div>}
                 {revisionActual && <p className={styles.sublabel}>Esta versión del borrador quedó congelada como R{String(revisionActual.revision).padStart(2, '0')}.</p>}
               </section>
             )}
