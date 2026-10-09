@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useAuthStore } from './stores/authStore';
+import { permisoVista } from './stores/accessStore';
 import { useProyectosStore, type Proyecto } from './stores/proyectosStore';
 import { useOrdenesStore } from './stores/ordenesStore';
 import { AuthForm } from './components/ui/AuthForm';
@@ -163,6 +164,7 @@ function ContenidoApp() {
   const requiereProyecto = VISTAS_CON_PROYECTO.has(vista) && !proyectoActivo;
 
   const renderContenido = () => {
+    if (!permisoVista(vista)) return <p style={{padding:16}}>Tu perfil no tiene acceso a esta sección.</p>;
     if (requiereProyecto) {
       return (
         <SinProyectoPlaceholder

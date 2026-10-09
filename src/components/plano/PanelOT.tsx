@@ -1,7 +1,7 @@
 import { EtapasOT, type EtapasOTHandle } from '../informes/EtapasOT';
 import { AltaClienteOT, type ClienteObra } from './AltaClienteOT';
 import { LEGACY_OFFLINE_ENABLED } from '../../security/sessionScope';
-import { useAccessStore, usePermisoObra } from '../../stores/accessStore';
+import { useAccessStore, usePermisoObra, tienePermiso } from '../../stores/accessStore';
 import { BuscarDirectorioOT, DialogDirectorioOT } from './DialogDirectorioOT';
 import { AltaContratistaOT } from './AltaContratistaOT';
 import { fichaCliente,fichasContratista,contratistasDeOT,type FichaContratista,type FichaCliente } from '../../services/workDirectoryService';
@@ -205,10 +205,10 @@ function camposCambiados(base: OrdenLocal, candidato: Partial<OrdenLocal>): Part
   return cambios;
 }
 
-function BtnEliminarFotoCard({ onClick }: { onClick: () => void }) {
+function BtnEliminarFotoCard({ onClick, disabled=false }: { onClick: () => void; disabled?:boolean }) {
   const [hover, setHover] = useState(false);
   return (
-    <button onClick={onClick} onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
+    <button disabled={disabled} onClick={onClick} onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
       style={{ flex: 1, minWidth: 0, padding: '3px 6px', background: hover ? 'rgba(239, 68, 68, 0.08)' : 'transparent', color: '#EF4444', border: 'none', borderTop: '1px solid var(--border-default)', borderRight: '1px solid var(--border-default)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', fontSize: '10px', fontWeight: 600, fontFamily: 'inherit', transition: 'background 0.15s' }}>
       🗑 Eliminar
     </button>
@@ -291,7 +291,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
   // ── Rol del usuario en el proyecto ──────────────────────
   const permiso = usePermisoObra(ordenFresca?.proyecto_id);
   const esSupervisor = !!permiso?.administrar;
-  const puedeEditar = !!permiso?.editar;
+  const puedeEditar = !!permiso?.editar && tienePermiso('ot.editar',ordenFresca?.proyecto_id);
   const puedeVerCostos = usePuedeVerCostos(ordenFresca?.proyecto_id ?? null);
 
   // ── Fotos ────────────────────────────────────────────────
@@ -967,8 +967,8 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
                   <span>{desc || 'Sin descripción'}</span>
                 </div>
                 <div className={styles.fotoActions}>
-                  <BtnEliminarFotoCard onClick={() => handleEliminarFoto(foto, categoria)} />
-                  <BtnEditarFotoCard disabled={!!foto.pendiente} title={foto.pendiente ? TOOLTIP_FOTO_PENDIENTE : undefined} onClick={() => setFotoEditando({ id: foto.id, orden_id: ordenFresca.id, proyecto_id: ordenFresca.proyecto_id, categoria: foto.categoria as 'ANTES' | 'DURANTE' | 'DESPUES' | 'ADJUNTO', file_url: foto.url })} />
+                  <BtnEliminarFotoCard disabled={!tienePermiso('foto.eliminar',ordenFresca.proyecto_id)} onClick={() => handleEliminarFoto(foto, categoria)} />
+                  <BtnEditarFotoCard disabled={!!foto.pendiente||!tienePermiso('foto.editar',ordenFresca.proyecto_id)} title={foto.pendiente ? TOOLTIP_FOTO_PENDIENTE : undefined} onClick={() => setFotoEditando({ id: foto.id, orden_id: ordenFresca.id, proyecto_id: ordenFresca.proyecto_id, categoria: foto.categoria as 'ANTES' | 'DURANTE' | 'DESPUES' | 'ADJUNTO', file_url: foto.url })} />
                   {enError && (
                     <BtnReintentarFotoCard
                       title={`Reintentar subida — último error: ${regPend?.ultimo_error ?? 'desconocido'}`}
@@ -996,11 +996,11 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
                 <div className={styles.fotoAddActions}>
                   <label title={`Tomar foto ${label} con la cámara`} className={styles.fotoAddAction}>
                     <span aria-hidden="true">📷</span><span>Cámara</span>
-                    <input type="file" accept="image/*" capture="environment" disabled={!!subiendo} onChange={e => onArchivoSeleccionado(e, categoria as 'ANTES' | 'DURANTE' | 'DESPUES')} />
+                    <input type="file" accept="image/*" capture="environment" disabled={!!subiendo||!tienePermiso('foto.cargar',ordenFresca.proyecto_id)} onChange={e => onArchivoSeleccionado(e, categoria as 'ANTES' | 'DURANTE' | 'DESPUES')} />
                   </label>
                   <label title={`Elegir foto ${label} de la galería`} className={styles.fotoAddAction}>
                     <span aria-hidden="true">🖼️</span><span>Galería</span>
-                    <input type="file" accept="image/*" disabled={!!subiendo} onChange={e => onArchivoSeleccionado(e, categoria as 'ANTES' | 'DURANTE' | 'DESPUES')} />
+                    <input type="file" accept="image/*" disabled={!!subiendo||!tienePermiso('foto.cargar',ordenFresca.proyecto_id)} onChange={e => onArchivoSeleccionado(e, categoria as 'ANTES' | 'DURANTE' | 'DESPUES')} />
                   </label>
                 </div>
               </>
@@ -1058,7 +1058,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
     return (
       <div key={campo} className={styles.toggleRow}>
         <span className={styles.toggleLabel}>{label}</span>
-        <button className={`${styles.toggleSwitch} ${on ? styles.on : ''}`} onClick={() => set(campo, !on)} type="button">
+        <button disabled={!tienePermiso('ot.clasificar',ordenFresca.proyecto_id)} className={`${styles.toggleSwitch} ${on ? styles.on : ''}`} onClick={() => set(campo, !on)} type="button">
           <span className={styles.toggleThumb} />
         </button>
       </div>
@@ -1096,14 +1096,14 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
 
           <div className={styles.viewTabs}>
             <button disabled={guardandoCliente} onClick={() => setTabActivo('detalle')} className={tabActivo === 'detalle' ? styles.viewTabActive : ''}>Detalle</button>
-            <button disabled={guardandoCliente} onClick={() => setTabActivo('historial')} className={tabActivo === 'historial' ? styles.viewTabActive : ''}>Historial</button>
+            <button disabled={guardandoCliente||!tienePermiso('ot.historial',ordenFresca.proyecto_id)} onClick={() => setTabActivo('historial')} className={tabActivo === 'historial' ? styles.viewTabActive : ''}>Historial</button>
           </div>
 
           <div className={styles.detailPane} hidden={tabActivo !== 'detalle'}>
 
           <div className={styles.tabs}>
             {(['datos', 'fotos', 'informes', 'campos'] as const).map(t => (
-              <button key={t} disabled={guardandoCliente} className={`${styles.tab} ${tab === t ? styles.active : ''}`} onClick={() => setTab(t)}>
+              <button key={t} disabled={guardandoCliente||(t!=='datos'&&!tienePermiso(({fotos:'foto.ver',informes:'informe.ver',campos:'campo.ver'} as const)[t],ordenFresca.proyecto_id))} className={`${styles.tab} ${tab === t ? styles.active : ''}`} onClick={() => setTab(t)}>
                 {t === 'datos' ? 'Datos' : t === 'fotos' ? 'Fotos' : t === 'informes' ? 'Informes' : 'Campos'}
                 {/* F4 — Visible desde las cuatro pestañas: el técnico pasa la
                     mayor parte del tiempo en Datos y tiene que enterarse ahí de
@@ -1119,7 +1119,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
             ))}
           </div>
 
-          <fieldset disabled={!puedeEditar || guardando} className={`${styles.body} ${tab === 'fotos' ? styles.bodyFotos : styles.bodyFormulario}`} style={{ border: 0, margin: 0, minWidth: 0 }}>
+          <fieldset disabled={guardando || (tab === 'datos' && !puedeEditar) || (tab === 'campos' && !tienePermiso('campo.editar',ordenFresca.proyecto_id))} className={`${styles.body} ${tab === 'fotos' ? styles.bodyFotos : styles.bodyFormulario}`} style={{ border: 0, margin: 0, minWidth: 0 }}>
 
             <div hidden={tab !== 'datos'}>
               <div className={styles.identificationMeta}><label>Ingreso <input aria-label="Fecha de ingreso" className={styles.input} type="date" value={toDateInput(form.fecha_ingreso)} onChange={e=>set('fecha_ingreso',e.target.value)}/></label><span>Creado por: {creadoPor}</span><span>{diasAb} {diasAb===1?'día abierto':'días abiertos'}</span></div>
@@ -1232,24 +1232,24 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
                   </label>
                   <div className={styles.estadoBtns}>
                     {(['Pendiente', 'En proceso', 'Cerrada', 'No aplica'] as const).map(e => (
-                      <button key={e} className={`${styles.estadoBtn} ${estado === e ? styles.active : ''}`} style={estado === e ? { color: colorEstado(e), borderColor: colorEstado(e) } : {}} onClick={() => handleCambiarEstado(e)}>{e}</button>
+                      <button key={e} disabled={!tienePermiso(e==='Cerrada'?'ot.cerrar':estado==='Cerrada'?'ot.reabrir':'ot.estado',ordenFresca.proyecto_id)} className={`${styles.estadoBtn} ${estado === e ? styles.active : ''}`} style={estado === e ? { color: colorEstado(e), borderColor: colorEstado(e) } : {}} onClick={() => handleCambiarEstado(e)}>{e}</button>
                     ))}
                   </div>
                 </div>
                 <div className={styles.field}>
                   <label className={styles.label}>Rubro Principal</label>
-                  <select className={styles.select} value={form.rubro ?? ''} onChange={e => set('rubro', e.target.value)}>
+                  <select disabled={!tienePermiso('ot.clasificar',ordenFresca.proyecto_id)} className={styles.select} value={form.rubro ?? ''} onChange={e => set('rubro', e.target.value)}>
                     <option value="">— Seleccionar —</option>
                     {[...RUBROS_LISTA, 'Otro'].map(r => <option key={r} value={r}>{emojiRubro(r)} {r}</option>)}
                   </select>
                 </div>
                 <div className={styles.field}>
                   <label className={styles.label}>Rubro Secundario</label>
-                  <MultiSelectRubro opciones={RUBROS_LISTA.filter(r => r !== form.rubro)} seleccionados={form.rubro_secundario ?? []} onChange={vals => set('rubro_secundario', vals)} emojiMap={emojiRubro} />
+                  <fieldset disabled={!tienePermiso('ot.clasificar',ordenFresca.proyecto_id)} style={{border:0,padding:0,minWidth:0}}><MultiSelectRubro opciones={RUBROS_LISTA.filter(r => r !== form.rubro)} seleccionados={form.rubro_secundario ?? []} onChange={vals => set('rubro_secundario', vals)} emojiMap={emojiRubro} /></fieldset>
                 </div>
                 <div className={styles.field}>
                   <label className={styles.label}>Nivel de Riesgo</label>
-                  <select className={styles.select} value={form.nivel_riesgo ?? ''} onChange={e => set('nivel_riesgo', (e.target.value || null) as NivelRiesgo | null)}>
+                  <select disabled={!tienePermiso('ot.clasificar',ordenFresca.proyecto_id)} className={styles.select} value={form.nivel_riesgo ?? ''} onChange={e => set('nivel_riesgo', (e.target.value || null) as NivelRiesgo | null)}>
                     <option value="">— Seleccionar —</option>
                     <option value="Bajo">🟢 Bajo</option>
                     <option value="Medio">🟡 Medio</option>
@@ -1262,7 +1262,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
                   <div className={styles.estadoBtns} style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
                     {(['Alta', 'Media', 'Baja'] as const).map(p => {
                       const on = form.prioridad === p;
-                      return <button key={p} className={`${styles.estadoBtn} ${on ? styles.active : ''}`} style={on ? { color: COLOR_PRIORIDAD[p], borderColor: COLOR_PRIORIDAD[p] } : {}} onClick={() => set('prioridad', p)}>{p}</button>;
+                      return <button key={p} disabled={!tienePermiso('ot.clasificar',ordenFresca.proyecto_id)} className={`${styles.estadoBtn} ${on ? styles.active : ''}`} style={on ? { color: COLOR_PRIORIDAD[p], borderColor: COLOR_PRIORIDAD[p] } : {}} onClick={() => set('prioridad', p)}>{p}</button>;
                     })}
                   </div>
                 </div>
@@ -1276,7 +1276,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
                 <div className={styles.sectionTitle}>Asignación interna</div>
                 <div className={styles.field}>
                   <label className={styles.label}>Supervisor / Responsable</label>
-                  <select className={styles.select} value={form.responsable_id ?? ''} onChange={e => {
+                  <select disabled={!tienePermiso('ot.asignar',ordenFresca.proyecto_id)} className={styles.select} value={form.responsable_id ?? ''} onChange={e => {
                     const cuenta = responsablesCuenta.find(r => r.user_id === e.target.value);
                     setForm(f => ({ ...f, responsable_id: cuenta?.user_id ?? null, responsable: cuenta?.nombre ?? '' }));
                   }}>
@@ -1377,7 +1377,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
 
             {tab === 'campos' && (
               <div className={`${styles.section} ${styles.camposWrap}`}>
-                <button disabled={!esSupervisor} className={styles.gestorBtn} onClick={() => setMostrarGestor(true)}>⚙️ Gestionar campos</button>
+                <button disabled={!tienePermiso('campo.configurar',ordenFresca.proyecto_id)} className={styles.gestorBtn} onClick={() => setMostrarGestor(true)}>⚙️ Gestionar campos</button>
                 {camposDefinicion.length === 0 ? (
                   <div className={styles.posicion}>No hay campos personalizados definidos.</div>
                 ) : (
@@ -1406,7 +1406,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
             ) : esNueva ? (
               <button className={styles.cancelUbicacionBtn} onClick={handleCancelarNueva} disabled={guardando || altaCliente !== null} type="button">Cancelar</button>
             ) : esSupervisor ? (
-              <button className={styles.deleteBtn} onClick={handleEliminar} disabled={guardando || altaCliente !== null} type="button">
+              <button className={styles.deleteBtn} onClick={handleEliminar} disabled={!tienePermiso('ot.eliminar',ordenFresca.proyecto_id)||guardando || altaCliente !== null} type="button">
                 {confirmEliminar ? '¿Confirmar?' : 'Borrar'}
               </button>
             ) : null}

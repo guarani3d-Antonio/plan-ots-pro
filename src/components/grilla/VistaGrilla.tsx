@@ -4,7 +4,7 @@ import Papa from 'papaparse';
 import styles from './VistaGrilla.module.css';
 import { useOrdenesStore } from '../../stores/ordenesStore';
 import { type Proyecto } from '../../stores/proyectosStore';
-import { useAccessStore } from '../../stores/accessStore';
+import { useAccessStore, tienePermiso } from '../../stores/accessStore';
 import { supabase } from '../../db/supabase';
 import { assertSession, sessionTicket } from '../../security/sessionScope';
 import { ModalDetalleOT } from './ModalDetalleOT';
@@ -965,8 +965,8 @@ export const VistaGrilla: React.FC = () => {
             {filtrosActivos > 0 && <button type="button" onClick={limpiarTodos} style={{ padding: '3px 8px', height: 26, fontSize: 11, fontWeight: 600, background: 'transparent', color: '#64748B', border: '1px solid #E2E2E7', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>Limpiar todos</button>}
             <div style={{ flex: 1 }} />
             <span style={{ fontSize: 10, color: '#64748B', whiteSpace: 'nowrap', flexShrink: 0 }}><strong style={{ color: '#0F172A' }}>{filtradas.length}</strong> de <strong style={{ color: '#0F172A' }}>{proyecto_ordenes.length}</strong> · {totalColumnas}col</span>
-            <button type="button" onClick={handleExportarCSV} style={btnExport('#1E3A5F')} disabled={filtradas.length === 0} title="Exportar a CSV">↑ CSV</button>
-            <button type="button" onClick={handleExportarPDF} style={btnExport('#15803D')} disabled={filtradas.length === 0} title="Exportar a PDF imprimible">📄 PDF</button>
+            <button type="button" onClick={handleExportarCSV} style={btnExport('#1E3A5F')} disabled={filtradas.length === 0||!filtradas.every(o=>tienePermiso('grilla.exportar',o.proyecto_id))} title="Exportar a CSV">↑ CSV</button>
+            <button type="button" onClick={handleExportarPDF} style={btnExport('#15803D')} disabled={filtradas.length === 0||!filtradas.every(o=>tienePermiso('grilla.exportar',o.proyecto_id))} title="Exportar a PDF imprimible">📄 PDF</button>
             <div style={{ width: 1, height: 18, background: '#E2E2E7', flexShrink: 0 }} />
             <button type="button" onClick={() => setVistaActiva('tabla')} style={{ fontSize: 11, padding: '3px 10px', height: 26, borderRadius: 6, background: vistaActiva === 'tabla' ? '#1E3A5F' : 'white', color: vistaActiva === 'tabla' ? 'white' : '#6B7280', border: vistaActiva === 'tabla' ? 'none' : '1px solid #E2E2E7', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0 }}>□ Tabla</button>
             <button type="button" onClick={() => setVistaActiva('tarjetas')} style={{ fontSize: 11, padding: '3px 10px', height: 26, borderRadius: 6, background: vistaActiva === 'tarjetas' ? '#1E3A5F' : 'white', color: vistaActiva === 'tarjetas' ? 'white' : '#6B7280', border: vistaActiva === 'tarjetas' ? 'none' : '1px solid #E2E2E7', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0 }}>🃏 Tarjetas</button>

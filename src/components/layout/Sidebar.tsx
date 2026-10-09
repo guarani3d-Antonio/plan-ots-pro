@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import styles from './Sidebar.module.css';
 import { useAuthStore } from '../../stores/authStore';
-import { useAccessStore } from '../../stores/accessStore';
+import { useAccessStore, permisoVista, tienePermiso } from '../../stores/accessStore';
 import { Notificaciones } from '../ui/Notificaciones';
 import { usePantallaCompleta } from '../../hooks/usePantallaCompleta';
 
@@ -160,15 +160,15 @@ export function Sidebar({
       <nav className={styles.nav}>
 
         {renderSectionLabel('PRINCIPAL')}
-        {NAV_PRINCIPAL.map(renderItem)}
+        {NAV_PRINCIPAL.filter(it=>permisoVista(it.vista)).map(renderItem)}
 
-        {contexto?.creador && <>
+        {(contexto?.creador||permisoVista('creador')) && <>
           {renderSectionLabel('PLATAFORMA')}
-          {renderItem(ITEM_CREADOR)}
+          {renderItem({...ITEM_CREADOR,label:contexto?.creador?'Administración':'Mi empresa'})}
         </>}
 
         {renderSectionLabel('DATOS GLOBALES')}
-        {NAV_GLOBALES.map(renderItem)}
+        {NAV_GLOBALES.filter(it=>permisoVista(it.vista)).map(renderItem)}
 
         <div className={styles.divider} />
 
@@ -195,7 +195,7 @@ export function Sidebar({
             )}
           </button>
         )}
-        <Notificaciones collapsed={collapsed} />
+        {tienePermiso('notificacion.ver')&&<Notificaciones collapsed={collapsed} />}
         <div className={styles.userBox}>
           <div
             className={styles.userAvatar}

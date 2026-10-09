@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '../db/supabase';
 import { useAuthStore } from './authStore';
-import { exigirPermiso } from './accessStore';
+import { exigirPermiso, tienePermiso } from './accessStore';
 import { assertSession, sessionTicket } from '../security/sessionScope';
 import type { OrdenLocal } from '../types/orden';
 import { ORDEN_SELECT, ordenPatchToRow, ordenToRow, rowToOrden } from '../data/ordenMapper';
@@ -139,7 +139,7 @@ export const useOrdenesStore=create<OrdenesState>((set,get)=>({
   },
   eliminarOrden:async(id)=>{
     const previous=get().ordenes.find(o=>o.id===id);if(!previous)throw new Error('Vuelve a cargar la orden.');
-    exigirPermiso(previous.proyecto_id,'administrar');const ticket=sessionTicket();
+    if(!tienePermiso('ot.eliminar',previous.proyecto_id))throw new Error('No tenés permiso para eliminar esta OT.');const ticket=sessionTicket();
     const {error,data}=await supabase.from('ordenes').delete().eq('id',id).select('id').single();
     assertSession(ticket);if(error||!data)throw new Error(error?.message??'El servidor no confirmó el borrado.');
     get().aplicarEliminacionRemota(id);

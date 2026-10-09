@@ -1,4 +1,5 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import {tienePermiso} from '../../stores/accessStore';
 import styles from './ModalDetalleOT.module.css';
 import {
   emojiRubro,
@@ -262,7 +263,7 @@ export const ModalDetalleOT: React.FC<Props> = ({
 
           <div className={styles.headerActions}>
             {onEditar && (
-              <button className={styles.btnEditar} onClick={onEditar} title="Editar OT">
+              <button className={styles.btnEditar} disabled={!tienePermiso('grilla.editar',orden.proyecto_id)||!tienePermiso('ot.editar',orden.proyecto_id)} onClick={onEditar} title="Editar OT">
                 ✎ Editar
               </button>
             )}

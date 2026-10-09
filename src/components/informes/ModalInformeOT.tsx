@@ -24,7 +24,7 @@ import { borradorModificado } from '../../services/reportDraftComparison';
 //      Los tres mapeos de fotos ahora pasan ese campo al generador de informes.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useAccessStore } from '../../stores/accessStore';
+import { useAccessStore, tienePermiso } from '../../stores/accessStore';
 import { useAuthStore } from '../../stores/authStore';
 import type { OrdenLocal } from '../../types/orden';
 import {
@@ -815,7 +815,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
     Number.isFinite(orden.pos_x) && Number.isFinite(orden.pos_y);
   const cambiosBorrador = borradorModificado(guardado, datosBorrador);
   const revisionActual = revisiones.find(revision => revision.borrador_version === versionBorrador);
-  const camposBloqueados = cargandoComentario || (!!revisionActual && !correccionAbierta);
+  const camposBloqueados = !tienePermiso('informe.editar',orden.proyecto_id) || cargandoComentario || (!!revisionActual && !correccionAbierta);
   const tipoRepetible = tipo === 'visita' || tipo === 'relevamiento' || tipo === 'avance' || tipo === 'encuesta' || tipo === 'cierre';
   const fotosElegibles = [
     ...fotosAntes.map(foto => ({ ...foto, fase: 'Antes' })),
@@ -1068,7 +1068,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
           </span>
           {persistenciaDisponible && (
             <button type="button" className={styles.btnSecondary} onClick={handleGuardarBorrador}
-              disabled={cargandoComentario || guardandoBorrador || (!cambiosBorrador && documento !== null)}>
+              disabled={!tienePermiso('informe.editar',orden.proyecto_id) || cargandoComentario || guardandoBorrador || (!cambiosBorrador && documento !== null)}>
               {guardandoBorrador ? 'Guardando…' : 'Guardar borrador'}
             </button>
           )}
@@ -1079,7 +1079,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
             type="button"
             className={styles.btnSecondary}
             onClick={handleExportarHTML}
-            disabled={!htmlPreview || generandoPreview}
+            disabled={!tienePermiso('informe.imprimir',orden.proyecto_id) || !htmlPreview || generandoPreview}
           >
             Descargar HTML borrador
           </button>
@@ -1087,7 +1087,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
             type="button"
             className={styles.btnPrimary}
             onClick={handleExportarPDF}
-            disabled={!htmlPreview || generandoPreview}
+            disabled={!tienePermiso('informe.imprimir',orden.proyecto_id) || !htmlPreview || generandoPreview}
           >
             Imprimir PDF borrador →
           </button>
@@ -1246,7 +1246,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                   </>
                 )}
                 {revisionActual && correccionAbierta && <CampoTextoInforme etiqueta="Motivo de la versión corregida" multiline rows={4} value={motivoRevision} onChange={setMotivoRevision}/>}
-                {revisionActual && <div><button type="button" className={styles.btnSecondary} disabled={!puedeRevisar||cargandoComentario||guardandoBorrador||correccionAbierta} onClick={()=>{setMotivoRevision('');setCorreccionAbierta(true);}}>Crear versión corregida</button><TooltipAyuda titulo="Crear versión corregida" texto="Corrige este mismo documento y conserva la versión anterior. Registrá el motivo y guardá los cambios antes de preparar otro PDF."/></div>}
+                {revisionActual && <div><button type="button" className={styles.btnSecondary} disabled={!tienePermiso('informe.crear',orden.proyecto_id)||!puedeRevisar||cargandoComentario||guardandoBorrador||correccionAbierta} onClick={()=>{setMotivoRevision('');setCorreccionAbierta(true);}}>Crear versión corregida</button><TooltipAyuda titulo="Crear versión corregida" texto="Corrige este mismo documento y conserva la versión anterior. Registrá el motivo y guardá los cambios antes de preparar otro PDF."/></div>}
                 {revisionActual && <p className={styles.sublabel}>Esta versión del borrador quedó congelada como R{String(revisionActual.revision).padStart(2, '0')}.</p>}
               </section>
             )}
@@ -1294,7 +1294,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                       </p>
                       {(!candidatoEmitible || candidatoEmitible.estado !== 'listo') && (
                         <button type="button" className={styles.btnSecondary}
-                          onClick={() => handlePrepararPdf(revisionEmitible)} disabled={procesandoDocumento || cambiosBorrador || !revisionActual}>
+                          onClick={() => handlePrepararPdf(revisionEmitible)} disabled={!tienePermiso('informe.preparar',orden.proyecto_id) || procesandoDocumento || cambiosBorrador || !revisionActual}>
                           {procesandoDocumento ? 'Preparando PDF…' : candidatoEmitible ? 'Retomar PDF candidato' : 'Generar PDF candidato'}
                         </button>
                       )}
@@ -1318,12 +1318,12 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                             <div className={styles.documentActions}>
                               <button type="button" className={styles.btnPrimary}
                                 onClick={() => handleRevisarPdf(candidatoEmitible, 'aprobado')}
-                                disabled={procesandoDocumento || cambiosBorrador || !revisionActual || candidatoEmitible.solicitado_por === usuarioId}>Aprobar este PDF</button>
+                                disabled={!tienePermiso('informe.aprobar',orden.proyecto_id) || procesandoDocumento || cambiosBorrador || !revisionActual || candidatoEmitible.solicitado_por === usuarioId}>Aprobar este PDF</button>
                               <CampoTextoInforme etiqueta="Motivo si hay observaciones" multiline rows={4} value={motivoObservacion}
                                 maxLength={1000} onChange={setMotivoObservacion} />
                               <button type="button" className={styles.btnSecondary}
                                 onClick={() => handleRevisarPdf(candidatoEmitible, 'observado')}
-                                disabled={procesandoDocumento || cambiosBorrador || !revisionActual || !motivoObservacion.trim()}>
+                                disabled={!tienePermiso('informe.aprobar',orden.proyecto_id) || procesandoDocumento || cambiosBorrador || !revisionActual || !motivoObservacion.trim()}>
                                 Registrar observaciones
                               </button>
                             </div>
@@ -1336,7 +1336,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                           {esCreador && aprobacionEmitible?.decision === 'aprobado' && !emisionActual && (
                             <button type="button" className={styles.btnPrimary}
                               onClick={() => handleEmitirPdf(candidatoEmitible)}
-                              disabled={procesandoDocumento || cambiosBorrador || !revisionActual || pdfVerificadoId !== candidatoEmitible.id}>
+                              disabled={!tienePermiso('informe.emitir',orden.proyecto_id) || procesandoDocumento || cambiosBorrador || !revisionActual || pdfVerificadoId !== candidatoEmitible.id}>
                               Emitir PDF aprobado
                             </button>
                           )}
