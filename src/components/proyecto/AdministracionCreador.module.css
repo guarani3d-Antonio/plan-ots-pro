@@ -105,3 +105,5 @@
 @media(pointer:coarse){.editorBody [class*=compact]{width:44px;height:44px;min-width:44px;min-height:44px}}
 
 .companyContext strong{font-size:14px;color:var(--text-primary);border:1px solid var(--border-default);border-radius:7px;background:var(--bg-surface);padding:7px 10px;overflow-wrap:anywhere}.companyContext>span:last-child{font-size:11px}
+.administrationLayout.matrixLayout{grid-template-columns:minmax(0,1fr)}.matrixLayout>.navigation{display:flex;flex-wrap:wrap;gap:4px;padding:5px}.matrixLayout>.navigation button{width:auto;flex:0 1 auto;min-height:32px}.matrixLayout .catalogArea{grid-template-columns:minmax(0,1fr)}
+.matrixLayout .catalogArea:has(.editorSlot:not(:empty)){grid-template-columns:minmax(0,1fr)}.matrixLayout .editorSlot:not(:empty){position:fixed;top:max(12px,20vh);left:50%;right:auto;bottom:auto;transform:translateX(-50%);width:min(420px,calc(100vw - 24px));z-index:1200;box-shadow:0 0 0 100vmax #0f172a55;border-radius:10px}
