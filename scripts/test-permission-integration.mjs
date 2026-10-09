@@ -36,6 +36,25 @@ try{
  stage='configure';
  await mutate(boss,d=>{d.cupos_tecnicos=2;d.permisos.forEach(p=>{if(['equipo.invitar','equipo.editar','equipo.permisos','equipo.alcances'].includes(p.clave))p.permitido=true;if(p.permitido)p.delegable=true;})});
  await mutate(tech,d=>{d.superior_id=boss});
+ stage='bounded user search';
+ await as(null);await db.query("update auth.users set raw_user_meta_data=jsonb_build_object('nombre','José','apellidos','Caballero') where id=$1",[tech]);await as(creator);
+ for(const query of ['JOSE','josé','JÓSE','Caballero jose'])assert.equal((await one('select plan_equipo_buscar($1,$2) r',[tenant,query])).r[0].id,tech);
+ const chosen=(await one('select plan_equipo_persona($1,$2) r',[tenant,tech])).r;
+ assert.deepEqual(chosen.usuarios.map(p=>p.id),[tech,boss]);
+ assert.equal(chosen.usuarios[0].permisos.length,86);
+ assert.deepEqual((await one('select plan_equipo_buscar($1,$2) r',[tenant,'outsider'])).r,[]);
+ await assert.rejects(db.query('select plan_equipo_persona($1,$2)',[tenant,outsider]),e=>e.code==='42501');
+ await as(tech);assert(!JSON.stringify((await one('select plan_equipo_buscar($1,$2) r',[tenant,''])).r).includes(creator));
+ await as(outsider);await assert.rejects(db.query('select plan_equipo_buscar($1,$2)',[tenant,'']),e=>e.code==='42501');
+ await as(null);await assert.rejects(db.query('select public.plan_equipo_buscar($1,$2)',[tenant,'']),e=>e.code==='42501');await as(creator);
+ await db.exec('begin');await as(null);
+ for(let i=100;i<125;i++){await db.query('insert into auth.users(id,email) values($1,$2)',[id(i),`bulk${i}@example.test`]);await db.query("insert into tenant_miembros(tenant_id,user_id,rol) values($1,$2,'tecnico')",[tenant,id(i)]);await db.query("insert into plan_equipo_nodos(tenant_id,user_id,perfil) values($1,$2,'tecnico') on conflict do nothing",[tenant,id(i)]);}
+ await as(creator);assert.equal((await one('select plan_equipo_buscar($1,$2,5000) r',[tenant,'bulk'])).r.length,20,'The server must cap suggestions even with an excessive requested limit');
+ assert.deepEqual((await one('select plan_equipo_persona($1,$2) r',[tenant,tech])).r.usuarios.map(p=>p.id),[tech,boss],'Unrelated users must not be loaded');
+ const single=(await one('select plan_equipo_persona($1,$2) r',[tenant,tech])).r.usuarios[0];
+ const savedSingle=(await one('select plan_equipo_matriz_guardar($1,$2) r',[tenant,[{usuario:tech,revision:single.revision,permisos:single.permisos.map(({clave,permitido,delegable})=>({clave,permitido,delegable}))}]])).r;
+ assert.deepEqual(savedSingle.usuarios.map(p=>p.id),[tech,boss],'Single-user saves must return only the person and ancestors');
+ await as(null);await db.exec('rollback');await as(creator);
  stage='atomic permission matrix';
  const matrixGraph=(await one('select plan_equipo_listar($1) r',[tenant])).r;
  const matrixPayload=matrixGraph.usuarios.map(p=>({usuario:p.id,revision:p.revision,permisos:p.permisos.map(({clave,permitido,delegable})=>({clave,permitido,delegable}))}));

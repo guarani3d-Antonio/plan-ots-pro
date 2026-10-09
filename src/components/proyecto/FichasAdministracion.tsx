@@ -7,6 +7,7 @@ import {clavesRequeridasFicha,datosEditables,datosNuevos,faltantesFicha,gruposMa
 import {guardarFotoDirectorio} from '../../services/directoryPhotoService';
 import {FotoDirectorio} from '../plano/FotoDirectorio';
 import {VoiceInputButton} from '../ui/VoiceInputButton';
+import {SelectorBusqueda} from '../ui/SelectorBusqueda';
 import {EtiquetaObra,SelectorColorObra} from '../ui/ColorObra';
 import {PanelAdministracion} from './PanelAdministracion';
 import {EliminarDirectorio} from './EliminarDirectorio';
@@ -23,9 +24,8 @@ export function CampoFicha({campo,datos,cambiar,disabled=false,required=false}:{
 }
 
 export function BuscarFicha({registros,value,onChange,label,disabled=false,onNuevo,nuevoDisabled=false}:{registros:FichaMaestra[];value:string;onChange:(id:string)=>void;label:string;disabled?:boolean;onNuevo?:()=>void;nuevoDisabled?:boolean}){
- const [texto,setTexto]=useState('');
- const actual=registros.find(r=>r.id===value),resultados=registros.filter(r=>r.datos.activo!==false&&normalizarMaestro(Object.values(r.datos).join(' ')).includes(normalizarMaestro(texto)));
- return <div className={s.picker}><span>{label}</span>{actual?<div className={s.selected}><div><strong>{str(actual.datos,'nombre')}{actual.datos.activo===false?' · Inactivo':''}</strong><small>{[actual.datos.telefono,actual.datos.correo].filter(Boolean).join(' · ')}</small></div><button type="button" className={styles.secondaryButton} disabled={disabled} onClick={()=>onChange('')}>Cambiar</button></div>:<><input type="search" aria-label={label} placeholder="Buscar por nombre, teléfono o correo…" disabled={disabled} value={texto} onChange={e=>setTexto(e.target.value)}/>{!disabled&&<div className={s.options}>{resultados.slice(0,30).map(r=><button type="button" key={r.id} onClick={()=>{onChange(r.id);setTexto('')}}>{str(r.datos,'nombre')}<small> · {str(r.datos,'telefono')||str(r.datos,'correo')}</small></button>)}{!resultados.length&&<small>No hay coincidencias.</small>}{resultados.length>30&&<small>Escribí más para acotar la búsqueda.</small>}</div>}</>}{onNuevo&&!disabled&&<button className={styles.secondaryButton} type="button" disabled={nuevoDisabled} onClick={onNuevo}>+ Nuevo contacto</button>}</div>;
+ const actual=registros.find(r=>r.id===value),option=(r:FichaMaestra)=>({id:r.id,nombre:str(r.datos,'nombre')+(r.datos.activo===false?' · Inactivo':''),detalle:[r.datos.telefono,r.datos.correo].filter(Boolean).join(' · '),busqueda:Object.values(r.datos).filter(v=>typeof v==='string').join(' ')});
+ return <div className={s.picker}><span>{label}</span><SelectorBusqueda label={label} value={actual?option(actual):undefined} opciones={registros.filter(r=>r.datos.activo!==false).map(option)} onSeleccionar={onChange} onLimpiar={()=>onChange('')} disabled={disabled} placeholder="Buscar por nombre, teléfono o correo…"/>{onNuevo&&!disabled&&<button className={styles.secondaryButton} type="button" disabled={nuevoDisabled} onClick={onNuevo}>+ Nuevo contacto</button>}</div>;
 }
 
 function datosFicha(tipo:TipoMaestro,ficha?:FichaMaestra):DatosMaestros{

@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import styles from './DialogDirectorioOT.module.css';
+import {coincideBusqueda} from '../../utils/busqueda';
 
 export function DialogDirectorioOT({ titulo, onCerrar, busy = false, children }: {
   titulo: string; onCerrar: () => void; busy?: boolean; children: ReactNode;
@@ -35,14 +36,12 @@ export function DialogDirectorioOT({ titulo, onCerrar, busy = false, children }:
 }
 
 export type OpcionDirectorio = { id: string; nombre: string; detalle?: string };
-const normalizar = (texto: string) => texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('es');
 export function BuscarDirectorioOT({ titulo, opciones, onSeleccionar, onCerrar, seleccionados = [], multiple = false, error, etiquetaBusqueda = 'Buscar por nombre o identificación' }: {
   titulo: string; opciones: OpcionDirectorio[]; onSeleccionar: (id: string) => void;
   onCerrar: () => void; seleccionados?: string[]; multiple?: boolean; error?: string | null; etiquetaBusqueda?: string;
 }) {
   const [texto, setTexto] = useState('');
-  const palabras = normalizar(texto).split(/\s+/).filter(Boolean);
-  const resultados = opciones.filter(o => palabras.every(p => normalizar(`${o.nombre} ${o.detalle ?? ''}`).includes(p)));
+  const resultados = opciones.filter(o => coincideBusqueda(`${o.nombre} ${o.detalle ?? ''}`,texto));
   return <DialogDirectorioOT titulo={titulo} onCerrar={onCerrar}>
     <label className={styles.search}>{etiquetaBusqueda}
       <input autoFocus type="search" value={texto} onChange={e => setTexto(e.target.value)} placeholder="Empezá a escribir…" />
