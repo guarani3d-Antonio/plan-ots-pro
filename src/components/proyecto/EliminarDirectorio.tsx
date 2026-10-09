@@ -4,7 +4,7 @@ import { assertSession, sessionTicket } from '../../security/sessionScope';
 import { PanelAdministracion } from './PanelAdministracion';
 import styles from './AdministracionCreador.module.css';
 
-export function EliminarDirectorio({ tipo,id,nombre,onEliminar }: {tipo:'empresa'|'obra'|'cliente'|'contratista';id:string;nombre:string;onEliminar:()=>void}) {
+export function EliminarDirectorio({ tipo,id,nombre,onEliminar }: {tipo:'empresa'|'obra'|'cliente'|'contratista'|'contacto';id:string;nombre:string;onEliminar:()=>void}) {
   const [estado,setEstado]=useState<{bloqueo:string|null;cargado:boolean}>({bloqueo:null,cargado:false});
   const [confirmar,setConfirmar]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState('');
   useEffect(()=>{let active=true;const ticket=sessionTicket();void Promise.resolve(supabase.rpc('plan_directorio_bloqueo',{p_tipo:tipo,p_id:id})).then(r=>{

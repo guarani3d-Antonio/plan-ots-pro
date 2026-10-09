@@ -1,13 +1,14 @@
-import { useEffect,useState } from 'react';
+import { useContext,useEffect,useState } from 'react';
 import { supabase } from '../../db/supabase';
 import { useAccessStore } from '../../stores/accessStore';
 import { PoliticasDocumentales } from './PoliticasDocumentales';
-import { DirectoriosCreador } from './DirectoriosCreador';
+import { FichasAdministracion } from './FichasAdministracion';
+import { GuardiaAdministracion } from './GuardiaAdministracion';
+import { GuardiaAdministracionContext } from './guardiaAdministracionContext';
+import type {TipoMaestro} from '../../services/masterDirectoryService';
 import { PanelAdministracion as DialogDirectorioOT } from './PanelAdministracion';
 import {PanelAdministracionContext} from './panelAdministracionContext';
 import { VoiceInputButton } from '../ui/VoiceInputButton';
-import { ObrasCreador } from './ObrasCreador';
-import { EmpresasCreador } from './EmpresasCreador';
 import { assertSession,sessionTicket } from '../../security/sessionScope';
 import { ConfiguracionDashboardCreador } from './ConfiguracionDashboardCreador';
 import { MapaAccesosCreador } from './MapaAccesosCreador';
@@ -22,13 +23,15 @@ const tiposNotificacion = [
 ] as const;
 const roles = [['administrador', 'Administrador'], ['supervisor', 'Supervisor'], ['tecnico', 'Técnico'], ['viewer', 'Lector']] as const;
 const empresaPiloto = '9159153b-eac0-49df-80d5-649ced2c7887';
-const secciones = [['empresas','Empresas'],['obras','Obras'],['clientes','Clientes'],['contratistas','Contratistas'],['usuarios','Usuarios y permisos'],['informes','Configuración de informes'],['dashboard','Dashboard']] as const;
+const secciones = [['empresas','Empresas'],['obras','Obras'],['clientes','Clientes'],['contratistas','Contratistas'],['contactos','Contactos'],['usuarios','Usuarios y permisos'],['informes','Configuración de informes'],['dashboard','Dashboard']] as const;
 type Seccion = typeof secciones[number][0];
 
-export function AdministracionCreador() {
+export function AdministracionCreador(){const [destino,setDestino]=useState<HTMLDivElement|null>(null);return <PanelAdministracionContext.Provider value={destino}><GuardiaAdministracion><ContenidoAdministracion setEditorDestino={setDestino}/></GuardiaAdministracion></PanelAdministracionContext.Provider>}
+function ContenidoAdministracion({setEditorDestino}:{setEditorDestino:(element:HTMLDivElement|null)=>void}) {
+  const guardia=useContext(GuardiaAdministracionContext);
   const { contexto, empresaId, refresh } = useAccessStore();
   const [seccion,setSeccion]=useState<Seccion>('empresas');
-  const [crearEmpresa,setCrearEmpresa]=useState(false);
+
   const [email, setEmail] = useState('');
   const [nombreInvitado, setNombreInvitado] = useState('');
   const [apellidosInvitado, setApellidosInvitado] = useState('');
@@ -39,8 +42,6 @@ export function AdministracionCreador() {
   const [notificaciones, setNotificaciones] = useState<Record<string, string[]>>({});
   const [busy, setBusy] = useState(false);
   const [mensaje, setMensaje] = useState('');
-  const [crearObra, setCrearObra] = useState(false);
-  const [editorDestino,setEditorDestino]=useState<HTMLDivElement|null>(null);
   const [accesosCuenta,setAccesosCuenta]=useState<Record<string,string>>({});
   const [cuentaAbierta,setCuentaAbierta]=useState(false);
   function abrirCuenta(esSupervisor=false){setAccesosCuenta({});setEmail('');setNombreInvitado('');setApellidosInvitado('');setObra('');setActivo(true);setRol(esSupervisor?'supervisor':'viewer');setRolObra(esSupervisor?'supervisor':'viewer');setMensaje('');setCuentaAbierta(true)}
@@ -106,21 +107,15 @@ export function AdministracionCreador() {
 
   const empresa = contexto.empresas.find(e => e.id === empresaId);
   const limiteInvitaciones = empresaId === empresaPiloto ? 2 : 4;
-  return <PanelAdministracionContext.Provider value={editorDestino}><div className={styles.creator}>
+  return <div className={styles.creator}>
     <header className={styles.pageHeader}><div>
       <h1 style={{ margin: 0, fontSize: 26 }}>Administración</h1>
       <p style={{ margin: '6px 0 0', color: 'var(--text-secondary)' }}>Administrá las empresas, las cuentas, los responsables y los directorios compartidos.</p>
-    </div><label className={styles.companyContext}>Empresa seleccionada
-      <select className="app-select" value={empresaId} onChange={e => useAccessStore.setState({ empresaId: e.target.value })}>
-        <option value="">Seleccionar empresa</option>
-        {contexto.empresas.map(e => <option key={e.id} value={e.id}>{e.nombre}</option>)}
-      </select>
-    </label></header>
+    </div><div className={styles.companyContext}><span>Empresa seleccionada</span><strong>{empresa?.nombre??'Elegí una empresa en Empresas'}</strong><span>Para cambiarla: Empresas → Seleccionar</span></div></header>
     <div className={styles.administrationLayout}>
-    <nav className={styles.navigation} aria-label="Administrar registros y configuración">{secciones.map(([id,label])=><button key={id} type="button" aria-pressed={seccion===id} disabled={id!=='empresas'&&id!=='dashboard'&&!empresaId} onClick={()=>setSeccion(id)}>{label}</button>)}</nav>
+    <nav className={styles.navigation} aria-label="Administrar registros y configuración">{secciones.map(([id,label])=><button key={id} type="button" aria-pressed={seccion===id} disabled={id!=='empresas'&&id!=='dashboard'&&!empresaId} onClick={()=>guardia.solicitar(()=>setSeccion(id))}>{label}</button>)}</nav>
     <div className={styles.catalogArea}><main className={styles.catalogContent}>
-    {seccion==='empresas'&&<div><EmpresasCreador crear={crearEmpresa} onCerrarCrear={()=>setCrearEmpresa(false)}/></div>}
-    {empresaId&&seccion==='obras'&&<div><ObrasCreador key={`obras-${empresaId}`} tenantId={empresaId} crearAbierto={crearObra} onCerrarCrear={()=>setCrearObra(false)}/></div>}
+    {(['empresas','obras','clientes','contratistas','contactos'] as string[]).includes(seccion)&&(seccion==='empresas'||empresaId)&&<FichasAdministracion key={seccion==='empresas'?seccion:`${seccion}-${empresaId}`} tipo={seccion.slice(0,-1) as TipoMaestro} tenantId={empresaId} onSeleccionar={id=>useAccessStore.setState({empresaId:id})}/>}
     {seccion==='usuarios'&&<section className={styles.workspace}>
       <div className={styles.sectionHeader}><div><h2>Usuarios y permisos</h2><p>Buscá una persona para administrar su cuenta y las obras asignadas.</p></div>
     <button style={button} type="button" disabled={!empresaId} onClick={()=>abrirCuenta()}>+ Crear usuario</button>
@@ -144,10 +139,9 @@ export function AdministracionCreador() {
     </section>}
       </div></details>
     </section>}
-    {empresaId && (seccion==='clientes'||seccion==='contratistas')&&<div><DirectoriosCreador key={`directorios-${empresaId}-${seccion}`} tenantId={empresaId} obras={contexto.obras} seccion={seccion==='contratistas'?'contratistas':'clientes'} /></div>}
     {empresaId&&seccion==='informes'&&<div><PoliticasDocumentales key={empresaId} tenantId={empresaId}/></div>}
     {seccion==='dashboard'&&<section className={styles.workspace}><ConfiguracionDashboardCreador /></section>}
-    {seccion==='usuarios'&&cuentaAbierta&&<DialogDirectorioOT titulo="Cuenta, rol y acceso a obras" busy={busy} onCerrar={()=>setCuentaAbierta(false)}>    <section style={{display:"grid",gap:8}}>
+    {seccion==='usuarios'&&cuentaAbierta&&<DialogDirectorioOT titulo="Cuenta, rol y acceso a obras" busy={busy} onCerrar={()=>guardia.solicitar(()=>setCuentaAbierta(false))}>    <section style={{display:"grid",gap:8}}>
       <h2 style={{ margin: '0 0 14px', fontSize: 18 }}>Cuentas, roles y responsables</h2>
       <p style={{ margin: '0 0 14px', color: 'var(--text-secondary)' }}>Invitá cuentas nuevas por correo; para una cuenta existente, guardá su rol. Después asignale las obras correspondientes. Supervisor y técnico pueden figurar como responsables de OTs.</p>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))', gap: 16 }}>
@@ -176,5 +170,5 @@ export function AdministracionCreador() {
 <p role="status" aria-live="polite">{mensaje}</p></DialogDirectorioOT>}
     <p role="status" aria-live="polite" style={{ margin: 0 }}>{mensaje}</p>
     </main><div className={styles.editorSlot} ref={setEditorDestino}/></div></div>
-  </div></PanelAdministracionContext.Provider>;
+  </div>;
 }

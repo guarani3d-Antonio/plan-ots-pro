@@ -5,8 +5,8 @@ import styles from './AdministracionCreador.module.css';
 import {PanelAdministracionContext} from './panelAdministracionContext';
 
 /** Shared side editor. Master-data forms remain separate from the OT editor. */
-export function PanelAdministracion({ titulo, onCerrar, busy = false, children,acciones }: {
-  titulo: string; onCerrar: () => void; busy?: boolean; children: ReactNode;acciones?:ReactNode;
+export function PanelAdministracion({ titulo, onCerrar, busy = false, children,acciones,cancelarCompacto=false }: {
+  titulo: string; onCerrar: () => void; busy?: boolean; children: ReactNode;acciones?:ReactNode;cancelarCompacto?:boolean;
 }) {
   const destino = useContext(PanelAdministracionContext);
   const ref = useRef<HTMLElement>(null);
@@ -28,6 +28,6 @@ export function PanelAdministracion({ titulo, onCerrar, busy = false, children,a
     onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); if (!busy) onCerrar(); } }}>
     <header className={styles.editorHeader}><h3 id={id}>{titulo}</h3><button type="button" disabled={busy} aria-label={`Cerrar ${titulo}`} onClick={onCerrar}>✕</button></header>
     <div className={styles.editorBody}>{children}</div>
-    <footer className={styles.editorFooter}><button className={styles.secondaryButton} type="button" disabled={busy} onClick={onCerrar}>{acciones?'Cancelar':'Cerrar ficha'}</button>{acciones}</footer>
+    <footer className={styles.editorFooter}><button className={styles.secondaryButton} type="button" aria-label={cancelarCompacto?'Cancelar':undefined} title={cancelarCompacto?'Cancelar':undefined} disabled={busy} onClick={onCerrar}>{cancelarCompacto?'✕':acciones?'Cancelar':'Cerrar ficha'}</button>{acciones}</footer>
   </aside>, destino);
 }

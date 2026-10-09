@@ -1,7 +1,7 @@
 import { supabase } from '../db/supabase';
 import { assertSession, sessionTicket } from '../security/sessionScope';
 
-export type TipoFicha = 'obra' | 'cliente' | 'contratista';
+export type TipoFicha = 'empresa' | 'obra' | 'cliente' | 'contratista' | 'contacto';
 export const DIRECTORIO_FOTO_EVENTO = 'plan-directorio-foto';
 const bucket = 'directory-photos';
 
