@@ -38,6 +38,15 @@ export interface RevisionDocumento {
   creada_por: string;
   creada_en: string;
 }
+export interface FuentesVersion {
+ orden: import('../types/orden').OrdenLocal;
+ proyecto:{nombre:string};
+ fotos:{id:string;categoria:string;descripcion:string|null;descripcion_observacion:string|null;edicion_path:string}[];
+}
+export async function cargarFuentesVersion(revision:string):Promise<FuentesVersion>{
+ const ticket=sessionTicket();const r=await supabase.rpc('plan_documento_fuentes_version',{p_revision:revision});assertSession(ticket);
+ if(r.error)throw errorDocumento(r.error);return r.data as FuentesVersion;
+}
 
 export interface CandidatoDocumento {
   id: string;
@@ -205,16 +214,18 @@ export async function reservarDocumento(
   return data as DocumentoRegistro;
 }
 
-export async function guardarBorradorDocumento(
+export async function guardarVersionDocumento(
   documentoId: string, datos: Record<string, unknown>, version: number, solicitudId: string,
-): Promise<BorradorDocumento> {
+  correccion: boolean, motivo: string | null, esquema: number, plantilla: string,
+): Promise<{borrador: BorradorDocumento; revision: RevisionDocumento; revisiones: RevisionDocumento[]}> {
   const ticket = sessionTicket();
-  const { data, error } = await supabase.rpc('plan_documento_borrador_guardar', {
+  const { data, error } = await supabase.rpc('plan_documento_version_guardar', {
     p_documento: documentoId, p_datos: datos, p_version: version, p_solicitud: solicitudId,
+    p_correccion: correccion, p_motivo: motivo, p_esquema: esquema, p_plantilla: plantilla,
   });
   assertSession(ticket);
   if (error) throw errorDocumento(error);
-  return data as BorradorDocumento;
+  return data as {borrador: BorradorDocumento; revision: RevisionDocumento; revisiones: RevisionDocumento[]};
 }
 
 export async function congelarRevisionDocumento(

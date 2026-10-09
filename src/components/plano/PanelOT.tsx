@@ -1,4 +1,7 @@
 import { EtapasOT, type EtapasOTHandle } from '../informes/EtapasOT';
+import { EvidenciaEtapa } from '../informes/EvidenciaEtapa';
+import { categoriaEtapa } from '../../services/otStageSchema';
+import type { TipoDocumento } from '../../services/documentService';
 import { AltaClienteOT, type ClienteObra } from './AltaClienteOT';
 import { LEGACY_OFFLINE_ENABLED } from '../../security/sessionScope';
 import { useAccessStore, usePermisoObra, tienePermiso } from '../../stores/accessStore';
@@ -285,6 +288,8 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
   const etapasRef = useRef<EtapasOTHandle>(null);
   const [etapasDirty,setEtapasDirty] = useState(false);
   const [documentoInicialId,setDocumentoInicialId] = useState<string>();
+  const [revisionInicialId,setRevisionInicialId] = useState<string>();
+  const retornoDatosRef=useRef(false);
   const [modalCierre,     setModalCierre]     = useState(false);
   const [tipoInforme,     setTipoInforme]     = useState<TipoInformeModal>('cierre');
 
@@ -587,6 +592,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
 
   useEffect(() => {
     if (!ordenProp?.id) return;
+    retornoDatosRef.current=false;setRevisionInicialId(undefined);
     setTab(modoForzadoFotos ? 'fotos' : tabInicial);
     setConfirmEliminar(false);
     setErrorFotos(null);
@@ -651,7 +657,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
     void procesarSubidaFoto(file, categoria);
   };
 
-  const procesarSubidaFoto = async (file: File, categoria: 'ANTES' | 'DURANTE' | 'DESPUES') => {
+  const procesarSubidaFoto = async (file: File, categoria: 'ANTES' | 'DURANTE' | 'DESPUES', etapa?:TipoDocumento) => {
     const estadoActual = (form.estado ?? ordenFresca?.estado) as EstadoOT;
     let estadoNuevo: EstadoOT | null = null;
     if (categoria === 'DURANTE' && estadoActual === 'Pendiente') estadoNuevo = 'En proceso';
@@ -670,6 +676,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
       if (categoria === 'ANTES')   setFotosAntes(  prev => [...prev, foto]);
       if (categoria === 'DURANTE') setFotosDurante(prev => [...prev, foto]);
       if (categoria === 'DESPUES') setFotosDespues(prev => [...prev, foto]);
+      if(etapa)etapasRef.current?.vincularEvidencia(etapa,foto.id);
       setModalDescIA({ fotoId: foto.id, fotoUrl: foto.url, fotoPendienteId: foto.fotoPendienteId });
       setSugerenciaIA('');
       // El modal SIGUE offline: es el único momento en que el técnico describe la
@@ -702,7 +709,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
   const handleGuardarDescripcionIA = async (descripcion: string) => {
     if (!modalDescIA) { setModalDescIA(null); return; }
     const { fotoId, fotoPendienteId } = modalDescIA;
-    if (!descripcion.trim()) { setModalDescIA(null); return; }
+    if (!descripcion.trim()) { cerrarDescripcionFoto(); return; }
     const desc = descripcion.trim();
     try {
       if (fotoPendienteId != null) {
@@ -717,10 +724,15 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
       setFotosAntes(prev => actualizar(prev));
       setFotosDurante(prev => actualizar(prev));
       setFotosDespues(prev => actualizar(prev));
-      setModalDescIA(null);
+      cerrarDescripcionFoto();
     } catch (err) {
       setErrorFotos(err instanceof Error ? err.message : 'No se pudo guardar la descripción.');
     }
+  };
+
+  const cerrarDescripcionFoto=()=>{
+    setModalDescIA(null);
+    if(retornoDatosRef.current){retornoDatosRef.current=false;setTab('datos');}
   };
 
   const handleEliminarFoto = async (foto: FotoConId, categoria: CategoriaFoto) => {
@@ -771,7 +783,8 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
     let guardadoSinVerificar = false;
     if (!v.valido) {
       if (!fotosNoCargadas) {
-        mostrar(v.errores.join(' · '), 'error'); setTab('fotos'); return;
+        mostrar(v.errores.join(' · '), 'error');
+        setTab('datos');etapasRef.current?.abrir(!v.antesOk?'orden_servicio':!v.duranteOk?'avance':'cierre');return;
       }
       const estadoOriginal = (ordenFresca.estado ?? 'Pendiente') as EstadoOT;
       if (exigenciaFotos(estado) > exigenciaFotos(estadoOriginal)) {
@@ -1024,7 +1037,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
     if (nuevoEstado === estadoAnterior) return;
     const validacion = validarFotosParaEstado(fotosAntes, fotosDurante, fotosDespues, nuevoEstado);
     if (!validacion.valido) {
-      setTab('fotos');
+      retornoDatosRef.current=true;setTab('fotos');
       // El bloqueo NO cambia — sigue sin poder escalar sin fotos verificadas. Lo
       // que cambia es el mensaje: pedirle fotos al técnico cuando la OT ya las
       // tiene en el servidor y lo que falló fue nuestra lectura es una mentira.
@@ -1181,20 +1194,30 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
                 disabled={!puedeEditar || guardando || guardandoCliente} puedeRevisar={esSupervisor} onDirty={setEtapasDirty} refresh={0}
                 onFechasReales={(inicio,fin)=>setForm(f=>({...f,fecha_inicio_trabajos:inicio,fecha_fin_trabajos:fin}))}
                 onOrigen={d=>setValoresCampos(c=>({...c,canal_solicitud:d.canal,fecha_solicitud:d.fechaRecepcion,solicitante:d.solicitante,contacto_solicitante:d.contacto,referencia_solicitud:d.referencia,urgencia_solicitada:d.urgencia,proximo_paso:d.proximoPaso}))}
-                onPreview={async tipo=>{
+                onPreview={async (tipo,revision)=>{
                   if(saveLock.current||clienteBusyRef.current)return;
                   if(cambiosSinGuardar&&!await handleGuardar())return;
                   setDocumentoInicialId(etapasRef.current?.documento(tipo));
+                  setRevisionInicialId(revision);
                   setTipoInforme(tipo);setModalCierre(true);
                 }}
-                solicitud={<>                <div className={`${styles.field} ${styles.fieldNarrative}`}>
+                evidenciasIds={tipo=>{const fotos=tipo==='avance'?[...fotosAntes,...fotosDurante]:tipo==='cierre'?[...fotosAntes,...fotosDespues]:categoriaEtapa(tipo)?fotosAntes:[];return fotos.map(f=>f.id);}}
+                evidencia={(tipo,datos,readOnly)=>{
+                  const categoria=categoriaEtapa(tipo);if(!categoria)return null;
+                  const fotos={ANTES:fotosAntes,DURANTE:fotosDurante,DESPUES:fotosDespues}[categoria];
+                  const ids=Array.isArray(datos.fotoIds)?datos.fotoIds as string[]:[];
+                  return <EvidenciaEtapa tipo={tipo} fotos={readOnly?fotos.filter(f=>ids.includes(f.id)):fotos} cargando={fotosNoCargadas} subiendo={!!subiendo} soloLectura={readOnly}
+                    disabled={!tienePermiso('foto.cargar',ordenFresca.proyecto_id)||guardando} puedeVer={tienePermiso('foto.ver',ordenFresca.proyecto_id)} error={errorFotos}
+                    onArchivo={file=>void procesarSubidaFoto(file,categoria,tipo)} onGaleria={()=>{retornoDatosRef.current=true;setTab('fotos');}}/>;
+                }}
+                solicitud={(datos,onChange)=>{const identificacion=(datos.identificacion??{}) as Record<string,unknown>;const descripcion=typeof identificacion.descripcion==='string'?identificacion.descripcion:form.descripcion??'';const cambiarDescripcion=(value:string)=>{set('descripcion',value);onChange({...datos,identificacion:{...identificacion,descripcion:value}})};return <>                <div className={`${styles.field} ${styles.fieldNarrative}`}>
                   <div className={styles.labelRow}>
                     <label className={styles.label}>Descripción del reclamo</label>
-                    <VoiceInputButton value={form.descripcion ?? ''} onChange={value => set('descripcion', value)} />
+                    <VoiceInputButton value={descripcion} onChange={cambiarDescripcion} />
                   </div>
-                  <textarea className={styles.textarea} rows={4} placeholder="Descripción del problema según el cliente..." value={form.descripcion ?? ''} onChange={e => set('descripcion', e.target.value)} />
+                  <textarea className={styles.textarea} rows={4} placeholder="Descripción del problema según el cliente..." value={descripcion} onChange={e => cambiarDescripcion(e.target.value)} />
                 </div>
-</>} ejecucion={<><details><summary>Seguimiento operativo, horarios y observaciones</summary><div className={`${styles.section} ${styles.formSection} ${styles.executionGrid}`}>
+</>}} ejecucion={<><details><summary>Seguimiento operativo, horarios y observaciones</summary><div className={`${styles.section} ${styles.formSection} ${styles.executionGrid}`}>
 <div className={styles.field}><label className={styles.label}>Hora real de inicio</label><input className={styles.input} type="time" value={String(valoresCampos.hora_inicio_trabajos ?? '')} onChange={e=>setValorCampo('hora_inicio_trabajos',e.target.value)}/></div><div className={styles.field}><label className={styles.label}>Hora real de fin</label><input className={styles.input} type="time" value={String(valoresCampos.hora_fin_trabajos ?? '')} onChange={e=>setValorCampo('hora_fin_trabajos',e.target.value)}/></div>
                 <div className={styles.field}>
                   <label className={styles.label}>% Avance</label>
@@ -1298,6 +1321,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
             {tab === 'fotos' && (
               <div className={`${styles.section} ${styles.photosWorkspace}`}>
                 <div className={styles.photosToolbar}>
+                  <button type="button" className={styles.directoryBtn} onClick={()=>{retornoDatosRef.current=false;setTab('datos');}}>← Volver a Datos</button>
                   <div className={styles.photosTitle}>
                     <strong>Evidencia fotográfica</strong>
                     <span>{totalFotos} {totalFotos === 1 ? 'foto' : 'fotos'}</span>
@@ -1367,7 +1391,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
                         </div>
                         <span className={`${styles.informeEstado} ${disponible ? styles.informeOk : styles.informeNo}`}>{disponible ? 'Disponible' : 'No disponible'}</span>
                       </div>
-                      <button className={styles.btnGenerar} onClick={() => { if (cambiosSinGuardar) { mostrar('Guardá los cambios de la OT antes de generar el informe.', 'info'); return; } const tipoModal: TipoInformeModal = tipo === 'acta_conformidad' ? 'acta' : tipo; setDocumentoInicialId(undefined); setTipoInforme(tipoModal); setModalCierre(true); }} disabled={!disponible} type="button">🖨️ Generar</button>
+                      <button className={styles.btnGenerar} onClick={() => { if (cambiosSinGuardar) { mostrar('Guardá los cambios de la OT antes de generar el informe.', 'info'); return; } const tipoModal: TipoInformeModal = tipo === 'acta_conformidad' ? 'acta' : tipo; setDocumentoInicialId(undefined); setRevisionInicialId(undefined); setTipoInforme(tipoModal); setModalCierre(true); }} disabled={!disponible} type="button">🖨️ Generar</button>
                     </div>
                   );
                 })}
@@ -1483,7 +1507,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
           sugerenciaIA={sugerenciaIA}
           cargandoIA={cargandoIA}
           onGuardar={handleGuardarDescripcionIA}
-          onOmitir={() => setModalDescIA(null)}
+          onOmitir={cerrarDescripcionFoto}
         />
       )}
 
@@ -1504,7 +1528,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
 
       {modalCierre && (
         <InformeErrorBoundary key={`${ordenFresca.id}:${tipoInforme}`} onClose={() => setModalCierre(false)}>
-          <ModalInformeOT isOpen={modalCierre} onClose={() => setModalCierre(false)} onDocumentoChange={(doc,borrador,revisiones)=>etapasRef.current?.actualizarDocumento(doc,borrador,revisiones)} documentoInicialId={documentoInicialId} orden={ordenFresca} proyectoNombre={proyectoNombre ?? (proyectoActivo?.id === ordenFresca.proyecto_id ? proyectoActivo.nombre : '')} tipo={tipoInforme} puedeRevisar={esSupervisor} />
+          <ModalInformeOT isOpen={modalCierre} onClose={() => setModalCierre(false)} onDocumentoChange={(doc,borrador,revisiones)=>etapasRef.current?.actualizarDocumento(doc,borrador,revisiones)} documentoInicialId={documentoInicialId} revisionInicialId={revisionInicialId} orden={ordenFresca} proyectoNombre={proyectoNombre ?? (proyectoActivo?.id === ordenFresca.proyecto_id ? proyectoActivo.nombre : '')} tipo={tipoInforme} puedeRevisar={esSupervisor} />
         </InformeErrorBoundary>
       )}
 

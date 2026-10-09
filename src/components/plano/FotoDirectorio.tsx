@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { DIRECTORIO_FOTO_EVENTO, fotoDirectorio, type TipoFicha } from '../../services/directoryPhotoService';
 import { DialogDirectorioOT } from './DialogDirectorioOT';
 import styles from './FichaDirectorio.module.css';
@@ -8,6 +8,7 @@ export function FotoDirectorio({ tipo, id, nombre, archivo, onArchivo, disabled 
   onArchivo?: (file: File | null) => void; disabled?: boolean;
 }) {
   const inputId = useId();
+  const input=useRef<HTMLInputElement>(null);
   const [remote, setRemote] = useState({ key: '', url: '', error: '' });
   const [local, setLocal] = useState<{file:File;url:string}|null>(null);
   const [ampliar, setAmpliar] = useState(false);
@@ -36,12 +37,12 @@ export function FotoDirectorio({ tipo, id, nombre, archivo, onArchivo, disabled 
   const image = source && falloImagen !== source ? <img src={source} alt={`Foto de ${nombre}`} onError={() => setFalloImagen(source)} />
     : <span aria-label={tipo === 'obra' ? 'Obra sin foto' : 'Ficha sin foto'}>{tipo === 'obra' ? '▥' : initials || '—'}</span>;
   return <div className={styles.photoColumn}>
-    <button type="button" className={`${styles.photo} ${tipo === 'obra' ? styles.workPhoto : ''}`} disabled={!source || falloImagen === source}
-      aria-label={`Ampliar foto de ${nombre}`} onClick={() => setAmpliar(true)}>{image}</button>
-    {onArchivo && <><label htmlFor={inputId} className={styles.photoLabel}>Foto opcional<input id={inputId} type="file" accept="image/jpeg,image/png,image/webp" disabled={disabled}
+    <button type="button" className={`${styles.photo} ${tipo === 'obra' ? styles.workPhoto : ''}`} disabled={disabled||(!onArchivo&&(!source || falloImagen === source))}
+      aria-label={`${!source&&onArchivo?'Cargar':'Ampliar'} foto de ${nombre}`} title={!source?'Sin foto cargada. Usá Editar para agregarla.':'Ampliar foto'} onClick={() => {if(source&&falloImagen!==source)setAmpliar(true);else input.current?.click();}}>{image}</button>
+    {onArchivo && <><label htmlFor={inputId} className={styles.photoLabel}>{source?'Cambiar foto':'Cargar foto'}<input ref={input} aria-label={`Seleccionar foto de ${nombre}`} id={inputId} type="file" accept="image/jpeg,image/png,image/webp" disabled={disabled}
       onChange={e => { const file = e.target.files?.[0]; if (file) onArchivo(file); e.target.value = ''; }} /></label>
       {archivo && <button type="button" className={styles.linkButton} disabled={disabled} onClick={() => onArchivo(null)}>Descartar foto nueva</button>}</>}
-    {remote.key === `${tipo}/${id}` && remote.error && <small className={styles.photoError}>Foto no disponible</small>}
+    {remote.key === `${tipo}/${id}` && remote.error && <small role="alert" className={styles.photoError}>No se pudo cargar la foto: {remote.error}</small>}
     {ampliar && source && <DialogDirectorioOT titulo={`Foto de ${nombre}`} onCerrar={() => setAmpliar(false)}><img className={styles.fullPhoto} src={source} alt={`Foto de ${nombre}`} /></DialogDirectorioOT>}
   </div>;
 }

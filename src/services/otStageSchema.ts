@@ -2,6 +2,8 @@ import type { TipoDocumento } from './documentService';
 
 export interface CampoEtapa { key: string; label: string; type?: 'text' | 'textarea' | 'date' | 'time' | 'datetime-local' | 'scale'; options?: string[]; span?: 2 | 3 | 6 | 12 }
 export interface GrupoEtapa { title: string; fields: CampoEtapa[] }
+export const categoriaEtapa = (tipo: TipoDocumento): 'ANTES' | 'DURANTE' | 'DESPUES' | null =>
+ ['orden_servicio','visita','relevamiento'].includes(tipo) ? 'ANTES' : tipo==='avance' ? 'DURANTE' : tipo==='cierre' ? 'DESPUES' : null;
 export interface EtapaDef { tipo: TipoDocumento; name: string; subtitle: string; tag: string; record: string; newLabel: string; help: string; groups: GrupoEtapa[] }
 const text = (key:string,label:string,span:CampoEtapa['span']=6):CampoEtapa => ({key,label,span});
 const area = (key:string,label:string,span:CampoEtapa['span']=6):CampoEtapa => ({key,label,type:'textarea',span});

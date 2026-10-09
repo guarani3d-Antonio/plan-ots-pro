@@ -37,14 +37,15 @@ import {
   generarEncuestaSatisfaccion,
 } from '../../services/reportService';
 import type { DatosActa, DatosAvance, DatosCierre, DatosEncuesta, DatosRelevamiento, DatosVisita, ItemAlcance, ItemAvance, ItemCierre, OrigenOrdenServicio } from '../../services/reportService';
+import { resolverArchivo,referenciaArchivo } from '../../services/storageService';
 import { cargarFotosDeOrden } from '../../services/fotosService';
 import { CAMPOS_IDENTIFICACION, prepararAutocompletado, restaurarCampos, ordenParaInforme, type IdentificacionInforme } from '../../services/reportAutofillService';
 import { cargarFuentesInforme } from '../../services/reportSourceService';
 import { hacerInformePortable } from '../../services/portableReportService';
 import {
-  cargarBorradorDocumento, cargarEstadoEmision, congelarRevisionDocumento,
+  cargarFuentesVersion,type FuentesVersion,cargarBorradorDocumento, cargarEstadoEmision, congelarRevisionDocumento,
   descargarCandidatoVerificado, emitirCandidatoPdf, generarCandidatoPdf,
-  guardarBorradorDocumento, revisarCandidatoPdf,
+  guardarVersionDocumento, revisarCandidatoPdf,
   listarDocumentosDeOrden, listarRevisionesDocumento, reservarDocumento,
   type AprobacionDocumento, type CandidatoDocumento, type DocumentoRegistro,
   type EmisionDocumento, type RevisionDocumento,
@@ -66,6 +67,7 @@ interface Props {
   puedeRevisar?: boolean;
   soloVistaPrevia?: boolean;
   documentoInicialId?: string;
+  revisionInicialId?: string;
   onDocumentoChange?: (doc:DocumentoRegistro,borrador?:{datos:Record<string,unknown>;version:number},revisiones?:RevisionDocumento[])=>void;
 }
 
@@ -355,7 +357,7 @@ function encuestaGuardada(valor: unknown, inicial: DatosEncuesta = ENCUESTA_INIC
 
 
 export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, puedeRevisar = false,
-  soloVistaPrevia = false, documentoInicialId, onDocumentoChange }: Props) {
+  soloVistaPrevia = false, documentoInicialId, revisionInicialId, onDocumentoChange }: Props) {
   const emisionDisponible = import.meta.env.VITE_DOCUMENT_ISSUANCE_ENABLED === 'true';
   const esCreador = useAccessStore(s => s.disponible && s.contexto?.creador === true);
   const usuarioId = useAuthStore(s => s.user?.id);
@@ -389,6 +391,8 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
   const [fotosAntes, setFotosAntes] = useState<FotoMin[]>([]);
   const [fotosDespues, setFotosDespues] = useState<FotoMin[]>([]);
   const [fotosDurante, setFotosDurante] = useState<FotoMin[]>([]);
+  const [fuentesVersion,setFuentesVersion]=useState<FuentesVersion|null>(null);
+  const [fotosVersion,setFotosVersion]=useState<(FotoMin&{categoria:string})[]>([]);
   const [fotoIds, setFotoIds] = useState<string[]>([]);
   const [errorInforme, setErrorInforme] = useState<string | null>(null);
   const [documento, setDocumento] = useState<DocumentoRegistro | null>(null);
@@ -544,16 +548,19 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
   }, [pdfBlobUrl]);
 
   const construirHtml = (textoActual: string): string => {
-    const base = ordenParaInforme(orden, identificacion);
+    if(!persistenciaDisponible || versionBorrador>0&&!correccionAbierta&&revisionActual&&!fuentesVersion)throw new Error('No se pudieron recuperar las fuentes conservadas. Reabrí el informe.');
+    const conservada=versionBorrador>0&&!correccionAbierta&&fuentesVersion;
+    const base = ordenParaInforme(conservada?conservada.orden:orden, identificacion);
     const ordenDocumento = { ...base, campos: { ...base.campos, plano_contexto: TIPOS_CON_PLANO.includes(tipo) ? planoContexto : null } };
     const codigoDocumento = documento?.codigo;
     const seleccion = new Set(fotoIds);
-    const fa  = incluirFotos ? fotosAntes.filter(f => seleccion.has(f.id)) : [];
-    const fd  = incluirFotos ? fotosDespues.filter(f => seleccion.has(f.id)) : [];
-    const fdu = incluirFotos ? fotosDurante.filter(f => seleccion.has(f.id)) : [];
+    const origenFotos=conservada?fotosVersion:null;
+    const fa  = incluirFotos ? (origenFotos?origenFotos.filter(f=>f.categoria==='ANTES'):fotosAntes).filter(f => seleccion.has(f.id)) : [];
+    const fd  = incluirFotos ? (origenFotos?origenFotos.filter(f=>f.categoria==='DESPUES'):fotosDespues).filter(f => seleccion.has(f.id)) : [];
+    const fdu = incluirFotos ? (origenFotos?origenFotos.filter(f=>f.categoria==='DURANTE'):fotosDurante).filter(f => seleccion.has(f.id)) : [];
     switch (tipo) {
       case 'cierre':
-        return generarInformeCierre(ordenDocumento, proyectoNombre, textoActual, fa, fd, datosCierre, codigoDocumento, itemsCierre);
+        return generarInformeCierre(ordenDocumento, identificacion.obra || proyectoNombre, textoActual, fa, fd, datosCierre, codigoDocumento, itemsCierre);
       case 'orden_servicio':
         return generarInformeOrdenServicio(ordenDocumento, textoActual, origenServicio, codigoDocumento, fa);
       case 'visita':
@@ -590,20 +597,26 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
         vigente ? listarRevisionesDocumento(vigente.id) : Promise.resolve([]),
         cargarFuentesInforme(orden, tipo, documentos),
       ]);
-      return { vigente, borrador, revisiones, disponibles, contexto };
+      const historica=revisionInicialId?revisiones.find(r=>r.id===revisionInicialId):null;
+      if(revisionInicialId&&!historica)throw new Error('Esta versión histórica no está disponible.');
+      const rev=historica??revisiones.find(r=>r.borrador_version===borrador?.version);
+      const fuentes=rev?await cargarFuentesVersion(rev.id):null;
+      const fotosConservadas=fuentes?await Promise.all(fuentes.fotos.map(async f=>({...f,file_url:await resolverArchivo(referenciaArchivo('fotos',f.edicion_path))}))):[];
+      return {fuentes,fotosConservadas, vigente, borrador:historica?{...borrador,datos:historica.datos,version:historica.borrador_version}:borrador, revisiones, disponibles, contexto };
     });
 
     Promise.all([promFotos, promBorrador])
       .then(async ([fotos, resultado]) => {
         if (cancelado) return;
         const datos = resultado?.borrador?.datos;
+        setFuentesVersion(resultado?.fuentes??null);setFotosVersion(resultado?.fotosConservadas??[]);
         const guardadoPlano = datos?.planoContexto as PlanoContexto | undefined;
         let contextoPlano: PlanoContexto | null = null;
         let errorPlano = '';
         if (TIPOS_CON_PLANO.includes(tipo) && guardadoPlano && typeof guardadoPlano.imagen === 'string' &&
             /^data:image\/(?:jpeg|png);base64,[A-Za-z0-9+/]+={0,2}$/.test(guardadoPlano.imagen) &&
-            guardadoPlano.imagen.length <= 400_000 && guardadoPlano.posX === orden.pos_x &&
-            guardadoPlano.posY === orden.pos_y && typeof guardadoPlano.planoRef === 'string') {
+            guardadoPlano.imagen.length <= 400_000 && (resultado?.borrador?.version || guardadoPlano.posX === orden.pos_x &&
+            guardadoPlano.posY === orden.pos_y) && typeof guardadoPlano.planoRef === 'string') {
           contextoPlano = guardadoPlano;
         } else if(TIPOS_CON_PLANO.includes(tipo)) {
           try { contextoPlano = await generarContextoPlano(orden); }
@@ -708,7 +721,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
           );
         }
         // Keep the OT's selected document current using the same successful read.
-        if(resultado.vigente)onDocumentoChange?.(resultado.vigente,resultado.borrador??undefined,resultado.revisiones);
+        if(resultado.vigente&&!revisionInicialId)onDocumentoChange?.(resultado.vigente,resultado.borrador??undefined,resultado.revisiones);
         setCargandoComentario(false);
       })
       .catch(err => {
@@ -724,7 +737,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
     };
     // No volver a cargar al recibir actualizaciones de la misma OT: preserva lo editado.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, orden.id, tipo, seleccionId, necesitaFotos, cfg.necesitaFotosAntes, cfg.necesitaFotosDespues, cfg.necesitaFotosDurante]);
+  }, [isOpen, orden.id, tipo, seleccionId, revisionInicialId, necesitaFotos, cfg.necesitaFotosAntes, cfg.necesitaFotosDespues, cfg.necesitaFotosDurante]);
 
   // Regeneración del preview ante cambios que requieren rebuild completo
   useEffect(() => {
@@ -771,6 +784,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
     proyectoNombre,
     tipo,
     documento,
+    fuentesVersion,fotosVersion,versionBorrador,correccionAbierta,persistenciaDisponible,
     itemsAlcance,
     itemsAvance,
     itemsCierre,
@@ -815,9 +829,9 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
     Number.isFinite(orden.pos_x) && Number.isFinite(orden.pos_y);
   const cambiosBorrador = borradorModificado(guardado, datosBorrador);
   const revisionActual = revisiones.find(revision => revision.borrador_version === versionBorrador);
-  const camposBloqueados = !tienePermiso('informe.editar',orden.proyecto_id) || cargandoComentario || (!!revisionActual && !correccionAbierta);
+  const camposBloqueados = !persistenciaDisponible || !!revisionInicialId || !tienePermiso('informe.editar',orden.proyecto_id) || cargandoComentario || (versionBorrador>0 && !correccionAbierta);
   const tipoRepetible = tipo === 'visita' || tipo === 'relevamiento' || tipo === 'avance' || tipo === 'encuesta' || tipo === 'cierre';
-  const fotosElegibles = [
+  const fotosElegibles = versionBorrador>0&&!correccionAbierta&&fuentesVersion ? fotosVersion.map(foto=>({...foto,fase:foto.categoria==='ANTES'?'Antes':foto.categoria==='DURANTE'?'Durante':'Después'})) : [
     ...fotosAntes.map(foto => ({ ...foto, fase: 'Antes' })),
     ...fotosDurante.map(foto => ({ ...foto, fase: 'Durante' })),
     ...fotosDespues.map(foto => ({ ...foto, fase: 'Después' })),
@@ -850,7 +864,8 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
 
   const handleGuardarBorrador = async () => {
     if (cargandoComentario || guardandoBorrador || !persistenciaDisponible) return;
-    if (revisionActual && !correccionAbierta) { setErrorBorrador('Elegí «Crear versión corregida» antes de guardar cambios sobre una versión conservada.'); return; }
+    if(revisionInicialId)return;
+    if (versionBorrador>0 && !correccionAbierta) { setErrorBorrador('Elegí «Crear versión corregida» antes de guardar cambios sobre una versión conservada.'); return; }
     if(correccionAbierta&&!motivoRevision.trim()){setErrorBorrador('Indicá el motivo de la versión corregida.');return;}
     const validation=validarEtapa(tipo,datosBorrador);if(validation){setErrorBorrador(validation);return;}
     const datos = {...datosBorrador, motivoCorreccion:motivoRevision};
@@ -866,13 +881,19 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
       solicitudReservaRef.current = reserva;
       const vigente = documento ?? await reservarDocumento(orden.id, tipo, 1, reserva);
       setDocumento(vigente);
-      const borrador = await guardarBorradorDocumento(vigente.id, datos, versionBorrador, solicitud);
+      const {borrador,revisiones:conservadas} = await guardarVersionDocumento(vigente.id, datos, versionBorrador, solicitud,correccionAbierta,correccionAbierta?motivoRevision.trim():null,1,PLANTILLA_CONTROLADA_VERSION);
+      setRevisiones(conservadas);
+      setFuentesVersion(null);setFotosVersion([]);
       setVersionBorrador(borrador.version);
       setGuardado(JSON.stringify(datos));
-      onDocumentoChange?.(vigente,borrador);
+      onDocumentoChange?.(vigente,borrador,conservadas);
       setCorreccionAbierta(false);
       if (!documento && tipoRepetible) setSeleccionId(vigente.id);
       solicitudGuardadoRef.current = null;
+      try{
+        const snapshot=await cargarFuentesVersion(conservadas.at(-1)!.id);setFuentesVersion(snapshot);
+        setFotosVersion(await Promise.all(snapshot.fotos.map(async f=>({...f,file_url:await resolverArchivo(referenciaArchivo('fotos',f.edicion_path))}))));
+      }catch{setPersistenciaDisponible(false);setHtmlPreview('');setErrorBorrador('La versión quedó guardada. No se pudo recuperar su vista previa; cerrá y reabrí el informe.');}
     } catch (error) {
       setErrorBorrador(error instanceof Error ? error.message : 'No se pudo guardar el borrador.');
     } finally {
@@ -881,6 +902,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
   };
 
   const handleCongelarRevision = async () => {
+    if(revisionInicialId)return;
     if (!puedeRevisar || !documento || !versionBorrador || cambiosBorrador ||
       cargandoComentario || guardandoBorrador || congelandoRevision) return;
     if (planoRequerido && !planoContexto) {
@@ -925,6 +947,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
   };
 
   const handlePrepararPdf = async (revision: RevisionDocumento) => {
+    if(revisionInicialId)return;
     if (!emisionDisponible || !puedeRevisar || procesandoDocumento || cambiosBorrador ||
       revision.borrador_version !== versionBorrador) return;
     const intento = solicitudPdfRef.current;
@@ -959,6 +982,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
 
   const handleRevisarPdf = async (candidato: CandidatoDocumento,
     decision: 'aprobado' | 'observado') => {
+    if(revisionInicialId)return;
     if (!esCreador || cambiosBorrador || !revisionActual || procesandoDocumento ||
       pdfVerificadoId !== candidato.id || !candidato.pdf_sha256) return;
     const motivo = decision === 'observado' ? motivoObservacion.trim() : null;
@@ -985,6 +1009,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
   };
 
   const handleEmitirPdf = async (candidato: CandidatoDocumento) => {
+    if(revisionInicialId)return;
     if (!esCreador || cambiosBorrador || !revisionActual || procesandoDocumento || pdfVerificadoId !== candidato.id) return;
     const solicitud = solicitudEmisionRef.current?.candidato === candidato.id
       ? solicitudEmisionRef.current.id : crypto.randomUUID();
@@ -1068,8 +1093,8 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
           </span>
           {persistenciaDisponible && (
             <button type="button" className={styles.btnSecondary} onClick={handleGuardarBorrador}
-              disabled={!tienePermiso('informe.editar',orden.proyecto_id) || cargandoComentario || guardandoBorrador || (!cambiosBorrador && documento !== null)}>
-              {guardandoBorrador ? 'Guardando…' : 'Guardar borrador'}
+              disabled={camposBloqueados || guardandoBorrador || (!cambiosBorrador && documento !== null)}>
+              {guardandoBorrador ? 'Guardando…' : 'Guardar versión'}
             </button>
           )}
           <button type="button" className={styles.btnCancelar} onClick={cerrarInforme}>
@@ -1131,14 +1156,14 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                       else if (e.target.value === 'emitido') { if (candidatoEmitido) void handleVerPdf(candidatoEmitido); }
                       else cambiarDocumento(e.target.value);
                     }}
-                    disabled={cargandoComentario || guardandoBorrador || cambiosBorrador}>
+                    disabled={!!revisionInicialId || cargandoComentario || guardandoBorrador || cambiosBorrador}>
                     {documentosTipo.map(doc => (
                       <option key={doc.id} value={doc.id}>
                         {doc.codigo}
                       </option>
                     ))}
                     <option value="nuevo">{`+ ${ETAPAS_OT.find(e=>e.tipo===tipo)?.newLabel || 'Nuevo borrador'}`}</option>
-                    <option value="continuar" disabled={!documentosTipo.length}>Continuar documento guardado{!documentosTipo.length ? ' · todavía no hay' : ''}</option>
+                    <option value="continuar" disabled={!documentosTipo.length}>Consultar documento guardado{!documentosTipo.length ? ' · todavía no hay' : ''}</option>
                     <option value="emitido" disabled={!emisionDisponible || !candidatoEmitido}>Ver PDF emitido{!emisionDisponible ? ' · emisión formal no habilitada' : !candidatoEmitido ? ' · todavía no hay' : ''}</option>
                   </select>
                 </label>
@@ -1157,6 +1182,8 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
               <span><strong>Unidad</strong> {identificacion.unidad_amenities || '—'}</span>
               <span><strong>Cliente</strong> {identificacion.cliente || '—'}</span>
             </div>
+            {versionBorrador>0&&<div className={styles.identitySummary}><span>{correccionAbierta?'Nueva versión en preparación':`Versión ${versionBorrador} guardada · solo lectura`}</span><button type="button" className={styles.btnSecondary} disabled={!!revisionInicialId||!tienePermiso('informe.crear',orden.proyecto_id)||!tienePermiso('informe.editar',orden.proyecto_id)||cargandoComentario||guardandoBorrador||correccionAbierta} onClick={()=>{setMotivoRevision('');setCorreccionAbierta(true);}}>Crear versión corregida</button></div>}
+            {correccionAbierta&&<CampoTextoInforme etiqueta="Motivo de la versión corregida" multiline rows={4} value={motivoRevision} onChange={setMotivoRevision}/>}
             <div hidden={editorTab !== 'datos'} className={styles.tabContent}>
             <div className={styles.section}>
               <div className={styles.sectionTitle}>Datos</div>
@@ -1239,14 +1266,13 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                     )}
                     <button type="button" className={styles.btnSecondary}
                       onClick={handleCongelarRevision}
-                      disabled={cambiosBorrador || guardandoBorrador || congelandoRevision ||
+                      disabled={!!revisionInicialId || cambiosBorrador || guardandoBorrador || congelandoRevision ||
                         (revisiones.length > 0 && !motivoRevision.trim())}>
                       {congelandoRevision ? 'Congelando…' : 'Congelar datos para revisión'}
                     </button>
                   </>
                 )}
-                {revisionActual && correccionAbierta && <CampoTextoInforme etiqueta="Motivo de la versión corregida" multiline rows={4} value={motivoRevision} onChange={setMotivoRevision}/>}
-                {revisionActual && <div><button type="button" className={styles.btnSecondary} disabled={!tienePermiso('informe.crear',orden.proyecto_id)||!puedeRevisar||cargandoComentario||guardandoBorrador||correccionAbierta} onClick={()=>{setMotivoRevision('');setCorreccionAbierta(true);}}>Crear versión corregida</button><TooltipAyuda titulo="Crear versión corregida" texto="Corrige este mismo documento y conserva la versión anterior. Registrá el motivo y guardá los cambios antes de preparar otro PDF."/></div>}
+                {versionBorrador>0 && <TooltipAyuda titulo="Crear versión corregida" texto="Cada guardado conserva la versión anterior. Creá otra versión e indicá el motivo para corregir cualquier dato."/>}
                 {revisionActual && <p className={styles.sublabel}>Esta versión del borrador quedó congelada como R{String(revisionActual.revision).padStart(2, '0')}.</p>}
               </section>
             )}
@@ -1294,7 +1320,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                       </p>
                       {(!candidatoEmitible || candidatoEmitible.estado !== 'listo') && (
                         <button type="button" className={styles.btnSecondary}
-                          onClick={() => handlePrepararPdf(revisionEmitible)} disabled={!tienePermiso('informe.preparar',orden.proyecto_id) || procesandoDocumento || cambiosBorrador || !revisionActual}>
+                          onClick={() => handlePrepararPdf(revisionEmitible)} disabled={!!revisionInicialId || !tienePermiso('informe.preparar',orden.proyecto_id) || procesandoDocumento || cambiosBorrador || !revisionActual}>
                           {procesandoDocumento ? 'Preparando PDF…' : candidatoEmitible ? 'Retomar PDF candidato' : 'Generar PDF candidato'}
                         </button>
                       )}
@@ -1318,12 +1344,12 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                             <div className={styles.documentActions}>
                               <button type="button" className={styles.btnPrimary}
                                 onClick={() => handleRevisarPdf(candidatoEmitible, 'aprobado')}
-                                disabled={!tienePermiso('informe.aprobar',orden.proyecto_id) || procesandoDocumento || cambiosBorrador || !revisionActual || candidatoEmitible.solicitado_por === usuarioId}>Aprobar este PDF</button>
+                                disabled={!!revisionInicialId || !tienePermiso('informe.aprobar',orden.proyecto_id) || procesandoDocumento || cambiosBorrador || !revisionActual || candidatoEmitible.solicitado_por === usuarioId}>Aprobar este PDF</button>
                               <CampoTextoInforme etiqueta="Motivo si hay observaciones" multiline rows={4} value={motivoObservacion}
                                 maxLength={1000} onChange={setMotivoObservacion} />
                               <button type="button" className={styles.btnSecondary}
                                 onClick={() => handleRevisarPdf(candidatoEmitible, 'observado')}
-                                disabled={!tienePermiso('informe.aprobar',orden.proyecto_id) || procesandoDocumento || cambiosBorrador || !revisionActual || !motivoObservacion.trim()}>
+                                disabled={!!revisionInicialId || !tienePermiso('informe.aprobar',orden.proyecto_id) || procesandoDocumento || cambiosBorrador || !revisionActual || !motivoObservacion.trim()}>
                                 Registrar observaciones
                               </button>
                             </div>
@@ -1336,7 +1362,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                           {esCreador && aprobacionEmitible?.decision === 'aprobado' && !emisionActual && (
                             <button type="button" className={styles.btnPrimary}
                               onClick={() => handleEmitirPdf(candidatoEmitible)}
-                              disabled={!tienePermiso('informe.emitir',orden.proyecto_id) || procesandoDocumento || cambiosBorrador || !revisionActual || pdfVerificadoId !== candidatoEmitible.id}>
+                              disabled={!!revisionInicialId || !tienePermiso('informe.emitir',orden.proyecto_id) || procesandoDocumento || cambiosBorrador || !revisionActual || pdfVerificadoId !== candidatoEmitible.id}>
                               Emitir PDF aprobado
                             </button>
                           )}
