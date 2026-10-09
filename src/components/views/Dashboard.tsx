@@ -2,8 +2,9 @@
 // Dashboard con KPIs en tiempo real + exportación CSV / HTML / PDF + widgets configurables
 
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
-import { useOrdenesStore } from '../../stores/ordenesStore';
-import { useProyectosStore } from '../../stores/proyectosStore';
+import type { Proyecto } from '../../stores/proyectosStore';
+import type { OrdenLocal } from '../../types/orden';
+import { loadDashboardData } from '../../services/dashboardDataService';
 import { useAuthStore } from '../../stores/authStore';
 import { ESTADO_COLOR } from '../../constants/estados';
 import { getWidgetConfig, DEFAULT_WIDGETS, type WidgetConfig, type WidgetId } from '../../services/dashboardConfigService';
@@ -71,10 +72,16 @@ function fechaCorta(iso?: string | null): string {
 // ─── Componente principal ─────────────────────────────────────────────────────
 
 export default function Dashboard() {
-  const ordenes               = useOrdenesStore(s => s.ordenes);
-  const cargarTodasLasOrdenes = useOrdenesStore(s => s.cargarTodasLasOrdenes);
-  const proyectos             = useProyectosStore(s => s.proyectos);
-  const cargarProyectos       = useProyectosStore(s => s.cargarProyectos);
+  const [ordenes, setOrdenes] = useState<OrdenLocal[]>([]);
+  const [proyectos, setProyectos] = useState<Proyecto[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [errorCarga, setErrorCarga] = useState('');
+  const [revisionDatos, setRevisionDatos] = useState(0);
+  const actualizarDatos = () => {
+    setLoading(true);
+    setErrorCarga('');
+    setRevisionDatos(v => v + 1);
+  };
   const user                  = useAuthStore(s => s.user);
 
   const [filtroProyecto, setFiltroProyecto] = useState<string>('');
@@ -90,9 +97,14 @@ export default function Dashboard() {
   const [widgetConfig, setWidgetConfig]     = useState<WidgetConfig[]>(DEFAULT_WIDGETS);
 
   useEffect(() => {
-    cargarProyectos();
-    cargarTodasLasOrdenes();
-  }, [cargarProyectos, cargarTodasLasOrdenes]);
+    let active = true;
+    void loadDashboardData().then(data => {
+      if (active) { setProyectos(data.proyectos); setOrdenes(data.ordenes); setLoading(false); }
+    }).catch(error => {
+      if (active) { setErrorCarga(error instanceof Error ? error.message : 'No se pudo cargar el dashboard.'); setLoading(false); }
+    });
+    return () => { active = false; };
+  }, [revisionDatos]);
 
   // Cargar config de widgets al montar
   useEffect(() => {
@@ -105,7 +117,7 @@ export default function Dashboard() {
 
   const proyectoLabel = filtroProyecto
     ? (proyectos.find(p => p.id === filtroProyecto)?.nombre ?? 'Proyecto')
-    : 'Todos los proyectos';
+    : 'Todas las obras autorizadas';
 
   // ── Datos filtrados ────────────────────────────────────────────────────────
 
@@ -677,6 +689,12 @@ body{background:#888;font-family:Arial,sans-serif}
 
   // ── Render principal ───────────────────────────────────────────────────────
 
+  if (loading || errorCarga) return <div style={{ padding: 28 }}>
+    <h1 style={{ fontSize: 24 }}>Dashboard</h1>
+    {errorCarga ? <><p role="alert">No se pudieron actualizar los indicadores: {errorCarga}</p><button type="button" style={btnSecundario} onClick={actualizarDatos}>Volver a intentar</button></>
+      : <p role="status">Cargando indicadores de todas las obras autorizadas…</p>}
+  </div>;
+
   return (
     <div style={{ padding: 28, background: '#F9FAFB', minHeight: '100%', overflowY: 'auto' }}>
 
@@ -698,6 +716,7 @@ body{background:#888;font-family:Arial,sans-serif}
             <button type="button" onClick={handleExportPDF} style={btnPrimario}>🖨 PDF</button>
           </div>
           <FiltroProyecto value={filtroProyecto} onChange={setFiltroProyecto} proyectos={proyectos} />
+          <button type="button" style={btnSecundario} onClick={actualizarDatos}>Actualizar</button>
         </div>
       </div>
 
@@ -774,13 +793,14 @@ export function FiltroProyecto({
   return (
     <select
       className="app-select"
+      aria-label="Obra del dashboard"
       value={value}
       onChange={e => onChange(e.target.value)}
       style={{
         minWidth: 220,
       }}
     >
-      <option value="">Todos los proyectos</option>
+      <option value="">Todas las obras autorizadas</option>
       {proyectos.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
     </select>
   );

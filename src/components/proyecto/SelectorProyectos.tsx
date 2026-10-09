@@ -79,6 +79,7 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
   const carpetaActual = historialCarpetas.rutas[historialCarpetas.indice];
   const [modalCarpeta, setModalCarpeta] = useState(false);
   const [nombreCarpeta, setNombreCarpeta] = useState('');
+  const [empresaNuevaCarpeta, setEmpresaNuevaCarpeta] = useState('');
   const [creandoCarpeta, setCreandoCarpeta] = useState(false);
   const [proyectoMover, setProyectoMover] = useState<Proyecto | null>(null);
   const [carpetaMover, setCarpetaMover] = useState<Carpeta | null>(null);
@@ -192,7 +193,9 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
 
   const carpetaSeleccionada = carpetas.find(c => c.id === carpetaActual);
   const empresaDestino = carpetaSeleccionada?.tenant_id ?? empresaId ?? '';
-  const empresaParaCrear = empresaDestino || (contexto?.empresas.length === 1 ? contexto.empresas[0].id : '');
+  const empresasParaCarpeta = (contexto?.empresas ?? []).filter(e => e.activa !== false &&
+    (contexto?.creador || e.permisos?.includes('carpeta.crear')) && (!empresaDestino || e.id === empresaDestino));
+  const empresaParaCrear = empresaDestino || empresaNuevaCarpeta;
   const obrasDisponibles = useMemo(() => proyectos.filter(p => !p.proyecto_padre_id &&
     (!empresaDestino || p.tenant_id === empresaDestino) &&
     contexto?.obras.some(o => o.id === p.id && o.editar)), [proyectos, empresaDestino, contexto]);
@@ -293,7 +296,7 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
   }
 
   async function handleCrearCarpeta() {
-    if (!empresaParaCrear || !nombreCarpeta.trim() || creandoCarpeta) return;
+    if (!empresaParaCrear || !empresasParaCarpeta.some(e => e.id === empresaParaCrear) || !nombreCarpeta.trim() || creandoCarpeta) return;
     setCreandoCarpeta(true); setAccionError(null);
     try {
       const ticket = sessionTicket();
@@ -449,7 +452,11 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
             <svg className={styles.searchIcon} viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5" /><path d="m16 16 4 4" /></svg>
           </div>
           <div className={styles.headerActions}>
-            <button disabled={!empresaParaCrear || (carpetaSeleccionada?.profundidad ?? 0) >= 5} className={styles.secondaryBtn} onClick={() => { setAccionError(null); setModalCarpeta(true); }}>
+            <button disabled={!empresasParaCarpeta.length || (carpetaSeleccionada?.profundidad ?? 0) >= 5} className={styles.secondaryBtn} onClick={() => {
+              setAccionError(null); setNombreCarpeta('');
+              setEmpresaNuevaCarpeta(empresaDestino || (empresasParaCarpeta.length === 1 ? empresasParaCarpeta[0].id : ''));
+              setModalCarpeta(true);
+            }}>
               + Crear carpeta
             </button>
             <button disabled={obrasDisponibles.length === 0} className={styles.newBtn} onClick={() => {
@@ -699,6 +706,12 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
         <div className={styles.newPlanDialog} role="dialog" aria-modal="true" aria-labelledby="nueva-carpeta-titulo" onClick={e => e.stopPropagation()}>
           <h3 id="nueva-carpeta-titulo" className={styles.newPlanTitle}>Crear carpeta</h3>
           <p className={styles.newPlanDescription}>Dentro de {carpetaSeleccionada?.nombre ?? 'Proyectos'} · nivel {(carpetaSeleccionada?.profundidad ?? 0) + 1} de 5</p>
+          {!empresaDestino && <label className={styles.newPlanField}>Empresa de la carpeta
+            <select className={styles.newPlanInput} value={empresaNuevaCarpeta} onChange={e => setEmpresaNuevaCarpeta(e.target.value)} disabled={creandoCarpeta || empresasParaCarpeta.length === 1}>
+              <option value="">Seleccioná una empresa</option>
+              {empresasParaCarpeta.map(e => <option key={e.id} value={e.id}>{e.nombre}</option>)}
+            </select>
+          </label>}
           <label className={styles.newPlanField}>Nombre de la carpeta
             <input className={styles.newPlanInput} autoFocus maxLength={180} value={nombreCarpeta} onChange={e => setNombreCarpeta(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') void handleCrearCarpeta(); }} placeholder="Ej.: Distrito Perseverancia" />
@@ -706,7 +719,7 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
           {accionError && <p role="alert" style={{ color: '#b91c1c' }}>{accionError}</p>}
           <div className={styles.newPlanActions}>
             <button type="button" disabled={creandoCarpeta} onClick={() => setModalCarpeta(false)}>Cancelar</button>
-            <button type="button" disabled={creandoCarpeta || !nombreCarpeta.trim()} onClick={() => void handleCrearCarpeta()}>{creandoCarpeta ? 'Creando…' : 'Crear carpeta'}</button>
+            <button type="button" disabled={creandoCarpeta || !nombreCarpeta.trim() || !empresasParaCarpeta.some(e => e.id === empresaParaCrear)} onClick={() => void handleCrearCarpeta()}>{creandoCarpeta ? 'Creando…' : 'Crear carpeta'}</button>
           </div>
         </div>
       </div>}
