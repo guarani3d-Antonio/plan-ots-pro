@@ -107,6 +107,8 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
   const [thumbnails,     setThumbnails]     = useState<Record<string, string>>({});
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const [espacioMovimiento, setEspacioMovimiento] = useState({ vista: '', altura: 0 });
+  const vistaMovimiento = JSON.stringify([empresaId, carpetaActual, busqueda, vistaProyectos]);
   const arrastre = useArrastreProyectos();
   const arrastrando = arrastre.activo?.elemento;
   const destinoArrastre = arrastre.activo && !arrastre.activo.error && arrastre.activo.destino !== undefined
@@ -393,8 +395,15 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
     }
     const errorDestino = errorDestinoMovimiento(elemento, destino, carpetas);
     if (errorDestino) { setAccionError(errorDestino); return false; }
+    const scroll = scrollAreaRef.current;
+    if (scroll) {
+      // Al quitar la última fila, no dejar que el navegador recorte el scroll.
+      // Esta reserva deja de aplicarse al navegar, filtrar o cambiar de vista.
+      setEspacioMovimiento(prev => ({ vista: vistaMovimiento,
+        altura: Math.max(prev.vista === vistaMovimiento ? prev.altura : 0, scroll.scrollTop + scroll.clientHeight) }));
+    }
     movimientoRef.current = true;
-    setMoviendo(true); setAccionError(null);
+    setMoviendo(true); setAccionError(null); setAvisoAccion(null);
     try {
       let requiereRecarga = false;
       if (elemento.tipo === 'proyecto') {
@@ -412,11 +421,9 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
         if (cargaError) requiereRecarga = true;
         else setCarpetas(data as Carpeta[]);
       }
-      const empresa = contexto?.empresas.find(e => e.id === elemento.tenant_id)?.nombre ?? 'Empresa';
-      const ruta = rutaDeCarpeta(carpetas, destino).map(c => c.nombre);
       setAvisoAccion(requiereRecarga
         ? `«${elemento.nombre}» se movió. Recargá la página para ver su nueva ubicación.`
-        : `«${elemento.nombre}» se movió a ${[empresa, ...ruta].join(' / ')}.`);
+        : null);
       return true;
     } catch (error) {
       setAccionError(error instanceof Error ? error.message : 'No se pudo mover el elemento.');
@@ -441,7 +448,7 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
               borde derecho del viewport, no centrado por el max-width del
               .content. */}
       <div className={styles.scrollArea} ref={scrollAreaRef}>
-      <div className={styles.content}>
+      <div className={styles.content} style={{ minHeight: espacioMovimiento.vista === vistaMovimiento ? espacioMovimiento.altura : undefined }}>
 
         {/* Header con título, búsqueda y botón */}
         <div className={styles.header}>
@@ -512,17 +519,6 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
           </div>
         </div>
 
-        {/* Errores / loading */}
-        {(error || accionError) && (
-          <div style={{
-            background: '#FEF2F2', border: '1px solid #FECACA',
-            color: '#DC2626', padding: '10px 14px', borderRadius: 8,
-            fontSize: 14, marginBottom: 20,
-          }}>
-            {accionError || error}
-          </div>
-        )}
-        {avisoAccion && !accionError && <div className={styles.actionNotice} role="status">{avisoAccion}</div>}
         {arrastrando && <div className={styles.dragHint} role="status">{arrastre.activo?.error ?? (destinoArrastre !== undefined ? `Soltá para mover «${arrastrando.nombre}».` : `Arrastrá «${arrastrando.nombre}» a una carpeta o a la ruta superior. Esc para cancelar.`)}</div>}
 
         {carpetasFiltradas.length > 0 && <div className={`${styles.folderGrid} ${vistaProyectos === 'lista' ? styles.folderGridList : ''}`}>
@@ -730,6 +726,16 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
       </div>
       </div>
       {/* /scrollArea */}
+
+      {!arrastrando && (error || accionError || avisoAccion || moviendo) &&
+        <div className={`${styles.actionNotice} ${(error || accionError) ? styles.actionFailure : ''}`}
+          role={(error || accionError) ? 'alert' : 'status'}>
+          <span>{accionError || error || (moviendo ? 'Guardando ubicación…' : avisoAccion)}</span>
+          {!moviendo && <button type="button" aria-label="Cerrar aviso" onClick={() => {
+            setAccionError(null); setAvisoAccion(null);
+            if (error) useProyectosStore.setState({ error: null });
+          }}>×</button>}
+        </div>}
 
       {modalCarpeta && <div style={{ ...modalOverlayStyle, padding: 16 }} onClick={() => !creandoCarpeta && setModalCarpeta(false)}>
         <div className={styles.newPlanDialog} role="dialog" aria-modal="true" aria-labelledby="nueva-carpeta-titulo" onClick={e => e.stopPropagation()}>

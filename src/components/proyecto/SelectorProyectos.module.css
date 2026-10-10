@@ -1,4 +1,5 @@
 ﻿.page {
+  position: relative;
   flex: 1;
   min-height: 0;
   overflow: hidden;
@@ -144,6 +145,8 @@
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
+  overflow-anchor: none;
+  scrollbar-gutter: stable;
   container-type: inline-size;
 }
 
@@ -441,7 +444,11 @@
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 150px), 160px));
   gap: 12px;
 }
-.actionNotice { margin-bottom: 16px; padding: 10px 14px; border: 1px solid #B8DDC6; border-radius: 9px; background: #F0FAF3; color: #176D3B; font-size: 14px; }
+.actionNotice { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); z-index: 20; display: flex; align-items: center; gap: 10px; width: max-content; max-width: calc(100% - 24px); padding: 8px 12px; border: 1px solid #B8DDC6; border-radius: 9px; background: #F0FAF3; color: #176D3B; box-shadow: 0 3px 12px rgba(15,23,42,.12); font-size: 13px; }
+.actionNotice span { min-width: 0; overflow-wrap: anywhere; }
+.actionNotice button { flex: none; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: inherit; font-size: 20px; cursor: pointer; }
+.actionNotice button:hover { background: rgba(0,0,0,.06); }
+.actionFailure { background: #FEF2F2; border-color: #FECACA; color: #B91C1C; }
 
 /* Card */
 .card {
@@ -451,12 +458,11 @@
   overflow: hidden;
   box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.06);
   cursor: pointer;
-  transition: transform 180ms ease, box-shadow 180ms ease;
+  transition: box-shadow 180ms ease;
   border: 1px solid rgba(0,0,0,0.06);
 }
 
 .card:hover {
-  transform: translateY(-3px);
   box-shadow: 0 4px 12px rgba(0,0,0,0.12), 0 12px 32px rgba(0,0,0,0.1);
 }
 
