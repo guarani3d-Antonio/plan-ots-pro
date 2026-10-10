@@ -1,6 +1,7 @@
 import { useAccessStore } from '../../stores/accessStore';
-import { useEffect, useState, useRef, useMemo, type DragEvent } from 'react';
+import { useEffect, useState, useRef, useMemo, type PointerEvent } from 'react';
 import { MenuAccionesProyecto } from './MenuAccionesProyecto';
+import { useArrastreProyectos } from './useArrastreProyectos';
 import { errorDestinoMovimiento, restriccionesCarpeta, type ElementoMovimiento } from '../../utils/moverElementosProyecto';
 import { useProyectosStore, PLANO_PENDIENTE, type Proyecto } from '../../stores/proyectosStore';
 import { validarCalidadPlano } from '../../utils/validarCalidadPlano';
@@ -105,11 +106,12 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
   const [statsMap,       setStatsMap]       = useState<Record<string, ProyectoStats>>(() => Object.fromEntries(statsCache));
   const [thumbnails,     setThumbnails]     = useState<Record<string, string>>({});
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
-  const [arrastrando, setArrastrando] = useState<ElementoMovimiento | null>(null);
-  const [destinoArrastre, setDestinoArrastre] = useState<string | null>(null);
-  const arrastreRef = useRef<ElementoMovimiento | null>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const arrastre = useArrastreProyectos();
+  const arrastrando = arrastre.activo?.elemento;
+  const destinoArrastre = arrastre.activo && !arrastre.activo.error && arrastre.activo.destino !== undefined
+    ? arrastre.activo.destino ?? 'raiz' : undefined;
   const movimientoRef = useRef(false);
-  const ignorarClickHasta = useRef(0);
 
   function cerrarMenus() { setMenuAbierto(null); setMenuCarpeta(null); }
 
@@ -371,38 +373,15 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
     return Boolean(proyecto.tenant_id && permiso?.editar && (proyecto.proyecto_padre_id || permiso.administrar));
   }
 
-  function comenzarArrastre(event: DragEvent<HTMLElement>, elemento: ElementoMovimiento, permitido: boolean) {
-    if (!permitido || movimientoRef.current || (event.target instanceof Element && event.target.closest('[data-no-drag]'))) {
-      event.preventDefault(); return;
-    }
-    cerrarMenus();
-    event.dataTransfer.effectAllowed = 'move';
-    event.dataTransfer.setData('application/x-plan-ots-elemento', elemento.id);
-    arrastreRef.current = elemento;
-    setArrastrando(elemento);
-    setAccionError(null); setAvisoAccion(null);
-  }
-
-  function terminarArrastre(event: DragEvent<HTMLElement>) {
-    arrastreRef.current = null;
-    setArrastrando(null); setDestinoArrastre(null);
-    ignorarClickHasta.current = event.timeStamp + 300;
-  }
-
-  function recibirArrastre(event: DragEvent<HTMLElement>, id: string | null) {
-    const elemento = arrastreRef.current;
-    if (!elemento || movimientoRef.current) return;
-    const error = errorDestinoMovimiento(elemento, id, carpetas);
-    event.dataTransfer.dropEffect = error ? 'none' : 'move';
-    if (!error) { event.preventDefault(); setDestinoArrastre(id ?? 'raiz'); }
-  }
-
-  async function soltarElemento(event: DragEvent<HTMLElement>, id: string | null) {
-    const elemento = arrastreRef.current;
-    if (!elemento) return; // No se aceptan archivos ni elementos de otras ventanas.
-    event.preventDefault(); event.stopPropagation();
-    terminarArrastre(event);
-    await ejecutarMovimiento(elemento, id);
+  function comenzarArrastre(event: PointerEvent<HTMLElement>, elemento: ElementoMovimiento, permitido: boolean) {
+    arrastre.comenzar(event, elemento, {
+      permitido: permitido && !movimientoRef.current,
+      contenedor: scrollAreaRef.current,
+      validar: destino => errorDestinoMovimiento(elemento, destino, carpetas),
+      iniciar: cerrarMenus,
+      mover: ejecutarMovimiento,
+      rechazar: setAccionError,
+    });
   }
 
   async function ejecutarMovimiento(elemento: ElementoMovimiento, destino: string | null): Promise<boolean> {
@@ -455,12 +434,13 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
   }
 
   return (
-    <div className={styles.page} aria-busy={moviendo}>
+    <div className={`${styles.page} ${arrastrando ? styles.arrastreActivo : ''}`} aria-busy={moviendo}
+      onClickCapture={arrastre.evitarClickTrasArrastre} onDragStart={e => e.preventDefault()}>
 
       {/* ── Área scrollable — full width para que el scrollbar quede al
               borde derecho del viewport, no centrado por el max-width del
               .content. */}
-      <div className={styles.scrollArea}>
+      <div className={styles.scrollArea} ref={scrollAreaRef}>
       <div className={styles.content}>
 
         {/* Header con título, búsqueda y botón */}
@@ -513,11 +493,9 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
               <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m7.5 4.5 5.5 5.5-5.5 5.5" /></svg>
             </button>
             <button type="button" className={destinoArrastre === 'raiz' ? styles.dropTarget : undefined}
-              onDragOver={e => recibirArrastre(e, null)} onDragLeave={() => setDestinoArrastre(null)} onDrop={e => void soltarElemento(e, null)}
-              onClick={e => { if (e.timeStamp >= ignorarClickHasta.current) navegarCarpeta(null); }}>Proyectos</button>
+              data-destino-movimiento="raiz" onClick={() => navegarCarpeta(null)}>Proyectos</button>
             {rutaCarpeta.map(c => <span key={c.id}> / <button type="button" className={destinoArrastre === c.id ? styles.dropTarget : undefined}
-              onDragOver={e => recibirArrastre(e, c.id)} onDragLeave={() => setDestinoArrastre(null)} onDrop={e => void soltarElemento(e, c.id)}
-              onClick={e => { if (e.timeStamp >= ignorarClickHasta.current) navegarCarpeta(c.id); }}>{c.nombre}</button></span>)}
+              data-destino-movimiento={c.id} onClick={() => navegarCarpeta(c.id)}>{c.nombre}</button></span>)}
             {busqueda && <span className={styles.searchHint}>Buscando en todas las carpetas</span>}
           </nav>
           <div className={styles.viewToggle} role="group" aria-label="Presentación de proyectos">
@@ -545,17 +523,14 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
           </div>
         )}
         {avisoAccion && !accionError && <div className={styles.actionNotice} role="status">{avisoAccion}</div>}
-        {arrastrando && <div className={styles.dragHint} role="status">Arrastrá «{arrastrando.nombre}» a una carpeta de su empresa. Para sacarlo, soltalo sobre la ruta superior.</div>}
+        {arrastrando && <div className={styles.dragHint} role="status">{arrastre.activo?.error ?? (destinoArrastre !== undefined ? `Soltá para mover «${arrastrando.nombre}».` : `Arrastrá «${arrastrando.nombre}» a una carpeta o a la ruta superior. Esc para cancelar.`)}</div>}
 
         {carpetasFiltradas.length > 0 && <div className={`${styles.folderGrid} ${vistaProyectos === 'lista' ? styles.folderGridList : ''}`}>
           {carpetasFiltradas.map(c => <div key={c.id} data-carpeta-id={c.id}
-            draggable={puedeAdministrarCarpeta(c) && !moviendo}
-            onDragStart={e => comenzarArrastre(e, { tipo: 'carpeta', id: c.id, tenant_id: c.tenant_id, nombre: c.nombre, origen: c.padre_id }, puedeAdministrarCarpeta(c))}
-            onDragEnd={terminarArrastre} onDragOver={e => recibirArrastre(e, c.id)}
-            onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDestinoArrastre(null); }}
-            onDrop={e => void soltarElemento(e, c.id)}
+            data-destino-movimiento={c.id} data-movible={puedeAdministrarCarpeta(c) && !moviendo}
+            onPointerDown={e => comenzarArrastre(e, { tipo: 'carpeta', id: c.id, tenant_id: c.tenant_id, nombre: c.nombre, origen: c.padre_id }, puedeAdministrarCarpeta(c))}
             className={`${styles.folderCard} ${destinoArrastre === c.id ? styles.dropTarget : ''} ${arrastrando?.id === c.id ? styles.dragging : ''}`}>
-            <button type="button" className={styles.folderOpen} onClick={e => { if (e.timeStamp < ignorarClickHasta.current) return; setBusqueda(''); navegarCarpeta(c.id); }}>
+            <button type="button" className={styles.folderOpen} onClick={() => { setBusqueda(''); navegarCarpeta(c.id); }}>
               <svg className={styles.folderIcon} viewBox="0 0 96 80" aria-hidden="true">
                 <path d="M8 15a7 7 0 0 1 7-7h22l9 9h35a7 7 0 0 1 7 7v43a7 7 0 0 1-7 7H15a7 7 0 0 1-7-7Z" fill="#5D79B0" />
                 <path d="M8 32a7 7 0 0 1 7-7h66a7 7 0 0 1 7 7v35a7 7 0 0 1-7 7H15a7 7 0 0 1-7-7Z" fill="#91A9D3" />
@@ -611,11 +586,9 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
                 key={proyecto.id}
                 data-proyecto-id={proyecto.id}
                 className={`${styles.card} ${arrastrando?.id === proyecto.id ? styles.dragging : ''}`}
-                draggable={puedeMoverProyecto(proyecto) && !moviendo}
-                onDragStart={e => comenzarArrastre(e, { tipo: 'proyecto', id: proyecto.id, tenant_id: proyecto.tenant_id ?? '', nombre: proyecto.nombre, origen: proyecto.carpeta_id ?? null }, puedeMoverProyecto(proyecto))}
-                onDragEnd={terminarArrastre}
-                onClick={e => {
-                  if (e.timeStamp < ignorarClickHasta.current) return;
+                data-movible={puedeMoverProyecto(proyecto) && !moviendo}
+                onPointerDown={e => comenzarArrastre(e, { tipo: 'proyecto', id: proyecto.id, tenant_id: proyecto.tenant_id ?? '', nombre: proyecto.nombre, origen: proyecto.carpeta_id ?? null }, puedeMoverProyecto(proyecto))}
+                onClick={() => {
                   if (menuAbierto === proyecto.id) { setMenuAbierto(null); return; }
                   if (proyecto.plano_url === PLANO_PENDIENTE) {
                     if (contexto?.obras.find(p => p.id === proyecto.id)?.editar &&
@@ -631,6 +604,7 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
                       referencia={thumbUrl ?? planoUrl}
                       alt={proyecto.nombre}
                       loading="lazy"
+                      draggable={false}
                       style={{
                         maxWidth: '90%',
                         maxHeight: '90%',
@@ -701,8 +675,8 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
                     {proyecto.proyecto_padre_id && <div className={styles.cardParentLabel} style={{ color: 'var(--text-secondary)', fontSize: 12, marginBottom: 4 }}>
                       Plano de {proyectos.find(p => p.id === proyecto.proyecto_padre_id)?.nombre ?? 'obra asignada'}
                     </div>}
-                    <div className={styles.cardName}>{proyecto.nombre}</div>
-                    <div className={styles.cardClient}>
+                    <div className={styles.cardName} title={proyecto.nombre}>{proyecto.nombre}</div>
+                    <div className={styles.cardClient} title={proyecto.cliente ?? 'Sin cliente'}>
                       {proyecto.cliente ?? 'Sin cliente'}
                     </div>
                     {proyecto.plano_url === PLANO_PENDIENTE && <p className={styles.cardPendingNote} style={{ margin: '8px 0', color: 'var(--text-secondary)', fontSize: 13 }}>Plano pendiente · {contexto?.obras.find(p => p.id === proyecto.id)?.editar ? 'tocá para cargarlo' : 'esperando al responsable'}</p>}
@@ -711,20 +685,23 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
 
                   {/* Stats por estado — vienen de statsService (Supabase) */}
                   <div className={styles.cardStats}>
-                    <div className={styles.statRow}>
+                    <div className={styles.statRow} title={`Pendientes: ${stats.pendiente}`}>
                       <span className={styles.statDot} style={{ background: COLOR_PENDIENTE }} />
-                      Pendientes: {stats.pendiente}
+                      <span className={styles.statLabelFull}>Pendientes:</span><span className={styles.statLabelCompact}>Pend.</span>
+                      <span className={styles.statValue}>{stats.pendiente}</span>
                     </div>
-                    <div className={styles.statRow}>
+                    <div className={styles.statRow} title={`En proceso: ${stats.en_proceso}`}>
                       <span className={styles.statDot} style={{ background: COLOR_EN_PROCESO }} />
-                      En proceso: {stats.en_proceso}
+                      <span className={styles.statLabelFull}>En proceso:</span><span className={styles.statLabelCompact}>Proc.</span>
+                      <span className={styles.statValue}>{stats.en_proceso}</span>
                     </div>
-                    <div className={styles.statRow}>
+                    <div className={styles.statRow} title={`Cerradas: ${stats.cerrada}`}>
                       <span className={styles.statDot} style={{ background: COLOR_CERRADA }} />
-                      Cerradas: {stats.cerrada}
+                      <span className={styles.statLabelFull}>Cerradas:</span><span className={styles.statLabelCompact}>Cerr.</span>
+                      <span className={styles.statValue}>{stats.cerrada}</span>
                     </div>
                     {stats.no_aplica > 0 && (
-                      <div className={styles.statRow}>
+                      <div className={`${styles.statRow} ${styles.statNoAplica}`}>
                         <span className={styles.statDot} style={{ background: COLOR_NO_APLICA }} />
                         No aplica: {stats.no_aplica}
                       </div>
