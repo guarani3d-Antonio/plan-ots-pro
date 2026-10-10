@@ -87,7 +87,8 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
   const [proyectoMover, setProyectoMover] = useState<Proyecto | null>(null);
   const [carpetaMover, setCarpetaMover] = useState<Carpeta | null>(null);
   const [destinoMover, setDestinoMover] = useState<string | null>(null);
-  const [moviendo, setMoviendo] = useState(false);
+  const [elementoMoviendo, setElementoMoviendo] = useState<string | null>(null);
+  const moviendo = elementoMoviendo !== null;
   const [avisoAccion, setAvisoAccion] = useState<string | null>(null);
   const [menuCarpeta, setMenuCarpeta] = useState<string | null>(null);
   const [carpetaEliminable, setCarpetaEliminable] = useState<Record<string, boolean>>({});
@@ -403,7 +404,7 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
         altura: Math.max(prev.vista === vistaMovimiento ? prev.altura : 0, scroll.scrollTop + scroll.clientHeight) }));
     }
     movimientoRef.current = true;
-    setMoviendo(true); setAccionError(null); setAvisoAccion(null);
+    setElementoMoviendo(elemento.id); setAccionError(null); setAvisoAccion(null);
     try {
       let requiereRecarga = false;
       if (elemento.tipo === 'proyecto') {
@@ -428,7 +429,7 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
     } catch (error) {
       setAccionError(error instanceof Error ? error.message : 'No se pudo mover el elemento.');
       return false;
-    } finally { movimientoRef.current = false; setMoviendo(false); }
+    } finally { movimientoRef.current = false; setElementoMoviendo(null); }
   }
 
   async function confirmarMovimiento() {
@@ -525,7 +526,7 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
           {carpetasFiltradas.map(c => <div key={c.id} data-carpeta-id={c.id}
             data-destino-movimiento={c.id} data-movible={puedeAdministrarCarpeta(c) && !moviendo}
             onPointerDown={e => comenzarArrastre(e, { tipo: 'carpeta', id: c.id, tenant_id: c.tenant_id, nombre: c.nombre, origen: c.padre_id }, puedeAdministrarCarpeta(c))}
-            className={`${styles.folderCard} ${destinoArrastre === c.id ? styles.dropTarget : ''} ${arrastrando?.id === c.id ? styles.dragging : ''}`}>
+            className={`${styles.folderCard} ${destinoArrastre === c.id ? styles.dropTarget : ''} ${arrastrando?.id === c.id || elementoMoviendo === c.id ? styles.dragging : ''}`}>
             <button type="button" className={styles.folderOpen} onClick={() => { setBusqueda(''); navegarCarpeta(c.id); }}>
               <svg className={styles.folderIcon} viewBox="0 0 96 80" aria-hidden="true">
                 <path d="M8 15a7 7 0 0 1 7-7h22l9 9h35a7 7 0 0 1 7 7v43a7 7 0 0 1-7 7H15a7 7 0 0 1-7-7Z" fill="#5D79B0" />
@@ -581,7 +582,7 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
               <div
                 key={proyecto.id}
                 data-proyecto-id={proyecto.id}
-                className={`${styles.card} ${arrastrando?.id === proyecto.id ? styles.dragging : ''}`}
+                className={`${styles.card} ${arrastrando?.id === proyecto.id || elementoMoviendo === proyecto.id ? styles.dragging : ''}`}
                 data-movible={puedeMoverProyecto(proyecto) && !moviendo}
                 onPointerDown={e => comenzarArrastre(e, { tipo: 'proyecto', id: proyecto.id, tenant_id: proyecto.tenant_id ?? '', nombre: proyecto.nombre, origen: proyecto.carpeta_id ?? null }, puedeMoverProyecto(proyecto))}
                 onClick={() => {
