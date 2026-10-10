@@ -1204,7 +1204,8 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
                 evidenciasIds={tipo=>{const fotos=tipo==='avance'?[...fotosAntes,...fotosDurante]:tipo==='cierre'?[...fotosAntes,...fotosDespues]:categoriaEtapa(tipo)?fotosAntes:[];return fotos.map(f=>f.id);}}
                 evidencia={(tipo,datos,readOnly)=>{
                   const categoria=categoriaEtapa(tipo);if(!categoria)return null;
-                  const fotos={ANTES:fotosAntes,DURANTE:fotosDurante,DESPUES:fotosDespues}[categoria];
+                  const categorias=tipo==='cierre'?['ANTES','DURANTE','DESPUES'] as const:tipo==='avance'?['ANTES','DURANTE'] as const:['ANTES'] as const;
+                  const fotos=categorias.flatMap(c=>({ANTES:fotosAntes,DURANTE:fotosDurante,DESPUES:fotosDespues}[c].map(f=>({...f,categoria:c}))));
                   const ids=Array.isArray(datos.fotoIds)?datos.fotoIds as string[]:[];
                   return <EvidenciaEtapa tipo={tipo} fotos={readOnly?fotos.filter(f=>ids.includes(f.id)):fotos} cargando={fotosNoCargadas} subiendo={!!subiendo} soloLectura={readOnly}
                     disabled={!tienePermiso('foto.cargar',ordenFresca.proyecto_id)||guardando} puedeVer={tienePermiso('foto.ver',ordenFresca.proyecto_id)} error={errorFotos}
