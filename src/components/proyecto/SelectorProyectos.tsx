@@ -1,5 +1,7 @@
 import { useAccessStore } from '../../stores/accessStore';
-import { useEffect, useState, useRef, useMemo } from 'react';
+import { useEffect, useState, useRef, useMemo, type DragEvent } from 'react';
+import { MenuAccionesProyecto } from './MenuAccionesProyecto';
+import { errorDestinoMovimiento, restriccionesCarpeta, type ElementoMovimiento } from '../../utils/moverElementosProyecto';
 import { useProyectosStore, PLANO_PENDIENTE, type Proyecto } from '../../stores/proyectosStore';
 import { validarCalidadPlano } from '../../utils/validarCalidadPlano';
 import { ImagenPrivada } from './ImagenPrivada';
@@ -102,8 +104,14 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
   });
   const [statsMap,       setStatsMap]       = useState<Record<string, ProyectoStats>>(() => Object.fromEntries(statsCache));
   const [thumbnails,     setThumbnails]     = useState<Record<string, string>>({});
-  const menuRef    = useRef<HTMLDivElement>(null);
-  const menuCarpetaRef = useRef<HTMLDivElement>(null);
+  const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
+  const [arrastrando, setArrastrando] = useState<ElementoMovimiento | null>(null);
+  const [destinoArrastre, setDestinoArrastre] = useState<string | null>(null);
+  const arrastreRef = useRef<ElementoMovimiento | null>(null);
+  const movimientoRef = useRef(false);
+  const ignorarClickHasta = useRef(0);
+
+  function cerrarMenus() { setMenuAbierto(null); setMenuCarpeta(null); }
 
   useEffect(() => {
     try { localStorage.setItem(VISTA_PROYECTOS_KEY, vistaProyectos); }
@@ -166,31 +174,6 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [proyectos]);
 
-  // Cerrar los menús ⋯ al pulsar fuera o Escape, también en pantallas táctiles.
-  useEffect(() => {
-    function handleClickOutside(e: PointerEvent) {
-      const t = e.target as Node;
-      if (menuAbierto && !menuRef.current?.contains(t)) {
-        setMenuAbierto(null);
-      }
-      if (menuCarpeta && !menuCarpetaRef.current?.contains(t)) {
-        setMenuCarpeta(null);
-      }
-    }
-    function handleEscape(e: KeyboardEvent) {
-      if (e.key === 'Escape') {
-        setMenuAbierto(null);
-        setMenuCarpeta(null);
-      }
-    }
-    document.addEventListener('pointerdown', handleClickOutside);
-    document.addEventListener('keydown', handleEscape);
-    return () => {
-      document.removeEventListener('pointerdown', handleClickOutside);
-      document.removeEventListener('keydown', handleEscape);
-    };
-  }, [menuAbierto, menuCarpeta]);
-
   const carpetaSeleccionada = carpetas.find(c => c.id === carpetaActual);
   const empresaDestino = carpetaSeleccionada?.tenant_id ?? empresaId ?? '';
   const empresasParaCarpeta = (contexto?.empresas ?? []).filter(e => e.activa !== false &&
@@ -201,7 +184,7 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
     contexto?.obras.some(o => o.id === p.id && o.editar)), [proyectos, empresaDestino, contexto]);
   const carpetasFiltradas = useMemo(() => carpetas.filter(c =>
     (!empresaId || c.tenant_id === empresaId) &&
-    (busqueda ? c.nombre.toLocaleLowerCase().includes(busqueda.toLocaleLowerCase()) : c.padre_id === carpetaActual)
+    (busqueda ? normalizarBusqueda(c.nombre).includes(normalizarBusqueda(busqueda)) : c.padre_id === carpetaActual)
   ), [carpetas, empresaId, busqueda, carpetaActual]);
   const rutaCarpeta = useMemo(() => {
     const ruta: Carpeta[] = []; let actual = carpetaSeleccionada;
@@ -210,15 +193,7 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
   }, [carpetaSeleccionada, carpetas]);
   const destinosCarpeta = useMemo(() => {
     if (!carpetaMover) return { prohibidos: new Set<string>(), altura: 0 };
-    const prohibidos = new Set<string>([carpetaMover.id]);
-    let altura = 1;
-    for (let nivel = 1; nivel <= 5; nivel++) {
-      const hijos = carpetas.filter(c => c.padre_id && prohibidos.has(c.padre_id) && !prohibidos.has(c.id));
-      if (!hijos.length) break;
-      hijos.forEach(c => prohibidos.add(c.id));
-      altura = Math.max(altura, ...hijos.map(c => c.profundidad - carpetaMover.profundidad + 1));
-    }
-    return { prohibidos, altura };
+    return restriccionesCarpeta(carpetas, carpetaMover.id);
   }, [carpetaMover, carpetas]);
   const elementoMover = proyectoMover ?? carpetaMover;
   const empresaMover = contexto?.empresas.find(e => e.id === elementoMover?.tenant_id)?.nombre ?? 'Empresa';
@@ -239,12 +214,12 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
 
   // Filtro por nombre o cliente (case-insensitive)
   const proyectosFiltrados = useMemo(() => {
-    const q = busqueda.toLowerCase();
+    const q = normalizarBusqueda(busqueda);
     const visibles = proyectos.filter(p => !p.es_ficha_obra && (!empresaId || p.tenant_id === empresaId));
     if (!q) return visibles.filter(p => (p.carpeta_id ?? null) === carpetaActual);
     return visibles.filter(p =>
-      p.nombre.toLowerCase().includes(q) ||
-      (p.cliente ?? '').toLowerCase().includes(q)
+      normalizarBusqueda(p.nombre).includes(q) ||
+      normalizarBusqueda(p.cliente ?? '').includes(q)
     );
   }, [proyectos, busqueda, empresaId, carpetaActual]);
 
@@ -316,8 +291,9 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
       contexto?.empresas.some(empresa => empresa.id === carpeta.tenant_id)));
   }
 
-  function abrirMenuCarpeta(carpeta: Carpeta) {
+  function abrirMenuCarpeta(carpeta: Carpeta, anchor: HTMLElement) {
     if (menuCarpeta === carpeta.id) { setMenuCarpeta(null); return; }
+    setMenuAbierto(null); setMenuAnchor(anchor);
     setMenuCarpeta(carpeta.id);
     setCarpetaEliminable(prev => ({ ...prev, [carpeta.id]: false }));
     if (!puedeAdministrarCarpeta(carpeta)) return;
@@ -390,17 +366,64 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
     setDestinoMover(id); setBusquedaCarpeta(''); setAccionError(null);
   }
 
-  async function confirmarMovimiento() {
-    if (!elementoMover || moviendo || destinoMover === origenMover) return;
+  function puedeMoverProyecto(proyecto: Proyecto): boolean {
+    const permiso = contexto?.obras.find(p => p.id === proyecto.id);
+    return Boolean(proyecto.tenant_id && permiso?.editar && (proyecto.proyecto_padre_id || permiso.administrar));
+  }
+
+  function comenzarArrastre(event: DragEvent<HTMLElement>, elemento: ElementoMovimiento, permitido: boolean) {
+    if (!permitido || movimientoRef.current || (event.target instanceof Element && event.target.closest('[data-no-drag]'))) {
+      event.preventDefault(); return;
+    }
+    cerrarMenus();
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('application/x-plan-ots-elemento', elemento.id);
+    arrastreRef.current = elemento;
+    setArrastrando(elemento);
+    setAccionError(null); setAvisoAccion(null);
+  }
+
+  function terminarArrastre(event: DragEvent<HTMLElement>) {
+    arrastreRef.current = null;
+    setArrastrando(null); setDestinoArrastre(null);
+    ignorarClickHasta.current = event.timeStamp + 300;
+  }
+
+  function recibirArrastre(event: DragEvent<HTMLElement>, id: string | null) {
+    const elemento = arrastreRef.current;
+    if (!elemento || movimientoRef.current) return;
+    const error = errorDestinoMovimiento(elemento, id, carpetas);
+    event.dataTransfer.dropEffect = error ? 'none' : 'move';
+    if (!error) { event.preventDefault(); setDestinoArrastre(id ?? 'raiz'); }
+  }
+
+  async function soltarElemento(event: DragEvent<HTMLElement>, id: string | null) {
+    const elemento = arrastreRef.current;
+    if (!elemento) return; // No se aceptan archivos ni elementos de otras ventanas.
+    event.preventDefault(); event.stopPropagation();
+    terminarArrastre(event);
+    await ejecutarMovimiento(elemento, id);
+  }
+
+  async function ejecutarMovimiento(elemento: ElementoMovimiento, destino: string | null): Promise<boolean> {
+    if (movimientoRef.current) return false;
+    const proyecto = elemento.tipo === 'proyecto' ? proyectos.find(p => p.id === elemento.id) : null;
+    const carpeta = elemento.tipo === 'carpeta' ? carpetas.find(c => c.id === elemento.id) : null;
+    if (!(proyecto ? puedeMoverProyecto(proyecto) : carpeta && puedeAdministrarCarpeta(carpeta))) {
+      setAccionError('No tenés permiso para mover este elemento.'); return false;
+    }
+    const errorDestino = errorDestinoMovimiento(elemento, destino, carpetas);
+    if (errorDestino) { setAccionError(errorDestino); return false; }
+    movimientoRef.current = true;
     setMoviendo(true); setAccionError(null);
     try {
       let requiereRecarga = false;
-      if (proyectoMover) {
-        await moverProyecto(proyectoMover.id, destinoMover);
-      } else if (carpetaMover) {
+      if (elemento.tipo === 'proyecto') {
+        await moverProyecto(elemento.id, destino);
+      } else {
         const ticket = sessionTicket();
         const { error: movimientoError } = await supabase.rpc('plan_mover_carpeta', {
-          p_carpeta: carpetaMover.id, p_padre: destinoMover,
+          p_carpeta: elemento.id, p_padre: destino,
         });
         assertSession(ticket);
         if (movimientoError) throw new Error(movimientoError.message);
@@ -410,17 +433,29 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
         if (cargaError) requiereRecarga = true;
         else setCarpetas(data as Carpeta[]);
       }
+      const empresa = contexto?.empresas.find(e => e.id === elemento.tenant_id)?.nombre ?? 'Empresa';
+      const ruta = rutaDeCarpeta(carpetas, destino).map(c => c.nombre);
       setAvisoAccion(requiereRecarga
-        ? `«${elementoMover.nombre}» se movió. Recargá la página para ver su nueva ubicación.`
-        : `«${elementoMover.nombre}» se movió a ${[empresaMover, ...rutaDestinoMover.map(c => c.nombre)].join(' / ')}.`);
-      setProyectoMover(null); setCarpetaMover(null); setBusquedaCarpeta('');
+        ? `«${elemento.nombre}» se movió. Recargá la página para ver su nueva ubicación.`
+        : `«${elemento.nombre}» se movió a ${[empresa, ...ruta].join(' / ')}.`);
+      return true;
     } catch (error) {
       setAccionError(error instanceof Error ? error.message : 'No se pudo mover el elemento.');
-    } finally { setMoviendo(false); }
+      return false;
+    } finally { movimientoRef.current = false; setMoviendo(false); }
+  }
+
+  async function confirmarMovimiento() {
+    if (!elementoMover || moviendo || destinoMover === origenMover) return;
+    const elemento: ElementoMovimiento = { tipo: proyectoMover ? 'proyecto' : 'carpeta',
+      id: elementoMover.id, tenant_id: elementoMover.tenant_id ?? '', nombre: elementoMover.nombre, origen: origenMover };
+    if (await ejecutarMovimiento(elemento, destinoMover)) {
+      setProyectoMover(null); setCarpetaMover(null); setBusquedaCarpeta('');
+    }
   }
 
   return (
-    <div className={styles.page}>
+    <div className={styles.page} aria-busy={moviendo}>
 
       {/* ── Área scrollable — full width para que el scrollbar quede al
               borde derecho del viewport, no centrado por el max-width del
@@ -477,8 +512,12 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
               onClick={() => setHistorialCarpetas(prev => ({ ...prev, indice: prev.indice + 1 }))}>
               <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m7.5 4.5 5.5 5.5-5.5 5.5" /></svg>
             </button>
-            <button type="button" onClick={() => navegarCarpeta(null)}>Proyectos</button>
-            {rutaCarpeta.map(c => <span key={c.id}> / <button type="button" onClick={() => navegarCarpeta(c.id)}>{c.nombre}</button></span>)}
+            <button type="button" className={destinoArrastre === 'raiz' ? styles.dropTarget : undefined}
+              onDragOver={e => recibirArrastre(e, null)} onDragLeave={() => setDestinoArrastre(null)} onDrop={e => void soltarElemento(e, null)}
+              onClick={e => { if (e.timeStamp >= ignorarClickHasta.current) navegarCarpeta(null); }}>Proyectos</button>
+            {rutaCarpeta.map(c => <span key={c.id}> / <button type="button" className={destinoArrastre === c.id ? styles.dropTarget : undefined}
+              onDragOver={e => recibirArrastre(e, c.id)} onDragLeave={() => setDestinoArrastre(null)} onDrop={e => void soltarElemento(e, c.id)}
+              onClick={e => { if (e.timeStamp >= ignorarClickHasta.current) navegarCarpeta(c.id); }}>{c.nombre}</button></span>)}
             {busqueda && <span className={styles.searchHint}>Buscando en todas las carpetas</span>}
           </nav>
           <div className={styles.viewToggle} role="group" aria-label="Presentación de proyectos">
@@ -506,24 +545,32 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
           </div>
         )}
         {avisoAccion && !accionError && <div className={styles.actionNotice} role="status">{avisoAccion}</div>}
+        {arrastrando && <div className={styles.dragHint} role="status">Arrastrá «{arrastrando.nombre}» a una carpeta de su empresa. Para sacarlo, soltalo sobre la ruta superior.</div>}
 
         {carpetasFiltradas.length > 0 && <div className={`${styles.folderGrid} ${vistaProyectos === 'lista' ? styles.folderGridList : ''}`}>
-          {carpetasFiltradas.map(c => <div key={c.id} ref={menuCarpeta === c.id ? menuCarpetaRef : null} className={`${styles.folderCard} ${menuCarpeta === c.id ? styles.folderCardOpen : ''}`}>
-            <button type="button" className={styles.folderOpen} onClick={() => { setBusqueda(''); navegarCarpeta(c.id); }}>
+          {carpetasFiltradas.map(c => <div key={c.id} data-carpeta-id={c.id}
+            draggable={puedeAdministrarCarpeta(c) && !moviendo}
+            onDragStart={e => comenzarArrastre(e, { tipo: 'carpeta', id: c.id, tenant_id: c.tenant_id, nombre: c.nombre, origen: c.padre_id }, puedeAdministrarCarpeta(c))}
+            onDragEnd={terminarArrastre} onDragOver={e => recibirArrastre(e, c.id)}
+            onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDestinoArrastre(null); }}
+            onDrop={e => void soltarElemento(e, c.id)}
+            className={`${styles.folderCard} ${destinoArrastre === c.id ? styles.dropTarget : ''} ${arrastrando?.id === c.id ? styles.dragging : ''}`}>
+            <button type="button" className={styles.folderOpen} onClick={e => { if (e.timeStamp < ignorarClickHasta.current) return; setBusqueda(''); navegarCarpeta(c.id); }}>
               <svg className={styles.folderIcon} viewBox="0 0 96 80" aria-hidden="true">
                 <path d="M8 15a7 7 0 0 1 7-7h22l9 9h35a7 7 0 0 1 7 7v43a7 7 0 0 1-7 7H15a7 7 0 0 1-7-7Z" fill="#5D79B0" />
                 <path d="M8 32a7 7 0 0 1 7-7h66a7 7 0 0 1 7 7v35a7 7 0 0 1-7 7H15a7 7 0 0 1-7-7Z" fill="#91A9D3" />
               </svg>
               <span className={styles.folderName}>{c.nombre}</span>
             </button>
-            <button type="button" className={styles.folderMenu} aria-label={`Opciones de ${c.nombre}`} aria-expanded={menuCarpeta === c.id}
-              onClick={() => abrirMenuCarpeta(c)}>···</button>
-            {menuCarpeta === c.id && <div className={styles.folderActions}>
-              <button type="button" disabled={!puedeAdministrarCarpeta(c)} onClick={() => { setMenuCarpeta(null); setAccionError(null); setNombreEditarCarpeta(c.nombre); setCarpetaRenombrar(c); }}>Renombrar</button>
-              <button type="button" disabled={!puedeAdministrarCarpeta(c)} onClick={() => abrirMoverCarpeta(c)}>Mover</button>
-              <button type="button" className={styles.folderActionDanger} disabled={!carpetaEliminable[c.id]} title={!puedeAdministrarCarpeta(c) ? 'No tenés permiso para eliminar esta carpeta.' : !carpetaEliminable[c.id] ? 'Solo se puede eliminar una carpeta vacía.' : undefined}
+            <button type="button" data-no-drag className={styles.folderMenu} aria-label={`Opciones de ${c.nombre}`} aria-haspopup="menu" aria-expanded={menuCarpeta === c.id}
+              aria-controls={menuCarpeta === c.id ? `acciones-carpeta-${c.id}` : undefined}
+              onClick={e => abrirMenuCarpeta(c, e.currentTarget)}>···</button>
+            {menuCarpeta === c.id && menuAnchor && <MenuAccionesProyecto anchor={menuAnchor} onClose={cerrarMenus} id={`acciones-carpeta-${c.id}`} label={`Acciones de ${c.nombre}`}>
+              <button type="button" role="menuitem" disabled={!puedeAdministrarCarpeta(c)} onClick={() => { setMenuCarpeta(null); setAccionError(null); setNombreEditarCarpeta(c.nombre); setCarpetaRenombrar(c); }}>Renombrar</button>
+              <button type="button" role="menuitem" disabled={!puedeAdministrarCarpeta(c) || moviendo} onClick={() => abrirMoverCarpeta(c)}>Mover</button>
+              <button type="button" role="menuitem" data-danger disabled={!carpetaEliminable[c.id]} title={!puedeAdministrarCarpeta(c) ? 'No tenés permiso para eliminar esta carpeta.' : !carpetaEliminable[c.id] ? 'Solo se puede eliminar una carpeta vacía.' : undefined}
                 onClick={() => { setMenuCarpeta(null); setAccionError(null); setCarpetaEliminar(c); }}>Eliminar carpeta</button>
-            </div>}
+            </MenuAccionesProyecto>}
           </div>)}
         </div>}
 
@@ -562,9 +609,13 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
             return (
               <div
                 key={proyecto.id}
-                className={`${styles.card} ${menuAbierto === proyecto.id ? styles.cardListOpen : ''}`}
-                ref={menuAbierto === proyecto.id ? menuRef : null}
-                onClick={() => {
+                data-proyecto-id={proyecto.id}
+                className={`${styles.card} ${arrastrando?.id === proyecto.id ? styles.dragging : ''}`}
+                draggable={puedeMoverProyecto(proyecto) && !moviendo}
+                onDragStart={e => comenzarArrastre(e, { tipo: 'proyecto', id: proyecto.id, tenant_id: proyecto.tenant_id ?? '', nombre: proyecto.nombre, origen: proyecto.carpeta_id ?? null }, puedeMoverProyecto(proyecto))}
+                onDragEnd={terminarArrastre}
+                onClick={e => {
+                  if (e.timeStamp < ignorarClickHasta.current) return;
                   if (menuAbierto === proyecto.id) { setMenuAbierto(null); return; }
                   if (proyecto.plano_url === PLANO_PENDIENTE) {
                     if (contexto?.obras.find(p => p.id === proyecto.id)?.editar &&
@@ -610,38 +661,39 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
                 </div>
 
                 {/* El menú permanece accesible junto a la portada en ambas vistas. */}
-                <div className={styles.cardMenuWrap} onClick={e => e.stopPropagation()}>
+                <div className={styles.cardMenuWrap} data-no-drag onClick={e => e.stopPropagation()}>
                   <button
                     type="button"
                     disabled={!contexto?.obras.find(p=>p.id===proyecto.id)?.editar}
                     className={styles.cardMenu}
-                    onClick={() => setMenuAbierto(prev => prev === proyecto.id ? null : proyecto.id)}
+                    onClick={e => { setMenuCarpeta(null); setMenuAnchor(e.currentTarget); setMenuAbierto(prev => prev === proyecto.id ? null : proyecto.id); }}
                     title="Opciones"
                     aria-label={`Opciones de ${proyecto.nombre}`}
                     aria-expanded={menuAbierto === proyecto.id}
+                    aria-haspopup="menu"
                     aria-controls={`acciones-proyecto-${proyecto.id}`}
                   >
                     ···
                   </button>
                 </div>
 
-                {menuAbierto === proyecto.id && <div id={`acciones-proyecto-${proyecto.id}`} className={styles.cardActions} onClick={e => e.stopPropagation()}>
-                  {!proyecto.proyecto_padre_id && <button type="button" className={styles.cardAction} onClick={() => { setMenuAbierto(null); setCarpetaNuevoPlano(proyecto.carpeta_id ?? null); setArchivoNuevoPlano(null); setTorreNuevoPlano(proyecto); }}>
+                {menuAbierto === proyecto.id && menuAnchor && <MenuAccionesProyecto anchor={menuAnchor} onClose={cerrarMenus} id={`acciones-proyecto-${proyecto.id}`} label={`Acciones de ${proyecto.nombre}`}>
+                  {!proyecto.proyecto_padre_id && <button type="button" role="menuitem" onClick={() => { setMenuAbierto(null); setCarpetaNuevoPlano(proyecto.carpeta_id ?? null); setArchivoNuevoPlano(null); setTorreNuevoPlano(proyecto); }}>
                     + Nuevo plano en esta obra
                   </button>}
-                  {proyecto.plano_url === PLANO_PENDIENTE && (proyecto.proyecto_padre_id || contexto?.obras.find(p => p.id === proyecto.id)?.administrar) && <button type="button" className={styles.cardAction} onClick={() => { setMenuAbierto(null); setPlanoPendiente(proyecto); }}>
+                  {proyecto.plano_url === PLANO_PENDIENTE && (proyecto.proyecto_padre_id || contexto?.obras.find(p => p.id === proyecto.id)?.administrar) && <button type="button" role="menuitem" onClick={() => { setMenuAbierto(null); setPlanoPendiente(proyecto); }}>
                     ↑ Cargar plano inicial
                   </button>}
-                  {(proyecto.proyecto_padre_id || contexto?.obras.find(p => p.id === proyecto.id)?.administrar) && <button type="button" className={styles.cardAction} onClick={() => abrirMoverProyecto(proyecto)}>
+                  <button type="button" role="menuitem" disabled={!puedeMoverProyecto(proyecto) || moviendo} onClick={() => abrirMoverProyecto(proyecto)}>
                     ▣ Mover
-                  </button>}
-                  <button type="button" className={styles.cardAction} disabled={proyecto.plano_url === PLANO_PENDIENTE || !contexto?.obras.find(p => p.id === proyecto.id)?.administrar} onClick={() => handleDuplicar(proyecto)}>
+                  </button>
+                  <button type="button" role="menuitem" disabled={proyecto.plano_url === PLANO_PENDIENTE || !contexto?.obras.find(p => p.id === proyecto.id)?.administrar} onClick={() => handleDuplicar(proyecto)}>
                     ⧉ Duplicar proyecto
                   </button>
-                  <button type="button" disabled={!contexto?.obras.find(p => p.id === proyecto.id)?.administrar} className={`${styles.cardAction} ${styles.cardActionDanger}`} onClick={() => { setMenuAbierto(null); setConfirmDelete(proyecto); }}>
+                  <button type="button" role="menuitem" data-danger disabled={!contexto?.obras.find(p => p.id === proyecto.id)?.administrar} onClick={() => { setMenuAbierto(null); setConfirmDelete(proyecto); }}>
                     🗑 Eliminar proyecto
                   </button>
-                </div>}
+                </MenuAccionesProyecto>}
 
                 {/* Cuerpo */}
                 <div className={styles.cardBody}>

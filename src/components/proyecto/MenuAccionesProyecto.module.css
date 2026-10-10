@@ -1,0 +1,36 @@
+.menu {
+  position: fixed;
+  z-index: 1000;
+  visibility: hidden;
+  display: grid;
+  width: max-content;
+  min-width: 176px;
+  max-width: calc(100vw - 16px);
+  max-height: calc(100dvh - 16px);
+  overflow-y: auto;
+  padding: 5px;
+  border: 1px solid #D8E1ED;
+  border-radius: 9px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, .18);
+  font-family: var(--font-sans, 'DM Sans', sans-serif);
+}
+.menu > button {
+  min-height: 36px;
+  width: 100%;
+  padding: 7px 11px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #0F172A;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.35;
+}
+.menu > button:hover:not(:disabled), .menu > button:focus-visible { background: #EDF2F9; }
+.menu > button:focus-visible { outline: 2px solid #3B599B; outline-offset: -2px; }
+.menu > button:disabled { opacity: .4; cursor: not-allowed; }
+.menu > button[data-danger]:not(:disabled) { color: #B42318; }
+.menu > button[data-danger]:hover:not(:disabled) { background: #FEF2F2; }
