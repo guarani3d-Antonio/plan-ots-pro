@@ -14,9 +14,10 @@ import {ConfiguracionDashboardCreador} from './ConfiguracionDashboardCreador';
 import {JerarquiasEmpresa} from './JerarquiasEmpresa';
 import {ReglasNotificacionesEmpresa} from './ReglasNotificacionesEmpresa';
 import {RespaldosAdministracion} from './RespaldosAdministracion';
+import {PortalReclamosAdministracion} from '../portal/PortalReclamosAdministracion';
 import styles from './AdministracionCreador.module.css';
 
-const sections=[['empresas','Empresas','empresa.ver'],['obras','Obras','obra.ver'],['clientes','Clientes','cliente.ver'],['contratistas','Contratistas','contratista.ver'],['contactos','Contactos','contacto.ver'],['usuarios','Usuarios','equipo.ver'],['permisos','Permisos','equipo.ver'],['jerarquias','Jerarquías','equipo.ver'],['informes','Configuración de informes','plataforma'],['respaldos','Respaldo y recuperación','plataforma'],['dashboard','Dashboard','dashboard.configurar']] as const;
+const sections=[['empresas','Empresas','empresa.ver'],['obras','Obras','obra.ver'],['clientes','Clientes','cliente.ver'],['contratistas','Contratistas','contratista.ver'],['contactos','Contactos','contacto.ver'],['usuarios','Usuarios','equipo.ver'],['permisos','Permisos','equipo.ver'],['jerarquias','Jerarquías','equipo.ver'],['informes','Configuración de informes','plataforma'],['respaldos','Respaldo y recuperación','plataforma'],['portal','Portal de reclamos','plataforma'],['dashboard','Dashboard','dashboard.configurar']] as const;
 type Section=typeof sections[number][0];
 export function AdministracionCreador(){const [target,setTarget]=useState<HTMLDivElement|null>(null);return <PanelAdministracionContext.Provider value={target}><GuardiaAdministracion><Administration setTarget={setTarget}/></GuardiaAdministracion></PanelAdministracionContext.Provider>}
 function Administration({setTarget}:{setTarget:(element:HTMLDivElement|null)=>void}){
@@ -24,17 +25,18 @@ function Administration({setTarget}:{setTarget:(element:HTMLDivElement|null)=>vo
  const [section,setSection]=useState<Section>(contexto?.creador?'empresas':'jerarquias'),[creating,setCreating]=useState(false),[version,setVersion]=useState(0),[permissionPerson,setPermissionPerson]=useState<string>();
  if(!contexto)return null;
  const company=contexto.empresas.find(e=>e.id===empresaId),creator=contexto.creador;
- const visible=sections.filter(([id, ,permission])=>creator||(id!=='respaldos'&&tienePermiso(permission,undefined,empresaId)));
+ const visible=sections.filter(([id, ,permission])=>creator||(!['respaldos','portal'].includes(id)&&tienePermiso(permission,undefined,empresaId)));
  if(!creator&&!visible.length)return <p>No tenés acceso a Administración.</p>;
  const current=visible.some(([id])=>id===section)?section:visible[0][0];
  return <div className={styles.creator}><header className={styles.pageHeader}><div><h1 style={{margin:0,fontSize:24}}>{creator?'Administración':'Mi empresa'}</h1><p>Fichas, usuarios, permisos y jerarquías.</p></div><div className={styles.companyContext}><span>{creator?'Empresa seleccionada':'Mi empresa'}</span><strong>{company?.nombre??'Elegí una empresa en Empresas'}</strong>{creator&&<span>Para cambiarla: Empresas → Seleccionar</span>}</div></header>
- <div className={`${styles.administrationLayout} ${['permisos','respaldos'].includes(current)?styles.matrixLayout:''}`}><nav className={styles.navigation} aria-label="Administración">{visible.map(([id,label])=><button key={id} disabled={id!=='empresas'&&id!=='dashboard'&&id!=='respaldos'&&!empresaId} aria-pressed={current===id} onClick={()=>guard.solicitar(()=>{setCreating(false);setSection(id)})}>{id==='empresas'&&!creator?'Ficha de empresa':label}</button>)}</nav><div className={styles.catalogArea}><main className={styles.catalogContent}>
+ <div className={`${styles.administrationLayout} ${['permisos','respaldos','portal'].includes(current)?styles.matrixLayout:''}`}><nav className={styles.navigation} aria-label="Administración">{visible.map(([id,label])=><button key={id} disabled={id!=='empresas'&&id!=='dashboard'&&id!=='respaldos'&&!empresaId} aria-pressed={current===id} onClick={()=>guard.solicitar(()=>{setCreating(false);setSection(id)})}>{id==='empresas'&&!creator?'Ficha de empresa':label}</button>)}</nav><div className={styles.catalogArea}><main className={styles.catalogContent}>
  {(['empresas','obras','clientes','contratistas','contactos'] as string[]).includes(current)&&(current==='empresas'||empresaId)&&<FichasAdministracion key={`${current}-${empresaId}`} tipo={current.slice(0,-1) as TipoMaestro} tenantId={empresaId} onSeleccionar={id=>useAccessStore.setState({empresaId:id})}/>}
  {empresaId&&(['usuarios','permisos','jerarquias'] as string[]).includes(current)&&<JerarquiasEmpresa key={`${empresaId}-${current}-${version}`} tenantId={empresaId} view={current as 'usuarios'|'permisos'|'jerarquias'} onNewAccount={creator?()=>setCreating(true):undefined} selectedPersonId={permissionPerson} onPermisos={id=>guard.solicitar(()=>{setPermissionPerson(id);setSection('permisos')})}/>}
  {creator&&empresaId&&current==='informes'&&<PoliticasDocumentales key={empresaId} tenantId={empresaId}/>}
  {creator&&empresaId&&current==='permisos'&&<ReglasNotificacionesEmpresa key={empresaId} tenant={empresaId}/>}
  {creator&&current==='dashboard'&&<section className={styles.workspace}><ConfiguracionDashboardCreador/></section>}
  {creator&&current==='respaldos'&&<RespaldosAdministracion key={empresaId} tenantId={empresaId}/>}
+ {creator&&empresaId&&current==='portal'&&<PortalReclamosAdministracion key={empresaId} tenantId={empresaId}/>}
  {creator&&creating&&empresaId&&<NewAccount tenant={empresaId} onClose={()=>setCreating(false)} onDone={()=>{setCreating(false);setVersion(v=>v+1)}}/>}
  </main><div className={styles.editorSlot} ref={setTarget}/></div></div></div>;
 }
