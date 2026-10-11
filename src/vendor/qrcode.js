@@ -2286,15 +2286,5 @@ var qrcode = function() {
 
 }();
 
-(function (factory) {
-  if (typeof define === 'function' && define.amd) {
-      define([], factory);
-  } else if (typeof exports === 'object') {
-      module.exports = factory();
-  }
-}(function () {
-    return qrcode;
-}));
-
-// Local ESM adapter. Upstream qrcode-generator 1.4.4 is otherwise unchanged.
+// Local ESM adapter replaces the upstream AMD/CommonJS export wrapper.
 export default qrcode;

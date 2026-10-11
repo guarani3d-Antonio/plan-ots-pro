@@ -2,7 +2,8 @@ qrcode-generator 1.4.4
 Copyright (c) 2009 Kazuhiko Arase
 https://www.npmjs.com/package/qrcode-generator/v/1.4.4
 MIT license, as indicated in the upstream source header.
-The source is unchanged except for a final ESM default export adapter.
+The QR algorithm is unchanged. The AMD/CommonJS export wrapper is replaced
+with a final ESM default export for the application and its offline tests.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
