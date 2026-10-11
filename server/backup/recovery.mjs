@@ -8,6 +8,7 @@ import {canonical,digest} from './archive.mjs';
 const identifier=s=>'"'+String(s).replaceAll('"','""')+'"';
 const literal=s=>"'"+String(s).replaceAll("'","''")+"'";
 export const rowFingerprint=rows=>digest(canonical(rows.map(canonical).sort()));
+export const PILOT_LAB_IMAGE='supabase/postgres:17.6.1.095@sha256:4c087262afbfbb47da86e2863a52d7e424eb21ab589f732d77eeaab51be8e521';
 
 export async function command(binary,args,input){
  return new Promise((resolve,reject)=>{
@@ -52,28 +53,47 @@ const validateForeignKeys=`do $$declare f record;bad bigint;begin
  from pg_constraint con join pg_class s on s.oid=con.conrelid join pg_namespace sn on sn.oid=s.relnamespace join pg_class p on p.oid=con.confrelid join pg_namespace pn on pn.oid=p.relnamespace where con.contype='f' and sn.nspname in ('public','storage')
  loop execute format('select count(*) from %I.%I c where %s and not exists(select 1 from %I.%I p where %s)',f.schema,f.tabla,f.required,f.parent_schema,f.parent,f.relation) into bad;if bad>0 then raise exception 'Referencias incompletas';end if;end loop;end$$;`;
 
-export async function rehearseRecovery({zip,manifest},dir,image){
- if(!image)return {correcto:false,estado:'pendiente',mensaje:'Falta configurar el laboratorio aislado; la integridad del paquete sí fue comprobada.'};
- if(!/^[a-zA-Z0-9_./:@-]+$/.test(image))throw new Error('Imagen del laboratorio inválida');
- const snapshot=JSON.parse(await zip.file('datos/snapshot.json').async('string'));
- const name='plan-ots-lab-'+randomUUID();const dump=manifest.tenantId?'base/esquema.dump':'base/plataforma.dump';
- if(!zip.file(dump))throw new Error('Falta el esquema de recuperación');
- await writeFile(join(dir,'restore.dump'),await zip.file(dump).async('nodebuffer'),{mode:0o600,flag:'wx'});
- let started=false;
+export async function startLaboratory(environment,image){
+ if(!/^supabase\/postgres:[a-zA-Z0-9_.-]+@sha256:[a-f0-9]{64}$/.test(image))throw new Error('Se requiere una imagen oficial fijada por digest');
+ const name='plan-ots-lab-'+randomUUID();let started=false;
  const exec=(args,input)=>command('docker',['exec','-i',name,...args],input);
  const sql=input=>exec(['psql','-X','-q','-t','-A','--set=ON_ERROR_STOP=1','-U','postgres','-d','postgres'],input);
- try {
-  // No ports, no network, no pre-existing volume, no image pull. The operator
-  // installs a matching PostgreSQL image and required extensions beforehand.
-  await command('docker',['run','--pull=never','--detach','--name',name,'--network','none','--memory','1g','--cpus','1','--tmpfs','/var/lib/postgresql/data','-e','POSTGRES_HOST_AUTH_METHOD=trust',image]);started=true;
-  let ready=false;for(let i=0;i<30;i++){try{await exec(['pg_isready','-U','postgres']);ready=true;break;}catch{await new Promise(r=>setTimeout(r,500));}}
+ const close=()=>started?command('docker',['rm','--force',name]):Promise.resolve();
+ try{
+  // Supabase defaults to supabase_admin and /etc/postgresql, and ships init
+  // migrations. Use an empty, private database instead; restore the archive's
+  // schema, never a preinstalled schema that could conceal missing objects.
+  // Local trust applies only to this disposable container: no ports or network.
+  await command('docker',['run','--pull=never','--detach','--name',name,'--network','none','--memory','1g','--cpus','1',
+   '--tmpfs','/var/lib/postgresql/data','--tmpfs','/docker-entrypoint-initdb.d',
+   '-e','POSTGRES_USER=postgres','-e','POSTGRES_DB=postgres','-e','POSTGRES_HOST_AUTH_METHOD=trust',image,
+   'postgres','-D','/var/lib/postgresql/data','-c','listen_addresses=',
+   '-c','unix_socket_directories=/var/run/postgresql','-c','shared_preload_libraries=pg_stat_statements',
+   '-c','vault.getkey_script=/usr/lib/postgresql/bin/pgsodium_getkey.sh']);started=true;
+  let ready=false;for(let i=0;i<60;i++){try{await sql('select 1;');ready=true;break;}catch{await new Promise(r=>setTimeout(r,500));}}
   if(!ready)throw new Error('El laboratorio no está disponible');
   const major=Number((await sql("select current_setting('server_version_num')::int/10000;")).trim());
-  if(major!==snapshot.entorno.postgresMajor)throw new Error('La versión del laboratorio debe coincidir con PostgreSQL de origen');
+  if(major!==environment.postgresMajor)throw new Error('La versión del laboratorio debe coincidir con PostgreSQL de origen');
   let prep='drop schema public cascade;create schema public;';
-  for(const role of snapshot.entorno.roles){if(!/^[a-zA-Z0-9_ -]+$/.test(role))throw new Error('Nombre de rol requiere revisión del laboratorio');prep+=`do $$begin if not exists(select 1 from pg_roles where rolname=${literal(role)}) then execute ${literal('create role '+identifier(role)+' nologin')};end if;end$$;`;}
-  for(const ext of snapshot.entorno.extensiones){if(ext.schema==='public')prep+='create schema if not exists public;';else prep+=`create schema if not exists ${identifier(ext.schema)};`;prep+=`create extension if not exists ${identifier(ext.name)} with schema ${identifier(ext.schema)} version ${literal(ext.version)};`;}
+  for(const role of environment.roles){if(!/^[a-zA-Z0-9_ -]+$/.test(role))throw new Error('Nombre de rol requiere revisión del laboratorio');prep+=`do $$begin if not exists(select 1 from pg_roles where rolname=${literal(role)}) then execute ${literal('create role '+identifier(role)+' nologin')};end if;end$$;`;}
+  for(const ext of environment.extensiones){prep+=`create schema if not exists ${identifier(ext.schema)};create extension if not exists ${identifier(ext.name)} with schema ${identifier(ext.schema)} version ${literal(ext.version)};`;}
   await sql(prep);
+  // IF NOT EXISTS alone would silently accept an incompatible extension.
+  const installed=JSON.parse((await sql("select coalesce(jsonb_agg(jsonb_build_object('name',e.extname,'schema',n.nspname,'version',e.extversion)), '[]'::jsonb) from pg_extension e join pg_namespace n on n.oid=e.extnamespace;")).trim());
+  for(const expected of environment.extensiones)if(!installed.some(e=>e.name===expected.name&&e.schema===expected.schema&&e.version===expected.version))throw new Error('Extensión del laboratorio incompatible: '+expected.name);
+  return {name,exec,sql,close,major};
+ }catch(error){await close().catch(()=>{});throw error;}
+}
+
+export async function rehearseRecovery({zip,manifest},dir,image){
+ if(!image)return {correcto:false,estado:'pendiente',mensaje:'Falta configurar el laboratorio aislado; la integridad del paquete sí fue comprobada.'};
+ const snapshot=JSON.parse(await zip.file('datos/snapshot.json').async('string'));
+ const dump=manifest.tenantId?'base/esquema.dump':'base/plataforma.dump';
+ if(!zip.file(dump))throw new Error('Falta el esquema de recuperación');
+ await writeFile(join(dir,'restore.dump'),await zip.file(dump).async('nodebuffer'),{mode:0o600,flag:'wx'});
+ let lab;
+ try {
+  lab=await startLaboratory(snapshot.entorno,image);const {name,exec,sql}=lab;
   await command('docker',['cp',join(dir,'restore.dump'),name+':/tmp/restore.dump']);
   const existingSchemas=new Set(['public',...snapshot.entorno.extensiones.map(e=>e.schema)]);
   const list=(await exec(['pg_restore','--list','/tmp/restore.dump'])).split('\n').filter(line=>!([...existingSchemas].some(schema=>line.includes(' SCHEMA - '+schema+' '))));
@@ -90,5 +110,5 @@ export async function rehearseRecovery({zip,manifest},dir,image){
   // already hash-checked by unpackArchive; they are never uploaded to production.
   for(let i=0;i<snapshot.storage.length;i++){const o=snapshot.storage[i];const entry=zip.file(o.backupEntry);if(!entry)throw new Error('Falta archivo de Storage');const file=join(dir,'recovered-'+i+'.bin');await writeFile(file,await entry.async('nodebuffer'),{mode:0o600,flag:'wx'});const proof=manifest.entries.find(e=>e.name===o.backupEntry);if(!proof||digest(await readFile(file))!==proof.sha256)throw new Error('El archivo recuperado no coincide');}
   return {correcto:true,estado:'comprobada',metodo:'PostgreSQL aislado sin red y reconstrucción de archivos',tablas:Object.keys(snapshot.tablas).length,archivos:snapshot.storage.length,identidades:manifest.tenantId?'Referencias con identidades de prueba; requiere cuentas originales para restaurar empresa':'Conteos Auth del corte comprobados',alcance:'Recuperación de datos y archivos; no certifica despliegue, conectividad ni login de una plataforma nueva'};
- } finally {if(started)await command('docker',['rm','--force',name]).catch(()=>{});}
+ } finally {if(lab)await lab.close().catch(()=>{});}
 }

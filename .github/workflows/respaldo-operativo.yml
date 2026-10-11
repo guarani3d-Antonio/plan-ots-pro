@@ -9,6 +9,7 @@ on:
         default: comprobar-conexion
         options:
           - comprobar-conexion
+          - comprobar-laboratorio
           - procesar-cola
   schedule:
     - cron: '17 * * * *'
@@ -18,12 +19,32 @@ concurrency:
   group: plan-ots-backup
   cancel-in-progress: false
 jobs:
+  laboratorio:
+    # The manual synthetic check has no environment and receives no secrets.
+    # Never scheduled. It validates the pinned image before reading user files.
+    if: github.event_name == 'workflow_dispatch' && inputs.operacion == 'comprobar-laboratorio'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - run: npm ci --ignore-scripts
+      - name: Ensayo sintético sin credenciales ni archivos de usuarios
+        run: |
+          test -x /usr/lib/postgresql/17/bin/pg_dump
+          export BACKUP_LAB_IMAGE="$(node --input-type=module -e 'import {PILOT_LAB_IMAGE} from "./server/backup/recovery.mjs";console.log(PILOT_LAB_IMAGE)')"
+          docker pull "$BACKUP_LAB_IMAGE"
+          npm run backup:lab-check
   respaldo:
     # Disabled until storage, credentials, recovery image and billing caps
     # have been verified by the owner. No jobs run on ordinary code pushes.
     # Manual pilot tests and hourly operation have independent switches. Enabling
     # a single connection test must never enable an unlimited recurring test.
-    if: vars.BACKUP_RUNNER_ENABLED == 'true' && (github.event_name == 'workflow_dispatch' || vars.BACKUP_SCHEDULE_ENABLED == 'true')
+    if: vars.BACKUP_RUNNER_ENABLED == 'true' && ((github.event_name == 'workflow_dispatch' && inputs.operacion != 'comprobar-laboratorio') || (github.event_name == 'schedule' && vars.BACKUP_SCHEDULE_ENABLED == 'true'))
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     environment: respaldo
@@ -45,10 +66,10 @@ jobs:
       BACKUP_RUN_ONCE: 'true'
       BACKUP_AUTO_REHEARSAL: 'true'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22'
       - name: Comprobar configuración sin mostrar secretos
@@ -69,6 +90,9 @@ jobs:
       - name: Preparar laboratorio oficial fijado
         if: github.event_name == 'schedule' || inputs.operacion == 'procesar-cola'
         run: docker pull "$BACKUP_LAB_IMAGE"
+      - name: Comprobar recuperación antes de transferir datos reales
+        if: github.event_name == 'schedule' || inputs.operacion == 'procesar-cola'
+        run: npm run backup:lab-check
       - name: Procesar una tarea y comprobar recuperación
         if: github.event_name == 'schedule' || inputs.operacion == 'procesar-cola'
         run: npm run backup:worker

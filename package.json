@@ -15,6 +15,7 @@
     "preview": "vite preview",
     "test:backups": "node scripts/test-backups.mjs && node scripts/test-backup-download.mjs",
     "backup:check": "node server/backup/check.mjs",
+    "backup:lab-check": "node server/backup/lab-check.mjs",
     "backup:worker": "node server/backup/worker.mjs"
   },
   "dependencies": {

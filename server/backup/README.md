@@ -1,7 +1,8 @@
 # Respaldo y recuperación de Plan-OTs
 
-Estado al 11/10/2026: R2 pendiente por decisión del propietario. No hay bucket,
-credenciales de respaldo ni motor alojado. La preparación incluye cola, inventario,
+Estado al 11/10/2026: el propietario activó R2 y se creó el bucket privado Standard
+`plan-ots-respaldos`. Credenciales pendientes de confirmación, motor sin activar.
+La preparación incluye cola, inventario,
 estado operativo y frontend; no equivale a una copia real ni a recuperación verificada.
 La instalación SQL se registra en `output/backup-operativo-20261011`.
 
@@ -147,9 +148,10 @@ Ambas variables siguen sin activar. La programación interna de Supabase tambié
 continúa apagada. La rama por defecto se comprobó en GitHub: **tablet-v1**.
 Presupuesto Actions observado: **US$0, Stop usage: Yes**. No se ejecutó un runner.
 
-## Primera prueba propuesta, pendiente de aprobar costo y conexión
+## Primera prueba aprobada, pendiente de completar conexión
 
-No hay nuevas suscripciones ni pruebas de consumo activadas. Las pruebas locales
+El propietario aceptó R2 y aprobó una copia, un ensayo y una descarga con reserva
+de 300 MB y programación apagada. Las credenciales aún no están conectadas. Las pruebas locales
 usan datos ficticios y no consumen R2/Supabase. Para la primera prueba remota:
 
 1. Revisar consumo disponible en Supabase y R2, custodiar la clave y conectar.
@@ -168,7 +170,7 @@ lectura de comprobación y descarga representarían alrededor de 900 MB de flujo
 R2 con esa reserva, no 900 MB almacenados. R2 Standard no cobra egreso. Manteniendo
 la cuenta dentro de sus cupos gratuitos, costo incremental esperado: **US$0**.
 No es una garantía: otros buckets, crecimiento y operaciones comparten los cupos.
-R2 requiere términos con cobro por excedentes; todavía no aceptados. La referencia
+R2 tiene términos con cobro por excedentes aceptados por el propietario. La referencia
 de 14 copias de 300 MB sería 4.2 GB retenidos, sin crecimiento ni rotación automática.
 El motor actualmente limita fuentes a 256 MiB y falla al superarlo, en vez de
 continuar consumiendo sin límite. No aumentar ese límite sin volver a estimar.
@@ -176,9 +178,27 @@ Fuentes: https://developers.cloudflare.com/r2/pricing/ y
 https://docs.github.com/en/billing/concepts/product-billing/github-actions.
 
 La corrección `202610110002_backup_latest_recovery.sql` está probada localmente y
-pendiente de instalar junto con la conexión: una copia o un ensayo posterior sin
+instalada en el servidor el 11/10/2026: una copia o un ensayo posterior sin
 recuperación comprobada bloquea la activación, aunque exista un éxito anterior.
 Volver a verificar una copia antigua registra también la fecha de ese intento.
+
+### Laboratorio previo sin consumo de datos reales
+
+El inventario del servidor mostró PostgreSQL 17.6, pg_stat_statements 1.11,
+pgcrypto 1.3, supabase_vault 0.3.1 y uuid-ossp 1.1. Se consultó el manifiesto
+oficial linux/amd64 de `supabase/postgres:17.6.1.095`, fijado por digest en
+`PILOT_LAB_IMAGE`. No dar por comprobada su ejecución hasta finalizar el ensayo.
+La imagen usa por defecto `supabase_admin` y configuración/migraciones iniciales.
+El laboratorio utiliza PostgreSQL vacío, usuario local postgres, configuración
+explícita, extensiones exactas, sin red ni puertos y sólo volúmenes temporales.
+No modifica usuarios, autenticación ni configuración del servidor productivo.
+
+`npm run backup:lab-check` exporta datos ficticios con referencias, bigint/numeric,
+Auth, metadatos y un archivo binario, cifra el paquete y lo recupera con el mismo
+código del motor. No recibe credenciales ni consulta Supabase/R2. El workflow
+manual `comprobar-laboratorio` tiene un job separado sin entorno de secretos;
+el procesamiento real también exige que este preflight pase antes de transferir.
+Las acciones oficiales se fijaron a los commits observados del tag v4.
 
 Cola durable en PostgreSQL, una reserva con vencimiento y máximo cinco intentos
 tras caídas; errores funcionales se conservan para diagnóstico. Solicitudes
