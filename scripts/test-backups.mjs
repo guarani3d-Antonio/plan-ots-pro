@@ -50,6 +50,7 @@ try {
  create table storage.objects(id uuid primary key default gen_random_uuid(),bucket_id text references storage.buckets,name text,metadata jsonb);`;
  const migration=await readFile(new URL('../supabase/migrations/202610100001_backup_jobs.sql',import.meta.url),'utf8');
  const operational=await readFile(new URL('../supabase/migrations/202610110001_backup_operational.sql',import.meta.url),'utf8');
+ const latestRecovery=await readFile(new URL('../supabase/migrations/202610110002_backup_latest_recovery.sql',import.meta.url),'utf8');
  await db.exec(setup);await db.exec(migration);
  await db.query('insert into auth.users values($1),($2)',[creator,technician]);
  await db.query('insert into tenants values($1,$2),($3,$4)',[a,'Prueba A',b,'Prueba B']);
@@ -87,7 +88,7 @@ try {
  const inventory=(await db.query('select plan_respaldo_inventario() value')).rows[0].value;
  assert.equal(inventory.buckets[0].bytes,42);assert.equal(inventory.buckets[0].sin_tamano,1);
  assert.ok(inventory.tablas.find(t=>t.nombre==='ordenes').columnas.includes('campo_nuevo'));
- await db.exec('reset role');await db.exec(operational);
+ await db.exec('reset role');await db.exec(operational);await db.exec(latestRecovery);
  await db.exec('set role authenticated');
  await assert.rejects(()=>db.query('select plan_respaldo_programar(true,24)'),/motor/);
  await assert.rejects(()=>db.query('select plan_respaldo_programar(false,null)'),/inválida/);
@@ -101,6 +102,17 @@ try {
  await db.exec('set role authenticated');await db.query('select plan_respaldo_programar(true,24)');
  let status=(await db.query('select plan_respaldo_estado($1) value',[a])).rows[0].value;
  assert.equal(status.listo_para_piloto,true);assert.equal(status.motor_disponible,true);
+ // A later archive with intact bytes but failed rehearsal cannot borrow the
+ // successful recovery of an older archive, nor enable automatic operation.
+ await db.exec('reset role');
+ const untested=(await db.query("insert into plan_respaldos(solicitud_id,estado,creado_en,corte_en,paquete_path,paquete_sha256,bytes,integridad_en) values($1,'creada',now()+interval '1 second',now(),'untested',$2,42,now()) returning id",[randomUUID(),'b'.repeat(64)])).rows[0].id;
+ await db.exec('set role authenticated');
+ status=(await db.query('select plan_respaldo_estado($1) value',[a])).rows[0].value;
+ assert.equal(status.listo_para_piloto,false);assert.equal(status.puede_programar,false);
+ await assert.rejects(()=>db.query('select plan_respaldo_programar(true,24)'),/última copia/);
+ await db.exec('reset role');await db.query('update plan_respaldos set recuperacion_en=now() where id=$1',[untested]);
+ await db.exec('set role authenticated');
+ assert.equal((await db.query('select plan_respaldo_estado($1) value',[a])).rows[0].value.listo_para_piloto,true);
  await db.exec("reset role;update plan_respaldo_config set motor_en=now()-interval '3 hours';set role authenticated");
  assert.equal((await db.query('select plan_respaldo_estado($1) value',[a])).rows[0].value.listo_para_piloto,false);
  await db.exec('reset role;set role service_role');await db.query('select plan_respaldo_latido()');await db.exec('reset role');

@@ -1,6 +1,15 @@
 name: Respaldo operativo
 on:
   workflow_dispatch:
+    inputs:
+      operacion:
+        description: 'Prueba acotada: comprobar conexión o procesar una tarea pendiente'
+        type: choice
+        required: true
+        default: comprobar-conexion
+        options:
+          - comprobar-conexion
+          - procesar-cola
   schedule:
     - cron: '17 * * * *'
 permissions:
@@ -12,7 +21,9 @@ jobs:
   respaldo:
     # Disabled until storage, credentials, recovery image and billing caps
     # have been verified by the owner. No jobs run on ordinary code pushes.
-    if: vars.BACKUP_RUNNER_ENABLED == 'true'
+    # Manual pilot tests and hourly operation have independent switches. Enabling
+    # a single connection test must never enable an unlimited recurring test.
+    if: vars.BACKUP_RUNNER_ENABLED == 'true' && (github.event_name == 'workflow_dispatch' || vars.BACKUP_SCHEDULE_ENABLED == 'true')
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     environment: respaldo
@@ -42,12 +53,23 @@ jobs:
           node-version: '22'
       - name: Comprobar configuración sin mostrar secretos
         run: |
-          node --input-type=module -e "const keys=['SUPABASE_URL','SUPABASE_ANON_KEY','SUPABASE_SERVICE_ROLE_KEY','DATABASE_URL','BACKUP_MASTER_KEY','R2_ENDPOINT','R2_ACCESS_KEY_ID','R2_SECRET_ACCESS_KEY','R2_BUCKET','BACKUP_LAB_IMAGE'];const missing=keys.filter(k=>!process.env[k]);if(missing.length){console.error('Faltan variables: '+missing.join(', '));process.exit(1)}"
+          node --input-type=module -e "const keys=['SUPABASE_URL','SUPABASE_ANON_KEY','SUPABASE_SERVICE_ROLE_KEY','DATABASE_URL','BACKUP_MASTER_KEY','R2_ENDPOINT','R2_ACCESS_KEY_ID','R2_SECRET_ACCESS_KEY','R2_BUCKET'];const missing=keys.filter(k=>!process.env[k]);if(missing.length){console.error('Faltan variables: '+missing.join(', '));process.exit(1)}"
           test -x "$PG_DUMP"
+      - name: Comprobar destino con un pequeño objeto temporal
+        if: github.event_name == 'workflow_dispatch' && inputs.operacion == 'comprobar-conexion'
+        run: |
+          npm ci --ignore-scripts
+          npm run backup:check
+      - name: Comprobar laboratorio
+        if: github.event_name == 'schedule' || inputs.operacion == 'procesar-cola'
+        run: |
           case "$BACKUP_LAB_IMAGE" in supabase/postgres:*@sha256:*) ;; *) echo 'Se requiere una imagen oficial compatible fijada por digest'; exit 1 ;; esac
       - run: npm ci --ignore-scripts
+        if: github.event_name == 'schedule' || inputs.operacion == 'procesar-cola'
       - name: Preparar laboratorio oficial fijado
+        if: github.event_name == 'schedule' || inputs.operacion == 'procesar-cola'
         run: docker pull "$BACKUP_LAB_IMAGE"
       - name: Procesar una tarea y comprobar recuperación
+        if: github.event_name == 'schedule' || inputs.operacion == 'procesar-cola'
         run: npm run backup:worker
       # No plaintext dump, decrypted ZIP or backup key is uploaded as an artifact.

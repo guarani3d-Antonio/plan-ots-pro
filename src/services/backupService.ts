@@ -10,5 +10,28 @@ export async function inventarioRespaldo(){const ticket=sessionTicket();const r=
 export async function solicitarRespaldo(tenant:string|null,solicitud:string){const ticket=sessionTicket();const r=await supabase.rpc('plan_respaldo_solicitar',{p_tenant:tenant,p_solicitud:solicitud});assertSession(ticket);if(r.error)throw new Error(r.error.message);return String(r.data);}
 export async function verificarRespaldo(id:string){const ticket=sessionTicket();const r=await supabase.rpc('plan_respaldo_verificar',{p_id:id});assertSession(ticket);if(r.error)throw new Error(r.error.message);}
 export async function programarRespaldo(activo:boolean,horas:number){const ticket=sessionTicket();const r=await supabase.rpc('plan_respaldo_programar',{p_activo:activo,p_horas:horas});assertSession(ticket);if(r.error)throw new Error(r.error.message);}
-export async function descargarRespaldo(id:string){const ticket=sessionTicket();if(!tienePermiso('plataforma'))throw new Error('Sin permiso');const base=import.meta.env.VITE_BACKUP_SERVICE_URL;if(!base||new URL(base).protocol!=='https:')throw new Error('Falta conectar el servicio de descarga segura.');const {data:{session}}=await supabase.auth.getSession();assertSession(ticket);if(!session)throw new Error('Iniciá sesión');const r=await fetch(base.replace(/\/$/,'')+'/download',{method:'POST',headers:{Authorization:'Bearer '+session.access_token,'Content-Type':'application/json'},body:JSON.stringify({id}),cache:'no-store',signal:AbortSignal.timeout(20000)});assertSession(ticket);if(!r.ok)throw new Error('No se pudo autorizar la descarga.');const {url}=await r.json();assertSession(ticket);if(typeof url!=='string'||new URL(url).protocol!=='https:')throw new Error('Enlace de descarga inválido');const a=document.createElement('a');a.href=url;a.rel='noopener';a.download=`plan-ots-${id}.potbackup`;a.click();}
+export function descargaRespaldoDisponible(){return !!import.meta.env.VITE_BACKUP_SERVICE_URL || import.meta.env.VITE_BACKUP_DOWNLOAD_FUNCTION_ENABLED === 'true';}
+export async function descargarRespaldo(id:string){
+ const ticket=sessionTicket();
+ if(!tienePermiso('plataforma'))throw new Error('Sin permiso');
+ if(!descargaRespaldoDisponible())throw new Error('Falta conectar el servicio de descarga segura.');
+ const {data:{session}}=await supabase.auth.getSession();assertSession(ticket);
+ if(!session)throw new Error('Iniciá sesión');
+ const base=import.meta.env.VITE_BACKUP_SERVICE_URL;
+ let result:unknown;
+ if(base){
+  if(new URL(base).protocol!=='https:')throw new Error('El servicio debe usar HTTPS.');
+  const r=await fetch(base.replace(/\/$/,'')+'/download',{method:'POST',headers:{Authorization:'Bearer '+session.access_token,'Content-Type':'application/json'},body:JSON.stringify({id}),cache:'no-store',signal:AbortSignal.timeout(20000)});
+  assertSession(ticket);if(!r.ok)throw new Error('No se pudo autorizar la descarga.');result=await r.json();
+ }else{
+  const r=await supabase.functions.invoke('descargar-respaldo',{body:{id},headers:{Authorization:'Bearer '+session.access_token},signal:AbortSignal.timeout(20000)});
+  assertSession(ticket);if(r.error)throw new Error('No se pudo autorizar la descarga segura.');result=r.data;
+ }
+ assertSession(ticket);
+ const url=result && typeof result==='object' && 'url' in result ? result.url : null;
+ if(typeof url!=='string')throw new Error('Enlace de descarga inválido');
+ const parsed=new URL(url);
+ if(parsed.protocol!=='https:' || parsed.username || parsed.password)throw new Error('Enlace de descarga inválido');
+ const a=document.createElement('a');a.href=url;a.rel='noopener';a.download=`plan-ots-${id}.potbackup`;a.click();
+}
 export function descargarInformeRespaldo(job:Respaldo){const blob=new Blob([JSON.stringify({respaldo:job.id,alcance:job.tenant_id??'plataforma',corte:job.corte_en,integridad:job.integridad_en,recuperacion:job.recuperacion_en,informe:job.informe},null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`verificacion-${job.id}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}

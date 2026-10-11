@@ -3,3 +3,6 @@ verify_jwt = true
 
 [functions.render-documento]
 verify_jwt = true
+
+[functions.descargar-respaldo]
+verify_jwt = true

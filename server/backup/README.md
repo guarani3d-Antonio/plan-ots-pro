@@ -127,10 +127,58 @@ https://docs.github.com/en/billing/concepts/product-billing/github-actions
 https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule
 
 Para descarga desde la aplicación seguirá haciendo falta el endpoint HTTPS del
-servicio o un puente de descarga autenticado que se validará al conectar R2.
-La interfaz lo indica y no ofrece un enlace ficticio. El modo temporal no ejecuta
-`backup:check`: la prueba inicial de escritura/lectura debe hacerse explícitamente
-antes de marcar el destino verificado. No se ha ejecutado un runner remoto.
+servicio o el puente `supabase/functions/descargar-respaldo`, preparado y probado
+localmente, todavía sin desplegar ni conectar. Usa el JWT de Creador, RLS y una
+credencial separada **sólo lectura** para el bucket de copias. Compara el tamaño y
+el SHA-256 registrado en los metadatos remotos antes de firmar un GET de 60 segundos;
+la verificación completa de bytes corresponde al motor. El puente no recibe clave
+de cifrado ni contraseña PostgreSQL. Secretos exclusivos de Edge Functions:
+`BACKUP_R2_ENDPOINT`, `BACKUP_R2_BUCKET`, `BACKUP_R2_DOWNLOAD_ACCESS_KEY_ID`,
+`BACKUP_R2_DOWNLOAD_SECRET_ACCESS_KEY`. Mantener `verify_jwt=true`.
+Después de desplegar, configurar y verificar el puente, publicar el frontend con
+`VITE_BACKUP_DOWNLOAD_FUNCTION_ENABLED=true`; esa bandera no contiene credenciales.
+La alternativa de servidor permanente conserva `VITE_BACKUP_SERVICE_URL`.
+La interfaz lo indica y no ofrece un enlace ficticio.
+
+El workflow distingue `comprobar-conexion` (sonda explícita de 64 bytes) de
+`procesar-cola` (una tarea y su ensayo). `BACKUP_RUNNER_ENABLED` permite pruebas
+manuales; la programación horaria además exige `BACKUP_SCHEDULE_ENABLED=true`.
+Ambas variables siguen sin activar. La programación interna de Supabase también
+continúa apagada. La rama por defecto se comprobó en GitHub: **tablet-v1**.
+Presupuesto Actions observado: **US$0, Stop usage: Yes**. No se ejecutó un runner.
+
+## Primera prueba propuesta, pendiente de aprobar costo y conexión
+
+No hay nuevas suscripciones ni pruebas de consumo activadas. Las pruebas locales
+usan datos ficticios y no consumen R2/Supabase. Para la primera prueba remota:
+
+1. Revisar consumo disponible en Supabase y R2, custodiar la clave y conectar.
+2. Una sonda de conexión; una ejecución del motor sin trabajo para registrar señal.
+3. Solicitar **una** copia de plataforma y procesarla una vez con recuperación
+   aislada incluida. Leer de nuevo ese mismo archivo y descargarlo una vez.
+4. Detenerse, presentar tamaños/operaciones reales y resultado. No activar el
+   horario recurrente ni recepción persistente hasta la validación y aprobación.
+
+Referencia actual: 194.8 MB decimales de archivos, base física 20.8 MB; no es
+medición de paquete final. Reserva prudente para una copia: 300 MB. Storage de
+origen se lee una vez (~195 MB); también se exportan tablas y el dump. Para esa
+primera lectura, reservar 300 MB de egreso de Supabase y comprobar el cupo restante.
+Las verificaciones posteriores usan R2. Una copia,
+lectura de comprobación y descarga representarían alrededor de 900 MB de flujo
+R2 con esa reserva, no 900 MB almacenados. R2 Standard no cobra egreso. Manteniendo
+la cuenta dentro de sus cupos gratuitos, costo incremental esperado: **US$0**.
+No es una garantía: otros buckets, crecimiento y operaciones comparten los cupos.
+R2 requiere términos con cobro por excedentes; todavía no aceptados. La referencia
+de 14 copias de 300 MB sería 4.2 GB retenidos, sin crecimiento ni rotación automática.
+El motor actualmente limita fuentes a 256 MiB y falla al superarlo, en vez de
+continuar consumiendo sin límite. No aumentar ese límite sin volver a estimar.
+Fuentes: https://developers.cloudflare.com/r2/pricing/ y
+https://docs.github.com/en/billing/concepts/product-billing/github-actions.
+
+La corrección `202610110002_backup_latest_recovery.sql` está probada localmente y
+pendiente de instalar junto con la conexión: una copia o un ensayo posterior sin
+recuperación comprobada bloquea la activación, aunque exista un éxito anterior.
+Volver a verificar una copia antigua registra también la fecha de ese intento.
 
 Cola durable en PostgreSQL, una reserva con vencimiento y máximo cinco intentos
 tras caídas; errores funcionales se conservan para diagnóstico. Solicitudes

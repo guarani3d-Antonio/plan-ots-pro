@@ -41,7 +41,7 @@ async function patch(job,values){const r=await api.from('plan_respaldos').update
    const checked=await unpackArchive(packageFile,join(dir,'verified.zip'),E.BACKUP_MASTER_KEY,Number(E.BACKUP_VERIFY_MAX_BYTES||536870912));const {manifest}=checked;
    if(manifest.backupId!==job.id||manifest.tenantId!==job.tenant_id)throw new Error('Alcance del paquete incorrecto');
    let ensayo;try{ensayo=await rehearseRecovery(checked,dir,E.BACKUP_LAB_IMAGE);}catch{ensayo={correcto:false,estado:'fallida',mensaje:'El ensayo no se completó; revisar el laboratorio antes de recuperar.'};}
-   await patch(job,{estado:'creada',tarea:'crear',integridad_en:new Date().toISOString(),recuperacion_en:ensayo.correcto?new Date().toISOString():null,informe:{tipo:'verificacion',correcto:true,archivos:manifest.entries.length,recuperacion:ensayo.estado,ensayo,mensaje:'Cifrado, manifiesto y huellas comprobados. El ensayo aislado tiene su propio resultado.'},lease:null,lease_hasta:null});return;
+   await patch(job,{estado:'creada',tarea:'crear',integridad_en:new Date().toISOString(),recuperacion_en:ensayo.correcto?new Date().toISOString():null,terminado_en:new Date().toISOString(),informe:{tipo:'verificacion',correcto:true,archivos:manifest.entries.length,recuperacion:ensayo.estado,ensayo,mensaje:'Cifrado, manifiesto y huellas comprobados. El ensayo aislado tiene su propio resultado.'},lease:null,lease_hasta:null});return;
   }
   await db.connect();await db.query('begin isolation level repeatable read read only');
   const exported=(await db.query('select pg_export_snapshot() id')).rows[0].id;
