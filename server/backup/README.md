@@ -199,6 +199,11 @@ código del motor. No recibe credenciales ni consulta Supabase/R2. El workflow
 manual `comprobar-laboratorio` tiene un job separado sin entorno de secretos;
 el procesamiento real también exige que este preflight pase antes de transferir.
 Las acciones oficiales se fijaron a los commits observados del tag v4.
+El primer preflight falló antes de descargar la imagen: Ubuntu 24.04 trae cliente
+PostgreSQL 16, no 17. El workflow prepara el cliente 17 desde el repositorio firmado
+oficial de PostgreSQL en el ejecutor temporal; no instala software en la notebook.
+Fuente: https://www.postgresql.org/download/linux/ubuntu/ y el inventario oficial
+https://github.com/actions/runner-images/blob/main/images/ubuntu/Ubuntu2404-Readme.md.
 
 Cola durable en PostgreSQL, una reserva con vencimiento y máximo cinco intentos
 tras caídas; errores funcionales se conservan para diagnóstico. Solicitudes
