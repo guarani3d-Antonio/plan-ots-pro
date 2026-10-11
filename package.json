@@ -12,9 +12,15 @@
     "test:report-editor": "node scripts/test-report-editor.mjs",
     "test:document-request": "node scripts/test-document-request.mjs",
     "build:controlled-report": "node scripts/build-controlled-report.mjs",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:backups": "node scripts/test-backups.mjs",
+    "backup:check": "node server/backup/check.mjs",
+    "backup:worker": "node server/backup/worker.mjs"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1149.0",
+    "@aws-sdk/lib-storage": "^3.1149.0",
+    "@aws-sdk/s3-request-presigner": "^3.1149.0",
     "@ffmpeg/ffmpeg": "^0.12.15",
     "@ffmpeg/util": "^0.12.2",
     "@supabase/supabase-js": "^2.105.4",
@@ -23,6 +29,7 @@
     "jszip": "^3.10.1",
     "papaparse": "^5.5.3",
     "pdfjs-dist": "^3.11.174",
+    "pg": "^8.23.1",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "signature_pad": "^5.1.3",

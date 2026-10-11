@@ -1,0 +1,53 @@
+name: Respaldo operativo
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 * * * *'
+permissions:
+  contents: read
+concurrency:
+  group: plan-ots-backup
+  cancel-in-progress: false
+jobs:
+  respaldo:
+    # Disabled until storage, credentials, recovery image and billing caps
+    # have been verified by the owner. No jobs run on ordinary code pushes.
+    if: vars.BACKUP_RUNNER_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: respaldo
+    env:
+      SUPABASE_URL: ${{ vars.BACKUP_SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.BACKUP_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.BACKUP_SUPABASE_SERVICE_ROLE_KEY }}
+      DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+      BACKUP_MASTER_KEY: ${{ secrets.BACKUP_MASTER_KEY }}
+      BACKUP_KEY_ID: principal
+      BACKUP_RELEASE_ID: ${{ github.sha }}
+      R2_ENDPOINT: ${{ vars.BACKUP_R2_ENDPOINT }}
+      R2_ACCESS_KEY_ID: ${{ secrets.BACKUP_R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_R2_SECRET_ACCESS_KEY }}
+      R2_BUCKET: ${{ vars.BACKUP_R2_BUCKET }}
+      BACKUP_ALLOWED_ORIGIN: https://plan-ots-pro.pages.dev
+      BACKUP_LAB_IMAGE: ${{ vars.BACKUP_LAB_IMAGE }}
+      PG_DUMP: /usr/lib/postgresql/17/bin/pg_dump
+      BACKUP_RUN_ONCE: 'true'
+      BACKUP_AUTO_REHEARSAL: 'true'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Comprobar configuración sin mostrar secretos
+        run: |
+          node --input-type=module -e "const keys=['SUPABASE_URL','SUPABASE_ANON_KEY','SUPABASE_SERVICE_ROLE_KEY','DATABASE_URL','BACKUP_MASTER_KEY','R2_ENDPOINT','R2_ACCESS_KEY_ID','R2_SECRET_ACCESS_KEY','R2_BUCKET','BACKUP_LAB_IMAGE'];const missing=keys.filter(k=>!process.env[k]);if(missing.length){console.error('Faltan variables: '+missing.join(', '));process.exit(1)}"
+          test -x "$PG_DUMP"
+          case "$BACKUP_LAB_IMAGE" in supabase/postgres:*@sha256:*) ;; *) echo 'Se requiere una imagen oficial compatible fijada por digest'; exit 1 ;; esac
+      - run: npm ci --ignore-scripts
+      - name: Preparar laboratorio oficial fijado
+        run: docker pull "$BACKUP_LAB_IMAGE"
+      - name: Procesar una tarea y comprobar recuperación
+        run: npm run backup:worker
+      # No plaintext dump, decrypted ZIP or backup key is uploaded as an artifact.

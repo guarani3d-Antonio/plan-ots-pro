@@ -1,0 +1,94 @@
+// Isolated rehearsal only. There is deliberately no production restore endpoint.
+import {spawn} from 'node:child_process';
+import {writeFile,readFile} from 'node:fs/promises';
+import {join} from 'node:path';
+import {randomUUID} from 'node:crypto';
+import {canonical,digest} from './archive.mjs';
+
+const identifier=s=>'"'+String(s).replaceAll('"','""')+'"';
+const literal=s=>"'"+String(s).replaceAll("'","''")+"'";
+export const rowFingerprint=rows=>digest(canonical(rows.map(canonical).sort()));
+
+export async function command(binary,args,input){
+ return new Promise((resolve,reject)=>{
+  const child=spawn(binary,args,{windowsHide:true,stdio:['pipe','pipe','pipe']});let output='',length=0;
+  const timer=setTimeout(()=>{child.kill();reject(new Error('El laboratorio excedió el tiempo permitido'));},120000);
+  child.stdout.on('data',chunk=>{length+=chunk.length;if(length>256*1024*1024){child.kill();reject(new Error('Salida del laboratorio demasiado grande'));}else output+=chunk;});
+  child.stderr.on('data',()=>{});child.stdin.on('error',()=>{});
+  child.on('error',()=>{clearTimeout(timer);reject(new Error('Falta instalar '+binary+' en el servicio de respaldo'));});
+  child.on('close',code=>{clearTimeout(timer);code===0?resolve(output):reject(new Error('No se pudo completar el ensayo aislado ('+binary+')'));});
+  child.stdin.end(input);
+ });
+}
+
+export function companyInsertSql(snapshot){
+ const users=new Set();
+ for(const edge of snapshot.relaciones||[])if(edge.esquema_padre==='auth'&&edge.padre==='users')for(const row of snapshot.tablas[edge.tabla]||[])if(row[edge.columna])users.add(row[edge.columna]);
+ for(const row of [...snapshot.storage,...snapshot.buckets])if(row.owner)users.add(row.owner);
+ let sql='begin;set local session_replication_role=replica;';
+ // Stubs exist only in the air-gapped laboratory. Company archives contain no
+ // login credentials and require the corresponding identities on real recovery.
+ for(const id of users)sql+=`insert into auth.users(id) values(${literal(id)}::uuid) on conflict do nothing;`;
+ const insert=(schema,table,rows,columns)=>{
+  if(!rows.length)return;
+  const cols=columns.map(identifier).join(',');
+  const json=Buffer.from(canonical(rows)).toString('hex');
+  sql+=`insert into ${identifier(schema)}.${identifier(table)}(${cols}) overriding system value select ${cols} from jsonb_populate_recordset(null::${identifier(schema)}.${identifier(table)},convert_from(decode('${json}','hex'),'UTF8')::jsonb);`;
+ };
+ for(const [table,rows] of Object.entries(snapshot.tablas)){
+  const columns=snapshot.columnas.filter(c=>c.table_name===table&&c.is_generated!=='ALWAYS').map(c=>c.column_name);
+  if(rows.length&&!columns.length)throw new Error('Faltan columnas del esquema para '+table);
+  insert('public',table,rows,columns);
+ }
+ insert('storage','buckets',snapshot.buckets,Object.keys(snapshot.buckets[0]||{}));
+ insert('storage','objects',snapshot.storage.map(({backupEntry,...row})=>row),Object.keys(snapshot.storage[0]||{}).filter(c=>c!=='backupEntry'));
+ return sql+'commit;';
+}
+
+const validateForeignKeys=`do $$declare f record;bad bigint;begin
+ for f in select con.oid,sn.nspname schema,s.relname tabla,pn.nspname parent_schema,p.relname parent,
+ (select string_agg(format('c.%I is not null',a.attname),' and ') from unnest(con.conkey) k join pg_attribute a on a.attrelid=s.oid and a.attnum=k) required,
+ (select string_agg(format('p.%I=c.%I',b.attname,a.attname),' and ') from unnest(con.conkey,con.confkey) k(child,parent) join pg_attribute a on a.attrelid=s.oid and a.attnum=k.child join pg_attribute b on b.attrelid=p.oid and b.attnum=k.parent) relation
+ from pg_constraint con join pg_class s on s.oid=con.conrelid join pg_namespace sn on sn.oid=s.relnamespace join pg_class p on p.oid=con.confrelid join pg_namespace pn on pn.oid=p.relnamespace where con.contype='f' and sn.nspname in ('public','storage')
+ loop execute format('select count(*) from %I.%I c where %s and not exists(select 1 from %I.%I p where %s)',f.schema,f.tabla,f.required,f.parent_schema,f.parent,f.relation) into bad;if bad>0 then raise exception 'Referencias incompletas';end if;end loop;end$$;`;
+
+export async function rehearseRecovery({zip,manifest},dir,image){
+ if(!image)return {correcto:false,estado:'pendiente',mensaje:'Falta configurar el laboratorio aislado; la integridad del paquete sí fue comprobada.'};
+ if(!/^[a-zA-Z0-9_./:@-]+$/.test(image))throw new Error('Imagen del laboratorio inválida');
+ const snapshot=JSON.parse(await zip.file('datos/snapshot.json').async('string'));
+ const name='plan-ots-lab-'+randomUUID();const dump=manifest.tenantId?'base/esquema.dump':'base/plataforma.dump';
+ if(!zip.file(dump))throw new Error('Falta el esquema de recuperación');
+ await writeFile(join(dir,'restore.dump'),await zip.file(dump).async('nodebuffer'),{mode:0o600,flag:'wx'});
+ let started=false;
+ const exec=(args,input)=>command('docker',['exec','-i',name,...args],input);
+ const sql=input=>exec(['psql','-X','-q','-t','-A','--set=ON_ERROR_STOP=1','-U','postgres','-d','postgres'],input);
+ try {
+  // No ports, no network, no pre-existing volume, no image pull. The operator
+  // installs a matching PostgreSQL image and required extensions beforehand.
+  await command('docker',['run','--pull=never','--detach','--name',name,'--network','none','--memory','1g','--cpus','1','--tmpfs','/var/lib/postgresql/data','-e','POSTGRES_HOST_AUTH_METHOD=trust',image]);started=true;
+  let ready=false;for(let i=0;i<30;i++){try{await exec(['pg_isready','-U','postgres']);ready=true;break;}catch{await new Promise(r=>setTimeout(r,500));}}
+  if(!ready)throw new Error('El laboratorio no está disponible');
+  const major=Number((await sql("select current_setting('server_version_num')::int/10000;")).trim());
+  if(major!==snapshot.entorno.postgresMajor)throw new Error('La versión del laboratorio debe coincidir con PostgreSQL de origen');
+  let prep='drop schema public cascade;create schema public;';
+  for(const role of snapshot.entorno.roles){if(!/^[a-zA-Z0-9_ -]+$/.test(role))throw new Error('Nombre de rol requiere revisión del laboratorio');prep+=`do $$begin if not exists(select 1 from pg_roles where rolname=${literal(role)}) then execute ${literal('create role '+identifier(role)+' nologin')};end if;end$$;`;}
+  for(const ext of snapshot.entorno.extensiones){if(ext.schema==='public')prep+='create schema if not exists public;';else prep+=`create schema if not exists ${identifier(ext.schema)};`;prep+=`create extension if not exists ${identifier(ext.name)} with schema ${identifier(ext.schema)} version ${literal(ext.version)};`;}
+  await sql(prep);
+  await command('docker',['cp',join(dir,'restore.dump'),name+':/tmp/restore.dump']);
+  const existingSchemas=new Set(['public',...snapshot.entorno.extensiones.map(e=>e.schema)]);
+  const list=(await exec(['pg_restore','--list','/tmp/restore.dump'])).split('\n').filter(line=>!([...existingSchemas].some(schema=>line.includes(' SCHEMA - '+schema+' '))));
+  await writeFile(join(dir,'restore.list'),list.join('\n'),{mode:0o600});await command('docker',['cp',join(dir,'restore.list'),name+':/tmp/restore.list']);
+  await exec(['pg_restore','--exit-on-error','--no-owner','--use-list=/tmp/restore.list','-U','postgres','-d','postgres','/tmp/restore.dump']);
+  if(manifest.tenantId)await sql(companyInsertSql(snapshot));
+  await sql(validateForeignKeys);
+  const recovered=JSON.parse((await sql('select public.plan_respaldo_snapshot();')).trim());
+  for(const [table,rows] of Object.entries(snapshot.tablas))if(rowFingerprint(recovered.tablas[table]||[])!==rowFingerprint(rows))throw new Error('Los datos recuperados no coinciden: '+table);
+  for(const [table,count] of Object.entries(snapshot.entorno.authConteos||{}))if(Number((await sql(`select count(*) from auth.${identifier(table)};`)).trim())!==Number(count))throw new Error('Las identidades recuperadas no coinciden');
+  const objects=rows=>rows.map(({backupEntry,...row})=>row);
+  if(rowFingerprint(objects(recovered.storage))!==rowFingerprint(objects(snapshot.storage))||rowFingerprint(recovered.buckets)!==rowFingerprint(snapshot.buckets))throw new Error('El inventario Storage recuperado no coincide');
+  // Rehydrate each original byte stream into an isolated directory. Objects are
+  // already hash-checked by unpackArchive; they are never uploaded to production.
+  for(let i=0;i<snapshot.storage.length;i++){const o=snapshot.storage[i];const entry=zip.file(o.backupEntry);if(!entry)throw new Error('Falta archivo de Storage');const file=join(dir,'recovered-'+i+'.bin');await writeFile(file,await entry.async('nodebuffer'),{mode:0o600,flag:'wx'});const proof=manifest.entries.find(e=>e.name===o.backupEntry);if(!proof||digest(await readFile(file))!==proof.sha256)throw new Error('El archivo recuperado no coincide');}
+  return {correcto:true,estado:'comprobada',metodo:'PostgreSQL aislado sin red y reconstrucción de archivos',tablas:Object.keys(snapshot.tablas).length,archivos:snapshot.storage.length,identidades:manifest.tenantId?'Referencias con identidades de prueba; requiere cuentas originales para restaurar empresa':'Conteos Auth del corte comprobados',alcance:'Recuperación de datos y archivos; no certifica despliegue, conectividad ni login de una plataforma nueva'};
+ } finally {if(started)await command('docker',['rm','--force',name]).catch(()=>{});}
+}
