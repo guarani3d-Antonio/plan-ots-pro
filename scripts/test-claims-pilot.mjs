@@ -26,7 +26,9 @@ try {
   stage='permission boundaries';
   await as(tech);await assert.rejects(guard);await assert.rejects(()=>one('select plan_portal_reservar($1,$2,$3)',[id(99),id(100),{}]));
   await as(null,'anon');await assert.rejects(()=>one('select * from plan_reclamos'));await assert.rejects(()=>one('select plan_portal_publico_contexto($1)',[id(99)]));
-  await as(creator);await assert.rejects(()=>one("select plan_portal_piloto_guardar($1,'',true)",[realWork]));
+  await as(tech);await assert.rejects(()=>one('select plan_reclamo_tecnicos($1)',[work]));
+  await as(creator);assert.equal((await one('select plan_reclamo_tecnicos($1) v',[work])).v[0].nombre,'tech@qa.invalid');
+  await assert.rejects(()=>one("select plan_portal_piloto_guardar($1,'',true)",[realWork]));
   await db.exec("select set_config('qa.backup_ready','no',false)");await assert.rejects(guard);
   await db.exec("select set_config('qa.backup_ready','yes',false)");
   const config=(await guard()).v,portal=config.id;
