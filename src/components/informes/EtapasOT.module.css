@@ -26,7 +26,7 @@
 .field { grid-column:span var(--field-span,6); display:flex; flex-direction:column; gap:5px; min-width:0; }
 .labelRow {display:flex;align-items:center;justify-content:space-between;gap:6px;min-height:28px;font-size:12px;color:var(--text-secondary,#596b86)}
 .fields input:not([type=radio]),.fields textarea,.fields select,.docbar select,.reason textarea {box-sizing:border-box;width:100%;max-width:100%;min-width:0;border:1px solid var(--border-default,#dbe3ef);border-radius:7px;padding:7px 9px;min-height:35px;background:var(--bg-surface,#fff);color:var(--text-primary,#152037);font:inherit;font-size:13px;}
-.fields textarea,.reason textarea{resize:vertical;min-height:96px;line-height:1.5}.fields input:disabled,.fields textarea:disabled,.fields select:disabled{opacity:1;color:var(--text-secondary,#596b86);background:var(--bg-app,#f5f7fb)}
+.fields textarea,.reason textarea{resize:vertical;min-height:96px;line-height:1.5}.fields input:disabled,.fields textarea:disabled,.fields select:disabled{opacity:1;color:var(--text-primary,#152037);background:#f8fafc}
 .items{margin-top:12px}.item{border:0;border-top:1px solid var(--border-default,#dbe3ef);margin:12px 0;padding:10px 0;min-width:0}.item>legend{font-size:12px}.item>.button{margin-top:8px}
 .scaleField{grid-column:1/-1;border:0;border-top:1px solid var(--border-default,#dbe3ef);padding:12px 0;min-width:0;margin:0;}.scaleField>legend{font-size:13px}.scaleField>small{display:block;font-size:12px;color:var(--text-secondary,#596b86);margin-bottom:8px}.scale{display:flex;gap:5px;flex-wrap:wrap}.rating{display:inline-flex;position:relative;min-width:32px;min-height:34px;align-items:center;justify-content:center;border:1px solid var(--border-default,#dbe3ef);border-radius:6px;background:var(--bg-surface,#fff);font-size:13px;cursor:pointer}.rating>input{position:absolute;opacity:0;width:1px;height:1px}.rating>span{padding:0 5px}.rating:has(input:checked){background:var(--accent,#3b599b);color:#fff}.rating:has(input:focus-visible){outline:2px solid var(--accent,#3b599b);outline-offset:2px}
 .actions{margin-top:14px}.legal{margin-top:16px;background:var(--bg-surface,#fff);border:1px solid var(--border-default,#dbe3ef);border-radius:8px;padding:14px;font-size:13px;line-height:1.6}.legal small{font-size:12px;color:var(--text-secondary,#596b86)}.signatures{display:grid;grid-template-columns:1fr 1fr;gap:30px;margin-top:32px}.signatures>span{border-top:1px solid var(--border-default,#dbe3ef);padding-top:8px;font-size:12px}
@@ -42,3 +42,8 @@
 @media(pointer:coarse){.editorGroup>summary{min-height:44px}}
 
 :global([data-theme=dark]) .reportEditor{--editor-fill:#23314b}:global([data-theme=dark]) .reportEditor[data-tipo=visita]{--editor-fill:#1e373b}:global([data-theme=dark]) .reportEditor[data-tipo=relevamiento]{--editor-fill:#312b45}:global([data-theme=dark]) .reportEditor[data-tipo=avance]{--editor-fill:#393326}:global([data-theme=dark]) .reportEditor[data-tipo=cierre]{--editor-fill:#243a2d}:global([data-theme=dark]) .reportEditor[data-tipo=acta]{--editor-fill:#3e2a36}:global([data-theme=dark]) .reportEditor[data-tipo=encuesta]{--editor-fill:#2a3341}
+
+/* White entry surfaces; neutral, near-white values are rendered by DatoInforme. */
+.fields input:not([type=radio]),.fields textarea,.fields select{background:#fff}
+.editorGroup>summary>span{margin-left:auto}
+:global([data-theme=dark]) .fields input:not([type=radio]),:global([data-theme=dark]) .fields textarea,:global([data-theme=dark]) .fields select{background:#182230}

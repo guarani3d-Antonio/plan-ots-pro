@@ -6,14 +6,20 @@ import { EJEMPLOS_ETAPA } from '../../services/otStageExamples';
 import styles from './EtapasOT.module.css';
 import { CAMPOS_HEREDADOS, CAMPOS_VINCULADOS, type ContextoCamposInforme } from '../../services/reportFieldPolicy';
 import { SelectorBusqueda } from '../ui/SelectorBusqueda';
+import { DatoInforme } from './CampoTextoInforme';
+import fields from './InformeCampos.module.css';
 
 function Campo({campo,value,onChange,disabled,placeholder,readOnly=false}:{campo:CampoEtapa;value:string;onChange:(v:string)=>void;disabled?:boolean;placeholder?:string;readOnly?:boolean}) {
  const id=useId();
- if(readOnly)return <div className={styles.field} style={{'--field-span':campo.span??6} as React.CSSProperties}><span className={styles.inheritedLabel}>{campo.label}</span><div className={styles.inheritedValue}>{value||'No registrado'}</div></div>;
+ if(readOnly||disabled){
+  const shown=campo.type==='date'&&/^\d{4}-\d{2}-\d{2}$/.test(value)?value.split('-').reverse().join('/'):
+   campo.type==='datetime-local'&&/^\d{4}-\d{2}-\d{2}T/.test(value)?`${value.slice(0,10).split('-').reverse().join('/')} ${value.slice(11,16)}`:value;
+  return <div className={styles.field} style={{'--field-span':campo.span??6} as React.CSSProperties}><DatoInforme etiqueta={campo.label} value={shown} multiline={campo.type==='textarea'}/></div>;
+ }
  const dictable=!campo.options&&!['date','time','datetime-local','scale'].includes(campo.type??'text');
  if(campo.type==='scale')return <fieldset className={styles.scaleField}><legend>{campo.label}</legend><div className={styles.scale}>{[...Array.from({length:10},(_,i)=>String(i+1)),'N/A'].map(n=><label key={n} className={styles.rating}><input type="radio" name={id} value={n} checked={value===n} disabled={disabled} onChange={()=>onChange(n)}/><span>{n}</span></label>)}</div>{value&&!/^(?:[1-9]|10|N\/A)$/.test(value)&&<small>Respuesta anterior conservada: {value}</small>}</fieldset>;
  return <div className={styles.field} style={{'--field-span':campo.span??6} as React.CSSProperties}>
-  <div className={styles.labelRow}><label htmlFor={id}>{campo.label}</label>{dictable&&<VoiceInputButton compact value={value} onChange={onChange} disabled={disabled}/>}</div>
+  <div className={fields.label}><label htmlFor={id}>{campo.label}</label>{dictable&&<VoiceInputButton compact value={value} onChange={onChange}/>}</div>
   {campo.options?<select id={id} value={value} disabled={disabled} onChange={e=>onChange(e.target.value)}><option value="">Seleccionar…</option>{value&&!campo.options.includes(value)&&<option value={value}>{value} (registro anterior)</option>}{campo.options.map(v=><option key={v}>{v}</option>)}</select>
    :campo.type==='textarea'?<textarea id={id} rows={4} value={value} placeholder={placeholder ?? EJEMPLOS_ETAPA[campo.key]} onChange={e=>onChange(e.target.value)} disabled={disabled}/>
    :<input id={id} type={campo.type??'text'} value={value} placeholder={dictable?EJEMPLOS_ETAPA[campo.key]:undefined} onChange={e=>onChange(e.target.value)} disabled={disabled}/>}

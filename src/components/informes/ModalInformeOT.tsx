@@ -1,7 +1,8 @@
 import { EtapaCampos } from './EtapaCampos';
 import { camposVacios, TIPOS_CON_PLANO, ETAPAS_OT, validarEtapa } from '../../services/otStageSchema';
 import TooltipAyuda from '../ayuda/TooltipAyuda';
-import { CampoTextoInforme, DatoInforme } from './CampoTextoInforme';
+import { CampoTextoInforme, EtiquetaLectura } from './CampoTextoInforme';
+import { IdentificacionInformeCampos } from './IdentificacionInformeCampos';
 import { cargarContextoCamposInforme } from '../../services/documentService';
 import { aplicarContextoCampos, IDENTIFICACION_EDITABLE, type ContextoCamposInforme } from '../../services/reportFieldPolicy';
 import { VistaPreviaDocumento } from './VistaPreviaDocumento';
@@ -165,14 +166,7 @@ const TIPO_CFG: Record<TipoInforme, TipoCfg> = {
   },
 };
 
-function fechaCorta(fecha: string | null | undefined): string {
-  if (!fecha) return '—';
-  const d = new Date(fecha + 'T00:00:00');
-  if (isNaN(d.getTime())) return '—';
-  const dd = String(d.getDate()).padStart(2, '0');
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  return `${dd}/${mm}/${d.getFullYear()}`;
-}
+
 
 const DEBOUNCE_MS = 150;
 
@@ -1218,7 +1212,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
               </div>
             )}
             <nav className={styles.editorTabs} aria-label="Edición del informe">
-              {([['datos','Datos'],['texto','Texto'],['fotos','Fotos y plano'],['revision','Revisión']] as const).map(([id,label]) =>
+              {([['datos','Identificación'],['texto','Contenido'],['fotos','Fotos y plano'],['revision','Revisión']] as const).map(([id,label]) =>
                 <button type="button" key={id} aria-pressed={editorTab===id} onClick={()=>{setEditorTab(id);editorRef.current?.scrollTo({top:0});}}>{label}</button>)}
             </nav>
             <div className={styles.identitySummary}>
@@ -1226,37 +1220,19 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
               <span><strong>Unidad</strong> {identificacion.unidad_amenities || '—'}</span>
               <span><strong>Cliente</strong> {identificacion.cliente || '—'}</span>
             </div>
-            {versionBorrador>0&&<div className={styles.identitySummary}><span>{correccionAbierta?'Nueva versión en preparación':`Versión ${versionBorrador} guardada · solo lectura`}</span><button type="button" className={styles.btnSecondary} disabled={!!revisionInicialId||!tienePermiso('informe.crear',orden.proyecto_id)||!tienePermiso('informe.editar',orden.proyecto_id)||cargandoComentario||guardandoBorrador||correccionAbierta||actualizandoCampos} onClick={()=>void prepararCorreccion()}>Crear versión corregida</button></div>}
+            {versionBorrador>0&&<div className={styles.identitySummary}><span>{correccionAbierta?'Nueva versión en preparación':`Versión ${versionBorrador} guardada`}</span>{!correccionAbierta&&<EtiquetaLectura/>}<button type="button" className={styles.btnSecondary} disabled={!!revisionInicialId||!tienePermiso('informe.crear',orden.proyecto_id)||!tienePermiso('informe.editar',orden.proyecto_id)||cargandoComentario||guardandoBorrador||correccionAbierta||actualizandoCampos} onClick={()=>void prepararCorreccion()}>Crear versión corregida</button></div>}
             {correccionAbierta&&<CampoTextoInforme etiqueta="Motivo de la versión corregida" multiline rows={4} value={motivoRevision} onChange={setMotivoRevision}/>}
             <div hidden={editorTab !== 'datos'} className={styles.tabContent}>
-            <div className={styles.section}>
-              <div className={styles.sectionTitle}>Datos</div>
-              <div className={styles.dataGrid}>
-                <div className={styles.dataKey}>Rubro</div>
-                <div className={styles.dataVal}>{orden.rubro || '—'}</div>
-                <div className={styles.dataKey}>Responsable</div>
-                <div className={styles.dataVal}>{orden.responsable || '—'}</div>
-                <section className={styles.section} style={{ gridColumn: '1 / -1', minWidth: 0 }}>
-              <div className={styles.sectionTitle}>Datos de la OT y del cliente</div>
-              <p className={styles.sublabel}>Datos heredados de Administración y de la OT · solo lectura. Se corrigen en su ficha de origen con permiso; las versiones guardadas conservan sus datos históricos.</p>
+              <IdentificacionInformeCampos tipo={tipo} identificacion={identificacion} disabled={camposBloqueados}
+                onUbicacion={ubicacion=>setIdentificacion(actual=>({...actual,ubicacion}))}/>
               {!identificacion.responsable&&<p className={styles.sublabel}>Sin técnico vinculado. La cuenta responsable se asigna en Panel OT con permiso de asignación.</p>}
               {avisoFuentes && <p role="alert">{avisoFuentes}</p>}
-              {planoRequerido && !planoContexto && <div role="alert" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, margin: '8px 0', fontSize: 12 }}>
+              {planoRequerido && !planoContexto && <div role="alert" className={styles.scopeHeader}>
                 <span>{avisoPlano || 'La ubicación del plano todavía no está lista para este informe.'}</span>
                 <button type="button" className={styles.btnSecondary} onClick={() => void reintentarPlano()} disabled={cargandoComentario}>Reintentar plano</button>
               </div>}
               {TIPOS_CON_PLANO.includes(tipo) && !planoRequerido && <p className={styles.sublabel}>Esta OT no tiene un punto ubicado en el plano; el informe no mostrará un recorte hasta que la ubiquen.</p>}
-              <div className={styles.identityFacts}>
-                {CAMPOS_IDENTIFICACION.filter(([clave])=>['obra','unidad_amenities','cliente','contacto','telefono','correo'].includes(clave)).map(([clave,etiqueta])=><DatoInforme key={clave} etiqueta={etiqueta} value={identificacion[clave]} />)}
-              </div>
-              <details>
-                <summary>Documento, direcciones y otros datos de identificación</summary>
-                <div className={styles.identityFacts}>
-                  {CAMPOS_IDENTIFICACION.filter(([clave])=>!['obra','unidad_amenities','cliente','contacto','telefono','correo'].includes(clave)).map(([clave, etiqueta]) => IDENTIFICACION_EDITABLE.has(clave)?<CampoTextoInforme key={clave} etiqueta={etiqueta} value={identificacion[clave]} disabled={camposBloqueados}
-                      onChange={value => setIdentificacion(actual => ({ ...actual, [clave]: value }))} placeholder="No registrado" />:<DatoInforme key={clave} etiqueta={etiqueta} value={identificacion[clave]} />)}
-                </div>
-              </details>
-              <button type="button" className={styles.btnSecondary} disabled={camposBloqueados} onClick={() => {
+              {!camposBloqueados&&<button type="button" className={styles.btnSecondary} disabled={camposBloqueados} onClick={() => {
                 const p = precargaRef.current;
                 const completar = <T extends object>(actual: T, origen: Partial<T>, bloqueadas = new Set(Object.keys(contextoCampos?.protegidos??{}))): T => {
                   const siguiente = { ...actual };
@@ -1272,18 +1248,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                 setDatosActa(actual => completar(actual, p.acta));
                 setDatosEncuesta(actual => completar(actual, p.encuesta));
                 if (['relevamiento', 'avance', 'cierre'].includes(tipo)) setObservaciones(actual => actual || p.observaciones);
-              }}>Completar campos vacíos con datos existentes</button>
-              <p className={styles.sublabel}>Las fechas reales se corrigen en la ejecución de la OT. Las decisiones y respuestas del cliente requieren su referencia; escribir un nombre no registra una firma.</p>
-            </section>
-
-            {tipo === 'orden_servicio' && (
-                  <>
-                    <div className={styles.dataKey}>Ingreso OT</div>
-                    <div className={styles.dataVal}>{fechaCorta(orden.fecha_ingreso)}</div>
-                  </>
-                )}
-              </div>
-            </div>
+              }}>Completar campos vacíos con datos existentes</button>}
             </div>
             <div hidden={editorTab !== 'revision'} className={styles.tabContent}>
             {documento && (

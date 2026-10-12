@@ -57,6 +57,7 @@ import { InformeErrorBoundary } from '../informes/InformeErrorBoundary';
 import { useToast } from '../ui/Toast';
 import { fechaLocalHoy } from '../../utils/fechaCivil';
 import { VoiceInputButton } from '../ui/VoiceInputButton';
+import { CampoTextoInforme } from '../informes/CampoTextoInforme';
 import styles from './PanelOT.module.css';
 import TooltipAyuda from '../ayuda/TooltipAyuda';
 import MultiSelectRubro from './MultiSelectRubro';
@@ -1210,14 +1211,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
                     disabled={!tienePermiso('foto.cargar',ordenFresca.proyecto_id)||guardando} puedeVer={tienePermiso('foto.ver',ordenFresca.proyecto_id)} error={errorFotos}
                     onArchivo={file=>void procesarSubidaFoto(file,categoria,tipo)} onGaleria={()=>{retornoDatosRef.current=true;setTab('fotos');}}/>;
                 }}
-                solicitud={(datos,onChange)=>{const identificacion=(datos.identificacion??{}) as Record<string,unknown>;const descripcion=typeof identificacion.descripcion==='string'?identificacion.descripcion:form.descripcion??'';const cambiarDescripcion=(value:string)=>{set('descripcion',value);onChange({...datos,identificacion:{...identificacion,descripcion:value}})};return <>                <div className={`${styles.field} ${styles.fieldNarrative}`}>
-                  <div className={styles.labelRow}>
-                    <label className={styles.label}>Descripción del reclamo</label>
-                    <VoiceInputButton value={descripcion} onChange={cambiarDescripcion} />
-                  </div>
-                  <textarea className={styles.textarea} rows={4} placeholder="Descripción del problema según el cliente..." value={descripcion} onChange={e => cambiarDescripcion(e.target.value)} />
-                </div>
-</>}} ejecucion={<><details><summary>Seguimiento operativo, horarios y observaciones</summary><div className={`${styles.section} ${styles.formSection} ${styles.executionGrid}`}>
+                solicitud={(datos,onChange,soloLectura)=>{const identificacion=(datos.identificacion??{}) as Record<string,unknown>;const descripcion=typeof identificacion.descripcion==='string'?identificacion.descripcion:form.descripcion??'';const cambiarDescripcion=(value:string)=>{set('descripcion',value);onChange({...datos,identificacion:{...identificacion,descripcion:value}})};return <CampoTextoInforme etiqueta="Descripción del reclamo" value={descripcion} onChange={cambiarDescripcion} disabled={soloLectura} multiline rows={4} placeholder="Descripción del problema según el cliente..."/>;}} ejecucion={<><details><summary>Seguimiento operativo, horarios y observaciones</summary><div className={`${styles.section} ${styles.formSection} ${styles.executionGrid}`}>
 <div className={styles.field}><label className={styles.label}>Inicio real del trabajo · dato de la OT</label><input className={styles.input} type="date" disabled={!tienePermiso('ot.editar',ordenFresca.proyecto_id)} value={String(form.fecha_inicio_trabajos??'').slice(0,10)} onChange={e=>set('fecha_inicio_trabajos',e.target.value)}/></div>
 <div className={styles.field}><label className={styles.label}>Fin real del trabajo · dato de la OT</label><input className={styles.input} type="date" disabled={!tienePermiso('ot.editar',ordenFresca.proyecto_id)} value={String(form.fecha_fin_trabajos??'').slice(0,10)} onChange={e=>set('fecha_fin_trabajos',e.target.value)}/></div>
 <div className={styles.field}><label className={styles.label}>Hora real de inicio</label><input className={styles.input} type="time" value={String(valoresCampos.hora_inicio_trabajos ?? '')} onChange={e=>setValorCampo('hora_inicio_trabajos',e.target.value)}/></div><div className={styles.field}><label className={styles.label}>Hora real de fin</label><input className={styles.input} type="time" value={String(valoresCampos.hora_fin_trabajos ?? '')} onChange={e=>setValorCampo('hora_fin_trabajos',e.target.value)}/></div>

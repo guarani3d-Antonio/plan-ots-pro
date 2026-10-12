@@ -647,3 +647,8 @@
 .identityFacts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr));gap:9px 18px;margin:10px 0}
 .identityDatum{min-width:0;display:grid;align-content:start;gap:3px;padding:5px 0;border-bottom:1px solid var(--border-default);font-size:13px}
 .identityDatum>span{color:var(--text-secondary);font-size:12px}.identityDatum>strong{font-weight:500;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.5}
+
+/* Match stage fields instead of fading preserved information. */
+.originField input,.originField textarea,.originField select{background:#fff;color:var(--text-primary,#152037);border-color:#dbe3ef;border-radius:7px;font-size:13px}
+.fieldLabel{display:flex;align-items:center;justify-content:space-between;gap:6px;color:var(--text-secondary,#596b86);font-size:12px}
+:global([data-theme=dark]) .originField input,:global([data-theme=dark]) .originField textarea,:global([data-theme=dark]) .originField select{background:#182230}
