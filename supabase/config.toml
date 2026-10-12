@@ -6,3 +6,8 @@ verify_jwt = true
 
 [functions.descargar-respaldo]
 verify_jwt = true
+
+# Only capability-scoped context/intake. No anonymous database or Storage read.
+# SQL pilot stays empty until explicitly activated by the Creador.
+[functions.portal-reclamos]
+verify_jwt = false

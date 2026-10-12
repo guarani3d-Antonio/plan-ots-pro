@@ -7,7 +7,11 @@ import './styles/tablet.css';
 
 const root = createRoot(document.getElementById('root')!);
 // El piloto público no carga SessionGate, sincronización ni directorios privados.
-if (new URLSearchParams(window.location.search).get('portal') === 'demo') {
+const portalRoute=new URLSearchParams(window.location.search).get('portal');
+if (portalRoute === 'piloto') {
+  const id=new URLSearchParams(window.location.hash.slice(1)).get('id')||'';
+  void import('./components/portal/PortalReclamosConectado').then(({PortalReclamosConectado})=>root.render(<PortalReclamosConectado id={id}/>));
+} else if (portalRoute === 'demo') {
   void import('./components/portal/PortalReclamosPiloto').then(({PortalReclamosPiloto}) => {
     root.render(<PortalReclamosPiloto context={contextoPortal(window.location.search)}/>);
   });

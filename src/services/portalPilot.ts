@@ -12,6 +12,11 @@ export function enlacePortal(origin: string, context: ContextoPortal): string {
   url.search = new URLSearchParams({portal: 'demo', obraId: context.obraId, obra: context.obra, empresa: context.empresa, ...(context.sector ? {sector: context.sector} : {})}).toString();
   return url.href;
 }
+export function enlacePortalConectado(origin:string,id:string):string {
+  const url=new URL('/',origin);url.search='portal=piloto';
+  // Fragment avoids putting the intake capability in server/referrer logs.
+  url.hash=new URLSearchParams({id}).toString();return url.href;
+}
 export function geometriaQR(value: string) {
   const code = qrcode(0, 'M'); code.addData(value); code.make();
   const n = code.getModuleCount(), quiet = 4;
@@ -20,7 +25,7 @@ export function geometriaQR(value: string) {
   return {size: n + quiet * 2, path};
 }
 export const escapeXml = (value: string) => value.replace(/[&<>"']/g, char => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;'}[char]!));
-export function cartelPortal(context: ContextoPortal, link: string, logo = '', photo = ''): string {
+export function cartelPortal(context: ContextoPortal, link: string, logo = '', photo = '',conectado=false): string {
   const qr = geometriaQR(link), x = escapeXml;
   // Solo imágenes embebidas de tipos admitidos. Nunca guardar URLs firmadas en el cartel.
   const asset = (data: string) => /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(data) ? data : '';
@@ -30,5 +35,5 @@ export function cartelPortal(context: ContextoPortal, link: string, logo = '', p
   ${image(logo, 55, 55, 120, 85)}${image(photo, 625, 55, 120, 85)}
   <g font-family="Arial,sans-serif" fill="#0f172a" text-anchor="middle"><text x="400" y="84" font-size="24" font-weight="bold">Plan-OTs</text><text x="400" y="117" font-size="17">${x(context.empresa.slice(0, 42))}</text><text x="400" y="190" font-size="31" font-weight="bold">Registrá tu reclamo</text><text x="400" y="222" font-size="18" fill="#475569">Escaneá el QR con tu teléfono</text></g>
   <svg x="150" y="250" width="500" height="500" viewBox="0 0 ${qr.size} ${qr.size}" shape-rendering="crispEdges"><rect width="${qr.size}" height="${qr.size}" fill="#fff"/><path d="${qr.path}" fill="#000"/></svg>
-  <g font-family="Arial,sans-serif" text-anchor="middle">${lines(context.obra).map((line, i) => `<text x="400" y="${790 + i * 29}" font-size="24" font-weight="bold" fill="#0f172a">${x(line)}</text>`).join('')}<text x="400" y="910" font-size="18" fill="#475569">${x(context.sector ? 'Sector: ' + context.sector.slice(0, 58) : 'Contacto · descripción · evidencia fotográfica')}</text><rect x="175" y="946" width="450" height="42" rx="21" fill="#fff7e6"/><text x="400" y="974" font-size="18" fill="#925b0b">MODO PRUEBA · No recibe reclamos reales</text><text x="400" y="1030" font-size="16" fill="#475569">Portal de prueba. No colocar para atención al público.</text></g></svg>`;
+  <g font-family="Arial,sans-serif" text-anchor="middle">${lines(context.obra).map((line, i) => `<text x="400" y="${790 + i * 29}" font-size="24" font-weight="bold" fill="#0f172a">${x(line)}</text>`).join('')}<text x="400" y="910" font-size="18" fill="#475569">${x(context.sector ? 'Sector: ' + context.sector.slice(0, 58) : 'Contacto · descripción · evidencia fotográfica')}</text><rect x="175" y="946" width="450" height="42" rx="21" fill="#fff7e6"/><text x="400" y="974" font-size="18" fill="#925b0b">${conectado?'PILOTO CONTROLADO · Registra solicitudes':'MODO PRUEBA · No recibe reclamos reales'}</text><text x="400" y="1030" font-size="16" fill="#475569">${conectado?'Solo invitados de prueba. No atiende emergencias.':'Portal de prueba. No colocar para atención al público.'}</text></g></svg>`;
 }
