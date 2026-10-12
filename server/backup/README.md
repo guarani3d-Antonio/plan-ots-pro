@@ -278,15 +278,30 @@ nativa de esa copia falló y debe diagnosticarse usando el mismo archivo, sin cr
 otra copia ni volver a leer originales de Supabase. No confundir el laboratorio
 sintético ni el diagnóstico local PGlite con recuperación nativa comprobada.
 
-El diagnóstico offline recuperó el TOC y las filas en PGlite, sin nuevas llamadas
-a R2/Supabase. Encontró cambios de representación por zona horaria y diferencias
-de último dígito en double precision en ese motor WASM. No se aplica tolerancia
-ni se declara éxito a partir de ese diagnóstico. El laboratorio usa sesiones UTC
-para copias anteriores y conserva los ajustes de representación en copias nuevas.
-Los próximos fallos registran etapa, categoría fija y número TOC si está disponible;
-nunca stderr sin filtrar, SQL privado, valores COPY ni credenciales. Hace falta
-autorizar una repetición acotada del ensayo nativo sobre el mismo paquete para
-determinar el fallo original, cuyo detalle no se conservó. Programación bloqueada.
+El segundo ensayo nativo autorizado sobre el mismo paquete (ejecución
+38263296992, commit b17e42b) comprobó otra vez su integridad y localizó el fallo
+en comparar_tablas / ordenes / huellas_distintas. No creó otra copia ni volvió a
+descargar originales de Supabase. El motor manual quedó apagado.
+
+El diagnóstico offline recuperó el TOC y las filas en PGlite. La configuración
+real del origen, comprobada en pg_settings el 12/10/2026, es UTC con
+extra_float_digits=0; el laboratorio había usado 1. Con 0 coinciden exactamente
+las 53 tablas locales, mientras que 1, 2 y 3 discrepan en ordenes y
+ordenes_eliminadas. Esto identifica una diferencia de representación de las
+coordenadas, sin demostrar todavía recuperación nativa completa, Auth y archivos.
+
+El laboratorio reproduce los ajustes capturados en cada paquete. Para el primer
+paquete, que no los incluía, utiliza los ajustes de su origen verificado. Las
+copias futuras fijan extra_float_digits=3 sólo en la sesión de exportación y lo
+registran: también conservan precisión de ida y vuelta en copias de empresa con
+dump de esquema. No se redondean filas ni se aplica tolerancia a las huellas.
+Las pruebas locales cubren esta diferencia y detectan coordenadas modificadas.
+El preflight sintético incorpora coordenadas y fechas con microsegundos.
+
+Los fallos registran etapa, categoría fija y número TOC si está disponible;
+nunca stderr sin filtrar, SQL privado, valores COPY ni credenciales. La corrección
+está validada localmente; queda pendiente autorizar un único ensayo nativo final
+sobre los mismos 196362693 bytes de R2. Programación bloqueada hasta comprobarlo.
 
 ## Volver atrás sin perder información
 

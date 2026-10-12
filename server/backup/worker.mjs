@@ -44,7 +44,11 @@ async function patch(job,values){const r=await api.from('plan_respaldos').update
    let ensayo;try{ensayo=await rehearseRecovery(checked,dir,E.BACKUP_LAB_IMAGE);}catch(error){ensayo=recoveryFailure(error);}
    await patch(job,{estado:'creada',tarea:'crear',integridad_en:new Date().toISOString(),recuperacion_en:ensayo.correcto?new Date().toISOString():null,terminado_en:new Date().toISOString(),informe:{tipo:'verificacion',correcto:true,archivos:manifest.entries.length,recuperacion:ensayo.estado,ensayo,mensaje:'Cifrado, manifiesto y huellas comprobados. El ensayo aislado tiene su propio resultado.'},lease:null,lease_hasta:null});return;
   }
-  await db.connect();await db.query('begin isolation level repeatable read read only');
+  await db.connect();
+  // Session-only: JSON snapshots must retain round-trip float precision, also
+  // for company copies whose dump contains schema only. No source rows change.
+  await db.query('set extra_float_digits=3');
+  await db.query('begin isolation level repeatable read read only');
   const exported=(await db.query('select pg_export_snapshot() id')).rows[0].id;
   const raw=(await db.query('select public.plan_respaldo_snapshot() value')).rows[0].value;
   raw.entorno={postgresMajor:Number((await db.query("select current_setting('server_version_num')::int/10000 major")).rows[0].major),roles:(await db.query('select rolname from pg_roles order by rolname')).rows.map(r=>r.rolname),extensiones:(await db.query("select e.extname name,n.nspname schema,e.extversion version from pg_extension e join pg_namespace n on n.oid=e.extnamespace where e.extname<>'plpgsql' order by e.extname")).rows,authConteos:{}};

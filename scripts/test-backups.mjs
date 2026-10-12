@@ -51,6 +51,21 @@ try {
  assert.ok(restoredTime.value.includes('.123456')); // Preserve microseconds.
  assert.notEqual(rowFingerprint([{value:0.1234567890123456}]),rowFingerprint([{value:0.1234567890123457}])); // No tolerance hides changed coordinates.
  await db.exec('drop table temporal_proof;');
+ // PostgreSQL's legacy 15-digit representation can differ from its shortest
+ // round-trip representation even when the stored float bits are unchanged.
+ await db.exec('create temporary table float_proof(value double precision);insert into float_proof values(0.1234567890123456);SET extra_float_digits=0;');
+ const legacyFloat=(await db.query('select to_jsonb(t) value from float_proof t')).rows[0].value;
+ await db.exec(laboratorySessionSql({settings:{extra_float_digits:'3'}}));
+ const preciseFloat=(await db.query('select to_jsonb(t) value from float_proof t')).rows[0].value;
+ assert.notEqual(rowFingerprint([legacyFloat]),rowFingerprint([preciseFloat]));
+ assert.equal(preciseFloat.value,0.1234567890123456);
+ await db.exec(laboratorySessionSql());
+ assert.equal(rowFingerprint([legacyFloat]),rowFingerprint([(await db.query('select to_jsonb(t) value from float_proof t')).rows[0].value]));
+ await db.exec(laboratorySessionSql({settings:{extra_float_digits:'3'}}));
+ assert.equal(rowFingerprint([preciseFloat]),rowFingerprint([(await db.query('select to_jsonb(t) value from float_proof t')).rows[0].value]));
+ await db.exec('update float_proof set value=0.1234567890123457;');
+ assert.notEqual(rowFingerprint([preciseFloat]),rowFingerprint([(await db.query('select to_jsonb(t) value from float_proof t')).rows[0].value]));
+ await db.exec('drop table float_proof;');
  const key=randomBytes(32).toString('base64'),file=join(dir,'copy.potbackup');
  const sample={ot:'OT-003035',visitas:[{version:1,motivo:'Verificación',firma:'trazo'}],importe:'9007199254740993.12'};
  await writeArchive(file,[{name:'datos/snapshot.json',content:canonical(sample)},{name:'archivos/0.bin',content:Buffer.from([0,255,31,91])}],{backupId:a,tenantId:null},key);

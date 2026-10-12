@@ -25,7 +25,11 @@ export function recoveryFailure(error){
 }
 export function laboratorySessionSql(environment={}){
  const settings=environment.settings||{};
- const values={TimeZone:settings.TimeZone||'UTC',DateStyle:settings.DateStyle||'ISO, MDY',IntervalStyle:settings.IntervalStyle||'postgres',extra_float_digits:settings.extra_float_digits||'1'};
+ // The first Plan-OTs archive predates captured settings. Its Supabase source
+ // used UTC and extra_float_digits=0 (verified in pg_settings). Match that
+ // snapshot's representation; never round rows or relax their fingerprints.
+ // New archives explicitly carry their source session's settings.
+ const values={TimeZone:settings.TimeZone||'UTC',DateStyle:settings.DateStyle||'ISO, MDY',IntervalStyle:settings.IntervalStyle||'postgres',extra_float_digits:settings.extra_float_digits||'0'};
  if(Object.values(values).some(v=>typeof v!=='string'||v.length>100))throw new Error('Configuración de representación inválida');
  return Object.entries(values).map(([key,value])=>`SET ${key}=${literal(value)};`).join('');
 }

@@ -11,7 +11,7 @@ const environment={postgresMajor:17,roles:['anon','authenticated','service_role'
  {name:'pgcrypto',schema:'extensions',version:'1.3'},
  {name:'supabase_vault',schema:'vault',version:'0.3.1'},
  {name:'uuid-ossp',schema:'extensions',version:'1.1'},
-],authConteos:{users:'1'}};
+],authConteos:{users:'1'},settings:{TimeZone:'UTC',extra_float_digits:'3'}};
 const image=process.env.BACKUP_LAB_IMAGE||PILOT_LAB_IMAGE;
 const dir=await mkdtemp(join(tmpdir(),'plan-ots-lab-preflight-'));let source,stage='inicio';
 try{
@@ -19,15 +19,15 @@ try{
  stage='datos ficticios';
  await source.sql(`create schema auth;create schema storage;
  create table auth.users(id uuid primary key);insert into auth.users values('10000000-0000-4000-8000-000000000001');
- create table public.lab_ot(id bigint generated always as identity primary key,usuario uuid references auth.users(id),importe numeric(30,8),texto text);
- insert into public.lab_ot(usuario,importe,texto) values('10000000-0000-4000-8000-000000000001',9007199254740993.12345678,'Prueba ficticia: acento, firma y evidencia');
+ create table public.lab_ot(id bigint generated always as identity primary key,usuario uuid references auth.users(id),importe numeric(30,8),texto text,pos_x double precision,visita_en timestamptz);
+ insert into public.lab_ot(usuario,importe,texto,pos_x,visita_en) values('10000000-0000-4000-8000-000000000001',9007199254740993.12345678,'Prueba ficticia: acento, firma y evidencia',0.1234567890123456,'2026-10-12T13:38:27.123456+00');
  alter table public.lab_ot enable row level security;grant select on public.lab_ot to authenticated;
  create policy lectura on public.lab_ot for select to authenticated using(usuario=nullif(current_setting('request.jwt.claim.sub',true),'')::uuid);
  create table storage.buckets(id text primary key);insert into storage.buckets values('fotos');
  create table storage.objects(id uuid primary key,bucket_id text references storage.buckets(id),name text,metadata jsonb);
  insert into storage.objects values('20000000-0000-4000-8000-000000000001','fotos','ficticia.bin','{"size":4}');
  create function public.plan_respaldo_snapshot() returns jsonb language sql stable as $$select jsonb_build_object(
- 'tablas',jsonb_build_object('lab_ot',(select jsonb_agg(jsonb_build_object('id',id::text,'usuario',usuario,'importe',importe::text,'texto',texto)) from public.lab_ot)),
+ 'tablas',jsonb_build_object('lab_ot',(select jsonb_agg(jsonb_build_object('id',id::text,'usuario',usuario,'importe',importe::text,'texto',texto,'pos_x',pos_x,'visita_en',visita_en)) from public.lab_ot)),
  'storage',(select jsonb_agg(to_jsonb(o)) from storage.objects o),'buckets',(select jsonb_agg(to_jsonb(b)) from storage.buckets b))$$;`);
  const snapshot=JSON.parse((await source.sql('select public.plan_respaldo_snapshot();')).trim());snapshot.entorno=environment;snapshot.storage[0].backupEntry='archivos/0.bin';
  stage='exportación ficticia';
