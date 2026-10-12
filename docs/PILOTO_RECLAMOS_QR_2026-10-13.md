@@ -1,17 +1,22 @@
-# Circuito QR — preparación del piloto
+# Circuito QR — piloto instalado y validación controlada
 
 ## Estado
 
-La aplicación publicada fue revisada con Empresa de prueba 1 / Obra número 1.
-El QR y el formulario funcionan como demostración: la confirmación indica
-explícitamente que no guarda ni envía solicitudes. La recepción muestra ejemplos
-independientes. Ese recorrido no certifica un circuito operativo.
+Instalación autorizada expresamente por el propietario el 12/10/2026:
+migraciones 202610130001 y 202610130002, función portal-reclamos y cliente
+con VITE_PORTAL_FUNCTION_ENABLED=true. Publicaciones f5b429c y f1fc6ae
+confirmadas exitosas en Cloudflare Pages. La demostración permanece separada.
 
-Se preparó la conexión conservando el diseño aprobado. Todavía requiere instalar
-la migración y la función, publicar el cliente y activar una obra desde Creador.
-No se habilitó la recepción pública ni se compartió un QR de recepción.
+Piloto activo exclusivamente para Empresa de prueba 1 / Obra número 1
+(11000000-0000-4000-8000-000000000001). Vence el 14/10/2026 a las
+20:30:17 de Paraguay. Tres de seis cupos usados en los ensayos iniciales;
+los tres restantes se reservan para prueba física con teléfono y ayudantes.
 
-## Límites del piloto preparado
+El recorrido publicado guardó registros reales con contenido ficticio. No se
+declara completa la prueba de campo ni la recuperación de estos nuevos registros
+desde R2: falta escaneo físico y una copia ya programada posterior al módulo.
+
+## Límites del piloto
 
 - Solo Creador: una obra activa de una empresa de prueba, durante 48 horas.
 - Seis reservas por piloto. Las cargas incompletas también consumen cupo;
@@ -73,19 +78,41 @@ catálogo global plan_politica_modulos. No se cambió esa política en este trab
 El respaldo de plataforma incorpora todas las tablas; la prueba de pertenencia
 por tenant aquí certifica solo las tablas nuevas de reclamos.
 
-## Activación pendiente y ensayo de campo
+## Resultado de los tres ensayos publicados
 
-1. Revisar instalación de SQL + función portal-reclamos y publicación del cliente
-   con VITE_PORTAL_FUNCTION_ENABLED=true. La migración no activa ninguna obra.
-2. Con autorización del propietario, activar exactamente Empresa de prueba 1 /
-   Obra número 1. Confirmar cupo y vencimiento en pantalla.
-3. Tres recorridos inicialmente: crear OT asignada, vincular a OT de esa obra,
-   archivar con motivo. Incluir una foto ficticia, actualizar recepción y comprobar
-   persistencia; repetir un envío para confirmar que no se duplica.
-4. Reservar los restantes tres cupos para ayudantes con teléfono. Compartir el QR
-   únicamente después de comprobar el servicio real.
-5. Comprobar la inclusión del módulo y evidencia en una copia ya programada,
+| Reclamo | Hora de recepción Paraguay, 12/10 | Resultado |
+| --- | --- | --- |
+| REC-1 | 20:33:49 | Revisado; creó OT-003059 asignada a cuenta técnica existente de esa obra. |
+| REC-2 | 20:35:02 | Vinculado a OT-003059; conserva la descripción inicial y agrega referencia. |
+| REC-3 | 20:35:57 | Archivado con motivo; conserva pedido y historial. |
+
+Una imagen sintética de 6.152 bytes fue enviada desde la galería del formulario,
+confirmada en Storage privado, visualizada en Recepción y en Panel OT → Fotos.
+Se conserva la atribución al solicitante y no acredita una visita técnica.
+No se crearon clientes ficticios ni documentos firmados. La posición en el plano
+permanece pendiente, verificada en la base de datos.
+
+La recepción conserva sus estados después de recargar la aplicación. La
+comprobación independiente del servidor confirma 3 reclamos, 1 archivo, 7
+eventos, descripción inicial conservada, bucket privado y original presente.
+El snapshot de inventario incorpora las cuatro tablas nuevas y el original.
+Esta lectura del inventario no genera una copia en R2 ni prueba recuperación.
+
+El SVG descargado de la aplicación se decodificó con un lector independiente:
+matriz 49 × 49, destino exacto del portal activo. Esto no sustituye escanearlo
+desde la cámara de un teléfono. No se reenviaron solicitudes nuevas para
+comprobar duplicados en vivo; la idempotencia está validada localmente.
+
+Evidencias locales: output/claims-pilot-20261013/QR-piloto-obra-1.svg,
+recepcion-publica.png, evidencia-en-ot.png, comprobacion-servidor.txt.
+
+## Ensayo de campo pendiente
+
+1. Escanear el QR activo desde un teléfono y enviar una única solicitud ficticia
+   con foto sin personas ni documentos privados. Verificar número REC y recepción.
+2. Reservar los otros dos cupos para ayudantes. No difundir el QR públicamente.
+3. Comprobar la inclusión del módulo y evidencia en una copia ya programada,
    sin ampliar el número de copias autorizado. No declarar recuperados estos
    reclamos hasta ver ese informe de recuperación.
-6. Pausar la recepción al finalizar. WhatsApp será la siguiente etapa después de
+4. Pausar la recepción al finalizar. WhatsApp será la siguiente etapa después de
    aprobar el resultado del circuito; sin habilitación para Ariel todavía.

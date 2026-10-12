@@ -4,9 +4,10 @@ import {portalConectado} from '../../services/portalPublicService';
 import {cartelPortal,enlacePortalConectado,type ContextoPortal} from '../../services/portalPilot';
 import {PortalDialog} from './PortalDialog';
 import s from './PortalReclamos.module.css';
-export function PortalPilotoOperacion({context,logo,photo,imagesReady}:{context:ContextoPortal;logo:string;photo:string;imagesReady:boolean}) {
+export function PortalPilotoOperacion({context,logo,photo,imagesReady,onEstado}:{context:ContextoPortal;logo:string;photo:string;imagesReady:boolean;onEstado?:(value:PortalStatus|null)=>void}) {
   const [status,setStatus]=useState<PortalStatus|null>(null),[error,setError]=useState(''),[busy,setBusy]=useState(false),[dialog,setDialog]=useState(false),[refresh,setRefresh]=useState(0);
   const enabled=portalConectado();
+  useEffect(()=>{onEstado?.(status);},[status,onEstado]);
   useEffect(()=>{if(!enabled)return;let valid=true;void estadoPortal(context.obraId).then(v=>{if(valid){setStatus(v);setError('');}}).catch(e=>{if(valid)setError(e instanceof Error?e.message:'No se pudo comprobar el piloto.');});return()=>{valid=false;};},[context.obraId,refresh,enabled]);
   async function change(active:boolean) {
     if(busy)return;setBusy(true);setError('');
