@@ -1,6 +1,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState, type ReactNode } from 'react';
 import type { OrdenLocal } from '../../types/orden';
-import { cargarBorradorDocumento, guardarVersionDocumento, listarDocumentosDeOrden, listarRevisionesDocumento, reservarDocumento, type DocumentoRegistro, type RevisionDocumento, type TipoDocumento } from '../../services/documentService';
+import { cargarBorradorDocumento, cargarContextoCamposInforme, guardarVersionDocumento, listarDocumentosDeOrden, listarRevisionesDocumento, reservarDocumento, type DocumentoRegistro, type RevisionDocumento, type TipoDocumento } from '../../services/documentService';
+import { aplicarContextoCampos, type ContextoCamposInforme } from '../../services/reportFieldPolicy';
 import { prepararAutocompletado, objetoFuente, type ClienteInforme, type FuentesInforme } from '../../services/reportAutofillService';
 import { camposVacios, claveEtapa, ETAPAS_OT, TIPOS_CON_PLANO, validarEtapa } from '../../services/otStageSchema';
 import { PLANTILLA_CONTROLADA_VERSION } from '../../services/controlledReportService';
@@ -12,7 +13,7 @@ import TooltipAyuda from '../ayuda/TooltipAyuda';
 import styles from './EtapasOT.module.css';
 import { tienePermiso } from '../../stores/accessStore';
 
-interface Registro { doc:DocumentoRegistro|null; datos:Record<string,unknown>; version:number; dirty:boolean; revisiones:RevisionDocumento[]; historical:string; correcting:boolean; motivo:string; request:string; saveRequest:string }
+interface Registro { doc:DocumentoRegistro|null; datos:Record<string,unknown>; version:number; dirty:boolean; revisiones:RevisionDocumento[]; historical:string; correcting:boolean; motivo:string; request:string; saveRequest:string; contexto:ContextoCamposInforme|null }
 type Estado=Record<TipoDocumento,Registro>;
 export interface EtapasOTHandle {
  guardar:(orden:OrdenLocal)=>Promise<void>;
@@ -21,10 +22,10 @@ export interface EtapasOTHandle {
  vincularEvidencia:(tipo:TipoDocumento,id:string)=>void;
  actualizarDocumento:(doc:DocumentoRegistro,borrador?:{datos:Record<string,unknown>;version:number},revisiones?:RevisionDocumento[])=>void;
 }
-interface Props { orden:OrdenLocal; cliente?:ClienteInforme|null; proyectoNombre:string; disabled:boolean; puedeRevisar:boolean; onDirty:(dirty:boolean)=>void; onPreview:(tipo:TipoDocumento,revision?:string)=>void; onOrigen?:(datos:Record<string,unknown>)=>void; onFechasReales:(inicio:string,fin:string)=>void; solicitud:(datos:Record<string,unknown>,onChange:(datos:Record<string,unknown>)=>void)=>ReactNode; ejecucion:ReactNode; evidencia?:(tipo:TipoDocumento,datos:Record<string,unknown>,readOnly:boolean)=>ReactNode; evidenciasIds?:(tipo:TipoDocumento)=>string[]; refresh:number }
-const vacio=():Registro=>({doc:null,datos:{},version:0,dirty:false,revisiones:[],historical:'',correcting:false,motivo:'',request:crypto.randomUUID(),saveRequest:crypto.randomUUID()});
+interface Props { orden:OrdenLocal; cliente?:ClienteInforme|null; proyectoNombre:string; disabled:boolean; puedeRevisar:boolean; onDirty:(dirty:boolean)=>void; onPreview:(tipo:TipoDocumento,revision?:string)=>void; onOrigen?:(datos:Record<string,unknown>)=>void; solicitud:(datos:Record<string,unknown>,onChange:(datos:Record<string,unknown>)=>void)=>ReactNode; ejecucion:ReactNode; evidencia?:(tipo:TipoDocumento,datos:Record<string,unknown>,readOnly:boolean)=>ReactNode; evidenciasIds?:(tipo:TipoDocumento)=>string[]; refresh:number }
+const vacio=():Registro=>({doc:null,datos:{},version:0,dirty:false,revisiones:[],historical:'',correcting:false,motivo:'',request:crypto.randomUUID(),saveRequest:crypto.randomUUID(),contexto:null});
 
-export const EtapasOT=forwardRef<EtapasOTHandle,Props>(function EtapasOT({orden,cliente,proyectoNombre,disabled,onDirty,onPreview,onOrigen,onFechasReales,solicitud,ejecucion,evidencia,evidenciasIds,refresh},ref){
+export const EtapasOT=forwardRef<EtapasOTHandle,Props>(function EtapasOT({orden,cliente,proyectoNombre,disabled,onDirty,onPreview,onOrigen,solicitud,ejecucion,evidencia,evidenciasIds,refresh},ref){
  const puedeCorregir=tienePermiso('informe.crear',orden.proyecto_id)&&tienePermiso('informe.editar',orden.proyecto_id);
  const [state,setState]=useState<Estado>(()=>Object.fromEntries(ETAPAS_OT.map(e=>[e.tipo,vacio()])) as Estado);
  const stateRef=useRef(state);stateRef.current=state;
@@ -46,7 +47,11 @@ export const EtapasOT=forwardRef<EtapasOTHandle,Props>(function EtapasOT({orden,
   if(r.historical)return r.revisiones.find(v=>v.id===r.historical)?.datos??r.datos;
   if(r.version>0&&!r.correcting)return r.datos;
   const base=inicial(tipo,ot),key=claveEtapa(tipo);
-  return {...base,...r.datos,[key]:{...objetoFuente(base[key]),...objetoFuente(r.datos[key])}};
+  const datos={...base,...r.datos,[key]:{...objetoFuente(base[key]),...objetoFuente(r.datos[key])}};
+  const preparado=r.contexto?aplicarContextoCampos(tipo,datos,r.contexto):datos;
+  // The request card edits the OT source before its explicit save. The report
+  // editor itself still treats that same original request as inherited data.
+  return tipo==='orden_servicio'?{...preparado,identificacion:{...objetoFuente(preparado.identificacion),descripcion:ot.descripcion??''}}:preparado;
  };
  useEffect(()=>{onDirty(Object.values(state).some(s=>s.dirty))},[state,onDirty]);
  useEffect(()=>{
@@ -54,7 +59,8 @@ export const EtapasOT=forwardRef<EtapasOTHandle,Props>(function EtapasOT({orden,
   void (async()=>{const docs=await listarDocumentosDeOrden(orden.id);const next=Object.fromEntries(await Promise.all(ETAPAS_OT.map(async e=>{
    const doc=docs.filter(d=>d.tipo===e.tipo&&d.ciclo===1).at(-1)??null;
    const [b,revs]=doc?await Promise.all([cargarBorradorDocumento(doc.id),listarRevisionesDocumento(doc.id)]):[null,[]];
-   return [e.tipo,{...vacio(),doc,datos:b?.datos??{},version:b?.version??0,revisiones:revs}];
+   const contexto=b?.version?null:await cargarContextoCamposInforme(orden.id,e.tipo);
+   return [e.tipo,{...vacio(),doc,datos:b?.datos??{},version:b?.version??0,revisiones:revs,contexto}];
   }))) as Estado;if(!cancelled){setDocumentos(docs);stateRef.current=next;setState(next)}})().catch(e=>{if(!cancelled){setLoadFailed(true);setError(e.message??'No se pudieron cargar las etapas.')}}).finally(()=>{if(!cancelled)setLoading(false)});
   return()=>{cancelled=true};
  },[orden.id,refresh]);
@@ -67,14 +73,16 @@ export const EtapasOT=forwardRef<EtapasOTHandle,Props>(function EtapasOT({orden,
    let datos=content(etapa.tipo,r,ot);if(!Array.isArray(datos.fotoIds)&&evidenciasIds)datos={...datos,fotoIds:evidenciasIds(etapa.tipo)};const validation=validarEtapa(etapa.tipo,datos);if(validation)throw new Error(`${etapa.name}: ${validation}`);
    if(r.version>0&&!r.correcting)throw new Error(`${etapa.name}: creá una versión corregida antes de modificar la versión guardada.`);
    if(r.correcting&&!r.motivo.trim())throw new Error(`${etapa.name}: indicá el motivo de la versión corregida.`);
-   // Snapshots are taken only on explicit save; existing per-report edits are preserved.
-   datos={...datos,identificacion:{...prepararAutocompletado(ot,proyectoNombre,cliente??null,sources()).identificacion,...objetoFuente(datos.identificacion)},motivoCorreccion:r.motivo||String(datos.motivoCorreccion??'')};
+   // OT save precedes this step. Rebase a new revision on its authoritative
+   // sources, never on a free-text identity or another unsaved stage.
+   const contexto=await cargarContextoCamposInforme(ot.id,etapa.tipo,datos.vinculos,r.doc?.id??null);
+   datos=aplicarContextoCampos(etapa.tipo,{...datos,motivoCorreccion:r.motivo||String(datos.motivoCorreccion??'')},contexto);
    if(TIPOS_CON_PLANO.includes(etapa.tipo)&&!datos.planoContexto)datos.planoContexto=await generarContextoPlano(ot);
    const doc=r.doc??await reservarDocumento(ot.id,etapa.tipo,1,r.request);
    // Retain the reservation after partial failures to make retry safe.
    patch(etapa.tipo,{doc});
    const {borrador:saved,revisiones}=await guardarVersionDocumento(doc.id,datos,r.version,r.saveRequest,r.correcting,r.correcting?r.motivo.trim():null,1,PLANTILLA_CONTROLADA_VERSION);
-   patch(etapa.tipo,{datos:saved.datos,version:saved.version,revisiones,historical:'',dirty:false,correcting:false,saveRequest:crypto.randomUUID()});
+   patch(etapa.tipo,{datos:saved.datos,version:saved.version,revisiones,contexto,historical:'',dirty:false,correcting:false,saveRequest:crypto.randomUUID()});
    setDocumentos(prev=>prev.some(d=>d.id===doc.id)?prev:[...prev,doc]);
   }
  };
@@ -94,13 +102,14 @@ export const EtapasOT=forwardRef<EtapasOTHandle,Props>(function EtapasOT({orden,
  }));
  const run=async(action:()=>Promise<void>)=>{if(lock.current)return;lock.current=true;setBusy(true);setError('');try{await action()}catch(e){if(alive.current)setError(e instanceof Error?e.message:'No se pudo completar la operación.')}finally{lock.current=false;if(alive.current)setBusy(false)}};
  const cambiar=async(tipo:TipoDocumento,id:string)=>{const r=stateRef.current[tipo];if(r.dirty)return;
-  if(id==='nuevo'){patch(tipo,{...vacio(),dirty:true});return}
+  if(id==='nuevo'){patch(tipo,{...vacio(),contexto:await cargarContextoCamposInforme(orden.id,tipo),dirty:true});return}
   const doc=documentos.find(d=>d.id===id);if(!doc)return;
-  const [b,revs]=await Promise.all([cargarBorradorDocumento(id),listarRevisionesDocumento(id)]);patch(tipo,{...vacio(),doc,datos:b?.datos??{},version:b?.version??0,revisiones:revs});
+  const [b,revs]=await Promise.all([cargarBorradorDocumento(id),listarRevisionesDocumento(id)]);patch(tipo,{...vacio(),doc,datos:b?.datos??{},version:b?.version??0,revisiones:revs,contexto:b?.version?null:await cargarContextoCamposInforme(orden.id,tipo)});
  };
  const corregir=async(tipo:TipoDocumento)=>{
   const r=stateRef.current[tipo];if(!r.doc||r.dirty||!r.version||!puedeCorregir)return;
-  patch(tipo,{revisiones:await listarRevisionesDocumento(r.doc.id),historical:'',correcting:true,motivo:'',dirty:true,datos:{...r.datos},saveRequest:crypto.randomUUID()});
+  const contexto=await cargarContextoCamposInforme(orden.id,tipo,r.datos.vinculos,r.doc.id);
+  patch(tipo,{contexto,revisiones:await listarRevisionesDocumento(r.doc.id),historical:'',correcting:true,motivo:'',dirty:true,datos:aplicarContextoCampos(tipo,r.datos,contexto),saveRequest:crypto.randomUUID()});
  };
  const blocked=disabled||loading||busy||loadFailed;
  return <div className={styles.root} aria-label="Carga de la OT por etapas">
@@ -119,7 +128,7 @@ export const EtapasOT=forwardRef<EtapasOTHandle,Props>(function EtapasOT({orden,
     {r.correcting&&<div className={styles.reason}><div className={styles.labelRow}><label htmlFor={`motivo-${e.tipo}`}>Motivo de la versión corregida</label><VoiceInputButton compact value={r.motivo} onChange={v=>patch(e.tipo,{motivo:v,dirty:true,saveRequest:crypto.randomUUID()})} disabled={blocked}/></div><textarea rows={4} id={`motivo-${e.tipo}`} value={r.motivo} disabled={blocked} onChange={event=>patch(e.tipo,{motivo:event.target.value,dirty:true,saveRequest:crypto.randomUUID()})}/></div>}
     {e.tipo==='avance'&&!r.doc&&!r.dirty?<><p className={styles.note}>Sin informe de avance por ahora. Podés continuar con el cierre cuando corresponda.</p><button type="button" className={styles.button} disabled={blocked} onClick={()=>patch('avance',{dirty:true})}>Registrar un informe de avance</button></>:<>
      {e.tipo==='orden_servicio'&&<fieldset className={styles.slot} disabled={blocked||readOnly}>{solicitud(datos,d=>editar(e.tipo,d))}</fieldset>}
-     <EtapaCampos tipo={e.tipo} datos={datos} disabled={blocked||readOnly} onChange={d=>{if(!editar(e.tipo,d))return;if(e.tipo==='orden_servicio')onOrigen?.(objetoFuente(d.origen));if(e.tipo==='cierre'){const c=objetoFuente(d.cierre);onFechasReales(String(c.inicioReal??''),String(c.finReal??''));}}}/>
+     <EtapaCampos tipo={e.tipo} datos={datos} contexto={r.contexto} puedeDecidir={tienePermiso('informe.aprobar',orden.proyecto_id)} onVinculo={(key,id)=>void run(async()=>{const contexto=await cargarContextoCamposInforme(orden.id,e.tipo,{...r.contexto?.vinculos,[key]:id},r.doc?.id??null);patch(e.tipo,{contexto,datos:aplicarContextoCampos(e.tipo,datos,contexto),dirty:true,saveRequest:crypto.randomUUID()});})} disabled={blocked||readOnly} onChange={d=>{if(!editar(e.tipo,d))return;if(e.tipo==='orden_servicio')onOrigen?.(objetoFuente(d.origen));}}/>
      {e.tipo==='cierre'&&<fieldset className={styles.slot} disabled={blocked||readOnly}>{ejecucion}</fieldset>}
      {evidencia?.(e.tipo,datos,readOnly)}
     </>}

@@ -1,7 +1,9 @@
 import { EtapaCampos } from './EtapaCampos';
 import { camposVacios, TIPOS_CON_PLANO, ETAPAS_OT, validarEtapa } from '../../services/otStageSchema';
 import TooltipAyuda from '../ayuda/TooltipAyuda';
-import { CampoTextoInforme } from './CampoTextoInforme';
+import { CampoTextoInforme, DatoInforme } from './CampoTextoInforme';
+import { cargarContextoCamposInforme } from '../../services/documentService';
+import { aplicarContextoCampos, IDENTIFICACION_EDITABLE, type ContextoCamposInforme } from '../../services/reportFieldPolicy';
 import { VistaPreviaDocumento } from './VistaPreviaDocumento';
 import { registrarExportacion } from '../../services/trustService';
 import { borradorModificado } from '../../services/reportDraftComparison';
@@ -367,6 +369,9 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
 
   const [observaciones, setObservaciones] = useState('');
   const [identificacion, setIdentificacion] = useState<IdentificacionInforme>(() => prepararAutocompletado(orden, proyectoNombre).identificacion);
+  const [contextoCampos,setContextoCampos]=useState<ContextoCamposInforme|null>(null);
+  const [metadataCampos,setMetadataCampos]=useState<Record<string,unknown>>({});
+  const [actualizandoCampos,setActualizandoCampos]=useState(false);
   const precargaRef = useRef(prepararAutocompletado(orden, proyectoNombre));
   const [avisoFuentes, setAvisoFuentes] = useState('');
   const [planoContexto, setPlanoContexto] = useState<PlanoContexto | null>(null);
@@ -626,6 +631,10 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
         setPlanoContexto(contextoPlano);
         setAvisoPlano(errorPlano);
         const inicial = prepararAutocompletado(orden, proyectoNombre, resultado.contexto.cliente, resultado.contexto.fuentes);
+        const contextoCamposInicial=resultado?.borrador?.version?null:await cargarContextoCamposInforme(orden.id,tipo);
+        if(cancelado)return;
+        setContextoCampos(contextoCamposInicial);
+        setMetadataCampos(datos?.politicaCampos?{politicaCampos:datos.politicaCampos,vinculos:datos.vinculos,...(datos.decisionPlan?{decisionPlan:datos.decisionPlan}:{})}:{});
         precargaRef.current = inicial;
         const identidad = restaurarCampos(inicial.identificacion, datos?.identificacion);
         setIdentificacion(identidad);
@@ -662,6 +671,10 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
         setItemsCierre(cierreItems);
         setDatosActa(acta);
         setDatosEncuesta(encuesta);
+        if(contextoCamposInicial)actualizarCampos(aplicarContextoCampos(tipo,{
+          identificacion:identidad,origen,visita,relevamiento,avance,cierre,acta,encuesta,
+          itemsAlcance:alcanceItems,itemsAvance:avanceItems,itemsCierre:cierreItems,
+        },contextoCamposInicial));
         setFotoIds(idsFotos);
         setIncluirFotos(typeof datos?.incluirFotos === 'boolean' ? datos.incluirFotos : true);
         setDocumento(resultado?.vigente ?? null);
@@ -670,7 +683,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
         setMotivoRevision(String(datos?.motivoCorreccion??''));
         setCorreccionAbierta(false);
         setVersionBorrador(resultado?.borrador?.version ?? 0);
-        setGuardado(JSON.stringify({ motivoCorreccion:String(datos?.motivoCorreccion??''), identificacion: datos?.identificacion ?? (resultado?.borrador ? undefined : identidad), observaciones: texto,
+        const contenidoInicial = { ...(datos?.politicaCampos?{politicaCampos:datos.politicaCampos,vinculos:datos.vinculos}:{}), motivoCorreccion:String(datos?.motivoCorreccion??''), identificacion: datos?.identificacion ?? (resultado?.borrador ? undefined : identidad), observaciones: texto,
           planoContexto: datos?.planoContexto ?? null,
           incluirFotos: datos?.incluirFotos !== false,
           ...(necesitaFotos ? { fotoIds: idsFotos } : {}),
@@ -680,7 +693,8 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
           ...(tipo === 'avance' ? { avance, itemsAvance: avanceItems } : {}),
           ...(tipo === 'cierre' ? { cierre, itemsCierre: cierreItems } : {}),
           ...(tipo === 'acta' ? { acta } : {}),
-          ...(tipo === 'encuesta' ? { encuesta } : {}) }));
+          ...(tipo === 'encuesta' ? { encuesta } : {}) };
+        setGuardado(JSON.stringify(contextoCamposInicial?aplicarContextoCampos(tipo,contenidoInicial,contextoCamposInicial):contenidoInicial));
         setPersistenciaDisponible(resultado !== null);
 
         // S33: mapeo incluye descripcion_observacion además de descripcion
@@ -817,6 +831,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
   };
 
   const datosBorrador = { motivoCorreccion:motivoRevision, identificacion, observaciones, incluirFotos, planoContexto,
+    ...metadataCampos, ...(contextoCampos?{politicaCampos:1,vinculos:contextoCampos.vinculos}:{}),
     ...(necesitaFotos ? { fotoIds } : {}),
     ...(tipo === 'orden_servicio' ? { origen: origenServicio } : {}),
     ...(tipo === 'visita' ? { visita: datosVisita } : {}),
@@ -829,7 +844,34 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
     Number.isFinite(orden.pos_x) && Number.isFinite(orden.pos_y);
   const cambiosBorrador = borradorModificado(guardado, datosBorrador);
   const revisionActual = revisiones.find(revision => revision.borrador_version === versionBorrador);
-  const camposBloqueados = !persistenciaDisponible || !!revisionInicialId || !tienePermiso('informe.editar',orden.proyecto_id) || cargandoComentario || (versionBorrador>0 && !correccionAbierta);
+  const camposBloqueados = !persistenciaDisponible || !!revisionInicialId || !tienePermiso('informe.editar',orden.proyecto_id) || cargandoComentario || actualizandoCampos || (versionBorrador>0 && !correccionAbierta);
+  function actualizarCampos(d:Record<string,unknown>) {
+    if(d.identificacion)setIdentificacion(d.identificacion as IdentificacionInforme);
+    if(d.origen)setOrigenServicio(d.origen as OrigenOrdenServicio);
+    if(d.visita)setDatosVisita(d.visita as DatosVisita);
+    if(d.relevamiento)setDatosRelevamiento(d.relevamiento as DatosRelevamiento);
+    if(d.avance)setDatosAvance(d.avance as DatosAvance);
+    if(d.cierre)setDatosCierre(d.cierre as DatosCierre);
+    if(d.acta)setDatosActa(d.acta as DatosActa);
+    if(d.encuesta)setDatosEncuesta(d.encuesta as DatosEncuesta);
+    if(d.itemsAvance)setItemsAvance(d.itemsAvance as ItemAvance[]);
+    if(d.itemsCierre)setItemsCierre(d.itemsCierre as ItemCierre[]);
+  }
+  const prepararCorreccion=async()=>{
+    setActualizandoCampos(true);setErrorBorrador(null);
+    try{
+      const ctx=await cargarContextoCamposInforme(orden.id,tipo,revisiones.find(r=>r.borrador_version===versionBorrador)?.datos.vinculos,documento?.id??null);
+      setContextoCampos(ctx);actualizarCampos(aplicarContextoCampos(tipo,datosBorrador,ctx));
+      setMotivoRevision('');setCorreccionAbierta(true);
+    }catch(e){setErrorBorrador(e instanceof Error?e.message:'No se pudieron recuperar las fuentes del informe.');}
+    finally{setActualizandoCampos(false);}
+  };
+  const cambiarVinculo=async(key:string,id:string)=>{
+    setActualizandoCampos(true);setErrorBorrador(null);
+    try{const ctx=await cargarContextoCamposInforme(orden.id,tipo,{...contextoCampos?.vinculos,[key]:id},documento?.id??null);setContextoCampos(ctx);actualizarCampos(aplicarContextoCampos(tipo,datosBorrador,ctx));}
+    catch(e){setErrorBorrador(e instanceof Error?e.message:'No se pudo vincular el registro.');}
+    finally{setActualizandoCampos(false);}
+  };
   const tipoRepetible = tipo === 'visita' || tipo === 'relevamiento' || tipo === 'avance' || tipo === 'encuesta' || tipo === 'cierre';
   const fotosElegibles = versionBorrador>0&&!correccionAbierta&&fuentesVersion ? fotosVersion.map(foto=>({...foto,fase:foto.categoria==='ANTES'?'Antes':foto.categoria==='DURANTE'?'Durante':'Después'})) : [
     ...fotosAntes.map(foto => ({ ...foto, fase: 'Antes' })),
@@ -885,7 +927,9 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
       setRevisiones(conservadas);
       setFuentesVersion(null);setFotosVersion([]);
       setVersionBorrador(borrador.version);
-      setGuardado(JSON.stringify(datos));
+      setMetadataCampos({politicaCampos:borrador.datos.politicaCampos,vinculos:borrador.datos.vinculos,...(borrador.datos.decisionPlan?{decisionPlan:borrador.datos.decisionPlan}:{})});
+      actualizarCampos(borrador.datos);
+      setGuardado(JSON.stringify(borrador.datos));
       onDocumentoChange?.(vigente,borrador,conservadas);
       setCorreccionAbierta(false);
       if (!documento && tipoRepetible) setSeleccionId(vigente.id);
@@ -1182,7 +1226,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
               <span><strong>Unidad</strong> {identificacion.unidad_amenities || '—'}</span>
               <span><strong>Cliente</strong> {identificacion.cliente || '—'}</span>
             </div>
-            {versionBorrador>0&&<div className={styles.identitySummary}><span>{correccionAbierta?'Nueva versión en preparación':`Versión ${versionBorrador} guardada · solo lectura`}</span><button type="button" className={styles.btnSecondary} disabled={!!revisionInicialId||!tienePermiso('informe.crear',orden.proyecto_id)||!tienePermiso('informe.editar',orden.proyecto_id)||cargandoComentario||guardandoBorrador||correccionAbierta} onClick={()=>{setMotivoRevision('');setCorreccionAbierta(true);}}>Crear versión corregida</button></div>}
+            {versionBorrador>0&&<div className={styles.identitySummary}><span>{correccionAbierta?'Nueva versión en preparación':`Versión ${versionBorrador} guardada · solo lectura`}</span><button type="button" className={styles.btnSecondary} disabled={!!revisionInicialId||!tienePermiso('informe.crear',orden.proyecto_id)||!tienePermiso('informe.editar',orden.proyecto_id)||cargandoComentario||guardandoBorrador||correccionAbierta||actualizandoCampos} onClick={()=>void prepararCorreccion()}>Crear versión corregida</button></div>}
             {correccionAbierta&&<CampoTextoInforme etiqueta="Motivo de la versión corregida" multiline rows={4} value={motivoRevision} onChange={setMotivoRevision}/>}
             <div hidden={editorTab !== 'datos'} className={styles.tabContent}>
             <div className={styles.section}>
@@ -1194,31 +1238,32 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                 <div className={styles.dataVal}>{orden.responsable || '—'}</div>
                 <section className={styles.section} style={{ gridColumn: '1 / -1', minWidth: 0 }}>
               <div className={styles.sectionTitle}>Datos de la OT y del cliente</div>
-              <p className={styles.sublabel}>Datos precargados de la OT, del cliente vinculado y de los documentos anteriores disponibles. Revisalos antes de generar. Las ediciones se guardan solo en este informe.</p>
+              <p className={styles.sublabel}>Datos heredados de Administración y de la OT · solo lectura. Se corrigen en su ficha de origen con permiso; las versiones guardadas conservan sus datos históricos.</p>
+              {!identificacion.responsable&&<p className={styles.sublabel}>Sin técnico vinculado. La cuenta responsable se asigna en Panel OT con permiso de asignación.</p>}
               {avisoFuentes && <p role="alert">{avisoFuentes}</p>}
               {planoRequerido && !planoContexto && <div role="alert" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, margin: '8px 0', fontSize: 12 }}>
                 <span>{avisoPlano || 'La ubicación del plano todavía no está lista para este informe.'}</span>
                 <button type="button" className={styles.btnSecondary} onClick={() => void reintentarPlano()} disabled={cargandoComentario}>Reintentar plano</button>
               </div>}
               {TIPOS_CON_PLANO.includes(tipo) && !planoRequerido && <p className={styles.sublabel}>Esta OT no tiene un punto ubicado en el plano; el informe no mostrará un recorte hasta que la ubiquen.</p>}
-              <div className={styles.originGrid}>
-                {CAMPOS_IDENTIFICACION.filter(([clave])=>['obra','unidad_amenities','cliente','contacto','telefono','correo'].includes(clave)).map(([clave,etiqueta])=><CampoTextoInforme key={clave} etiqueta={etiqueta} value={identificacion[clave]} disabled={camposBloqueados} onChange={value=>setIdentificacion(actual=>({...actual,[clave]:value}))} />)}
+              <div className={styles.identityFacts}>
+                {CAMPOS_IDENTIFICACION.filter(([clave])=>['obra','unidad_amenities','cliente','contacto','telefono','correo'].includes(clave)).map(([clave,etiqueta])=><DatoInforme key={clave} etiqueta={etiqueta} value={identificacion[clave]} />)}
               </div>
               <details>
                 <summary>Documento, direcciones y otros datos de identificación</summary>
-                <div className={styles.originGrid}>
-                  {CAMPOS_IDENTIFICACION.filter(([clave])=>!['obra','unidad_amenities','cliente','contacto','telefono','correo'].includes(clave)).map(([clave, etiqueta]) => <CampoTextoInforme key={clave} etiqueta={etiqueta} multiline={clave === 'descripcion'} rows={4} value={identificacion[clave]} disabled={camposBloqueados}
-                      onChange={value => setIdentificacion(actual => ({ ...actual, [clave]: value }))} placeholder="No registrado" />)}
+                <div className={styles.identityFacts}>
+                  {CAMPOS_IDENTIFICACION.filter(([clave])=>!['obra','unidad_amenities','cliente','contacto','telefono','correo'].includes(clave)).map(([clave, etiqueta]) => IDENTIFICACION_EDITABLE.has(clave)?<CampoTextoInforme key={clave} etiqueta={etiqueta} value={identificacion[clave]} disabled={camposBloqueados}
+                      onChange={value => setIdentificacion(actual => ({ ...actual, [clave]: value }))} placeholder="No registrado" />:<DatoInforme key={clave} etiqueta={etiqueta} value={identificacion[clave]} />)}
                 </div>
               </details>
               <button type="button" className={styles.btnSecondary} disabled={camposBloqueados} onClick={() => {
                 const p = precargaRef.current;
-                const completar = <T extends object>(actual: T, origen: Partial<T>): T => {
+                const completar = <T extends object>(actual: T, origen: Partial<T>, bloqueadas = new Set(Object.keys(contextoCampos?.protegidos??{}))): T => {
                   const siguiente = { ...actual };
-                  for (const clave of Object.keys(origen) as (keyof T)[]) if (actual[clave] === '' && origen[clave] !== undefined) siguiente[clave] = origen[clave] as T[keyof T];
+                  for (const clave of Object.keys(origen) as (keyof T)[]) if (!bloqueadas.has(String(clave)) && actual[clave] === '' && origen[clave] !== undefined) siguiente[clave] = origen[clave] as T[keyof T];
                   return siguiente;
                 };
-                setIdentificacion(actual => completar(actual, p.identificacion));
+                setIdentificacion(actual => completar(actual, p.identificacion,new Set(CAMPOS_IDENTIFICACION.map(([k])=>k).filter(k=>!IDENTIFICACION_EDITABLE.has(k)))));
                 setOrigenServicio(actual => completar(actual, p.origen));
                 setDatosVisita(actual => completar(actual, p.visita));
                 setDatosRelevamiento(actual => completar(actual, p.relevamiento));
@@ -1228,7 +1273,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                 setDatosEncuesta(actual => completar(actual, p.encuesta));
                 if (['relevamiento', 'avance', 'cierre'].includes(tipo)) setObservaciones(actual => actual || p.observaciones);
               }}>Completar campos vacíos con datos existentes</button>
-              <p className={styles.sublabel}>Las fechas de inicio y fin proceden de la OT; verificá que correspondan a la ejecución real. Las aprobaciones, verificaciones y respuestas del cliente se completan cuando están registradas.</p>
+              <p className={styles.sublabel}>Las fechas reales se corrigen en la ejecución de la OT. Las decisiones y respuestas del cliente requieren su referencia; escribir un nombre no registra una firma.</p>
             </section>
 
             {tipo === 'orden_servicio' && (
@@ -1376,7 +1421,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
             {!documento && <p className={styles.sublabel}>Guardá el borrador para consultar sus revisiones y preparar el PDF controlado.</p>}
             </div>
             <div hidden={editorTab !== 'texto'} className={styles.tabContent}>
-            <EtapaCampos compact tipo={tipo} datos={datosBorrador} disabled={camposBloqueados}
+            <EtapaCampos compact tipo={tipo} datos={datosBorrador} contexto={contextoCampos} puedeDecidir={tienePermiso('informe.aprobar',orden.proyecto_id)} onVinculo={(key,id)=>void cambiarVinculo(key,id)} disabled={camposBloqueados}
               onChange={d=>{
                 setObservaciones(String(d.observaciones??''));
                 if(d.origen)setOrigenServicio(d.origen as OrigenOrdenServicio);

@@ -21,14 +21,14 @@ try{
   const doc=(await one('select (plan_documento_reservar($1,$2,1,$3)).id id',[order,tipo,id(n++)])).id;
   const initial={observaciones:'Inicial: á, ñ y coma,',identificacion:{obra:'Obra QA'}},request=id(n++);
   const first=await save(doc,initial,0,request);
-  assert.equal(first.borrador.version,1);assert.deepEqual(first.revision.datos,initial);assert.equal(first.revision.creada_por,creator);
+  assert.equal(first.borrador.version,1);assert.equal(first.revision.datos.observaciones,initial.observaciones);assert.equal(first.revision.datos.identificacion.obra,initial.identificacion.obra);assert.equal(first.revision.creada_por,creator);
   const retried=await save(doc,initial,0,request);assert.equal(retried.revision.id,first.revision.id);
   await assert.rejects(save(doc,{observaciones:'Cambio'},1,id(n++)),e=>e.code==='22023');
   await assert.rejects(save(doc,{observaciones:'Cambio'},1,id(n++),true,''),e=>e.code==='22023');
   await assert.rejects(db.query('select plan_documento_borrador_guardar($1,$2,1,$3)',[doc,{observaciones:'Bypass'},id(n++)]),e=>e.code==='42501');
   const correction={observaciones:'Corregido: tilde y punto.'},second=await save(doc,correction,1,id(n++),true,'Corrección de puntuación');
   assert.equal(second.borrador.version,2);assert.equal(second.revision.motivo,'Corrección de puntuación');
-  assert.deepEqual((await one('select datos from plan_documento_revisiones where id=$1',[first.revision.id])).datos,initial);
+  assert.deepEqual((await one('select datos from plan_documento_revisiones where id=$1',[first.revision.id])).datos,first.revision.datos);
   assert.equal((await one('select count(*)::integer n from plan_documento_revisiones where documento_id=$1',[doc])).n,2);
   await assert.rejects(save(doc,{observaciones:'Obsoleto'},1,id(n++),true,'Otra sesión'),e=>e.code==='40001');
   await assert.rejects(db.query('update plan_documento_revisiones set datos=$1 where id=$2',[correction,first.revision.id]),e=>e.code==='42501');

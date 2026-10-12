@@ -2,6 +2,10 @@ import { useId } from 'react';
 import { VoiceInputButton } from '../ui/VoiceInputButton';
 import styles from './ModalInformeOT.module.css';
 
+export function DatoInforme({ etiqueta, value }: { etiqueta: string; value: string }) {
+  return <div className={styles.identityDatum}><span>{etiqueta}</span><strong>{value || 'No registrado'}</strong></div>;
+}
+
 export function CampoTextoInforme({ etiqueta, value, onChange, disabled, multiline = false, rows = 2, placeholder = 'No registrado', type = 'text', maxLength }: {
   etiqueta:string; value:string; onChange:(value:string) => void; disabled?:boolean;
   multiline?:boolean; rows?:number; placeholder?:string; type?:string; maxLength?:number;

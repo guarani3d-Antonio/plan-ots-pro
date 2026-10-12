@@ -250,7 +250,7 @@ const ETAPAS_OT = [
 			fields: [
 				date("periodoDesde", "Período desde"),
 				date("periodoHasta", "Corte hasta"),
-				text("alcanceReferencia", "Plan aprobado: código y revisión")
+				text("alcanceReferencia", "Plan de referencia: código y revisión")
 			]
 		}, {
 			title: "Ejecución del período",
@@ -276,7 +276,7 @@ const ETAPAS_OT = [
 			fields: [
 				date("inicioReal", "Inicio real del trabajo"),
 				date("finReal", "Fin real del trabajo"),
-				text("alcanceReferencia", "Plan aprobado: código y revisión"),
+				text("alcanceReferencia", "Plan de referencia: código y revisión"),
 				text("cambiosAprobados", "Cambios aprobados: referencias"),
 				area("ejecucionPorItem", "Trabajos efectivamente ejecutados", 12)
 			]
@@ -318,6 +318,7 @@ const ETAPAS_OT = [
 					"Conforme con reservas",
 					"No conforme"
 				]),
+				text("decisionReferencia", "Referencia de la decisión del receptor", 12),
 				area("objetoEntrega", "Trabajos entregados", 12),
 				area("observacionesCliente", "Observaciones del cliente"),
 				area("reservas", "Reservas y tratamiento"),
@@ -1057,6 +1058,7 @@ ${_seccionInforme(2, "Decisión y reservas")}
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Opción preparada (sin manifestación)</strong>${campo("decisionPreparada")}</div>
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Reservas propuestas y tratamiento</strong>${campo("reservas")}</div>
 </section>
+${datos?.decisionReferencia ? bloque("Referencia de la decisión expresada por el receptor", "decisionReferencia") : ""}
 ${bloque("Observaciones del cliente registradas para revisión", "observacionesCliente")}
 ${_seccionInforme(3, "Condiciones y formalización")}
 <section class="grid grid-cols-2 gap-4 mb-6">

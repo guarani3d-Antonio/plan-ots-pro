@@ -4,9 +4,12 @@ import { ETAPAS_OT, TEXTO_ACTA, claveEtapa, type CampoEtapa, type GrupoEtapa } f
 import { VoiceInputButton } from '../ui/VoiceInputButton';
 import { EJEMPLOS_ETAPA } from '../../services/otStageExamples';
 import styles from './EtapasOT.module.css';
+import { CAMPOS_HEREDADOS, CAMPOS_VINCULADOS, type ContextoCamposInforme } from '../../services/reportFieldPolicy';
+import { SelectorBusqueda } from '../ui/SelectorBusqueda';
 
-function Campo({campo,value,onChange,disabled,placeholder}:{campo:CampoEtapa;value:string;onChange:(v:string)=>void;disabled?:boolean;placeholder?:string}) {
+function Campo({campo,value,onChange,disabled,placeholder,readOnly=false}:{campo:CampoEtapa;value:string;onChange:(v:string)=>void;disabled?:boolean;placeholder?:string;readOnly?:boolean}) {
  const id=useId();
+ if(readOnly)return <div className={styles.field} style={{'--field-span':campo.span??6} as React.CSSProperties}><span className={styles.inheritedLabel}>{campo.label}</span><div className={styles.inheritedValue}>{value||'No registrado'}</div></div>;
  const dictable=!campo.options&&!['date','time','datetime-local','scale'].includes(campo.type??'text');
  if(campo.type==='scale')return <fieldset className={styles.scaleField}><legend>{campo.label}</legend><div className={styles.scale}>{[...Array.from({length:10},(_,i)=>String(i+1)),'N/A'].map(n=><label key={n} className={styles.rating}><input type="radio" name={id} value={n} checked={value===n} disabled={disabled} onChange={()=>onChange(n)}/><span>{n}</span></label>)}</div>{value&&!/^(?:[1-9]|10|N\/A)$/.test(value)&&<small>Respuesta anterior conservada: {value}</small>}</fieldset>;
  return <div className={styles.field} style={{'--field-span':campo.span??6} as React.CSSProperties}>
@@ -17,20 +20,27 @@ function Campo({campo,value,onChange,disabled,placeholder}:{campo:CampoEtapa;val
  </div>;
 }
 
-export function EtapaCampos({tipo,datos,onChange,disabled=false,compact=false}:{tipo:TipoDocumento;datos:Record<string,unknown>;onChange:(d:Record<string,unknown>)=>void;disabled?:boolean;compact?:boolean}) {
+export function EtapaCampos({tipo,datos,onChange,disabled=false,compact=false,contexto,onVinculo,puedeDecidir=false}:{tipo:TipoDocumento;datos:Record<string,unknown>;onChange:(d:Record<string,unknown>)=>void;disabled?:boolean;compact?:boolean;contexto?:ContextoCamposInforme|null;onVinculo?:(key:string,id:string)=>void;puedeDecidir?:boolean}) {
  const etapa=ETAPAS_OT.find(s=>s.tipo===tipo)!;
  const key=claveEtapa(tipo), values=(datos[key]??{}) as Record<string,string>;
  const set=(k:string,v:string)=>onChange({...datos,[key]:{...values,[k]:v}});
  const itemKey=tipo==='relevamiento'?'itemsAlcance':tipo==='avance'?'itemsAvance':'itemsCierre';
  const items=(Array.isArray(datos[itemKey])?datos[itemKey]:[]) as Record<string,string>[];
  const itemFields:CampoEtapa[]=tipo==='relevamiento'?[text('trabajo','Actividad',6),text('rubro','Rubro',3),text('profesional','Profesional / especialidad',3),text('criterio','Criterio para dar la actividad por terminada',12)]:tipo==='avance'?[text('previsto','Trabajo previsto',12),text('realizado','Realizado en este período'),text('saldo','Saldo pendiente')]:[text('trabajo','Trabajo'),text('criterio','Criterio'),text('resultado','Resultado'),text('verificadorFecha','Verificador y fecha')];
- const itemEditor=<div className={styles.items}>{items.map((item,i)=><fieldset key={item.id} className={styles.item}><legend>{item.id}</legend><div className={styles.grid}>{itemFields.map(f=><Campo key={f.key} campo={f} value={item[f.key]??''} disabled={disabled} onChange={v=>onChange({...datos,[itemKey]:items.map((it,j)=>i===j?{...it,[f.key]:v}:it)})}/>)}</div><button type="button" className={styles.button} disabled={disabled} onClick={()=>onChange({...datos,[itemKey]:items.filter((_,j)=>j!==i)})}>Quitar actividad {item.id}</button></fieldset>)}<button type="button" className={styles.button} disabled={disabled||items.length>=100} onClick={()=>{let n=1;while(items.some(i=>i.id===`A-${String(n).padStart(2,'0')}`))n++;onChange({...datos,[itemKey]:[...items,{id:`A-${String(n).padStart(2,'0')}`,...Object.fromEntries(itemFields.map(f=>[f.key,'']))}]})}}>+ Agregar actividad</button></div>;
+ const alcanceHeredado=tipo==='avance'||tipo==='cierre';
+ const itemEditor=<div className={styles.items}>{alcanceHeredado&&<p className={styles.note}>Actividades y criterios del plan referenciado. Completá sus resultados; el alcance se corrige en Relevamiento.</p>}{items.map((item,i)=><fieldset key={item.id} className={styles.item}><legend>{item.id}</legend><div className={styles.grid}>{itemFields.map(f=><Campo key={f.key} campo={f} value={item[f.key]??''} disabled={disabled} readOnly={alcanceHeredado&&['previsto','trabajo','criterio'].includes(f.key)} onChange={v=>onChange({...datos,[itemKey]:items.map((it,j)=>i===j?{...it,[f.key]:v}:it)})}/>)}</div>{!alcanceHeredado&&<button type="button" className={styles.button} disabled={disabled} onClick={()=>onChange({...datos,[itemKey]:items.filter((_,j)=>j!==i)})}>Quitar actividad {item.id}</button>}</fieldset>)}{!alcanceHeredado&&<button type="button" className={styles.button} disabled={disabled||items.length>=100} onClick={()=>{let n=1;while(items.some(i=>i.id===`A-${String(n).padStart(2,'0')}`))n++;onChange({...datos,[itemKey]:[...items,{id:`A-${String(n).padStart(2,'0')}`,...Object.fromEntries(itemFields.map(f=>[f.key,'']))}]})}}>+ Agregar actividad</button>}</div>;
  const grupos:GrupoEtapa[] = compact && tipo==='relevamiento' ? [
   {...etapa.groups[0],title:'1 · Hallazgo y diagnóstico'},
   {title:'2 · Plan de trabajo y cronograma',fields:[...etapa.groups[1].fields,...etapa.groups[2].fields]},
   {...etapa.groups[3],title:'3 · Cobertura y decisión'},
  ] : etapa.groups;
- const renderCampo=(f:CampoEtapa)=><Campo key={f.key} campo={compact&&tipo==='relevamiento'&&f.key==='alcance'?{...f,label:'Plan de trabajo propuesto',span:12}:f} value={values[f.key]??''} onChange={v=>set(f.key,v)} disabled={disabled}/>;
+ const renderCampo=(f:CampoEtapa)=>{
+  const vinculo=CAMPOS_VINCULADOS[tipo]?.[f.key];
+  if(vinculo&&contexto&&onVinculo&&!disabled){const options=contexto.opciones[vinculo]??[];return <div key={f.key} className={styles.field} style={{'--field-span':f.span??6} as React.CSSProperties}><span className={styles.inheritedLabel}>{f.label}</span><SelectorBusqueda label={f.label} opciones={options} value={options.find(o=>o.id===contexto.vinculos[vinculo])} onSeleccionar={id=>onVinculo(vinculo,id)} placeholder="Seleccioná un registro vinculado…"/></div>;}
+  const field=f.key==='decisionAlcance'&&!puedeDecidir?{...f,options:f.options?.filter(v=>v!=='Aprobado con referencia')}:f;
+  const readOnly=CAMPOS_HEREDADOS[tipo].includes(f.key)||(f.key==='decisionGarantia'&&!puedeDecidir);
+  return <Campo key={f.key} campo={compact&&tipo==='relevamiento'&&f.key==='alcance'?{...field,label:'Plan de trabajo propuesto',span:12}:field} value={values[f.key]??''} onChange={v=>set(f.key,v)} disabled={disabled} readOnly={readOnly}/>;
+ };
  const contenidoGrupo=(g:GrupoEtapa,index:number)=>{
   const principal=compact&&tipo==='relevamiento' ? (index===0?['hallazgos','pruebas']:index===1?['alcance','inicioPrevisto','finPrevisto','decisionAlcance']:g.fields.map(f=>f.key)) : g.fields.map(f=>f.key);
   const extras=g.fields.filter(f=>!principal.includes(f.key));
@@ -44,6 +54,10 @@ export function EtapaCampos({tipo,datos,onChange,disabled=false,compact=false}:{
   </>;
  };
  return <div className={`${styles.fields} ${compact?styles.reportEditor:''}`} data-tipo={tipo} data-report-section="texto">
+  <p className={styles.note}>Los datos heredados se consultan aquí y se corrigen en su fuente. Los textos propios se completan en esta versión.</p>
+  {tipo==='encuesta'&&<p className={styles.note}>Transcribí únicamente respuestas del cliente e indicá su procedencia. La encuesta no acredita firma ni autoría verificada.</p>}
+  {tipo==='acta'&&<p className={styles.note}>La decisión y las reservas deben provenir del receptor. Indicá su referencia; este registro no reemplaza su firma.</p>}
+  {['avance','cierre'].includes(tipo)&&!values.alcanceReferencia&&<p className={styles.note}>Sin plan aprobado vinculado. Registrá su aprobación en Relevamiento para heredar actividades y criterios.</p>}
   {grupos.map((g,i)=>compact?<details key={g.title} className={styles.editorGroup} open={i===0}><summary>{g.title}</summary><div className={styles.editorGroupBody}>{contenidoGrupo(g,i)}</div></details>:<fieldset key={g.title} className={styles.group}><legend>{g.title}</legend>{contenidoGrupo(g,i)}</fieldset>)}
   {['avance','cierre'].includes(tipo)&&itemEditor}
   {['orden_servicio','relevamiento','avance','cierre'].includes(tipo)&&!(compact&&tipo==='relevamiento')&&<div className={styles.grid}><Campo campo={{key:'observaciones',label:tipo==='orden_servicio'?'Aclaración posterior de la solicitud':tipo==='relevamiento'?'Diagnóstico y fundamento':tipo==='avance'?'Trabajos ejecutados en el período':'Síntesis del resultado técnico',type:'textarea',span:12}} value={String(datos.observaciones??'')} onChange={v=>onChange({...datos,observaciones:v})} disabled={disabled}/></div>}

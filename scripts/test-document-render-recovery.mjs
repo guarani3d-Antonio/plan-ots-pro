@@ -109,7 +109,7 @@ function fixture() {
       } };
       if (spec.endsWith('/document-request.mjs')) return requestModule;
       if (spec.endsWith('/document-pdf-options.mjs')) return pdfOptions;
-      assert.ok(spec.endsWith('/controlled-report.mjs'));
+      assert.match(spec,/\/controlled-report(?:-20261007|-20261008)?\.mjs$/);
       return { materializarHtmlControlado: () => '<html><body>Recovery test</body></html>' };
     },
     fetch: async (url, options) => {

@@ -644,3 +644,6 @@
 .previewActions .avisoImpresion{flex:1 1 100%;max-width:none}
 @media(pointer:coarse){.previewActions>summary{min-height:44px}}
 .previewActions .btnPrimary{background:#2E4A82;color:#fff}
+.identityFacts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr));gap:9px 18px;margin:10px 0}
+.identityDatum{min-width:0;display:grid;align-content:start;gap:3px;padding:5px 0;border-bottom:1px solid var(--border-default);font-size:13px}
+.identityDatum>span{color:var(--text-secondary);font-size:12px}.identityDatum>strong{font-weight:500;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.5}

@@ -1192,7 +1192,6 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
               <details className={styles.dataGroup} open><summary>Datos del reclamo <small>Pedido, visitas y seguimiento</small></summary><div className={styles.dataContent}>
               <EtapasOT ref={etapasRef} orden={{...ordenFresca,...form,campos:valoresCampos}} cliente={ubicacionElegida} proyectoNombre={proyectoNombre ?? ''}
                 disabled={!puedeEditar || guardando || guardandoCliente} puedeRevisar={esSupervisor} onDirty={setEtapasDirty} refresh={0}
-                onFechasReales={(inicio,fin)=>setForm(f=>({...f,fecha_inicio_trabajos:inicio,fecha_fin_trabajos:fin}))}
                 onOrigen={d=>setValoresCampos(c=>({...c,canal_solicitud:d.canal,fecha_solicitud:d.fechaRecepcion,solicitante:d.solicitante,contacto_solicitante:d.contacto,referencia_solicitud:d.referencia,urgencia_solicitada:d.urgencia,proximo_paso:d.proximoPaso}))}
                 onPreview={async (tipo,revision)=>{
                   if(saveLock.current||clienteBusyRef.current)return;
@@ -1219,6 +1218,8 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
                   <textarea className={styles.textarea} rows={4} placeholder="Descripción del problema según el cliente..." value={descripcion} onChange={e => cambiarDescripcion(e.target.value)} />
                 </div>
 </>}} ejecucion={<><details><summary>Seguimiento operativo, horarios y observaciones</summary><div className={`${styles.section} ${styles.formSection} ${styles.executionGrid}`}>
+<div className={styles.field}><label className={styles.label}>Inicio real del trabajo · dato de la OT</label><input className={styles.input} type="date" disabled={!tienePermiso('ot.editar',ordenFresca.proyecto_id)} value={String(form.fecha_inicio_trabajos??'').slice(0,10)} onChange={e=>set('fecha_inicio_trabajos',e.target.value)}/></div>
+<div className={styles.field}><label className={styles.label}>Fin real del trabajo · dato de la OT</label><input className={styles.input} type="date" disabled={!tienePermiso('ot.editar',ordenFresca.proyecto_id)} value={String(form.fecha_fin_trabajos??'').slice(0,10)} onChange={e=>set('fecha_fin_trabajos',e.target.value)}/></div>
 <div className={styles.field}><label className={styles.label}>Hora real de inicio</label><input className={styles.input} type="time" value={String(valoresCampos.hora_inicio_trabajos ?? '')} onChange={e=>setValorCampo('hora_inicio_trabajos',e.target.value)}/></div><div className={styles.field}><label className={styles.label}>Hora real de fin</label><input className={styles.input} type="time" value={String(valoresCampos.hora_fin_trabajos ?? '')} onChange={e=>setValorCampo('hora_fin_trabajos',e.target.value)}/></div>
                 <div className={styles.field}>
                   <label className={styles.label}>% Avance</label>

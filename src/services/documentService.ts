@@ -1,5 +1,6 @@
 import { supabase } from '../db/supabase';
 import { assertSession, sessionTicket } from '../security/sessionScope';
+import type { ContextoCamposInforme } from './reportFieldPolicy';
 
 // Identidad y borradores del expediente. Los RPC no emiten ni firman documentos.
 export type TipoDocumento = 'orden_servicio' | 'visita' | 'relevamiento' | 'avance' | 'cierre' | 'acta' | 'encuesta';
@@ -226,6 +227,16 @@ export async function guardarVersionDocumento(
   assertSession(ticket);
   if (error) throw errorDocumento(error);
   return data as {borrador: BorradorDocumento; revision: RevisionDocumento; revisiones: RevisionDocumento[]};
+}
+
+export async function cargarContextoCamposInforme(ordenId: string, tipo: TipoDocumento, vinculos: unknown = {}, documentoId: string | null = null): Promise<ContextoCamposInforme> {
+  const ticket = sessionTicket();
+  const { data, error } = await supabase.rpc('plan_documento_contexto_campos', {
+    p_orden: ordenId, p_tipo: tipo, p_vinculos: vinculos ?? {}, p_documento: documentoId,
+  });
+  assertSession(ticket);
+  if (error) throw errorDocumento(error);
+  return data as ContextoCamposInforme;
 }
 
 export async function congelarRevisionDocumento(

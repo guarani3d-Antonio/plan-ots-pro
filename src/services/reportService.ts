@@ -130,6 +130,7 @@ export interface DatosActa {
   cargo: string;
   facultad: string;
   decisionPreparada: string;
+  decisionReferencia?: string;
   observacionesCliente: string;
   reservas: string;
   garantiaReferencia: string;
@@ -463,6 +464,7 @@ ${_seccionInforme(2, 'Decisión y reservas')}
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Opción preparada (sin manifestación)</strong>${campo('decisionPreparada')}</div>
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Reservas propuestas y tratamiento</strong>${campo('reservas')}</div>
 </section>
+${datos?.decisionReferencia ? bloque('Referencia de la decisión expresada por el receptor', 'decisionReferencia') : ''}
 ${bloque('Observaciones del cliente registradas para revisión', 'observacionesCliente')}
 ${_seccionInforme(3, 'Condiciones y formalización')}
 <section class="grid grid-cols-2 gap-4 mb-6">
