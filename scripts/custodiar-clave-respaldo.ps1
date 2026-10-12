@@ -1,4 +1,4 @@
-# Ejecutar directamente por el propietario en PowerShell. Nunca desde un log de CI.
+﻿# Ejecutar directamente por el propietario en PowerShell. Nunca desde un log de CI.
 [CmdletBinding()]
 param()
 
@@ -15,7 +15,8 @@ function Clear-BackupClipboard {
     try {
         $taskCurrentClipboard = Get-Clipboard -Raw
         if ($taskCurrentClipboard -and $taskCurrentClipboard.TrimEnd("`r", "`n") -ceq $Expected) {
-            Set-Clipboard -Value ''
+            # Windows PowerShell 5.1 rechaza una cadena vacia. Reemplazar el secreto.
+            Set-Clipboard -Value ' '
         }
     } catch {
         Write-Warning 'No se pudo limpiar el portapapeles. Limpiá su contenido manualmente.'

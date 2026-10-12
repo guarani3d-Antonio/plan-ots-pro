@@ -7,6 +7,7 @@
 - Descarga positiva desde Administración → Respaldo y recuperación con la sesión de Creador en la versión 9ad5af8. No se accedió a credenciales mediante herramientas del navegador.
 - Archivo descargado: `C:\Users\Usuario\Downloads\plan-ots-add48229-f81c-434b-9608-5e618501cd91.potbackup`.
 - Tamaño: 196362693 bytes. SHA-256: `594abcf6fa71bb56c2fcdac44328eeec7158b310914820ef564ece0972690ad2`; coincide exactamente con el paquete recuperado.
+- Custodia de la clave principal completada en Bitwarden: el comprobante local confirma coincidencia exacta con la clave original y no contiene la clave. El propietario confirmó acceso a la nota desde su teléfono y reemplazo posterior del portapapeles. No se inspeccionó la nota mediante automatización.
 - GitHub mantiene `BACKUP_RUNNER_ENABLED=false`; no existe una habilitación de programación en las variables de repositorio consultadas.
 - GitHub Actions: presupuesto US$0 y Stop usage Yes. Uso facturado mostrado: US$0.
 - R2: un objeto, 196.36 MB, 64 operaciones A y 22 B; US$0 de uso facturable mostrado. Las métricas pueden actualizarse con demora.
@@ -16,7 +17,7 @@ Evidencia de descarga: `output/backup-operativo-20261011/descarga-app-comprobada
 
 ## Lo que falta para declarar operación automática cerrada
 
-1. Custodia independiente de la clave principal. La copia DPAPI depende de la cuenta y computadora Windows actuales. El propietario debe conservar la misma clave en un gestor o medio seguro independiente y comprobarla; no regenerarla.
+1. Custodia independiente completada. Conservar la clave principal existente en Bitwarden; no regenerarla. La copia DPAPI local sigue dependiendo de la cuenta y computadora Windows actuales.
 2. Publicar e instalar la protección ya preparada y probada localmente: `server/backup/work-check.mjs` omite PostgreSQL/Docker cuando no hay trabajo; `202610120002_backup_bounded_pilot.sql` vuelve a comprobar fecha y máximo dentro del bloqueo transaccional de la cola. El workflow publicado todavía prepara el laboratorio cada hora aunque no haya trabajo. No activarlo así.
 3. Acordar frecuencia, alcance, período de piloto, detención y conservación. No hay borrado automático implementado. No presentar la propuesta 7 diarias/4 semanales/3 mensuales como una política activa.
 4. Revisar vencimiento y custodia de las credenciales R2: las del piloto fueron configuradas hasta el 18/10/2026. La renovación/rotación necesita una decisión explícita del propietario; conservar las claves de cifrado históricas.
@@ -48,7 +49,7 @@ Una vez creada la nota privada `Plan-OTs / clave de respaldo / principal`, el pr
 & 'C:\Users\Usuario\Desktop\plan-ots\scripts\custodiar-clave-respaldo.ps1'
 ```
 
-El script no se ejecutó con la clave real durante esta preparación. Lee la copia DPAPI local, copia la clave al portapapeles después de confirmar GUARDAR, permite pegarla en la nota y pide recuperarla para una comparación oculta. No imprime la clave ni realiza peticiones de red. Limpia el portapapeles actual si sigue conteniendo la clave al terminar; no puede garantizar eliminar el historial o sincronización de portapapeles del sistema. Si esos servicios están habilitados, evitar este método y usar transferencia local bajo control del propietario. El comprobante local no incluye la clave y no certifica acceso desde otro dispositivo.
+El propietario ejecutó el asistente y completó la comparación oculta con la clave real; el agente solo leyó el comprobante sin secretos. El script lee la copia DPAPI local, copia la clave al portapapeles después de confirmar GUARDAR y no imprime la clave ni realiza peticiones de red. Windows PowerShell 5.1 rechazó el vaciado con cadena vacía: el propietario reemplazó el contenido manualmente y la versión preparada ahora lo sustituye por un espacio. El archivo se guarda con BOM UTF-8 para evitar texto ilegible en Windows PowerShell 5.1. No garantiza eliminar historial ni sincronización del sistema; ambos estaban desactivados o sin configurar en la captura proporcionada. El comprobante por sí solo no certifica acceso desde otro dispositivo; esa comprobación fue confirmada aparte por el propietario desde su teléfono.
 
 El propietario debe conservar también su acceso y código de recuperación del gestor fuera de esta computadora. Para una comprobación final independiente, abrir la nota desde otro dispositivo. No enviar claves por chat ni adjuntar XML DPAPI a un gestor como sustituto de la clave portátil.
 
