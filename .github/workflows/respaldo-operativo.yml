@@ -67,6 +67,10 @@ jobs:
       PG_DUMP: /usr/lib/postgresql/17/bin/pg_dump
       BACKUP_RUN_ONCE: 'true'
       BACKUP_AUTO_REHEARSAL: 'true'
+      BACKUP_TRIGGER: ${{ github.event_name }}
+      BACKUP_AUTOMATIC_STARTED_AT: ${{ vars.BACKUP_AUTOMATIC_STARTED_AT }}
+      BACKUP_AUTOMATIC_UNTIL: ${{ vars.BACKUP_AUTOMATIC_UNTIL }}
+      BACKUP_AUTOMATIC_MAX_COPIES: ${{ vars.BACKUP_AUTOMATIC_MAX_COPIES }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -74,30 +78,34 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22'
-      - name: Preparar cliente PostgreSQL 17 oficial en el ejecutor temporal
-        run: bash server/backup/install-pg-client.sh
       - name: Comprobar configuración sin mostrar secretos
         run: |
           node --input-type=module -e "const keys=['SUPABASE_URL','SUPABASE_ANON_KEY','SUPABASE_SERVICE_ROLE_KEY','DATABASE_URL','BACKUP_MASTER_KEY','R2_ENDPOINT','R2_ACCESS_KEY_ID','R2_SECRET_ACCESS_KEY','R2_BUCKET'];const missing=keys.filter(k=>!process.env[k]);if(missing.length){console.error('Faltan variables: '+missing.join(', '));process.exit(1)}"
-          test -x "$PG_DUMP"
+      - run: npm ci --ignore-scripts
       - name: Comprobar destino con un pequeño objeto temporal
         if: github.event_name == 'workflow_dispatch' && inputs.operacion == 'comprobar-conexion'
         run: |
-          npm ci --ignore-scripts
           npm run backup:check
-      - name: Comprobar laboratorio
+      - name: Comprobar demanda sin exportar datos
+        id: demanda
         if: github.event_name == 'schedule' || inputs.operacion == 'procesar-cola'
+        run: node server/backup/work-check.mjs
+      - name: Preparar cliente PostgreSQL 17 oficial en el ejecutor temporal
+        if: steps.demanda.outputs.needs_work == 'true'
+        run: |
+          bash server/backup/install-pg-client.sh
+          test -x "$PG_DUMP"
+      - name: Comprobar laboratorio
+        if: steps.demanda.outputs.needs_work == 'true'
         run: |
           case "$BACKUP_LAB_IMAGE" in supabase/postgres:*@sha256:*) ;; *) echo 'Se requiere una imagen oficial compatible fijada por digest'; exit 1 ;; esac
-      - run: npm ci --ignore-scripts
-        if: github.event_name == 'schedule' || inputs.operacion == 'procesar-cola'
       - name: Preparar laboratorio oficial fijado
-        if: github.event_name == 'schedule' || inputs.operacion == 'procesar-cola'
+        if: steps.demanda.outputs.needs_work == 'true'
         run: docker pull "$BACKUP_LAB_IMAGE"
       - name: Comprobar recuperación antes de transferir datos reales
-        if: github.event_name == 'schedule' || inputs.operacion == 'procesar-cola'
+        if: steps.demanda.outputs.needs_work == 'true'
         run: npm run backup:lab-check
       - name: Procesar una tarea y comprobar recuperación
-        if: github.event_name == 'schedule' || inputs.operacion == 'procesar-cola'
+        if: steps.demanda.outputs.needs_work == 'true'
         run: npm run backup:worker
       # No plaintext dump, decrypted ZIP or backup key is uploaded as an artifact.

@@ -124,7 +124,7 @@ async function patch(job,values){const r=await api.from('plan_respaldos').update
 }
 function requireSeparator(){return process.platform==='win32'?'\\':'/';}
 let working=false;
-async function tick(){if(working)return;working=true;try{await r2.send(new HeadBucketCommand({Bucket:bucket}));ok(await api.rpc('plan_respaldo_latido'));const job=ok(await api.rpc('plan_respaldo_tomar'));if(job?.id)await execute(job);}finally{working=false;}}
+async function tick(){if(working)return;working=true;try{await r2.send(new HeadBucketCommand({Bucket:bucket}));ok(await api.rpc('plan_respaldo_latido'));const job=ok(await api.rpc('plan_respaldo_tomar_piloto',{p_inicio:E.BACKUP_AUTOMATIC_STARTED_AT||null,p_fin:E.BACKUP_AUTOMATIC_UNTIL||null,p_max:E.BACKUP_AUTOMATIC_MAX_COPIES?Number(E.BACKUP_AUTOMATIC_MAX_COPIES):null}));if(job?.id)await execute(job);}finally{working=false;}}
 // Connections are checked read-only. Activation of automatic jobs remains a
 // separate Creator action after the operator installs and validates this service.
 await r2.send(new HeadBucketCommand({Bucket:bucket}));

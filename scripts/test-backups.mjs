@@ -106,6 +106,7 @@ try {
  const migration=await readFile(new URL('../supabase/migrations/202610100001_backup_jobs.sql',import.meta.url),'utf8');
  const operational=await readFile(new URL('../supabase/migrations/202610110001_backup_operational.sql',import.meta.url),'utf8');
  const latestRecovery=await readFile(new URL('../supabase/migrations/202610110002_backup_latest_recovery.sql',import.meta.url),'utf8');
+ const boundedPilot=await readFile(new URL('../supabase/migrations/202610120002_backup_bounded_pilot.sql',import.meta.url),'utf8');
  await db.exec(setup);await db.exec(migration);
  await db.query('insert into auth.users values($1),($2)',[creator,technician]);
  await db.query('insert into tenants values($1,$2),($3,$4)',[a,'Prueba A',b,'Prueba B']);
@@ -143,7 +144,7 @@ try {
  const inventory=(await db.query('select plan_respaldo_inventario() value')).rows[0].value;
  assert.equal(inventory.buckets[0].bytes,42);assert.equal(inventory.buckets[0].sin_tamano,1);
  assert.ok(inventory.tablas.find(t=>t.nombre==='ordenes').columnas.includes('campo_nuevo'));
- await db.exec('reset role');await db.exec(operational);await db.exec(latestRecovery);
+ await db.exec('reset role');await db.exec(operational);await db.exec(latestRecovery);await db.exec(boundedPilot);
  await db.exec('set role authenticated');
  await assert.rejects(()=>db.query('select plan_respaldo_programar(true,24)'),/motor/);
  await assert.rejects(()=>db.query('select plan_respaldo_programar(false,null)'),/inválida/);
@@ -178,6 +179,26 @@ try {
  assert.equal((await db.query('select siguiente_en from plan_respaldo_config')).rows[0].siguiente_en,null);
  await db.query("select set_config('request.jwt.claim.sub',$1,false)",[technician]);
  await assert.rejects(()=>db.query('select plan_respaldo_estado($1)',[a]),e=>e.code==='42501');
+ await assert.rejects(()=>db.query('select plan_respaldo_tomar_piloto(null,null,null)'),e=>e.code==='42501');
+ // A prepared pilot cannot enqueue a fourth automatic request, even if its
+ // earlier demand check became stale. Manual creator requests remain distinct.
+ await db.exec("reset role;delete from plan_respaldos;update plan_respaldo_config set activo=true,siguiente_en=now()-interval '1 minute';set role service_role");
+ await assert.rejects(()=>db.query('select plan_respaldo_tomar_piloto(null,null,null)'),/máximo/);
+ const pilotStart=new Date(Date.now()-3600000).toISOString(),pilotEnd=new Date(Date.now()+3600000).toISOString();
+ for(let n=0;n<3;n++) {
+  await db.exec("update plan_respaldo_config set siguiente_en=now()-interval '1 minute'");
+  const next=(await db.query('select * from plan_respaldo_tomar_piloto($1,$2,3)',[pilotStart,pilotEnd])).rows[0];assert.ok(next.id);
+  await db.query("update plan_respaldos set estado='error',terminado_en=now(),lease=null,lease_hasta=null where id=$1",[next.id]);
+ }
+ await db.exec("update plan_respaldo_config set siguiente_en=now()-interval '1 minute'");
+ assert.equal((await db.query('select plan_respaldo_tomar_piloto($1,$2,3) job',[pilotStart,pilotEnd])).rows[0].job,null);
+ assert.equal((await db.query('select count(*)::int n from plan_respaldos')).rows[0].n,3);
+ await db.exec('delete from plan_respaldos');
+ assert.equal((await db.query("select plan_respaldo_tomar_piloto(now()-interval '2 hours',now()-interval '1 hour',3) job")).rows[0].job,null);
+ assert.equal((await db.query('select count(*)::int n from plan_respaldos')).rows[0].n,0);
+ await db.exec('update plan_respaldo_config set activo=false');
+ await db.query('insert into plan_respaldos(solicitud_id,solicitado_por) values($1,$2)',[randomUUID(),creator]);
+ assert.ok((await db.query('select * from plan_respaldo_tomar_piloto(null,null,null)')).rows[0].id);
  const rehearsal=await rehearseRecovery(restored,dir,undefined);assert.equal(rehearsal.correcto,false);assert.equal(rehearsal.estado,'pendiente');
  // Execute the actual company recovery SQL in a second isolated PostgreSQL, not
  // just serialization. This checks writable columns and bigint/decimal casts.
