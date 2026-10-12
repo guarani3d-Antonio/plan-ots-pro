@@ -13,7 +13,7 @@ import {spawn} from 'node:child_process';
 import {createServer} from 'node:http';
 import {randomUUID} from 'node:crypto';
 import {writeArchive,unpackArchive,scopeSnapshot,canonical,hashFile,reuseIndex} from './archive.mjs';
-import {rehearseRecovery} from './recovery.mjs';
+import {rehearseRecovery,recoveryFailure} from './recovery.mjs';
 import {databaseOptions,dumpEnvironment} from './database.mjs';
 const required=['SUPABASE_URL','SUPABASE_SERVICE_ROLE_KEY','SUPABASE_ANON_KEY','DATABASE_URL','BACKUP_MASTER_KEY','BACKUP_RELEASE_ID','R2_ENDPOINT','R2_ACCESS_KEY_ID','R2_SECRET_ACCESS_KEY','R2_BUCKET','BACKUP_ALLOWED_ORIGIN'];
 for(const name of required)if(!process.env[name])throw new Error('Falta configurar '+name);
@@ -41,7 +41,7 @@ async function patch(job,values){const r=await api.from('plan_respaldos').update
    if(await hashFile(packageFile)!==job.paquete_sha256)throw new Error('El paquete descargado cambió');
    const checked=await unpackArchive(packageFile,join(dir,'verified.zip'),E.BACKUP_MASTER_KEY,Number(E.BACKUP_VERIFY_MAX_BYTES||536870912));const {manifest}=checked;
    if(manifest.backupId!==job.id||manifest.tenantId!==job.tenant_id)throw new Error('Alcance del paquete incorrecto');
-   let ensayo;try{ensayo=await rehearseRecovery(checked,dir,E.BACKUP_LAB_IMAGE);}catch{ensayo={correcto:false,estado:'fallida',mensaje:'El ensayo no se completó; revisar el laboratorio antes de recuperar.'};}
+   let ensayo;try{ensayo=await rehearseRecovery(checked,dir,E.BACKUP_LAB_IMAGE);}catch(error){ensayo=recoveryFailure(error);}
    await patch(job,{estado:'creada',tarea:'crear',integridad_en:new Date().toISOString(),recuperacion_en:ensayo.correcto?new Date().toISOString():null,terminado_en:new Date().toISOString(),informe:{tipo:'verificacion',correcto:true,archivos:manifest.entries.length,recuperacion:ensayo.estado,ensayo,mensaje:'Cifrado, manifiesto y huellas comprobados. El ensayo aislado tiene su propio resultado.'},lease:null,lease_hasta:null});return;
   }
   await db.connect();await db.query('begin isolation level repeatable read read only');
@@ -49,6 +49,7 @@ async function patch(job,values){const r=await api.from('plan_respaldos').update
   const raw=(await db.query('select public.plan_respaldo_snapshot() value')).rows[0].value;
   raw.entorno={postgresMajor:Number((await db.query("select current_setting('server_version_num')::int/10000 major")).rows[0].major),roles:(await db.query('select rolname from pg_roles order by rolname')).rows.map(r=>r.rolname),extensiones:(await db.query("select e.extname name,n.nspname schema,e.extversion version from pg_extension e join pg_namespace n on n.oid=e.extnamespace where e.extname<>'plpgsql' order by e.extname")).rows,authConteos:{}};
   if(!job.tenant_id)for(const r of (await db.query("select tablename from pg_tables where schemaname='auth'")).rows){const name=r.tablename.replaceAll('"','""');raw.entorno.authConteos[r.tablename]=(await db.query(`select count(*)::text n from auth."${name}"`)).rows[0].n;}
+  raw.entorno.settings=(await db.query("select jsonb_object_agg(name,setting) settings from pg_settings where name in ('TimeZone','DateStyle','IntervalStyle','extra_float_digits')")).rows[0].settings;
   const snapshot=scopeSnapshot(raw,job.tenant_id),corte=snapshot.corte_en;
   const data=canonical(snapshot);const sourceBytes=snapshot.storage.reduce((sum,o)=>sum+Number(o.metadata?.size||0),Buffer.byteLength(data));
   const config=ok(await api.from('plan_respaldo_config').select('*').eq('id',true).single());
@@ -110,7 +111,7 @@ async function patch(job,values){const r=await api.from('plan_respaldos').update
   let ensayo={correcto:false,estado:'pendiente'};
   if(E.BACKUP_AUTO_REHEARSAL==='true'){
    const persisted=await unpackArchive(readback,join(dir,'remote-verified.zip'),E.BACKUP_MASTER_KEY,Number(E.BACKUP_VERIFY_MAX_BYTES||536870912));
-   try{ensayo=await rehearseRecovery(persisted,dir,E.BACKUP_LAB_IMAGE);}catch{ensayo={correcto:false,estado:'fallida',mensaje:'La copia existe, pero el laboratorio no pudo recuperarla.'};}
+   try{ensayo=await rehearseRecovery(persisted,dir,E.BACKUP_LAB_IMAGE);}catch(error){ensayo=recoveryFailure(error);}
   }
   if(leaseLost)throw new Error('El servicio perdió la reserva del trabajo');
   await patch(job,{estado:'creada',tarea:'crear',corte_en:corte,paquete_path:key,paquete_sha256:info.sha256,bytes:info.bytes,objetos:snapshot.storage.length,filas:Object.values(snapshot.tablas).reduce((n,r)=>n+r.length,0),integridad_en:new Date().toISOString(),recuperacion_en:ensayo.correcto?new Date().toISOString():null,terminado_en:new Date().toISOString(),lease:null,lease_hasta:null,informe:{tipo:'integridad',correcto:true,recuperacion:ensayo.estado,ensayo,conteos:manifest.conteos,mensaje:'Copia cifrada leída de nuevo desde R2. Consultá el resultado independiente de recuperación.'}});

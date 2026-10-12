@@ -10,14 +10,34 @@ const literal=s=>"'"+String(s).replaceAll("'","''")+"'";
 export const rowFingerprint=rows=>digest(canonical(rows.map(canonical).sort()));
 export const PILOT_LAB_IMAGE='supabase/postgres:17.6.1.095@sha256:4c087262afbfbb47da86e2863a52d7e424eb21ab589f732d77eeaab51be8e521';
 
+// Never persist raw stderr: pg_restore may include COPY rows, SQL literals or
+// authentication data. These fixed categories and TOC numbers are safe to show.
+export function commandDiagnostic(stderr,code){
+ const diagnostic={codigoSalida:Number.isInteger(code)?code:null};
+ const toc=String(stderr).match(/from TOC entry (\d+);/);
+ if(toc)diagnostic.entradaToc=Number(toc[1]);
+ const categories=[['objeto_duplicado',/already exists/],['referencia_incompleta',/violates foreign key constraint/],['permiso_denegado',/permission denied/],['dependencia_ausente',/does not exist|could not open extension control file/],['dato_invalido',/invalid input syntax|out of range/]];
+ diagnostic.categoria=categories.find(([,pattern])=>pattern.test(String(stderr)))?.[0]||'comando_fallido';
+ return diagnostic;
+}
+export function recoveryFailure(error){
+ return {correcto:false,estado:'fallida',mensaje:'La copia existe, pero el ensayo aislado no se completó.',diagnostico:{etapa:error?.recoveryStage||'laboratorio',...(error?.recoveryDiagnostic||{})}};
+}
+export function laboratorySessionSql(environment={}){
+ const settings=environment.settings||{};
+ const values={TimeZone:settings.TimeZone||'UTC',DateStyle:settings.DateStyle||'ISO, MDY',IntervalStyle:settings.IntervalStyle||'postgres',extra_float_digits:settings.extra_float_digits||'1'};
+ if(Object.values(values).some(v=>typeof v!=='string'||v.length>100))throw new Error('Configuración de representación inválida');
+ return Object.entries(values).map(([key,value])=>`SET ${key}=${literal(value)};`).join('');
+}
+
 export async function command(binary,args,input){
  return new Promise((resolve,reject)=>{
-  const child=spawn(binary,args,{windowsHide:true,stdio:['pipe','pipe','pipe']});let output='',length=0;
+  const child=spawn(binary,args,{windowsHide:true,stdio:['pipe','pipe','pipe']});let output='',length=0,stderr='';
   const timer=setTimeout(()=>{child.kill();reject(new Error('El laboratorio excedió el tiempo permitido'));},120000);
   child.stdout.on('data',chunk=>{length+=chunk.length;if(length>256*1024*1024){child.kill();reject(new Error('Salida del laboratorio demasiado grande'));}else output+=chunk;});
-  child.stderr.on('data',()=>{});child.stdin.on('error',()=>{});
+  child.stderr.on('data',chunk=>{stderr=(stderr+chunk).slice(-65536);});child.stdin.on('error',()=>{});
   child.on('error',()=>{clearTimeout(timer);reject(new Error('Falta instalar '+binary+' en el servicio de respaldo'));});
-  child.on('close',code=>{clearTimeout(timer);code===0?resolve(output):reject(new Error('No se pudo completar el ensayo aislado ('+binary+')'));});
+  child.on('close',code=>{clearTimeout(timer);if(code===0)resolve(output);else{const error=new Error('No se pudo completar el ensayo aislado ('+binary+')');error.recoveryDiagnostic=commandDiagnostic(stderr,code);reject(error);}stderr='';});
   child.stdin.end(input);
  });
 }
@@ -57,7 +77,7 @@ export async function startLaboratory(environment,image){
  if(!/^supabase\/postgres:[a-zA-Z0-9_.-]+@sha256:[a-f0-9]{64}$/.test(image))throw new Error('Se requiere una imagen oficial fijada por digest');
  const name='plan-ots-lab-'+randomUUID();let started=false;
  const exec=(args,input)=>command('docker',['exec','-i',name,...args],input);
- const sql=input=>exec(['psql','-X','-q','-t','-A','--set=ON_ERROR_STOP=1','-U','postgres','-d','postgres'],input);
+ const sql=input=>exec(['psql','-X','-q','-t','-A','--set=ON_ERROR_STOP=1','-U','postgres','-d','postgres'],laboratorySessionSql(environment)+input);
  const close=()=>started?command('docker',['rm','--force',name]):Promise.resolve();
  try{
   // Supabase defaults to supabase_admin and /etc/postgresql, and ships init
@@ -91,24 +111,30 @@ export async function rehearseRecovery({zip,manifest},dir,image){
  const dump=manifest.tenantId?'base/esquema.dump':'base/plataforma.dump';
  if(!zip.file(dump))throw new Error('Falta el esquema de recuperación');
  await writeFile(join(dir,'restore.dump'),await zip.file(dump).async('nodebuffer'),{mode:0o600,flag:'wx'});
- let lab;
+ let lab,stage='iniciar_laboratorio';
  try {
   lab=await startLaboratory(snapshot.entorno,image);const {name,exec,sql}=lab;
   await command('docker',['cp',join(dir,'restore.dump'),name+':/tmp/restore.dump']);
   const existingSchemas=new Set(['public',...snapshot.entorno.extensiones.map(e=>e.schema)]);
   const list=(await exec(['pg_restore','--list','/tmp/restore.dump'])).split('\n').filter(line=>!([...existingSchemas].some(schema=>line.includes(' SCHEMA - '+schema+' '))));
   await writeFile(join(dir,'restore.list'),list.join('\n'),{mode:0o600});await command('docker',['cp',join(dir,'restore.list'),name+':/tmp/restore.list']);
+  stage='restaurar_dump';
   await exec(['pg_restore','--exit-on-error','--no-owner','--use-list=/tmp/restore.list','-U','postgres','-d','postgres','/tmp/restore.dump']);
+  stage='insertar_empresa';
   if(manifest.tenantId)await sql(companyInsertSql(snapshot));
-  await sql(validateForeignKeys);
+  stage='validar_referencias';await sql(validateForeignKeys);
+  stage='comparar_tablas';
   const recovered=JSON.parse((await sql('select public.plan_respaldo_snapshot();')).trim());
-  for(const [table,rows] of Object.entries(snapshot.tablas))if(rowFingerprint(recovered.tablas[table]||[])!==rowFingerprint(rows))throw new Error('Los datos recuperados no coinciden: '+table);
+  for(const [table,rows] of Object.entries(snapshot.tablas))if(rowFingerprint(recovered.tablas[table]||[])!==rowFingerprint(rows)){const error=new Error('Los datos recuperados no coinciden');error.recoveryDiagnostic={categoria:'huellas_distintas',...( /^[a-z_][a-z0-9_]{0,62}$/.test(table)?{tabla:table}:{})};throw error;}
+  stage='comparar_identidades';
   for(const [table,count] of Object.entries(snapshot.entorno.authConteos||{}))if(Number((await sql(`select count(*) from auth.${identifier(table)};`)).trim())!==Number(count))throw new Error('Las identidades recuperadas no coinciden');
   const objects=rows=>rows.map(({backupEntry,...row})=>row);
+  stage='comparar_storage';
   if(rowFingerprint(objects(recovered.storage))!==rowFingerprint(objects(snapshot.storage))||rowFingerprint(recovered.buckets)!==rowFingerprint(snapshot.buckets))throw new Error('El inventario Storage recuperado no coincide');
   // Rehydrate each original byte stream into an isolated directory. Objects are
   // already hash-checked by unpackArchive; they are never uploaded to production.
+  stage='reconstruir_archivos';
   for(let i=0;i<snapshot.storage.length;i++){const o=snapshot.storage[i];const entry=zip.file(o.backupEntry);if(!entry)throw new Error('Falta archivo de Storage');const file=join(dir,'recovered-'+i+'.bin');await writeFile(file,await entry.async('nodebuffer'),{mode:0o600,flag:'wx'});const proof=manifest.entries.find(e=>e.name===o.backupEntry);if(!proof||digest(await readFile(file))!==proof.sha256)throw new Error('El archivo recuperado no coincide');}
   return {correcto:true,estado:'comprobada',metodo:'PostgreSQL aislado sin red y reconstrucción de archivos',tablas:Object.keys(snapshot.tablas).length,archivos:snapshot.storage.length,identidades:manifest.tenantId?'Referencias con identidades de prueba; requiere cuentas originales para restaurar empresa':'Conteos Auth del corte comprobados',alcance:'Recuperación de datos y archivos; no certifica despliegue, conectividad ni login de una plataforma nueva'};
- } finally {if(lab)await lab.close().catch(()=>{});}
+ } catch(error){error.recoveryStage=stage;throw error;} finally {if(lab)await lab.close().catch(()=>{});}
 }

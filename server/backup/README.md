@@ -4,7 +4,19 @@ Estado al 12/10/2026: el propietario activó R2 y se creó el bucket privado Sta
 `plan-ots-respaldos`. El propietario autorizó dos credenciales limitadas a ese bucket,
 con vencimiento el 18/10/2026: lectura/escritura en el entorno `respaldo` de GitHub y
 sólo lectura en los secretos de Supabase. El propietario restableció la contraseña
-PostgreSQL y se guardó `BACKUP_DATABASE_URL` en GitHub. No se ha ejecutado una copia real.
+PostgreSQL y se guardó `BACKUP_DATABASE_URL` en GitHub. Se ejecutó una única copia real.
+La sonda corregida pasó (Actions 38253879967). Una ejecución sin tareas pasó
+(38254815144) y registró el motor. La solicitud única del piloto es
+`add48229-f81c-434b-9608-5e618501cd91`; fue registrada desde SQL administrativo
+con guardas de destino, motor y ausencia de otras solicitudes. No hubo suplantación
+de sesión ni cambios de permisos. La ejecución 38256255074 creó el paquete privado:
+196362693 bytes, 229 originales de Storage, 53 tablas públicas y 3663 registros.
+SHA-256: `594abcf6fa71bb56c2fcdac44328eeec7158b310914820ef564ece0972690ad2`.
+La integridad pasó; el ensayo nativo falló y NO está certificado. El job global
+terminó en success porque conserva una copia íntegra incluso si falla el ensayo.
+Se descargó una vez desde el panel R2 al equipo del propietario y se comprobó
+la misma huella. El motor manual quedó apagado (`BACKUP_RUNNER_ENABLED=false`),
+la programación sigue apagada y el portal permanece simulado.
 Ambos clientes del motor exigen TLS con certificado y nombre de servidor verificados.
 La primera sonda falló antes de transferir datos porque faltaba la CA de Supabase.
 El panel Database Settings entrega `supabase-prod-ca-2021.crt`, certificado público
@@ -12,9 +24,11 @@ oficial con huella SHA-256 `807025ad50d4ed219d2c9c7d299c004f824eb00cf7f65afef607
 Node y libpq lo utilizan para validar CA y hostname; no se desactiva esa verificación.
 Fuente: https://supabase.com/docs/guides/platform/ssl-enforcement.
 La función `descargar-respaldo` está desplegada con verificación JWT; se comprobó
-rechazo sin sesión (401) y del usuario público (403), sin descargar archivos.
+rechazo sin sesión (401) y del usuario público (403). El frontend de producción
+incluye la bandera de descarga. Su descarga positiva con JWT aún no está validada:
+el navegador integrado falla en consultas de red y la descarga única se hizo desde R2.
 La preparación incluye cola, inventario,
-estado operativo y frontend; no equivale a una copia real ni a recuperación verificada.
+estado operativo y frontend; una copia íntegra no equivale a recuperación verificada.
 La instalación SQL se registra en `output/backup-operativo-20261011`.
 
 ## Formato
@@ -147,7 +161,7 @@ https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-t
 
 Para descarga desde la aplicación seguirá haciendo falta el endpoint HTTPS del
 servicio o el puente `supabase/functions/descargar-respaldo`, preparado y probado
-localmente, todavía sin desplegar ni conectar. Usa el JWT de Creador, RLS y una
+localmente y desplegado con sus secretos limitados. Usa el JWT de Creador, RLS y una
 credencial separada **sólo lectura** para el bucket de copias. Compara el tamaño y
 el SHA-256 registrado en los metadatos remotos antes de firmar un GET de 60 segundos;
 la verificación completa de bytes corresponde al motor. El puente no recibe clave
@@ -162,14 +176,17 @@ La interfaz lo indica y no ofrece un enlace ficticio.
 El workflow distingue `comprobar-conexion` (sonda explícita de 64 bytes) de
 `procesar-cola` (una tarea y su ensayo). `BACKUP_RUNNER_ENABLED` permite pruebas
 manuales; la programación horaria además exige `BACKUP_SCHEDULE_ENABLED=true`.
-Ambas variables siguen sin activar. La programación interna de Supabase también
+El piloto manual habilitó temporalmente `BACKUP_RUNNER_ENABLED` y lo devolvió a
+`false` tras la ejecución; la variable de
+programación sigue sin activar. La programación interna de Supabase también
 continúa apagada. La rama por defecto se comprobó en GitHub: **tablet-v1**.
-Presupuesto Actions observado: **US$0, Stop usage: Yes**. No se ejecutó un runner.
+Presupuesto Actions observado: **US$0, Stop usage: Yes**. Las sondas y el motor
+sin tareas pasaron; el ensayo real tiene su propio resultado fallido.
 
-## Primera prueba aprobada, pendiente de completar conexión
+## Primera prueba acotada: copia íntegra, recuperación pendiente
 
 El propietario aceptó R2 y aprobó una copia, un ensayo y una descarga con reserva
-de 300 MB y programación apagada. Las credenciales aún no están conectadas. Las pruebas locales
+de 300 MB y programación apagada. Las credenciales ya están conectadas. Las pruebas locales
 usan datos ficticios y no consumen R2/Supabase. Para la primera prueba remota:
 
 1. Revisar consumo disponible en Supabase y R2, custodiar la clave y conectar.
@@ -256,8 +273,20 @@ alteración, clave incorrecta, límites y alcance por empresa, motor vencido,
 fallo posterior y rechazo de programación sin recuperación comprobada.
 `npm run build` verifica integración de interfaz. El ensayo Docker/pg_restore con
 datos sintéticos pasó en GitHub Actions (ejecución 38169984543). La copia real R2,
-su recuperación y descarga siguen pendientes de la conexión PostgreSQL. No
-confundir el laboratorio sintético con recuperación comprobada de datos reales.
+su lectura de comprobación y una descarga se completaron el 12/10/2026. La recuperación
+nativa de esa copia falló y debe diagnosticarse usando el mismo archivo, sin crear
+otra copia ni volver a leer originales de Supabase. No confundir el laboratorio
+sintético ni el diagnóstico local PGlite con recuperación nativa comprobada.
+
+El diagnóstico offline recuperó el TOC y las filas en PGlite, sin nuevas llamadas
+a R2/Supabase. Encontró cambios de representación por zona horaria y diferencias
+de último dígito en double precision en ese motor WASM. No se aplica tolerancia
+ni se declara éxito a partir de ese diagnóstico. El laboratorio usa sesiones UTC
+para copias anteriores y conserva los ajustes de representación en copias nuevas.
+Los próximos fallos registran etapa, categoría fija y número TOC si está disponible;
+nunca stderr sin filtrar, SQL privado, valores COPY ni credenciales. Hace falta
+autorizar una repetición acotada del ensayo nativo sobre el mismo paquete para
+determinar el fallo original, cuyo detalle no se conservó. Programación bloqueada.
 
 ## Volver atrás sin perder información
 

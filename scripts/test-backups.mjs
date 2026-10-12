@@ -5,7 +5,7 @@ import {join} from 'node:path';
 import {randomBytes,randomUUID,X509Certificate} from 'node:crypto';
 import {PGlite} from '@electric-sql/pglite';
 import {writeArchive,unpackArchive,scopeSnapshot,canonical,reuseIndex} from '../server/backup/archive.mjs';
-import {companyInsertSql,rowFingerprint,rehearseRecovery} from '../server/backup/recovery.mjs';
+import {companyInsertSql,rowFingerprint,rehearseRecovery,command,commandDiagnostic,recoveryFailure,laboratorySessionSql} from '../server/backup/recovery.mjs';
 import {databaseOptions,dumpEnvironment} from '../server/backup/database.mjs';
 import pg from 'pg';
 
@@ -23,10 +23,34 @@ assert.equal(secureDump.PGPASSWORD,'fake@password');assert.equal(secureDump.PGCO
 assert.equal(new pg.Client(databaseOptions(fakeConnection+'?sslmode=verify-full&sslrootcert=system')).ssl.rejectUnauthorized,true);
 for(const suffix of ['?sslmode=disable','?sslmode=no-verify','?sslmode=require','?ssl=false','?sslrootcert=unknown'])assert.throws(()=>databaseOptions(fakeConnection+suffix));
 
+// Diagnostic reports must identify the failed restore stage without copying
+// stderr, SQL literals, credentials or the contents of a failed COPY row.
+const privateFailure='pg_restore: from TOC entry 1234; 0 0 TABLE DATA public synthetic\nERROR: invalid input syntax\nCOPY synthetic, line 1: private-person@example.invalid secret-password';
+assert.deepEqual(commandDiagnostic(privateFailure,1),{codigoSalida:1,entradaToc:1234,categoria:'dato_invalido'});
+await assert.rejects(()=>command(process.execPath,['-e','process.stderr.write('+JSON.stringify(privateFailure)+');process.exit(1)']),error=>{
+ error.recoveryStage='restaurar_dump';const report=recoveryFailure(error);
+ assert.equal(report.diagnostico.etapa,'restaurar_dump');assert.equal(report.diagnostico.entradaToc,1234);
+ assert.ok(!JSON.stringify(report).includes('private-person'));assert.ok(!JSON.stringify(report).includes('secret-password'));return true;
+});
+assert.equal(recoveryFailure(new Error('private data')).estado,'fallida');
+assert.ok(!JSON.stringify(recoveryFailure(new Error('private data'))).includes('private data'));
+assert.throws(()=>laboratorySessionSql({settings:{TimeZone:'x'.repeat(101)}}));
+
 const dir=await mkdtemp(join(tmpdir(),'plan-ots-backup-test-'));
 const db=new PGlite();
 const creator=randomUUID(),technician=randomUUID(),a=randomUUID(),b=randomUUID();
 try {
+ await db.exec("create temporary table temporal_proof(value timestamptz);insert into temporal_proof values('2026-10-12T13:38:27.123456+00');SET TIME ZONE 'UTC';");
+ const sourceTime=(await db.query('select to_jsonb(t) value from temporal_proof t')).rows[0].value;
+ await db.exec("SET TIME ZONE 'America/Asuncion';");
+ const changedZone=(await db.query('select to_jsonb(t) value from temporal_proof t')).rows[0].value;
+ assert.notEqual(rowFingerprint([sourceTime]),rowFingerprint([changedZone]));
+ await db.exec(laboratorySessionSql());
+ const restoredTime=(await db.query('select to_jsonb(t) value from temporal_proof t')).rows[0].value;
+ assert.equal(rowFingerprint([sourceTime]),rowFingerprint([restoredTime]));
+ assert.ok(restoredTime.value.includes('.123456')); // Preserve microseconds.
+ assert.notEqual(rowFingerprint([{value:0.1234567890123456}]),rowFingerprint([{value:0.1234567890123457}])); // No tolerance hides changed coordinates.
+ await db.exec('drop table temporal_proof;');
  const key=randomBytes(32).toString('base64'),file=join(dir,'copy.potbackup');
  const sample={ot:'OT-003035',visitas:[{version:1,motivo:'Verificación',firma:'trazo'}],importe:'9007199254740993.12'};
  await writeArchive(file,[{name:'datos/snapshot.json',content:canonical(sample)},{name:'archivos/0.bin',content:Buffer.from([0,255,31,91])}],{backupId:a,tenantId:null},key);
