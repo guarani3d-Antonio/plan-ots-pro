@@ -6,8 +6,11 @@ con vencimiento el 18/10/2026: lectura/escritura en el entorno `respaldo` de Git
 sólo lectura en los secretos de Supabase. El propietario restableció la contraseña
 PostgreSQL y se guardó `BACKUP_DATABASE_URL` en GitHub. No se ha ejecutado una copia real.
 Ambos clientes del motor exigen TLS con certificado y nombre de servidor verificados.
-libpq utiliza `PGSSLROOTCERT=system`; la sonda comprueba también su conexión antes de R2.
-Fuente: https://www.postgresql.org/docs/17/libpq-connect.html#LIBPQ-CONNECT-SSLROOTCERT.
+La primera sonda falló antes de transferir datos porque faltaba la CA de Supabase.
+El panel Database Settings entrega `supabase-prod-ca-2021.crt`, certificado público
+oficial con huella SHA-256 `807025ad50d4ed219d2c9c7d299c004f824eb00cf7f65afef607d07b72e6cafa`.
+Node y libpq lo utilizan para validar CA y hostname; no se desactiva esa verificación.
+Fuente: https://supabase.com/docs/guides/platform/ssl-enforcement.
 La función `descargar-respaldo` está desplegada con verificación JWT; se comprobó
 rechazo sin sesión (401) y del usuario público (403), sin descargar archivos.
 La preparación incluye cola, inventario,
