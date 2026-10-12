@@ -1,7 +1,15 @@
 # Respaldo y recuperación de Plan-OTs
 
-Estado al 11/10/2026: el propietario activó R2 y se creó el bucket privado Standard
-`plan-ots-respaldos`. Credenciales pendientes de confirmación, motor sin activar.
+Estado al 12/10/2026: el propietario activó R2 y se creó el bucket privado Standard
+`plan-ots-respaldos`. El propietario autorizó dos credenciales limitadas a ese bucket,
+con vencimiento el 18/10/2026: lectura/escritura en el entorno `respaldo` de GitHub y
+sólo lectura en los secretos de Supabase. El propietario restableció la contraseña
+PostgreSQL y se guardó `BACKUP_DATABASE_URL` en GitHub. No se ha ejecutado una copia real.
+Ambos clientes del motor exigen TLS con certificado y nombre de servidor verificados.
+libpq utiliza `PGSSLROOTCERT=system`; la sonda comprueba también su conexión antes de R2.
+Fuente: https://www.postgresql.org/docs/17/libpq-connect.html#LIBPQ-CONNECT-SSLROOTCERT.
+La función `descargar-respaldo` está desplegada con verificación JWT; se comprobó
+rechazo sin sesión (401) y del usuario público (403), sin descargar archivos.
 La preparación incluye cola, inventario,
 estado operativo y frontend; no equivale a una copia real ni a recuperación verificada.
 La instalación SQL se registra en `output/backup-operativo-20261011`.
@@ -20,6 +28,12 @@ La clave debe mantenerse en el servidor y en un lugar de recuperación independi
 de R2. Una descarga sin esa clave no puede recuperarse. No regenerar la clave
 existente ni rotarla sin conservar las claves de las copias anteriores.
 Los secretos de despliegue y configuración de proveedor se custodian por separado.
+La clave `principal` está en GitHub y tiene una copia local en
+`backups/private-keys/principal.dpapi.xml`, excluida de Git y protegida por permisos
+del propietario. Ese archivo usa DPAPI: requiere la misma cuenta de Windows y no
+constituye por sí solo una custodia portátil o independiente de esta computadora.
+Antes de dar por completa la recuperación operativa, el propietario debe conservar
+la clave en un gestor de contraseñas o medio seguro independiente.
 Un dump recuperable no sustituye esa configuración ni garantiza login en otro
 proyecto Supabase. `BACKUP_RELEASE_ID` identifica la aplicación compatible.
 
@@ -51,9 +65,10 @@ constante rondarían 3.02 GB tomando esa referencia. Compresión, metadatos y cr
 pueden cambiarlo. El paquete real se mide tras generarlo.
 
 R2 Standard ofrece 10 GB-mes, 1 millón de operaciones A y 10 millones B gratuitos.
-La cuenta mostró **R2 sin activar**, US$0 inicial/mensual más consumo adicional,
-suscripción con renovación automática y términos que deben aceptar el propietario.
-No se aceptaron. https://developers.cloudflare.com/r2/pricing/
+El propietario activó R2: US$0 de base más cobro por excedentes. La prueba acotada
+reserva 300 MB de paquete y 300 MB de egreso de Supabase; la estimación es US$0
+dentro de los cupos disponibles. Revalidarlos antes de la transferencia, pues se
+comparten con otros usos de la cuenta. https://developers.cloudflare.com/r2/pricing/
 
 El servicio reserva como máximo 8 GB en un bucket exclusivo y detiene nuevas copias
 si no caben. No borra copias antiguas automáticamente. Propuesta pendiente de
@@ -236,9 +251,10 @@ con lo actual y conservar un respaldo previo; aplicar requiere aprobación espec
 precisión decimal/bigint, idempotencia, cola/reserva, campos añadidos, cifrado,
 alteración, clave incorrecta, límites y alcance por empresa, motor vencido,
 fallo posterior y rechazo de programación sin recuperación comprobada.
-`npm run build` verifica integración de interfaz. El ensayo Docker/pg_restore,
-prueba real R2 y recuperación visual no están ejecutados: faltan herramientas,
-activación y credenciales. No confundir esas pruebas pendientes con las locales.
+`npm run build` verifica integración de interfaz. El ensayo Docker/pg_restore con
+datos sintéticos pasó en GitHub Actions (ejecución 38169984543). La copia real R2,
+su recuperación y descarga siguen pendientes de la conexión PostgreSQL. No
+confundir el laboratorio sintético con recuperación comprobada de datos reales.
 
 ## Volver atrás sin perder información
 

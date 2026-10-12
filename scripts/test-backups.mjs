@@ -6,6 +6,19 @@ import {randomBytes,randomUUID} from 'node:crypto';
 import {PGlite} from '@electric-sql/pglite';
 import {writeArchive,unpackArchive,scopeSnapshot,canonical,reuseIndex} from '../server/backup/archive.mjs';
 import {companyInsertSql,rowFingerprint,rehearseRecovery} from '../server/backup/recovery.mjs';
+import {databaseOptions,dumpEnvironment} from '../server/backup/database.mjs';
+import pg from 'pg';
+
+// A bare dashboard URI must still enforce TLS. Neither URL options nor ambient
+// libpq settings may turn certificate checks off. Secrets stay out of argv.
+const fakeConnection='postgresql://postgres.example:fake%40password@example.invalid:5432/postgres';
+const secureClient=new pg.Client(databaseOptions(fakeConnection));
+assert.equal(secureClient.ssl.rejectUnauthorized,true);
+const secureDump=dumpEnvironment(fakeConnection,{PGSSLMODE:'disable',PGSSLROOTCERT:'wrong'});
+assert.equal(secureDump.PGSSLMODE,'verify-full');assert.equal(secureDump.PGSSLROOTCERT,'system');
+assert.equal(secureDump.PGPASSWORD,'fake@password');assert.equal(secureDump.PGCONNECT_TIMEOUT,'15');
+assert.equal(new pg.Client(databaseOptions(fakeConnection+'?sslmode=verify-full&sslrootcert=system')).ssl.rejectUnauthorized,true);
+for(const suffix of ['?sslmode=disable','?sslmode=no-verify','?sslmode=require','?ssl=false','?sslrootcert=unknown'])assert.throws(()=>databaseOptions(fakeConnection+suffix));
 
 const dir=await mkdtemp(join(tmpdir(),'plan-ots-backup-test-'));
 const db=new PGlite();

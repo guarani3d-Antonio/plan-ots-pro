@@ -14,6 +14,7 @@ import {createServer} from 'node:http';
 import {randomUUID} from 'node:crypto';
 import {writeArchive,unpackArchive,scopeSnapshot,canonical,hashFile,reuseIndex} from './archive.mjs';
 import {rehearseRecovery} from './recovery.mjs';
+import {databaseOptions,dumpEnvironment} from './database.mjs';
 const required=['SUPABASE_URL','SUPABASE_SERVICE_ROLE_KEY','SUPABASE_ANON_KEY','DATABASE_URL','BACKUP_MASTER_KEY','BACKUP_RELEASE_ID','R2_ENDPOINT','R2_ACCESS_KEY_ID','R2_SECRET_ACCESS_KEY','R2_BUCKET','BACKUP_ALLOWED_ORIGIN'];
 for(const name of required)if(!process.env[name])throw new Error('Falta configurar '+name);
 const E=process.env,api=createClient(E.SUPABASE_URL,E.SUPABASE_SERVICE_ROLE_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
@@ -25,12 +26,12 @@ function byteLimit(maximum){let size=0;return new Transform({transform(chunk,_en
 function ok(r){if(r.error)throw new Error(r.error.message);return r.data;}
 async function usedSpace(){let token,total=0;do{const page=await r2.send(new ListObjectsV2Command({Bucket:bucket,ContinuationToken:token}));for(const o of page.Contents||[])total+=o.Size||0;token=page.IsTruncated?page.NextContinuationToken:undefined;}while(token);return total;}
 // libpq receives the password through its environment, never through argv/logs.
-function dbEnv(url){const u=new URL(url);return {...process.env,PGHOST:u.hostname,PGPORT:u.port||'5432',PGDATABASE:decodeURIComponent(u.pathname.slice(1)),PGUSER:decodeURIComponent(u.username),PGPASSWORD:decodeURIComponent(u.password),PGSSLMODE:u.searchParams.get('sslmode')||'verify-full'};}
+function dbEnv(url){return dumpEnvironment(url);}
 async function dump(file,snapshot,schemaOnly=false){await new Promise((resolve,reject)=>{const child=spawn(E.PG_DUMP||'pg_dump',['--format=custom','--no-owner','--schema=public','--schema=auth','--schema=storage',...(schemaOnly?['--schema-only']:[]),`--snapshot=${snapshot}`,`--file=${file}`],{env:dbEnv(E.DATABASE_URL),windowsHide:true,stdio:['ignore','ignore','pipe']});let failed=false;child.stderr.on('data',()=>{failed=true;});child.on('error',()=>reject(new Error('No está disponible pg_dump')));child.on('close',code=>code===0?resolve():reject(new Error(`Falló la exportación PostgreSQL (${code}${failed?', revisar el servicio':''})`)));});}
 async function creatorClient(token){const userApi=createClient(E.SUPABASE_URL,E.SUPABASE_ANON_KEY,{global:{headers:{Authorization:'Bearer '+token}},auth:{persistSession:false,autoRefreshToken:false}});const user=await userApi.auth.getUser(token);if(user.error||!user.data.user||ok(await userApi.rpc('plan_es_creador'))!==true)throw new Error('Sin permiso');return userApi;}
 async function patch(job,values){const r=await api.from('plan_respaldos').update(values).eq('id',job.id).eq('lease',job.lease).eq('estado','procesando').select('id');if(r.error||r.data?.length!==1)throw new Error('El trabajo cambió de propietario');}
  async function execute(job){
- const dir=await mkdtemp(join(tmpdir(),'plan-ots-backup-')),db=new pg.Client({connectionString:E.DATABASE_URL});let timer,leaseLost=false;
+ const dir=await mkdtemp(join(tmpdir(),'plan-ots-backup-')),db=new pg.Client(databaseOptions(E.DATABASE_URL));let timer,leaseLost=false;
  try{
   timer=setInterval(()=>{void patch(job,{lease_hasta:new Date(Date.now()+600000).toISOString()}).catch(()=>{leaseLost=true;});},60000);
   const entries=[],packageFile=join(dir,'copy.potbackup');
