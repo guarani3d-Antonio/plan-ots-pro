@@ -6,7 +6,7 @@ import { normalizeAssistantText } from '../../services/assistantCommands';
 import { RobotAsistente } from './RobotAsistente';
 import styles from './MiAsistente.module.css';
 
-const providers = [{ id: 'openai' as const, name: 'OpenAI' }, { id: 'anthropic' as const, name: 'Claude' }];
+const providers = [{ id: 'openai' as const, name: 'OpenAI (ChatGPT)' }, { id: 'anthropic' as const, name: 'Anthropic (Claude)' }];
 export function MiAsistente() {
   const userId = useAuthStore(s => s.user?.id);
   const assistant = useAssistantStore();
@@ -14,7 +14,8 @@ export function MiAsistente() {
   const [readAloud, setReadAloud] = useState(assistant.readAloud);
   const [status, setStatus] = useState<AssistantStatus | null>(null);
   const [provider, setProvider] = useState<AssistantProvider>('openai');
-  const [providerText, setProviderText] = useState('OpenAI');
+  const [providerText, setProviderText] = useState(providers[0].name);
+  const [providerQuery, setProviderQuery] = useState('');
   const [providerOpen, setProviderOpen] = useState(false);
   const [model, setModel] = useState('');
   const [apiKey, setApiKey] = useState('');
@@ -23,13 +24,15 @@ export function MiAsistente() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [connectionFeedback, setConnectionFeedback] = useState<{ error: boolean; text: string } | null>(null);
   const [confirmDisconnect, setConfirmDisconnect] = useState(false);
   const [usageRevision, setUsageRevision] = useState(0);
 
   useEffect(() => {
     // An unfinished credential belongs only to the session that typed it.
     setApiKey(''); setConsent(false); setStatus(null); setError(''); setNotice('');
-    setConfirmDisconnect(false); setBudget('0.05'); setProvider('openai'); setProviderText('OpenAI'); setModel('');
+    setConnectionFeedback(null); setProviderOpen(false); setProviderQuery('');
+    setConfirmDisconnect(false); setBudget('0.05'); setProvider('openai'); setProviderText(providers[0].name); setModel('');
   }, [userId]);
 
   useEffect(() => {
@@ -46,17 +49,19 @@ export function MiAsistente() {
 
   async function connect() {
     if (busy || !status?.ready || !userId) return;
-    setBusy(true); setError(''); setNotice('');
+    setBusy(true); setError(''); setConnectionFeedback(null);
     try {
       const result = await saveAssistantConnection({ provider, model, apiKey, budgetUsd: Number(budget), consent });
-      setStatus(result); setApiKey(''); setNotice('Clave guardada de forma cifrada. No se hizo una consulta de IA para probarla. Antes de cada consulta verás su costo máximo estimado.'); setUsageRevision(value => value + 1);
-    } catch (e) { setError(e instanceof Error ? e.message : 'No se pudo guardar la conexión.'); }
+      if (!result.connected) throw new Error('El servicio no confirmó el guardado. Actualizá el estado antes de intentar de nuevo.');
+      setStatus({ ...result, usage: status.usage }); setApiKey(''); setConsent(false);
+      setConnectionFeedback({ error: false, text: 'Conexión guardada. Tu API está cifrada. Todavía no se probó con el proveedor ni se hizo una consulta paga.' });
+    } catch (e) { setConnectionFeedback({ error: true, text: e instanceof Error ? e.message : 'No se pudo guardar la conexión.' }); }
     finally { setBusy(false); }
   }
   async function disconnect() {
-    if (busy) return; setBusy(true); setError('');
-    try { setStatus(await disconnectAssistant()); setApiKey(''); setConfirmDisconnect(false); setNotice('Clave desconectada. Los comandos de navegación siguen disponibles.'); }
-    catch (e) { setError(e instanceof Error ? e.message : 'No se pudo desconectar.'); }
+    if (busy) return; setBusy(true); setError(''); setConnectionFeedback(null);
+    try { setStatus(await disconnectAssistant()); setApiKey(''); setConsent(false); setConfirmDisconnect(false); setConnectionFeedback({ error: false, text: 'Clave desconectada. Los comandos de navegación siguen disponibles.' }); }
+    catch (e) { setConnectionFeedback({ error: true, text: e instanceof Error ? e.message : 'No se pudo desconectar.' }); }
     finally { setBusy(false); }
   }
   const models = status?.models.filter(m => m.provider === provider) ?? [];
@@ -75,9 +80,9 @@ export function MiAsistente() {
       <h2>API personal</h2>
       <p className={styles.hint}>{status === null ? error ? 'No se pudo comprobar el servicio. Los comandos de navegación siguen disponibles.' : 'Revisando el servicio…' : !status.ready ? 'La conexión de IA está pendiente de activar. Podés usar el avatar para navegar sin API.' : status.connected ? `Clave guardada ${status.hint ?? ''} · uso sujeto al saldo y acceso de tu proveedor.` : 'Sin clave conectada.'}</p>
       <div className={styles.fields}>
-        <div className={styles.choice}>
-          <label className={styles.field}>Proveedor<input role="combobox" aria-expanded={providerOpen} aria-controls="assistant-providers" aria-autocomplete="list" value={providerText} autoComplete="off" onFocus={() => setProviderOpen(true)} onChange={e => { setProviderText(e.target.value); setProviderOpen(true); }} onKeyDown={e => { if (e.key === 'Escape') setProviderOpen(false); }} /></label>
-          {providerOpen && <div className={styles.options} id="assistant-providers" role="listbox" aria-label="Proveedores de IA">{providers.filter(p => normalizeAssistantText(p.name).includes(normalizeAssistantText(providerText))).map(p => <button type="button" role="option" aria-selected={provider === p.id} key={p.id} onClick={() => { setProvider(p.id); setProviderText(p.name); setProviderOpen(false); setApiKey(''); setConsent(false); setModel(status?.models.find(m => m.provider === p.id)?.id ?? ''); }}>{p.name}</button>)}</div>}
+        <div className={styles.choice} onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget)) { setProviderOpen(false); setProviderQuery(''); setProviderText(providers.find(p => p.id === provider)!.name); } }}>
+          <label className={styles.field}>Proveedor<span className={styles.providerControl}><input role="combobox" aria-expanded={providerOpen} aria-controls="assistant-providers" aria-autocomplete="list" value={providerText} autoComplete="off" disabled={busy} onFocus={e => { setProviderQuery(''); setProviderOpen(true); e.target.select(); }} onChange={e => { setProviderText(e.target.value); setProviderQuery(e.target.value); setProviderOpen(true); }} onKeyDown={e => { if (e.key === 'Escape') { setProviderOpen(false); setProviderText(providers.find(p => p.id === provider)!.name); } if (e.key === 'ArrowDown') { e.preventDefault(); setProviderOpen(true); setProviderQuery(''); } }} /><button type="button" aria-label="Mostrar proveedores de IA" aria-expanded={providerOpen} disabled={busy} onClick={() => { setProviderQuery(''); setProviderOpen(open => !open); }}>⌄</button></span></label>
+          {providerOpen && <div className={styles.options} id="assistant-providers" role="listbox" aria-label="Proveedores de IA">{providers.filter(p => normalizeAssistantText(p.name).includes(normalizeAssistantText(providerQuery))).map(p => <button type="button" role="option" aria-selected={provider === p.id} key={p.id} onClick={() => { setProvider(p.id); setProviderText(p.name); setProviderQuery(''); setProviderOpen(false); setApiKey(''); setConsent(false); setConnectionFeedback(null); setModel(status?.models.find(m => m.provider === p.id)?.id ?? ''); }}>{p.name}</button>)}{!providers.some(p => normalizeAssistantText(p.name).includes(normalizeAssistantText(providerQuery))) && <p className={styles.hint}>Sin coincidencias. Buscá OpenAI o Anthropic.</p>}</div>}
         </div>
         <label className={styles.field}>Modelo<select value={model} onChange={e => setModel(e.target.value)} disabled={!models.length}>{!models.length && <option value="">Disponible al activar el servicio</option>}{models.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}</select></label>
       </div>
@@ -86,6 +91,7 @@ export function MiAsistente() {
       {selectedModel && <small>Tarifa de referencia por millón de tokens: entrada USD {selectedModel.inputUsd}; salida USD {selectedModel.outputUsd}. Sin impuestos ni otros usos de tu cuenta.</small>}
       <label className={styles.check}><input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)} disabled={!status?.ready || busy} />Autorizo guardar mi API cifrada. Cada consulta pedirá mi confirmación de costo antes de enviar los mensajes al proveedor.</label>
       <div className={styles.actions}><button type="button" onClick={() => void connect()} disabled={busy || !status?.ready || !consent || !model || !Number.isFinite(Number(budget)) || (!apiKey && !(status.connected && status.provider === provider))}>{busy ? 'Guardando…' : 'Guardar conexión'}</button>{status?.connected && <button type="button" className={styles.secondary} onClick={() => setConfirmDisconnect(true)} disabled={busy}>Desconectar</button>}</div>
+      {connectionFeedback && <p className={connectionFeedback.error ? styles.error : styles.feedback} role={connectionFeedback.error ? 'alert' : 'status'}>{connectionFeedback.text}</p>}
       {confirmDisconnect && <div className={styles.confirm}><p>¿Desconectar tu clave del asistente? El consumo ya registrado se conserva.</p><div className={styles.actions}><button type="button" onClick={() => void disconnect()} disabled={busy}>Confirmar desconexión</button><button type="button" className={styles.secondary} onClick={() => setConfirmDisconnect(false)} disabled={busy}>Cancelar</button></div></div>}
     </div>
     {remaining !== null && <div className={styles.section}>
