@@ -27,6 +27,12 @@ export function MiAsistente() {
   const [usageRevision, setUsageRevision] = useState(0);
 
   useEffect(() => {
+    // An unfinished credential belongs only to the session that typed it.
+    setApiKey(''); setConsent(false); setStatus(null); setError(''); setNotice('');
+    setConfirmDisconnect(false); setBudget('0.05'); setProvider('openai'); setProviderText('OpenAI'); setModel('');
+  }, [userId]);
+
+  useEffect(() => {
     const controller = new AbortController();
     getAssistantStatus(controller.signal).then(result => {
       if (controller.signal.aborted) return;
@@ -76,7 +82,7 @@ export function MiAsistente() {
         <label className={styles.field}>Modelo<select value={model} onChange={e => setModel(e.target.value)} disabled={!models.length}>{!models.length && <option value="">Disponible al activar el servicio</option>}{models.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}</select></label>
       </div>
       <label className={styles.field}>Clave de API<input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} autoComplete="off" data-lpignore="true" spellCheck={false} maxLength={512} disabled={!status?.ready || busy} placeholder={status?.connected && status.provider === provider ? 'Dejá vacío para conservar tu clave' : 'Tu clave personal de API'} /></label>
-      <label className={styles.field}>Tope mensual de consumo estimado en Plan-OTs (USD)<input type="number" min="0" max="1000" step="0.5" value={budget} onChange={e => setBudget(e.target.value)} disabled={busy} /></label>
+      <label className={styles.field}>Tope mensual de consumo estimado en Plan-OTs (USD)<input type="number" min="0" max="1000" step="0.01" value={budget} onChange={e => setBudget(e.target.value)} disabled={busy} /></label>
       {selectedModel && <small>Tarifa de referencia por millón de tokens: entrada USD {selectedModel.inputUsd}; salida USD {selectedModel.outputUsd}. Sin impuestos ni otros usos de tu cuenta.</small>}
       <label className={styles.check}><input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)} disabled={!status?.ready || busy} />Autorizo guardar mi API cifrada. Cada consulta pedirá mi confirmación de costo antes de enviar los mensajes al proveedor.</label>
       <div className={styles.actions}><button type="button" onClick={() => void connect()} disabled={busy || !status?.ready || !consent || !model || !Number.isFinite(Number(budget)) || (!apiKey && !(status.connected && status.provider === provider))}>{busy ? 'Guardando…' : 'Guardar conexión'}</button>{status?.connected && <button type="button" className={styles.secondary} onClick={() => setConfirmDisconnect(true)} disabled={busy}>Desconectar</button>}</div>
@@ -91,3 +97,4 @@ export function MiAsistente() {
     {error && <p className={styles.error} role="alert">{error}</p>}{notice && <p className={styles.hint} role="status">{notice}</p>}
   </section>;
 }
+
