@@ -1,6 +1,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { ASSISTANT_MODELS, assistantModel, validateAssistantMessages, reserveMicroUsd, actualMicroUsd, encryptAssistantKey, decryptAssistantKey, providerRequest, providerResult } from '../_shared/assistant-protocol.mjs';
 import { createQuote, verifyQuote } from '../_shared/assistant-quote.mjs';
+import { assistantVerification } from '../_shared/assistant-verification.mjs';
 
 const origin = 'https://plan-ots-pro.pages.dev';
 const cors = { 'Access-Control-Allow-Origin': origin, 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Content-Type': 'application/json', 'Cache-Control': 'no-store' };
@@ -34,7 +35,8 @@ Deno.serve(async request => {
   const status = (row = account) => ({ installed: true, ready, connected: !!row?.enabled, provider: row?.provider, model: row?.model, hint: row?.hint, budgetUsd: (row?.budget_micro ?? 50000) / 1e6, usedUsd: row?.month?.slice(0, 7) === month ? row.used_micro / 1e6 : 0, models: ASSISTANT_MODELS });
   if (action === 'status') {
     const usage = await admin.rpc('plan_asistente_consumo', { p_user: owner });
-    return json({ ...status(), usage: usage.error ? null : usage.data });
+    const latest = account?.enabled ? await admin.from('plan_asistente_consultas').select('created_at,state,provider,model').eq('user_id', owner).eq('provider', account.provider).eq('model', account.model).gte('created_at', account.updated_at).order('created_at', { ascending: false }).limit(1).maybeSingle() : null;
+    return json({ ...status(), usage: usage.error ? null : usage.data, verification: assistantVerification(account, latest?.error ? null : latest?.data) });
   }
   if (action === 'disconnect') {
     const result = await admin.from('plan_asistente_cuentas').update({ enabled: false, ciphertext: null, iv: null, hint: null, revision: crypto.randomUUID(), updated_at: new Date().toISOString() }).eq('user_id', owner);

@@ -1,9 +1,11 @@
 .root { color:var(--text-primary); font-family:var(--font-sans); }
-.avatar { position:fixed;z-index:1101;width:48px;height:48px;display:grid;place-items:center;border:2px solid var(--bg-surface);border-radius:50%;background:var(--color-warning);color:var(--text-inverse);box-shadow:var(--shadow-md);touch-action:none;cursor:grab;padding:8px; }
+.avatar { position:fixed;z-index:1101;width:48px;height:48px;display:grid;place-items:center;border:2px solid var(--bg-surface);border-radius:50%;background:var(--accent);color:var(--text-inverse);box-shadow:var(--shadow-md);touch-action:none;cursor:grab;padding:8px; }
 .avatar:active { cursor:grabbing; }.avatar svg { width:30px;height:30px; }
 .dialog { position:fixed;z-index:1100;display:flex;flex-direction:column;width:min(340px,calc(100vw - 24px));max-height:calc(100dvh - 32px);border:1px solid var(--border-default);border-radius:12px;background:var(--bg-surface);box-shadow:var(--shadow-xl);overflow:hidden; }
 .dialog header { display:flex;gap:8px;align-items:center;padding:10px 12px;border-bottom:1px solid var(--border-default);flex:none; }.dialog header strong{font-size:13px;font-weight:600;flex:1;overflow-wrap:anywhere}
-.face { display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--color-warning-bg);color:var(--color-warning);flex:none; }.face svg{width:22px;height:22px}
+.face { display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--accent-subtle);color:var(--accent);flex:none; }.face svg{width:22px;height:22px}
+.avatar.apiActive{background:var(--color-warning)}.face.apiActive{background:var(--color-warning-bg);color:var(--color-warning)}
+.connection{margin:0;padding:6px 12px;font-size:11px;line-height:1.4;color:var(--text-secondary);border-bottom:1px solid var(--border-default);flex:none}
 .minimize { display:grid;place-items:center;min-width:32px;min-height:32px;padding:0;background:transparent;color:var(--text-secondary);border:0;font:inherit;font-size:20px;cursor:pointer; }
 .messages { display:flex;flex-direction:column;gap:12px;padding:16px 14px;overflow-y:auto;min-height:0;max-height:420px;flex:1;overscroll-behavior:contain; }
 .assistantMessage { font-size:13px;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere; }.userMessage { font-size:13px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;background:var(--accent-subtle);padding:8px 10px;border-radius:8px;max-width:95%;align-self:flex-end; }

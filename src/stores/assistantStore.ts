@@ -1,8 +1,9 @@
 import { create } from 'zustand';
-import type { AssistantMessage } from '../services/assistantService';
+import type { AssistantMessage, AssistantStatus } from '../services/assistantService';
 
 interface Request<T> { id: number; value: T }
 interface AssistantState {
+  connectionOwner: string | null; connectionStatus: AssistantStatus | null; connectionError: boolean;
   scope: string; name: string; open: boolean; messages: AssistantMessage[];
   position: { x: number; y: number }; readAloud: boolean;
   dashboardRequest: Request<{ estado?: string; rubro?: string; reset?: 'estado' | 'all' }> | null;
@@ -20,8 +21,9 @@ function readPreferences(userId: string) {
   } catch { return { name: 'Mi asistente', position: { x: 1, y: 1 }, readAloud: false }; }
 }
 export const useAssistantStore = create<AssistantState>((set, get) => ({
+  connectionOwner: null, connectionStatus: null, connectionError: false,
   scope: '', name: 'Mi asistente', open: false, messages: initialMessages, position: { x: 1, y: 1 }, readAloud: false, dashboardRequest: null, projectRequest: null,
-  resetScope: (scope, userId) => { if (get().scope === scope) return; set({ scope, ...readPreferences(userId), messages: initialMessages, open: false, dashboardRequest: null, projectRequest: null }); },
+  resetScope: (scope, userId) => { if (get().scope === scope) return; set({ scope, ...(get().connectionOwner !== userId ? { connectionOwner: null, connectionStatus: null, connectionError: false } : {}), ...readPreferences(userId), messages: initialMessages, open: false, dashboardRequest: null, projectRequest: null }); },
   toggle: () => set(s => ({ open: !s.open })),
   append: message => set(s => ({ messages: [...s.messages, message].slice(-40) })),
   preferences: (userId, values) => {

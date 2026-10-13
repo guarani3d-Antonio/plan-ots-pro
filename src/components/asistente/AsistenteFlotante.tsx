@@ -6,6 +6,7 @@ import { useAssistantStore } from '../../stores/assistantStore';
 import { askPersonalAssistant, getAssistantStatus, previewPersonalAssistant, type AssistantMessage, type AssistantQuote } from '../../services/assistantService';
 import { parseAssistantCommand, type AssistantCommand } from '../../services/assistantCommands';
 import { RobotAsistente } from './RobotAsistente';
+import { assistantConnection } from '../../services/assistantConnection';
 import styles from './AsistenteFlotante.module.css';
 
 function viewport() {
@@ -18,6 +19,7 @@ export function AsistenteFlotante({ onCommand }: { onCommand: (command: Assistan
   const available = useAccessStore(s => s.disponible);
   const assistant = useAssistantStore();
   const expectedScope = `${userId ?? ''}:${company}`;
+  const connection = assistantConnection(assistant.connectionOwner === userId ? assistant.connectionStatus : null, assistant.connectionOwner === userId && assistant.connectionError);
   const [bounds, setBounds] = useState(viewport);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
@@ -42,6 +44,12 @@ export function AsistenteFlotante({ onCommand }: { onCommand: (command: Assistan
   useEffect(() => {
     if (!available) { pending.current = null; request.current?.abort(); request.current = null; setBusy(false); }
   }, [available]);
+  useEffect(() => {
+    if (!userId || !available) return;
+    const controller = new AbortController();
+    void getAssistantStatus(controller.signal).catch(() => { /* shared status shows the error */ });
+    return () => controller.abort();
+  }, [userId, available]);
   useEffect(() => {
     const resize = () => setBounds(viewport());
     window.addEventListener('resize', resize); window.visualViewport?.addEventListener('resize', resize); window.visualViewport?.addEventListener('scroll', resize);
@@ -112,10 +120,12 @@ export function AsistenteFlotante({ onCommand }: { onCommand: (command: Assistan
   if (!userId || !available || assistant.scope !== expectedScope) return null;
   return createPortal(<div className={styles.root} data-assistant-root>
     {assistant.open && <section ref={dialog} className={styles.dialog} style={{ ...dialogPosition, maxHeight: Math.max(140, bounds.height - 24) }} role="region" aria-label="Conversación con Mi asistente" onKeyDown={e => { if (e.key === 'Escape') { assistant.toggle(); avatar.current?.focus(); } }}>
-      <header><span className={styles.face}><RobotAsistente /></span><strong>{assistant.name}</strong><button type="button" className={styles.minimize} aria-label="Minimizar asistente" onClick={() => { assistant.toggle(); avatar.current?.focus(); }}>−</button></header>
+      <header><span className={`${styles.face} ${connection.active ? styles.apiActive : ''}`}><RobotAsistente /></span><strong>{assistant.name}</strong><button type="button" className={styles.minimize} aria-label="Minimizar asistente" onClick={() => { assistant.toggle(); avatar.current?.focus(); }}>−</button></header>
+      <p className={styles.connection} role="status" title={connection.detail}>{connection.label}</p>
       <div ref={messages} className={styles.messages} role="log" aria-live="polite" aria-relevant="additions">{assistant.messages.map((message, index) => <div key={index} className={message.role === 'user' ? styles.userMessage : styles.assistantMessage}>{message.content}</div>)}{busy && <div role="status" className={styles.assistantMessage}>Consultando…</div>}</div>
       <div className={styles.composer}><label className={styles.srOnly} htmlFor="assistant-question">Mensaje para Mi asistente</label><textarea id="assistant-question" ref={input} value={text} maxLength={4000} placeholder="Escribí tu pedido…" rows={2} onChange={e => setText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); void send(); } }} /><button type="button" onClick={() => void send()} disabled={busy || !text.trim()} aria-label="Enviar mensaje">↑</button></div>
     </section>}
-    <button ref={avatar} type="button" className={styles.avatar} style={{ left, top }} aria-label="Mi asistente. Arrastrar para mover o usar las flechas del teclado." aria-expanded={assistant.open} onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={() => { drag.current = null; moved.current = false; }} onClick={() => { if (moved.current) { moved.current = false; return; } assistant.toggle(); }} onKeyDown={e => { const delta: Record<string, [number, number]> = { ArrowLeft: [-16, 0], ArrowRight: [16, 0], ArrowUp: [0, -16], ArrowDown: [0, 16] }; const d = delta[e.key]; if (d) { e.preventDefault(); moveTo(left + d[0], top + d[1], true); } }}><RobotAsistente /></button>
+    <button ref={avatar} type="button" className={`${styles.avatar} ${connection.active ? styles.apiActive : ''}`} style={{ left, top }} aria-label="Mi asistente. Arrastrar para mover o usar las flechas del teclado." title={`${connection.label}. ${connection.detail}`} aria-describedby="assistant-api-state" aria-expanded={assistant.open} onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={() => { drag.current = null; moved.current = false; }} onClick={() => { if (moved.current) { moved.current = false; return; } assistant.toggle(); }} onKeyDown={e => { const delta: Record<string, [number, number]> = { ArrowLeft: [-16, 0], ArrowRight: [16, 0], ArrowUp: [0, -16], ArrowDown: [0, 16] }; const d = delta[e.key]; if (d) { e.preventDefault(); moveTo(left + d[0], top + d[1], true); } }}><RobotAsistente /></button>
+    <span id="assistant-api-state" className={styles.srOnly}>{connection.label}. {connection.detail}</span>
   </div>, document.body);
 }

@@ -1,6 +1,8 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import styles from './Sidebar.module.css';
 import { useAuthStore } from '../../stores/authStore';
+import { useAssistantStore } from '../../stores/assistantStore';
+import { assistantConnection } from '../../services/assistantConnection';
 import { useAccessStore, permisoVista, tienePermiso } from '../../stores/accessStore';
 import { Notificaciones } from '../ui/Notificaciones';
 import { usePantallaCompleta } from '../../hooks/usePantallaCompleta';
@@ -91,6 +93,10 @@ export function Sidebar({
     catch { return false; }
   });
   const user = useAuthStore(s => s.user);
+  const assistantOwner = useAssistantStore(s => s.connectionOwner);
+  const assistantStatus = useAssistantStore(s => s.connectionStatus);
+  const assistantError = useAssistantStore(s => s.connectionError);
+  const connection = assistantConnection(assistantOwner === user?.id ? assistantStatus : null, assistantOwner === user?.id && assistantError);
   const contexto = useAccessStore(s => s.contexto);
   const empresaId = useAccessStore(s => s.empresaId);
   // S37-T · Pantalla completa real (Fullscreen API). Exclusiva de modo tablet:
@@ -116,10 +122,10 @@ export function Sidebar({
         type="button"
         className={`${styles.navItem} ${activo ? styles.navItemActive : ''}`}
         onClick={() => onCambiarVista(it.vista)}
-        title={collapsed ? it.label : undefined}
+        title={it.vista === 'asistente' ? `${connection.label}. ${connection.detail}` : collapsed ? it.label : undefined}
         aria-label={it.label}
       >
-        <span className={styles.navIcon}>{it.icon}</span>
+        <span className={`${styles.navIcon} ${it.vista === 'asistente' ? connection.active ? styles.assistantActive : styles.assistantInactive : ''}`}>{it.icon}</span>
         {!collapsed && <span className={styles.navLabel}>{it.label}</span>}
       </button>
     );

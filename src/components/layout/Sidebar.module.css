@@ -197,6 +197,8 @@
   color: #fff;
   font-weight: 700;
 }
+.navItem .navIcon.assistantActive{background:var(--color-warning);color:var(--text-inverse);border-color:var(--color-warning)}
+.navItem .navIcon.assistantInactive{background:var(--accent);color:var(--text-inverse);border-color:var(--border-default)}
 
 .collapsed .navItem {
   padding: 0;

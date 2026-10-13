@@ -1,7 +1,9 @@
 .settings { padding:24px; max-width:850px; width:100%; color:var(--text-primary); }
 .heading { display:flex; gap:12px; align-items:center; margin-bottom:20px; }
 .heading h1 { font-size:24px; margin:0; }.heading p { margin:4px 0 0; color:var(--text-secondary); font-size:13px; }
-.face { display:grid; place-items:center; width:44px; height:44px; border-radius:50%; background:var(--color-warning-bg); color:var(--color-warning); flex:none; }.face svg{width:30px;height:30px}
+.face { display:grid; place-items:center; width:44px; height:44px; border-radius:50%; background:var(--accent-subtle); color:var(--accent); flex:none; }.face svg{width:30px;height:30px}
+.face.apiActive{background:var(--color-warning-bg);color:var(--color-warning)}
+.connection{font-size:13px;line-height:1.5;margin-bottom:12px}.connection p{color:var(--text-secondary);margin:3px 0}
 .section { background:var(--bg-surface); border:1px solid var(--border-default); border-radius:12px; padding:16px; margin-bottom:14px; }
 .section h2 { font-size:15px; margin:0 0 12px; }.section small { display:block; color:var(--text-secondary); font-size:12px; line-height:1.5; }
 .fields { display:grid; grid-template-columns:1fr 1fr; gap:14px; }.field { display:flex; flex-direction:column; gap:6px; margin:10px 0; font-size:13px; color:var(--text-secondary); min-width:0; }

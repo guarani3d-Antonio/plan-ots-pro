@@ -1,5 +1,6 @@
 import { supabase } from '../db/supabase';
-import { assertSession, sessionTicket } from '../security/sessionScope';
+import { assertSession, identityId, sessionTicket } from '../security/sessionScope';
+import { useAssistantStore } from '../stores/assistantStore';
 
 export type AssistantProvider = 'openai' | 'anthropic';
 export interface AssistantModel { provider: AssistantProvider; id: string; name: string; inputUsd: number; outputUsd: number }
@@ -8,6 +9,7 @@ export interface AssistantStatus {
   provider?: AssistantProvider; model?: string; hint?: string;
   budgetUsd?: number; usedUsd?: number; models: AssistantModel[];
   usage?: AssistantUsage | null;
+  verification?: { verifiedAt: string | null; lastAttemptState: string } | null;
 }
 export interface AssistantUsage {
   month: string; requests: number; inputTokens: number; outputTokens: number;
@@ -40,17 +42,41 @@ async function invoke<T>(body: Record<string, unknown>, signal?: AbortSignal): P
 export async function getAssistantStatus(signal?: AbortSignal): Promise<AssistantStatus> {
   // The interface and local commands can be released before private custody.
   // Do not contact a missing endpoint or request keys during that first phase.
-  if (!assistantServerEnabled) return unavailable;
-  try { return await invoke<AssistantStatus>({ action: 'status' }, signal); }
-  catch (error) { if (error instanceof Error && error.message.includes('todavía no está instalado')) return unavailable; throw error; }
+  const owner = identityId();
+  try {
+    const result = assistantServerEnabled ? await invoke<AssistantStatus>({ action: 'status' }, signal) : unavailable;
+    if (!signal?.aborted && owner && identityId() === owner) useAssistantStore.setState({ connectionOwner: owner, connectionStatus: result, connectionError: false });
+    return result;
+  } catch (error) {
+    if (!signal?.aborted && owner && identityId() === owner) useAssistantStore.setState(state => ({ connectionOwner: owner, connectionStatus: state.connectionOwner === owner ? state.connectionStatus : null, connectionError: true }));
+    if (error instanceof Error && error.message.includes('todavía no está instalado')) return unavailable;
+    throw error;
+  }
 }
-export function saveAssistantConnection(options: { provider: AssistantProvider; model: string; apiKey: string; budgetUsd: number; consent: boolean }, signal?: AbortSignal) {
-  return invoke<AssistantStatus>({ action: 'connect', ...options }, signal);
+export async function saveAssistantConnection(options: { provider: AssistantProvider; model: string; apiKey: string; budgetUsd: number; consent: boolean }, signal?: AbortSignal) {
+  const owner = identityId();
+  const result = await invoke<AssistantStatus>({ action: 'connect', ...options }, signal);
+  if (owner && identityId() === owner) useAssistantStore.setState({ connectionOwner: owner, connectionStatus: result, connectionError: false });
+  return result;
 }
-export function disconnectAssistant(signal?: AbortSignal) { return invoke<AssistantStatus>({ action: 'disconnect' }, signal); }
+export async function disconnectAssistant(signal?: AbortSignal) {
+  const owner = identityId(); const result = await invoke<AssistantStatus>({ action: 'disconnect' }, signal);
+  if (owner && identityId() === owner) useAssistantStore.setState({ connectionOwner: owner, connectionStatus: result, connectionError: false });
+  return result;
+}
 export function previewPersonalAssistant(messages: AssistantMessage[], signal?: AbortSignal) {
   return invoke<AssistantQuote>({ action: 'preview', messages: messages.slice(-8) }, signal);
 }
-export function askPersonalAssistant(messages: AssistantMessage[], quote: string, signal?: AbortSignal) {
-  return invoke<{ text: string; costUsd: number }>({ action: 'chat', quote, messages: messages.slice(-8) }, signal);
+export async function askPersonalAssistant(messages: AssistantMessage[], quote: string, signal?: AbortSignal) {
+  const owner = identityId();
+  try {
+    const result = await invoke<{ text: string; costUsd: number }>({ action: 'chat', quote, messages: messages.slice(-8) }, signal);
+    // Refresh from the ledger so a concurrent key change cannot turn a new,
+    // unverified credential orange using a response from the previous key.
+    if (!signal?.aborted && owner && identityId() === owner) void getAssistantStatus(signal).catch(() => { /* status indicator reports the failure */ });
+    return result;
+  } catch (error) {
+    if (!signal?.aborted && owner && identityId() === owner) useAssistantStore.setState(state => ({ connectionOwner: owner, connectionStatus: state.connectionOwner === owner ? state.connectionStatus : null, connectionError: true }));
+    throw error;
+  }
 }

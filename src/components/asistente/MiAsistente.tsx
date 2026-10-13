@@ -4,6 +4,7 @@ import { useAssistantStore } from '../../stores/assistantStore';
 import { disconnectAssistant, getAssistantStatus, saveAssistantConnection, type AssistantProvider, type AssistantStatus } from '../../services/assistantService';
 import { normalizeAssistantText } from '../../services/assistantCommands';
 import { RobotAsistente } from './RobotAsistente';
+import { assistantConnection } from '../../services/assistantConnection';
 import styles from './MiAsistente.module.css';
 
 const providers = [{ id: 'openai' as const, name: 'OpenAI (ChatGPT)' }, { id: 'anthropic' as const, name: 'Anthropic (Claude)' }];
@@ -67,8 +68,9 @@ export function MiAsistente() {
   const models = status?.models.filter(m => m.provider === provider) ?? [];
   const selectedModel = models.find(m => m.id === model);
   const remaining = status?.budgetUsd === undefined ? null : Math.max(0, status.budgetUsd - (status.usedUsd ?? 0));
+  const connection = assistantConnection(assistant.connectionOwner === userId ? assistant.connectionStatus : status, assistant.connectionOwner === userId && assistant.connectionError);
   return <section className={styles.settings} aria-label="Mi asistente">
-    <header className={styles.heading}><span className={styles.face}><RobotAsistente /></span><div><h1>Mi asistente</h1><p>Tu conexión personal de IA y tus preferencias.</p></div></header>
+    <header className={styles.heading}><span className={`${styles.face} ${connection.active ? styles.apiActive : ''}`}><RobotAsistente /></span><div><h1>Mi asistente</h1><p>Tu conexión personal de IA y tus preferencias.</p></div></header>
     <div className={styles.section}>
       <h2>Avatar y conversación</h2>
       <label className={styles.field}>Nombre del asistente<input value={name} maxLength={24} onChange={e => setName(e.target.value)} /></label>
@@ -78,7 +80,7 @@ export function MiAsistente() {
     </div>
     <div className={styles.section}>
       <h2>API personal</h2>
-      <p className={styles.hint}>{status === null ? error ? 'No se pudo comprobar el servicio. Los comandos de navegación siguen disponibles.' : 'Revisando el servicio…' : !status.ready ? 'La conexión de IA está pendiente de activar. Podés usar el avatar para navegar sin API.' : status.connected ? `Clave guardada ${status.hint ?? ''} · uso sujeto al saldo y acceso de tu proveedor.` : 'Sin clave conectada.'}</p>
+      <div className={styles.connection} role="status"><strong>{connection.label}</strong><p>{connection.detail}</p>{status?.connected && <small>{status.provider === 'openai' ? 'OpenAI' : 'Anthropic'} · {status.models.find(m => m.id === status.model)?.name ?? status.model} · clave {status.hint} · sujeto al saldo y acceso del proveedor.</small>}</div>
       <div className={styles.fields}>
         <div className={styles.choice} onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget)) { setProviderOpen(false); setProviderQuery(''); setProviderText(providers.find(p => p.id === provider)!.name); } }}>
           <label className={styles.field}>Proveedor<span className={styles.providerControl}><input role="combobox" aria-expanded={providerOpen} aria-controls="assistant-providers" aria-autocomplete="list" value={providerText} autoComplete="off" disabled={busy} onFocus={e => { setProviderQuery(''); setProviderOpen(true); e.target.select(); }} onChange={e => { setProviderText(e.target.value); setProviderQuery(e.target.value); setProviderOpen(true); }} onKeyDown={e => { if (e.key === 'Escape') { setProviderOpen(false); setProviderText(providers.find(p => p.id === provider)!.name); } if (e.key === 'ArrowDown') { e.preventDefault(); setProviderOpen(true); setProviderQuery(''); } }} /><button type="button" aria-label="Mostrar proveedores de IA" aria-expanded={providerOpen} disabled={busy} onClick={() => { setProviderQuery(''); setProviderOpen(open => !open); }}>⌄</button></span></label>
