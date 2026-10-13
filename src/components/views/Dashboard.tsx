@@ -2,6 +2,8 @@
 // Dashboard con KPIs en tiempo real + exportación CSV / HTML / PDF + widgets configurables
 
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import { useAssistantStore } from '../../stores/assistantStore';
+import { normalizeAssistantText } from '../../services/assistantCommands';
 import type { Proyecto } from '../../stores/proyectosStore';
 import type { OrdenLocal } from '../../types/orden';
 import { loadDashboardData } from '../../services/dashboardDataService';
@@ -122,6 +124,20 @@ export default function Dashboard() {
   // ── Datos filtrados ────────────────────────────────────────────────────────
 
   const opcionesRubro = useMemo(() => [...new Set(ordenes.map(o => o.rubro).filter(Boolean))].sort(), [ordenes]);
+  const assistantRequest = useAssistantStore(s => s.dashboardRequest);
+  useEffect(() => {
+    if (!assistantRequest || loading) return;
+    const { estado, rubro } = assistantRequest.value;
+    const matches = rubro ? opcionesRubro.filter(value => normalizeAssistantText(value) === normalizeAssistantText(rubro)) : [];
+    if (rubro && matches.length !== 1) {
+      useAssistantStore.getState().append({ role: 'assistant', content: `No encontré un rubro único con el nombre «${rubro}». No cambié los filtros.` });
+    } else {
+      if (estado) setFiltroEstado(estado);
+      if (rubro) setFiltroRubro(matches[0]);
+      useAssistantStore.getState().append({ role: 'assistant', content: `Filtro aplicado: ${[estado, rubro && matches[0]].filter(Boolean).join(' · ')}.` });
+    }
+    useAssistantStore.setState({ dashboardRequest: null });
+  }, [assistantRequest, loading, opcionesRubro]);
   const opcionesResponsable = useMemo(() => [...new Set(ordenes.map(o => o.responsable).filter(Boolean))].sort(), [ordenes]);
   const idsProyecto = useMemo(() => {
     if (!filtroProyecto) return null;

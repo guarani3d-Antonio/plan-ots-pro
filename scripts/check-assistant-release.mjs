@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import { readFile, readdir } from 'node:fs/promises';
+const assets = (await readdir('dist/assets')).filter(name => name.endsWith('.js'));
+const browser = (await Promise.all(assets.map(name => readFile('dist/assets/' + name, 'utf8')))).join('\n');
+for (const name of ['ASSISTANT_MASTER_KEY', 'ASSISTANT_ENABLED', 'plan_asistente_configurar', 'plan_asistente_reservar', 'VITE_ANTHROPIC_API_KEY']) assert.equal(browser.includes(name), false, `Configuración privada inesperada en el cliente: ${name}`);
+const source = await readFile('src/services/assistantService.ts', 'utf8');
+assert.ok(source.includes("functions.invoke('mi-asistente'"));
+assert.equal(/api\.openai\.com|api\.anthropic\.com/.test(browser), false, 'El navegador no debe hablar directamente con proveedores');
+const local = await readFile('.env.local', 'utf8');
+const legacy = local.match(/^VITE_ANTHROPIC_API_KEY=(.*)$/m)?.[1]?.trim().replace(/^['"]|['"]$/g, '');
+if (legacy && legacy.length >= 8) assert.equal(browser.includes(legacy), false, 'La variable antigua no debe entrar en el bundle');
+const production = await readFile('.env.production', 'utf8');
+assert.ok(production.split(/\r?\n/).filter(line => line && !line.startsWith('#')).every(line => /^VITE_(DOCUMENT_ISSUANCE_ENABLED|BACKUP_DOWNLOAD_FUNCTION_ENABLED)=/.test(line)), 'Revisar las variables de producción');
+const example = await readFile('server/backup/.env.example', 'utf8');
+for (const name of ['SUPABASE_SERVICE_ROLE_KEY', 'DATABASE_URL', 'BACKUP_MASTER_KEY', 'R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY']) assert.equal(example.match(new RegExp('^' + name + '=(.*)$', 'm'))?.[1]?.trim(), '', 'La plantilla debe tener secretos vacíos');
+console.log('Release: servicio separado, claves fuera del navegador, plantilla sin secretos y flags públicos verificados.');

@@ -16,6 +16,7 @@ export type Vista =
   | 'contratistas'
   | 'creador'
   | 'configuracion'
+  | 'asistente'
   | 'ayuda';
 
 interface SidebarProps {
@@ -67,6 +68,7 @@ const NAV_GLOBALES: NavItem[] = [
 
 const ITEM_AYUDA:  NavItem = { vista: 'ayuda', icon: ICONS.ayuda, label: 'Ayuda' };
 const ITEM_CONFIG: NavItem = { vista: 'configuracion', icon: ICONS.configuracion, label: 'Configuración' };
+const ITEM_ASISTENTE: NavItem = { vista: 'asistente', icon: <NavIcon><path fill="none" d="M12 3v3M9 3h6M6 7h12a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3v-8a3 3 0 0 1 3-3ZM8 12h.01M16 12h.01M8 17h8" /></NavIcon>, label: 'Mi asistente' };
 const ITEM_CREADOR: NavItem = { vista: 'creador', icon: ICONS.creador, label: 'Administración' };
 
 const AVATAR_PALETTE = ['#1E40AF', '#15803D', '#C2410C', '#7C3AED', '#0E7490', '#BE123C', '#B45309'];
@@ -161,6 +163,7 @@ export function Sidebar({
 
         {renderSectionLabel('PRINCIPAL')}
         {NAV_PRINCIPAL.filter(it=>permisoVista(it.vista)).map(renderItem)}
+        {renderItem(ITEM_ASISTENTE)}
 
         {(contexto?.creador||permisoVista('creador')) && <>
           {renderSectionLabel('PLATAFORMA')}

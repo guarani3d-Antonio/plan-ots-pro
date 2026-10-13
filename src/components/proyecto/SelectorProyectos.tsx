@@ -1,4 +1,6 @@
 import { useAccessStore } from '../../stores/accessStore';
+import { useAssistantStore } from '../../stores/assistantStore';
+import { normalizeAssistantText } from '../../services/assistantCommands';
 import { useEffect, useState, useRef, useMemo, type PointerEvent } from 'react';
 import { MenuAccionesProyecto } from './MenuAccionesProyecto';
 import { useArrastreProyectos } from './useArrastreProyectos';
@@ -187,6 +189,24 @@ export function SelectorProyectos({ onAbrirProyecto }: SelectorProyectosProps) {
   const obrasDisponibles = useMemo(() => proyectos.filter(p => !p.proyecto_padre_id &&
     (!empresaDestino || p.tenant_id === empresaDestino) &&
     contexto?.obras.some(o => o.id === p.id && o.editar)), [proyectos, empresaDestino, contexto]);
+  const assistantRequest = useAssistantStore(s => s.projectRequest);
+  useEffect(() => {
+    if (!assistantRequest || loading) return;
+    const reply = (content: string) => useAssistantStore.getState().append({ role: 'assistant', content });
+    if (!obrasDisponibles.length) reply('No tenés una obra autorizada para crear un proyecto en esta empresa.');
+    else if (assistantRequest.value.action === 'create') {
+      setAccionError(null); setArchivoNuevoPlano(null); setNombreNuevoPlano(''); setCarpetaNuevoPlano(carpetaActual); setTorreNuevoPlano(obrasDisponibles[0]);
+      reply('Abrí el formulario de proyecto nuevo. Revisá la obra y completá el nombre y el archivo antes de guardar.');
+    } else {
+      const query = normalizeAssistantText(assistantRequest.value.query);
+      const activo = useProyectosStore.getState().proyectoActivo;
+      const candidates = proyectos.filter(p => (!empresaDestino || p.tenant_id === empresaDestino) && contexto?.obras.some(o => o.id === p.id && o.editar) && (query ? normalizeAssistantText(p.nombre).includes(query) : activo ? p.id === activo.id : p.plano_url === PLANO_PENDIENTE));
+      if (candidates.length !== 1) reply('Decime el nombre del proyecto al que querés cargar el plano. No puedo elegir entre varios destinos sin tu indicación.');
+      else if (candidates[0].plano_url !== PLANO_PENDIENTE) reply('Ese proyecto ya tiene un plano. Para agregar otro, pedime crear un proyecto nuevo en esa obra; no reemplazo el plano existente desde el diálogo.');
+      else { setPlanoPendiente(candidates[0]); reply(`Abrí la carga de plano de «${candidates[0].nombre}». Elegí el archivo y confirmá la carga en el formulario.`); }
+    }
+    useAssistantStore.setState({ projectRequest: null });
+  }, [assistantRequest, loading, obrasDisponibles, proyectos, contexto, empresaDestino, carpetaActual]);
   const carpetasFiltradas = useMemo(() => carpetas.filter(c =>
     (!empresaId || c.tenant_id === empresaId) &&
     (busqueda ? normalizarBusqueda(c.nombre).includes(normalizarBusqueda(busqueda)) : c.padre_id === carpetaActual)

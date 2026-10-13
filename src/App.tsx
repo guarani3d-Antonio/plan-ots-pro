@@ -24,6 +24,10 @@ import VisorPlano3D from './components/plano3d/VisorPlano3D';
 import PantallaAyuda from './components/ayuda/PantallaAyuda';
 import TourGuiado from './components/ayuda/TourGuiado';
 import { SessionGate } from './components/ui/SessionGate';
+import { MiAsistente } from './components/asistente/MiAsistente';
+import { AsistenteFlotante } from './components/asistente/AsistenteFlotante';
+import { useAssistantStore } from './stores/assistantStore';
+import type { AssistantCommand } from './services/assistantCommands';
 
 const VISTAS_CON_PROYECTO = new Set<Vista>(['plano']);
 type RutaApp = { planots: true; vista: Vista; proyectoId: string | null };
@@ -153,6 +157,22 @@ function ContenidoApp() {
     intentarNavegar(() => navegarARuta(v, v === 'grilla' ? null : undefined));
   }, [intentarNavegar, navegarARuta, vista]);
 
+  const ejecutarComandoAsistente = (command: AssistantCommand): string => {
+    if (command.kind === 'unsupported') return command.text;
+    const destino: Vista = command.kind === 'navigate' ? command.destination : command.kind === 'filter' ? 'dashboard' : 'proyectos';
+    if (!permisoVista(destino)) return 'Tu perfil no tiene acceso a esa sección.';
+    const modalAbierto = Array.from(document.querySelectorAll('[role="dialog"],[aria-modal="true"]')).some(el => el.getClientRects().length > 0);
+    if (modalAbierto) return 'Puedo abrir esa sección después de que cierres el formulario actual. Guardá o descartá sus cambios primero para conservar tu trabajo.';
+    if (useOrdenesStore.getState().otsPendientesImport.length) {
+      cambiarVista(destino);
+      return 'Hay una carga pendiente. La aplicación te pide resolverla antes de cambiar de pantalla; después podés repetir el pedido.';
+    }
+    if (command.kind === 'filter') useAssistantStore.setState({ dashboardRequest: { id: Date.now(), value: { estado: command.estado, rubro: command.rubro } } });
+    if (command.kind === 'project') useAssistantStore.setState({ projectRequest: { id: Date.now(), value: { action: command.action, query: command.query } } });
+    cambiarVista(destino);
+    return command.kind === 'navigate' ? 'Listo. Abrí la sección solicitada.' : command.kind === 'filter' ? 'Preparé el filtro. Se aplicará cuando termine de cargar el dashboard.' : 'Voy a abrir el formulario con los permisos de tu cuenta. Todavía no se crea ni se sube ningún registro.';
+  };
+
   if (!user) {
     return (
       <>
@@ -205,6 +225,7 @@ function ContenidoApp() {
       case 'creador':      return <AdministracionCreador />;
       case 'configuracion': return <Configuracion />;
       case 'ayuda':         return <PantallaAyuda />;
+      case 'asistente':     return <MiAsistente />;
       case '3d-test' as Vista: return <VisorPlano3D />;
     }
   };
@@ -246,6 +267,7 @@ function ContenidoApp() {
       </div>
 
       <TourGuiado />
+      <AsistenteFlotante onCommand={ejecutarComandoAsistente} />
 
       {accionPendiente && pendientesResumen.length > 0 && (
         <ModalImportPendiente

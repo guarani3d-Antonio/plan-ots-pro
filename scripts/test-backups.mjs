@@ -85,6 +85,10 @@ try {
  assert.equal(scoped.tablas.profiles.length,1);assert.equal(scoped.storage.length,2);
  assert.equal(scopeSnapshot({...snapshot,tablas:{...snapshot.tablas,proyectos:[{tenant_id:a,id:'p',referencia:`storage://fotos/${b}/private.jpg`}]}},a).storage.length,2);
  assert.equal(scopeSnapshot(snapshot,null),snapshot);
+ const personal={...snapshot,tablas:{...snapshot.tablas,plan_asistente_cuentas:[{user_id:creator,ciphertext:'encrypted-only'}],plan_asistente_consultas:[{user_id:creator,reserved_micro:100}]}};
+ const companyPersonal=scopeSnapshot(personal,a);
+ assert.equal(companyPersonal.tablas.plan_asistente_cuentas.length,0);assert.equal(companyPersonal.tablas.plan_asistente_consultas.length,0);
+ assert.equal(scopeSnapshot(personal,null).tablas.plan_asistente_cuentas.length,1);
  assert.throws(()=>scopeSnapshot({...snapshot,tablas:{...snapshot.tablas,nuevo_sin_alcance:[{dato:'no omitir'}]}},a),/Cobertura/);
  // Composite foreign keys must match together, not just their repeated IDs.
  const composite={tablas:{tenants:[{id:a},{id:b}],padres:[{tenant_id:a,id:'same'}],hijos:[{propietario:a,padre:'same'},{propietario:b,padre:'same'}]},storage:[],relaciones:[{restriccion:'c',tabla:'hijos',columna:'propietario',padre:'padres',clave:'tenant_id'},{restriccion:'c',tabla:'hijos',columna:'padre',padre:'padres',clave:'id'}]};

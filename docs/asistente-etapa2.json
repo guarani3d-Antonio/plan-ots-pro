@@ -1,0 +1,11 @@
+{
+  "estado": "Pendiente de diseño y aprobación antes de implementar",
+  "peticion_del_usuario": "Mostrar dentro de la aplicación el consumo y lo que quede disponible para evitar salir a la plataforma del proveedor.",
+  "distinciones": ["Tokens de entrada y salida usados desde Plan-OTs", "Consumo estimado y disponible del tope configurado en Plan-OTs", "Saldo o créditos reales del proveedor, únicamente cuando una API autorizada los devuelva", "Límites por minuto o por mes, que no equivalen al saldo"],
+  "verificado_2026_10_13": {
+    "OpenAI": "La API administrativa documentada permite consultar uso y costos. Requiere una Admin API key; no demuestra un saldo de tokens restantes recuperable con una clave personal normal.",
+    "Claude": "Usage and Cost API requiere acceso administrativo a la organización. Los informes de costos y uso no deben rotularse como saldo de crédito sin un dato específico verificable.",
+    "fuentes": ["https://developers.openai.com/api/docs/guides/admin-apis", "https://platform.claude.com/docs/en/manage-claude/usage-cost-api"]
+  },
+  "reglas": ["No pedir una clave administrativa amplia sólo para un contador", "No convertir USD disponibles a tokens fijos: depende del modelo, entrada, salida y caché", "Si el saldo no se puede consultar, mostrar No disponible y la fecha del último dato real", "Distinguir consumo en Plan-OTs de otros usos de la misma cuenta", "Documentos, búsqueda de garantías, correcciones de versiones protegidas y audio requieren su fase y validación" ]
+}

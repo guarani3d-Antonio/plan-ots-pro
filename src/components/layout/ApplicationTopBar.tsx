@@ -9,6 +9,7 @@ const TITULOS: Partial<Record<Vista, string>> = {
   dashboard: 'Dashboard', proyectos: 'Proyectos', grilla: 'Grilla', responsables: 'Responsables',
   contratistas: 'Contratistas', gantt: 'Gantt', calendario: 'Calendario',
   ayuda: 'Ayuda', configuracion: 'Configuración',
+  asistente: 'Mi asistente',
   creador: 'Administración',
 };
 

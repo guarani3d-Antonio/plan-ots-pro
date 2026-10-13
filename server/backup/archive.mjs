@@ -48,8 +48,10 @@ export function reuseIndex(previous,current){
 export function scopeSnapshot(snapshot,tenant){
  if(!tenant)return snapshot;
  const data=snapshot.tablas,selected=Object.fromEntries(Object.keys(data).map(t=>[t,[]]));
- const global=new Set(['plan_permiso_catalogo']);const excluded=new Set(['plataforma_administradores','plan_ot_codigo_migracion']);
- for(const [table,rows]of Object.entries(data))selected[table]=rows.filter(r=>table==='tenants'?r.id===tenant:Object.hasOwn(r,'tenant_id')?r.tenant_id===tenant:global.has(table));
+ const global=new Set(['plan_permiso_catalogo']);const excluded=new Set(['plataforma_administradores','plan_ot_codigo_migracion','plan_asistente_cuentas','plan_asistente_consultas']);
+ // Personal API custody and usage span companies and must never enter a
+ // company export. The encrypted full-platform archive preserves both tables.
+ for(const [table,rows]of Object.entries(data))selected[table]=excluded.has(table)?[]:rows.filter(r=>table==='tenants'?r.id===tenant:Object.hasOwn(r,'tenant_id')?r.tenant_id===tenant:global.has(table));
  const relations=snapshot.relaciones||[],constraints=new Map();
  for(const edge of relations){if(edge.esquema_padre&&edge.esquema_padre!=='public')continue;const key=edge.restriccion||`${edge.tabla}/${edge.columna}/${edge.padre}`;const group=constraints.get(key)||[];group.push(edge);constraints.set(key,group);}
  for(let pass=0;pass<Object.keys(data).length;pass++){
