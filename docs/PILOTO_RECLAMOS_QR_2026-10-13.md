@@ -116,3 +116,33 @@ recepcion-publica.png, evidencia-en-ot.png, comprobacion-servidor.txt.
    reclamos hasta ver ese informe de recuperación.
 4. Pausar la recepción al finalizar. WhatsApp será la siguiente etapa después de
    aprobar el resultado del circuito; sin habilitación para Ariel todavía.
+
+## Prueba física desde iPhone y preparación de fotos
+
+El propietario escaneó el QR desde su iPhone y confirmó el envío. REC-4 ingresó
+el 12/10/2026 a las 21:02:23 de Paraguay con una foto elegida de la galería.
+Pasó a revisión y creó OT-003060 con un técnico existente de la empresa de
+prueba. Comprobación independiente SQL: pedido conservado, un archivo en el
+reclamo, una foto en la OT y tres eventos. Quedan dos cupos, sin nuevas reservas
+para comprobar esta corrección.
+
+Incidencia de campo: Cámara abría, tomaba la foto y «Usar foto» dejaba cero
+fotos. El formulario anterior rechazaba capturas mayores de 2 MiB o MIME distinto
+de JPEG/PNG/WebP; no conocemos el archivo exacto rechazado. Se prepara la foto
+antes de admitirla, reconoce MIME omitido a partir de la cabecera y convierte
+HEIC cuando el navegador puede leerlo. Fotos grandes se reducen proporcionalmente
+a 1920 px de lado mayor y JPEG de hasta 2 MiB. Fotos pequeñas válidas mantienen
+sus bytes; no se duplica el original de alta resolución en Storage. La copia
+admitida es la evidencia inmutable del reclamo. Se indica conservar el original
+en el teléfono; la captura web no garantiza que el sistema lo guarde allí.
+
+Pruebas locales reales en navegador, sin enviar solicitudes: JPEG sintético de
+3.229.562 bytes con MIME omitido quedó en 1.700.895 bytes y 1920 × 1440; PNG
+pequeño de 6.152 bytes con MIME omitido conservó tamaño, nombre y tipo correcto.
+Carga mediante el botón Cámara mostró miniatura y «1 de 3 fotos agregadas».
+Se bloquea revisión mientras se prepara y los errores se muestran junto a fotos.
+TypeScript, ESLint dirigido y la prueba completa local de reclamos pasaron.
+
+Pendiente: comprobar «Usar foto» en el iPhone con la versión publicada. No
+atribuir el problema a un formato específico ni dar por validada la cámara
+física a partir de la prueba de selección de archivos en escritorio.
