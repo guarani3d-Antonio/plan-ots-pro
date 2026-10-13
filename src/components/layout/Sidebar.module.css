@@ -197,8 +197,6 @@
   color: #fff;
   font-weight: 700;
 }
-.navItem .navIcon.assistantActive{background:var(--color-warning);color:var(--text-inverse);border-color:var(--color-warning)}
-.navItem .navIcon.assistantInactive{background:var(--accent);color:var(--text-inverse);border-color:var(--border-default)}
 
 .collapsed .navItem {
   padding: 0;
@@ -353,4 +351,6 @@
 .nav { min-height:0; }
 .navItem { flex-shrink:0; min-height:44px; }
 .navIcon { flex-shrink:0; aspect-ratio:1; }
+.navItem .navIcon.assistantActive{background:var(--color-warning);color:var(--text-inverse);border-color:var(--color-warning)}
+.navItem .navIcon.assistantInactive{background:var(--accent);color:var(--text-inverse);border-color:var(--border-default)}
 .logoSubtitle { color:rgba(255,255,255,.72); }
