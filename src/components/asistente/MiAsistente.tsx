@@ -66,7 +66,7 @@ export function MiAsistente() {
     </div>
     <div className={styles.section}>
       <h2>API personal</h2>
-      <p className={styles.hint}>{status === null ? 'Revisando el servicio…' : !status.ready ? 'La conexión de IA está pendiente de activar. Podés usar el avatar para navegar sin API.' : status.connected ? `Clave guardada ${status.hint ?? ''} · uso sujeto al saldo y acceso de tu proveedor.` : 'Sin clave conectada.'}</p>
+      <p className={styles.hint}>{status === null ? error ? 'No se pudo comprobar el servicio. Los comandos de navegación siguen disponibles.' : 'Revisando el servicio…' : !status.ready ? 'La conexión de IA está pendiente de activar. Podés usar el avatar para navegar sin API.' : status.connected ? `Clave guardada ${status.hint ?? ''} · uso sujeto al saldo y acceso de tu proveedor.` : 'Sin clave conectada.'}</p>
       <div className={styles.fields}>
         <div className={styles.choice}>
           <label className={styles.field}>Proveedor<input role="combobox" aria-expanded={providerOpen} aria-controls="assistant-providers" aria-autocomplete="list" value={providerText} autoComplete="off" onFocus={() => setProviderOpen(true)} onChange={e => { setProviderText(e.target.value); setProviderOpen(true); }} onKeyDown={e => { if (e.key === 'Escape') setProviderOpen(false); }} /></label>

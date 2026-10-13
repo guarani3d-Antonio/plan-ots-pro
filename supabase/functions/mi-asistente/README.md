@@ -27,6 +27,9 @@ preferencia de voz se conservan, por usuario. La voz no se implementa en esta fa
    tarifas. El estado de conexión funciona sin llamar a los proveedores. Para
    habilitarlo, usar `ASSISTANT_ENABLED=true`. No se crean claves de OpenAI o
    Claude automáticamente: cada usuario introduce su clave en la aplicación.
+   Sólo después de instalar y comprobar el servicio, activar en el frontend
+   `VITE_PERSONAL_ASSISTANT_SERVICE_ENABLED=true`. Su valor predeterminado es
+   false: la interfaz muestra conexión pendiente sin consultar un endpoint ausente.
 6. Actualizar el ejecutor de respaldo con la exclusión explícita de las dos
    tablas personales en exportaciones de empresa. Las copias completas cifradas
    las conservan. La clave maestra del asistente permanece por separado; sin ella

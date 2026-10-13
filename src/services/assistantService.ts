@@ -10,6 +10,7 @@ export interface AssistantStatus {
 }
 export interface AssistantMessage { role: 'user' | 'assistant'; content: string }
 const unavailable: AssistantStatus = { installed: false, ready: false, connected: false, models: [] };
+const assistantServerEnabled = import.meta.env.VITE_PERSONAL_ASSISTANT_SERVICE_ENABLED === 'true';
 
 async function invoke<T>(body: Record<string, unknown>, signal?: AbortSignal): Promise<T> {
   const ticket = sessionTicket();
@@ -30,6 +31,9 @@ async function invoke<T>(body: Record<string, unknown>, signal?: AbortSignal): P
   return data as T;
 }
 export async function getAssistantStatus(signal?: AbortSignal): Promise<AssistantStatus> {
+  // The interface and local commands can be released before private custody.
+  // Do not contact a missing endpoint or request keys during that first phase.
+  if (!assistantServerEnabled) return unavailable;
   try { return await invoke<AssistantStatus>({ action: 'status' }, signal); }
   catch (error) { if (error instanceof Error && error.message.includes('todavía no está instalado')) return unavailable; throw error; }
 }
