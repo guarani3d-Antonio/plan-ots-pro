@@ -5,7 +5,7 @@ interface Request<T> { id: number; value: T }
 interface AssistantState {
   scope: string; name: string; open: boolean; messages: AssistantMessage[];
   position: { x: number; y: number }; readAloud: boolean;
-  dashboardRequest: Request<{ estado?: string; rubro?: string }> | null;
+  dashboardRequest: Request<{ estado?: string; rubro?: string; reset?: 'estado' | 'all' }> | null;
   projectRequest: Request<{ action: 'create' | 'plan'; query: string }> | null;
   resetScope: (scope: string, userId: string) => void;
   toggle: () => void; append: (message: AssistantMessage) => void;

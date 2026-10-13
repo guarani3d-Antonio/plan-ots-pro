@@ -1,4 +1,4 @@
-# Mi asistente · etapa 1
+# Mi asistente · conexión personal y consumo
 
 Implementa custodia personal y conversación de texto. Los comandos de navegación
 se resuelven en el cliente desde el mensaje del usuario, sin invocar IA. La salida
@@ -13,7 +13,8 @@ preferencia de voz se conservan, por usuario. La voz no se implementa en esta fa
 ## Instalación, sin consultas pagadas
 
 1. Conservar el baseline `ad11ce4` y los respaldos verificados del lote.
-2. Aplicar `202610130003_personal_assistant.sql` en una transacción. No cambia
+2. Aplicar `202610130003_personal_assistant.sql` y después
+   `202610130004_assistant_usage.sql`. No cambia
    tablas existentes ni invita usuarios. Las nuevas tablas y sus RPCs no son
    accesibles por anon/authenticated: sólo el servicio autenticado verifica al
    propietario antes de usarlas.
@@ -38,7 +39,24 @@ preferencia de voz se conservan, por usuario. La voz no se implementa en esta fa
 
 Guardar conexión cifra la clave, pero no prueba inferencia ni afirma que el
 proveedor la haya validado. Se rechazan claves con prefijo administrativo.
-La primera consulta sólo se realiza a pedido del usuario, después del consentimiento.
+Cada consulta pide confirmación de su reserva máxima de costo. `preview` no llama
+al proveedor: devuelve un comprobante firmado, ligado al usuario, versión de
+conexión, mensajes y costo, que vence a los 5 minutos. `chat` exige ese comprobante;
+la reserva SQL deduplica su identificador. Cambiar texto o conexión obliga a revisar
+de nuevo el costo. Cancelar no registra consumo ni hace llamadas al proveedor.
+
+El contador muestra tokens registrados, importes estimados y reservas inciertas,
+con las últimas 20 consultas, sin almacenar preguntas ni respuestas. Se calcula
+en SQL sobre todo el mes, sin el límite de filas de PostgREST. La interfaz nunca
+presenta estos datos como saldo total del proveedor.
+
+El propietario puede custodiar y preparar la clave separada con
+`scripts/configurar-clave-asistente.ps1`. Se crea una clave nueva únicamente si no
+existe; se protege con DPAPI local, se verifica su copia en Bitwarden y el propietario
+la pega directamente en Supabase. El script nunca imprime la clave ni la envía.
+La activación sigue pendiente hasta que el propietario complete esa custodia.
+Para el piloto se propone USD 0.05 de tope. No ejecutar una inferencia de prueba
+desde despliegue, CI o el panel del proveedor.
 
 ## Límites y modelos iniciales
 

@@ -127,7 +127,14 @@ export default function Dashboard() {
   const assistantRequest = useAssistantStore(s => s.dashboardRequest);
   useEffect(() => {
     if (!assistantRequest || loading) return;
-    const { estado, rubro } = assistantRequest.value;
+    const { estado, rubro, reset } = assistantRequest.value;
+    if (reset) {
+      setFiltroEstado('');
+      if (reset === 'all') { setFiltroProyecto(''); setFiltroRubro(''); setFiltroResponsable(''); setFiltroRiesgo(''); setFechaDesde(''); setFechaHasta(''); }
+      useAssistantStore.getState().append({ role: 'assistant', content: reset === 'estado' ? 'Mostrando todos los estados. Conservé los otros filtros.' : 'Quité los filtros del dashboard. Se muestran sólo las obras autorizadas para tu cuenta.' });
+      useAssistantStore.setState({ dashboardRequest: null });
+      return;
+    }
     const matches = rubro ? opcionesRubro.filter(value => normalizeAssistantText(value) === normalizeAssistantText(rubro)) : [];
     if (rubro && matches.length !== 1) {
       useAssistantStore.getState().append({ role: 'assistant', content: `No encontré un rubro único con el nombre «${rubro}». No cambié los filtros.` });

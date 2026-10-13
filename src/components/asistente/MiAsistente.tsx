@@ -18,31 +18,32 @@ export function MiAsistente() {
   const [providerOpen, setProviderOpen] = useState(false);
   const [model, setModel] = useState('');
   const [apiKey, setApiKey] = useState('');
-  const [budget, setBudget] = useState('5');
+  const [budget, setBudget] = useState('0.05');
   const [consent, setConsent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [confirmDisconnect, setConfirmDisconnect] = useState(false);
+  const [usageRevision, setUsageRevision] = useState(0);
 
   useEffect(() => {
     const controller = new AbortController();
     getAssistantStatus(controller.signal).then(result => {
       if (controller.signal.aborted) return;
-      setStatus(result); setBudget(String(result.budgetUsd ?? 5));
+      setStatus(result); setBudget(String(result.budgetUsd ?? 0.05));
       const selected = result.provider ?? 'openai';
       setProvider(selected); setProviderText(providers.find(p => p.id === selected)!.name);
       setModel(result.model ?? result.models.find(m => m.provider === selected)?.id ?? '');
     }).catch(e => { if (!controller.signal.aborted) setError(e instanceof Error ? e.message : 'No se pudo revisar la conexión.'); });
     return () => controller.abort();
-  }, [userId]);
+  }, [userId, usageRevision]);
 
   async function connect() {
     if (busy || !status?.ready || !userId) return;
     setBusy(true); setError(''); setNotice('');
     try {
       const result = await saveAssistantConnection({ provider, model, apiKey, budgetUsd: Number(budget), consent });
-      setStatus(result); setApiKey(''); setNotice('Clave guardada de forma cifrada. No se hizo una consulta de IA para probarla.');
+      setStatus(result); setApiKey(''); setNotice('Clave guardada de forma cifrada. No se hizo una consulta de IA para probarla. Antes de cada consulta verás su costo máximo estimado.'); setUsageRevision(value => value + 1);
     } catch (e) { setError(e instanceof Error ? e.message : 'No se pudo guardar la conexión.'); }
     finally { setBusy(false); }
   }
@@ -77,11 +78,16 @@ export function MiAsistente() {
       <label className={styles.field}>Clave de API<input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} autoComplete="off" data-lpignore="true" spellCheck={false} maxLength={512} disabled={!status?.ready || busy} placeholder={status?.connected && status.provider === provider ? 'Dejá vacío para conservar tu clave' : 'Tu clave personal de API'} /></label>
       <label className={styles.field}>Tope mensual de consumo estimado en Plan-OTs (USD)<input type="number" min="0" max="1000" step="0.5" value={budget} onChange={e => setBudget(e.target.value)} disabled={busy} /></label>
       {selectedModel && <small>Tarifa de referencia por millón de tokens: entrada USD {selectedModel.inputUsd}; salida USD {selectedModel.outputUsd}. Sin impuestos ni otros usos de tu cuenta.</small>}
-      <label className={styles.check}><input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)} disabled={!status?.ready || busy} />Autorizo usar mi API y enviar mis mensajes al proveedor elegido. Entiendo que sus consultas consumen mi saldo.</label>
+      <label className={styles.check}><input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)} disabled={!status?.ready || busy} />Autorizo guardar mi API cifrada. Cada consulta pedirá mi confirmación de costo antes de enviar los mensajes al proveedor.</label>
       <div className={styles.actions}><button type="button" onClick={() => void connect()} disabled={busy || !status?.ready || !consent || !model || !Number.isFinite(Number(budget)) || (!apiKey && !(status.connected && status.provider === provider))}>{busy ? 'Guardando…' : 'Guardar conexión'}</button>{status?.connected && <button type="button" className={styles.secondary} onClick={() => setConfirmDisconnect(true)} disabled={busy}>Desconectar</button>}</div>
       {confirmDisconnect && <div className={styles.confirm}><p>¿Desconectar tu clave del asistente? El consumo ya registrado se conserva.</p><div className={styles.actions}><button type="button" onClick={() => void disconnect()} disabled={busy}>Confirmar desconexión</button><button type="button" className={styles.secondary} onClick={() => setConfirmDisconnect(false)} disabled={busy}>Cancelar</button></div></div>}
     </div>
-    {remaining !== null && <div className={styles.section}><h2>Consumo desde Plan-OTs</h2><p>Consumo y reservas estimadas: USD {(status?.usedUsd ?? 0).toFixed(4)} · Disponible del tope: USD {remaining.toFixed(4)}</p><small>Esto no representa el saldo total de tu proveedor. Las consultas cuyo resultado no se pudo confirmar conservan una reserva para evitar superar el tope.</small></div>}
+    {remaining !== null && <div className={styles.section}>
+      <div className={styles.usageHeader}><h2>Consumo de este mes en Plan-OTs</h2><button type="button" onClick={() => setUsageRevision(value => value + 1)}>Actualizar consumo</button></div>
+      <div className={styles.metrics}><div><small>Consumo y reservas estimadas</small><strong>USD {(status?.usedUsd ?? 0).toFixed(4)}</strong></div><div><small>Disponible de tu tope</small><strong>USD {remaining.toFixed(4)}</strong></div><div><small>Tokens registrados</small><strong>{status?.usage ? (status.usage.inputTokens + status.usage.outputTokens).toLocaleString('es-PY') : 'No disponible'}</strong></div></div>
+      {status?.usage && <><p className={styles.hint}>Entrada: {status.usage.inputTokens.toLocaleString('es-PY')} · Salida: {status.usage.outputTokens.toLocaleString('es-PY')} · Reservas pendientes: USD {status.usage.reservedUsd.toFixed(4)}</p>{(status.usage.pendingRequests > 0 || status.usage.unknownTokenRequests > 0) && <small>Hay consultas sin consumo de tokens confirmado. Sus reservas se conservan.</small>}<details className={styles.history}><summary>Últimas consultas ({status.usage.recent.length})</summary>{status.usage.recent.length === 0 ? <p className={styles.hint}>Todavía no hiciste consultas pagas desde Plan-OTs.</p> : status.usage.recent.map(row => <div key={row.id} className={styles.historyRow}><span>{new Date(row.created_at).toLocaleString('es-PY', { timeZone: 'America/Asuncion' })}<small>{row.model ?? 'Modelo no registrado'}</small></span><span>{row.state === 'completed' ? 'Registrada' : 'Reserva pendiente'}<small>{row.input_tokens === null || row.output_tokens === null ? 'Tokens no confirmados' : `${row.input_tokens} entrada · ${row.output_tokens} salida`} · USD {((row.charged_micro ?? row.reserved_micro) / 1e6).toFixed(6)}</small></span></div>)}</details></>}
+      <small>Saldo total del proveedor: no disponible. Este contador sólo incluye Plan-OTs; los importes son estimados, sin impuestos. No equivale a tokens restantes en tu cuenta.</small>
+    </div>}
     {error && <p className={styles.error} role="alert">{error}</p>}{notice && <p className={styles.hint} role="status">{notice}</p>}
   </section>;
 }

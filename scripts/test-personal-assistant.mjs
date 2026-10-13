@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { PGlite } from '@electric-sql/pglite';
 import { parseAssistantCommand } from '../src/services/assistantCommands.ts';
 import { assistantModel, encryptAssistantKey, decryptAssistantKey, providerRequest, providerResult, validateAssistantMessages, reserveMicroUsd, actualMicroUsd } from '../supabase/functions/_shared/assistant-protocol.mjs';
+import { createQuote, verifyQuote } from '../supabase/functions/_shared/assistant-quote.mjs';
 
 assert.deepEqual(parseAssistantCommand('Abrí el DASHBOARD'), { kind: 'navigate', destination: 'dashboard' });
 assert.deepEqual(parseAssistantCommand('¿Podés llevarme al dashboard?'), { kind: 'navigate', destination: 'dashboard' });
@@ -11,6 +12,9 @@ assert.equal(parseAssistantCommand('Borrar el proyecto y abrir dashboard').kind,
 assert.equal(parseAssistantCommand('¿Está el rubro en garantía?'), null);
 assert.equal(parseAssistantCommand('Crear proyecto nuevo').kind, 'project');
 assert.equal(parseAssistantCommand('Cargar plano en Obra número 1').query, 'Obra número 1');
+for (const text of ['ver todos de vuelta','ver todos los estados','ver Todos']) assert.deepEqual(parseAssistantCommand(text), { kind: 'filter', reset: 'estado' });
+assert.deepEqual(parseAssistantCommand('Quitar todos los filtros'), { kind: 'filter', reset: 'all' });
+assert.equal(parseAssistantCommand('¿Puedo ver todos los documentos?'), null);
 const master = Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString('base64');
 const encrypted = await encryptAssistantKey('FAKE-KEY-NOT-A-CREDENTIAL', master, 'owner-a', 'openai');
 assert.equal(await decryptAssistantKey(encrypted.ciphertext, encrypted.iv, master, 'owner-a', 'openai'), 'FAKE-KEY-NOT-A-CREDENTIAL');
@@ -23,6 +27,14 @@ assert.throws(() => validateAssistantMessages([{ role: 'assistant', content: 'no
 assert.throws(() => validateAssistantMessages([{ role: 'user', content: 'x'.repeat(4001) }]));
 const messages = validateAssistantMessages([{ role: 'user', content: 'Revisá esta oración.' }]);
 const model = assistantModel('openai', 'gpt-4.1-mini');
+const quote = await createQuote(master, 'owner-a', 'revision-a', messages, 100, 1000);
+assert.match(await verifyQuote(quote.token, master, 'owner-a', 'revision-a', messages, 100, 2000), /^[0-9a-f-]{36}$/);
+await assert.rejects(() => verifyQuote(quote.token, master, 'owner-b', 'revision-a', messages, 100, 2000));
+await assert.rejects(() => verifyQuote(quote.token, master, 'owner-a', 'revision-b', messages, 100, 2000));
+await assert.rejects(() => verifyQuote(quote.token, master, 'owner-a', 'revision-a', [{role:'user',content:'Otro pedido'}], 100, 2000));
+await assert.rejects(() => verifyQuote(quote.token, master, 'owner-a', 'revision-a', messages, 101, 2000));
+await assert.rejects(() => verifyQuote(quote.token, master, 'owner-a', 'revision-a', messages, 100, 400000));
+await assert.rejects(() => verifyQuote(quote.token.slice(0, -2) + 'ab', master, 'owner-a', 'revision-a', messages, 100, 2000));
 const outgoing = providerRequest(model, messages, 'FAKE-KEY-NOT-A-CREDENTIAL');
 assert.equal(outgoing.url, 'https://api.openai.com/v1/responses');
 assert.equal(outgoing.body.store, false); assert.equal(outgoing.body.tools, undefined);
@@ -36,9 +48,11 @@ const one = async (sql, args = []) => (await db.query(sql, args)).rows[0];
 try {
   await db.exec('create schema auth;create table auth.users(id uuid primary key);create role anon;create role authenticated;create role service_role bypassrls;');
   await db.exec(await readFile('supabase/migrations/202610130003_personal_assistant.sql', 'utf8'));
+  await db.exec(await readFile('supabase/migrations/202610130004_assistant_usage.sql', 'utf8'));
   await db.query('insert into auth.users values($1),($2)', [userA, userB]);
   await db.exec('set role authenticated');
   await assert.rejects(() => db.query('select * from plan_asistente_cuentas'));
+  await assert.rejects(() => db.query('select plan_asistente_consumo($1)', [userA]));
   await assert.rejects(() => db.query('select plan_asistente_configurar($1,$2,$3,$4,$5,$6,$7)', [userB, 'openai', model.id, 'cipher', 'iv', 'xxxx', 2000]));
   await db.exec('reset role;set role service_role');
   const configure = (user, budget) => db.query('select plan_asistente_configurar($1,$2,$3,$4,$5,$6,$7)', [user, 'openai', model.id, 'cipher', 'iv', 'xxxx', budget]);
@@ -62,6 +76,11 @@ try {
   await db.query('select plan_asistente_finalizar($1,$2,$3,$4,$5)', [userA, id(12), null, null, null]);
   assert.equal((await one('select used_micro from plan_asistente_cuentas where user_id=$1', [userA])).used_micro, 1000);
   assert.equal((await one('select state from plan_asistente_consultas where id=$1', [id(12)])).state, 'uncertain');
+  const usage = (await one('select plan_asistente_consumo($1) as usage', [userA])).usage;
+  assert.equal(usage.inputTokens, 100); assert.equal(usage.outputTokens, 100);
+  assert.equal(usage.reservedUsd, 0.0005); assert.equal(usage.requests, 2);
+  assert.equal(usage.recent[0].model, model.id);
+  assert.equal((await one('select plan_asistente_consumo($1) as usage', [userB])).usage.requests, 0);
   await db.query("update plan_asistente_cuentas set month='2020-01-01',used_micro=2000 where user_id=$1", [userA]);
   await db.query("update plan_asistente_consultas set created_at=now()-interval '10 seconds' where user_id=$1", [userA]);
   await db.query('select plan_asistente_reservar($1,$2,$3,$4)', [userA, id(13), a.revision, 100]);

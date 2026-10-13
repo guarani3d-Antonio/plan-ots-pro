@@ -167,7 +167,7 @@ function ContenidoApp() {
       cambiarVista(destino);
       return 'Hay una carga pendiente. La aplicación te pide resolverla antes de cambiar de pantalla; después podés repetir el pedido.';
     }
-    if (command.kind === 'filter') useAssistantStore.setState({ dashboardRequest: { id: Date.now(), value: { estado: command.estado, rubro: command.rubro } } });
+    if (command.kind === 'filter') useAssistantStore.setState({ dashboardRequest: { id: Date.now(), value: { estado: command.estado, rubro: command.rubro, reset: command.reset } } });
     if (command.kind === 'project') useAssistantStore.setState({ projectRequest: { id: Date.now(), value: { action: command.action, query: command.query } } });
     cambiarVista(destino);
     return command.kind === 'navigate' ? 'Listo. Abrí la sección solicitada.' : command.kind === 'filter' ? 'Preparé el filtro. Se aplicará cuando termine de cargar el dashboard.' : 'Voy a abrir el formulario con los permisos de tu cuenta. Todavía no se crea ni se sube ningún registro.';

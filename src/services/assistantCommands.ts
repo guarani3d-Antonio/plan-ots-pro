@@ -1,7 +1,7 @@
 export type AssistantDestination = 'dashboard' | 'proyectos' | 'grilla' | 'creador' | 'responsables' | 'contratistas' | 'gantt' | 'calendario' | 'ayuda' | 'configuracion' | 'asistente';
 export type AssistantCommand =
   | { kind: 'navigate'; destination: AssistantDestination }
-  | { kind: 'filter'; estado?: string; rubro?: string }
+  | { kind: 'filter'; estado?: string; rubro?: string; reset?: 'estado' | 'all' }
   | { kind: 'project'; action: 'create' | 'plan'; query: string }
   | { kind: 'unsupported'; text: string };
 
@@ -13,7 +13,11 @@ export function parseAssistantCommand(message: string): AssistantCommand | null 
   const text = normalizeAssistantText(message).replace(/^[¿¡]\s*/, '');
   if (/\b(borra|borrar|elimina|eliminar|suprime|suprimir|migrar|restaurar|enviar|publicar)\b/.test(text))
     return { kind: 'unsupported', text: 'No ejecuto borrados, recuperaciones, publicaciones ni envíos desde el diálogo. Esas acciones se revisan en su pantalla correspondiente.' };
-  if (/\b(filtra|filtrar|mostra|mostrar)\b/.test(text)) {
+  if (/^(?:ver|mostra|mostrar|volver a ver)\s+(?:todos?|todas?)(?:\s+(?:los\s+)?estados)?(?:\s+de\s+vuelta)?[.?!]*$/.test(text))
+    return { kind: 'filter', reset: 'estado' };
+  if (/^(?:quitar|limpiar|sacar)\s+(?:todos\s+)?(?:los\s+)?filtros[.?!]*$/.test(text))
+    return { kind: 'filter', reset: 'all' };
+  if (/\b(filtra|filtrar|mostra|mostrar|ver)\b/.test(text)) {
     const estado = /\bpendientes?\b/.test(text) ? 'Pendiente' : /\bcerrad[oa]s?\b/.test(text) ? 'Cerrada' : /\ben proceso\b/.test(text) ? 'En proceso' : /\bno aplica\b/.test(text) ? 'No aplica' : undefined;
     const match = text.match(/(?:rubro\s+|(?:pendientes?|cerrad[oa]s?|en proceso)\s+(?:de\s+)?)(.+)$/);
     const rubro = match?.[1]?.replace(/[.?!]+$/, '').trim();

@@ -7,7 +7,14 @@ export interface AssistantStatus {
   installed: boolean; ready: boolean; connected: boolean;
   provider?: AssistantProvider; model?: string; hint?: string;
   budgetUsd?: number; usedUsd?: number; models: AssistantModel[];
+  usage?: AssistantUsage | null;
 }
+export interface AssistantUsage {
+  month: string; requests: number; inputTokens: number; outputTokens: number;
+  unknownTokenRequests: number; pendingRequests: number; confirmedUsd: number; reservedUsd: number;
+  recent: { id: string; created_at: string; provider: string | null; model: string | null; state: string; input_tokens: number | null; output_tokens: number | null; charged_micro: number | null; reserved_micro: number }[];
+}
+export interface AssistantQuote { token: string; maximumUsd: number; expiresAt: string; model: string }
 export interface AssistantMessage { role: 'user' | 'assistant'; content: string }
 const unavailable: AssistantStatus = { installed: false, ready: false, connected: false, models: [] };
 const assistantServerEnabled = import.meta.env.VITE_PERSONAL_ASSISTANT_SERVICE_ENABLED === 'true';
@@ -41,6 +48,9 @@ export function saveAssistantConnection(options: { provider: AssistantProvider; 
   return invoke<AssistantStatus>({ action: 'connect', ...options }, signal);
 }
 export function disconnectAssistant(signal?: AbortSignal) { return invoke<AssistantStatus>({ action: 'disconnect' }, signal); }
-export function askPersonalAssistant(messages: AssistantMessage[], signal?: AbortSignal) {
-  return invoke<{ text: string; costUsd: number }>({ action: 'chat', requestId: crypto.randomUUID(), messages: messages.slice(-8) }, signal);
+export function previewPersonalAssistant(messages: AssistantMessage[], signal?: AbortSignal) {
+  return invoke<AssistantQuote>({ action: 'preview', messages: messages.slice(-8) }, signal);
+}
+export function askPersonalAssistant(messages: AssistantMessage[], quote: string, signal?: AbortSignal) {
+  return invoke<{ text: string; costUsd: number }>({ action: 'chat', quote, messages: messages.slice(-8) }, signal);
 }

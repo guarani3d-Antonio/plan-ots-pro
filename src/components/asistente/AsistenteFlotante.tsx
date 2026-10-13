@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { useAccessStore } from '../../stores/accessStore';
 import { useAssistantStore } from '../../stores/assistantStore';
-import { askPersonalAssistant, getAssistantStatus } from '../../services/assistantService';
+import { askPersonalAssistant, getAssistantStatus, previewPersonalAssistant, type AssistantMessage, type AssistantQuote } from '../../services/assistantService';
 import { parseAssistantCommand, type AssistantCommand } from '../../services/assistantCommands';
 import { RobotAsistente } from './RobotAsistente';
 import styles from './AsistenteFlotante.module.css';
@@ -29,17 +29,18 @@ export function AsistenteFlotante({ onCommand }: { onCommand: (command: Assistan
   const avatar = useRef<HTMLButtonElement>(null);
   const drag = useRef<{ x: number; y: number; left: number; top: number; moved: boolean } | null>(null);
   const moved = useRef(false);
+  const pending = useRef<{ quote: AssistantQuote; messages: AssistantMessage[]; scope: string } | null>(null);
   const left = bounds.left + 12 + assistant.position.x * Math.max(0, bounds.width - 72);
   const top = bounds.top + 12 + assistant.position.y * Math.max(0, bounds.height - 72);
 
   useEffect(() => {
     request.current?.abort(); request.current = null;
-    setBusy(false); setText('');
+    pending.current = null; setBusy(false); setText('');
     if (userId) useAssistantStore.getState().resetScope(expectedScope, userId);
     return () => { request.current?.abort(); };
   }, [expectedScope, userId]);
   useEffect(() => {
-    if (!available) { request.current?.abort(); request.current = null; setBusy(false); }
+    if (!available) { pending.current = null; request.current?.abort(); request.current = null; setBusy(false); }
   }, [available]);
   useEffect(() => {
     const resize = () => setBounds(viewport());
@@ -60,15 +61,30 @@ export function AsistenteFlotante({ onCommand }: { onCommand: (command: Assistan
     if (!content || busy || content.length > 4000 || !available) return;
     const history = [...useAssistantStore.getState().messages.filter(m => m.content !== '¿Qué necesitás?'), { role: 'user' as const, content }];
     setText(''); assistant.append({ role: 'user', content });
+    const awaiting = pending.current;
+    const confirmation = content.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+    const approved = !!awaiting && /^(si|si,? autorizo|autorizo|confirmo)[.!]?$/.test(confirmation);
+    if (awaiting && /^(no|cancelar|cancelo)[.!]?$/.test(confirmation)) { pending.current = null; assistant.append({ role: 'assistant', content: 'Consulta cancelada. No se contactó al proveedor.' }); return; }
+    if (awaiting && approved && (awaiting.scope !== expectedScope || Date.parse(awaiting.quote.expiresAt) < Date.now())) { pending.current = null; assistant.append({ role: 'assistant', content: 'La confirmación venció. Repetí el pedido para revisar su costo actualizado.' }); return; }
     const command = parseAssistantCommand(content);
-    if (command) { assistant.append({ role: 'assistant', content: onCommand(command) }); return; }
+    if (command) { pending.current = null; assistant.append({ role: 'assistant', content: onCommand(command) }); return; }
+    if (!approved) pending.current = null;
     const controller = new AbortController(); request.current = controller; setBusy(true);
     const scope = expectedScope;
     try {
       const status = await getAssistantStatus(controller.signal);
       if (!status.ready || !status.connected) throw new Error('Para esta consulta necesitás configurar tu API personal en Mi asistente. La navegación funciona sin consumir tokens.');
-      const result = await askPersonalAssistant(history, controller.signal);
-      if (!controller.signal.aborted && useAssistantStore.getState().scope === scope) assistant.append({ role: 'assistant', content: result.text });
+      if (approved && awaiting) {
+        pending.current = null;
+        const result = await askPersonalAssistant(awaiting.messages, awaiting.quote.token, controller.signal);
+        if (!controller.signal.aborted && useAssistantStore.getState().scope === scope) assistant.append({ role: 'assistant', content: result.text });
+      } else {
+        const quote = await previewPersonalAssistant(history, controller.signal);
+        if (!controller.signal.aborted && useAssistantStore.getState().scope === scope) {
+          pending.current = { quote, messages: history, scope };
+          assistant.append({ role: 'assistant', content: `Esta consulta usará ${quote.model}. Reserva máxima estimada: USD ${quote.maximumUsd.toFixed(6)}, sin impuestos. No envié la consulta al proveedor. Respondé «Sí, autorizo» para enviarla o «No» para cancelarla. La confirmación vence en 5 minutos.` });
+        }
+      }
     } catch (error) {
       if (!controller.signal.aborted && useAssistantStore.getState().scope === scope) assistant.append({ role: 'assistant', content: error instanceof Error ? error.message : 'No se pudo completar la consulta.' });
     } finally { if (request.current === controller) { request.current = null; setBusy(false); } }

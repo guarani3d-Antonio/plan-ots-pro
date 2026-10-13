@@ -1,5 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { ASSISTANT_MODELS, assistantModel, validateAssistantMessages, reserveMicroUsd, actualMicroUsd, encryptAssistantKey, decryptAssistantKey, providerRequest, providerResult } from '../_shared/assistant-protocol.mjs';
+import { createQuote, verifyQuote } from '../_shared/assistant-quote.mjs';
 
 const origin = 'https://plan-ots-pro.pages.dev';
 const cors = { 'Access-Control-Allow-Origin': origin, 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Content-Type': 'application/json', 'Cache-Control': 'no-store' };
@@ -21,7 +22,7 @@ Deno.serve(async request => {
   try { const text = await request.text(); if (text.length > 24000) return json({ error: 'Consulta demasiado extensa.' }, 413); body = JSON.parse(text); if (!body || Array.isArray(body) || typeof body !== 'object') throw new Error(); }
   catch { return json({ error: 'Solicitud inválida.' }, 400); }
   const action = body.action;
-  if (!['status', 'connect', 'disconnect', 'chat'].includes(String(action))) return json({ error: 'Acción no admitida.' }, 400);
+  if (!['status', 'connect', 'disconnect', 'preview', 'chat'].includes(String(action))) return json({ error: 'Acción no admitida.' }, 400);
   const owner = identity.user.id;
   const admin = createClient(url, service, { auth: { persistSession: false, autoRefreshToken: false } });
   const master = Deno.env.get('ASSISTANT_MASTER_KEY') ?? '';
@@ -30,8 +31,11 @@ Deno.serve(async request => {
   if (current.error) return action === 'status' ? json({ installed: false, ready: false, connected: false, models: ASSISTANT_MODELS }) : json({ error: 'Falta instalar el servicio de IA personal.' }, 503);
   const account = current.data;
   const month = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Asuncion', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()).slice(0, 7);
-  const status = (row = account) => ({ installed: true, ready, connected: !!row?.enabled, provider: row?.provider, model: row?.model, hint: row?.hint, budgetUsd: (row?.budget_micro ?? 5000000) / 1e6, usedUsd: row?.month?.slice(0, 7) === month ? row.used_micro / 1e6 : 0, models: ASSISTANT_MODELS });
-  if (action === 'status') return json(status());
+  const status = (row = account) => ({ installed: true, ready, connected: !!row?.enabled, provider: row?.provider, model: row?.model, hint: row?.hint, budgetUsd: (row?.budget_micro ?? 50000) / 1e6, usedUsd: row?.month?.slice(0, 7) === month ? row.used_micro / 1e6 : 0, models: ASSISTANT_MODELS });
+  if (action === 'status') {
+    const usage = await admin.rpc('plan_asistente_consumo', { p_user: owner });
+    return json({ ...status(), usage: usage.error ? null : usage.data });
+  }
   if (action === 'disconnect') {
     const result = await admin.from('plan_asistente_cuentas').update({ enabled: false, ciphertext: null, iv: null, hint: null, revision: crypto.randomUUID(), updated_at: new Date().toISOString() }).eq('user_id', owner);
     if (result.error) return json({ error: 'No se pudo desconectar la clave.' }, 500);
@@ -61,10 +65,16 @@ Deno.serve(async request => {
   }
   if (!account?.enabled) return json({ error: 'Configurá tu API personal en Mi asistente.' }, 409);
   let messages, model, cost, apiKey;
-  const requestId = typeof body.requestId === 'string' ? body.requestId : '';
-  if (!uuid.test(requestId)) return json({ error: 'Identificador de consulta inválido.' }, 400);
+  let requestId: string;
   try {
     messages = validateAssistantMessages(body.messages); model = assistantModel(account.provider, account.model); cost = reserveMicroUsd(model, messages);
+    if (action === 'preview') {
+      const remaining = status().budgetUsd - status().usedUsd;
+      if (cost / 1e6 > remaining) return json({ error: 'Esta consulta supera el disponible de tu tope. No se contactó al proveedor.' }, 409);
+      return json({ ...await createQuote(master, owner, account.revision, messages, cost), model: model.name });
+    }
+    requestId = await verifyQuote(body.quote, master, owner, account.revision, messages, cost);
+    if (!uuid.test(requestId)) throw new Error();
     apiKey = await decryptAssistantKey(account.ciphertext, account.iv, master, owner, account.provider);
   } catch { return json({ error: 'Revisá la extensión de la consulta y la configuración personal.' }, 400); }
   const reserved = await admin.rpc('plan_asistente_reservar', { p_user: owner, p_request: requestId, p_revision: account.revision, p_cost: cost });
