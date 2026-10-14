@@ -8,7 +8,7 @@ import type {RevisionDocumento} from '../../services/documentService';
 import {tienePermiso} from '../../stores/accessStore';
 import {FirmasDocumento} from './FirmasDocumento';
 import styles from './ConformidadCliente.module.css';
-interface Props {datos:Record<string,unknown>;onChange:(datos:Record<string,unknown>)=>void;revision?:RevisionDocumento;codigo?:string;proyecto:string;editable:boolean;blocked:boolean;vigente:boolean;responsable?:string;onGuardar?:()=>Promise<unknown>;onVerActa:()=>void;puedeFirmar?:boolean}
+interface Props {datos:Record<string,unknown>;onChange:(datos:Record<string,unknown>)=>void;revision?:RevisionDocumento;codigo?:string;proyecto:string;editable:boolean;blocked:boolean;vigente:boolean;responsable?:string;onGuardar?:()=>Promise<unknown>;puedeFirmar?:boolean}
 const vacio:EstadoConformidad={conformidad:null,pendientes:[]};
 export function ConformidadCliente(p:Props){
  const [estado,setEstado]=useState(vacio),[firmas,setFirmas]=useState<FirmaDocumento[]>([]),[loading,setLoading]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[refresh,setRefresh]=useState(0),[busy,setBusy]=useState(false);
@@ -31,7 +31,7 @@ export function ConformidadCliente(p:Props){
  const resolve=async()=>{if(!resolution||!evidence.trim())return;const revision=p.revision?.id;const value=resolution.pendiente_id+':'+evidence.trim();const request=nonce.current?.value===value?nonce.current:{id:crypto.randomUUID(),value};nonce.current=request;setBusy(true);setError('');try{await resolverPendienteConformidad(resolution.pendiente_id,evidence.trim(),request.id);if(scope.current===revision){setResolution(null);setNotice('Pendiente resuelto con constancia · el acta firmada permanece igual.');loadAgain();}}catch(e){if(scope.current===revision)setError(e instanceof Error?e.message:'No se pudo resolver el pendiente.')}finally{setBusy(false)}};
  const remaining=estado.pendientes.filter(t=>!t.resuelto_en).length;
  return <section className={styles.root} aria-label="Conformidad del cliente">
-  <div className={styles.heading}><h3>Decisión del cliente</h3><small>{loading?'Consultando…':estado.conformidad?`${estado.conformidad.decision} · ${remaining} pendiente(s)`:p.revision?'Versión guardada · falta decisión firmada':'Por registrar'}</small><button type="button" className={styles.button} onClick={p.onVerActa} disabled={p.blocked||busy}>Ver acta</button></div>
+  <div className={styles.heading}><h3>Decisión del cliente</h3><small>{loading?'Consultando…':estado.conformidad?`${estado.conformidad.decision} · ${remaining} pendiente(s)`:p.revision?'Versión guardada · falta decisión firmada':'Por registrar'}</small></div>
   {(error||parseError)&&<p role="alert" className={styles.error}>{error||parseError}<button type="button" className={styles.button} onClick={loadAgain} disabled={loading||busy}>Actualizar</button></p>}
   {!c&&!p.editable?<p className={styles.note}>Esta versión conserva la información anterior. Usá «Crear versión corregida» para preparar la conformidad y sus pendientes.</p>:<>
    <div className={styles.fields}><label>Receptor<input value={prepared.receptor} maxLength={200} disabled={!canEdit} onChange={e=>initialize({receptor:e.target.value})}/></label><label>En calidad de<select value={prepared.calidad} disabled={!canEdit} onChange={e=>initialize({calidad:e.target.value as 'Cliente'|'Contacto'})}><option>Cliente</option><option>Contacto</option></select></label></div>
