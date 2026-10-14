@@ -1,5 +1,5 @@
 import type { TipoDocumento } from './documentService';
-import {leerCronograma} from './workScheduleModel';
+import {validarPlanUnificado} from './workScheduleActivities';
 import {validarConformidad} from './customerConformityModel';
 
 export interface CampoEtapa { key: string; label: string; type?: 'text' | 'textarea' | 'date' | 'time' | 'datetime-local' | 'scale'; options?: string[]; span?: 2 | 3 | 6 | 12 }
@@ -34,7 +34,7 @@ export const ETAPAS_OT: EtapaDef[] = [
  {tipo:'relevamiento',name:'Informe de Relevamiento (Plan de Trabajo)',subtitle:'Diagnóstico · plan de trabajo · cronograma previsto',tag:'Planificación',record:'Relevamiento',newLabel:'Nuevo relevamiento',help:'Nuevo relevamiento registra otra evaluación técnica. Crear versión corregida ajusta la misma evaluación sin borrar su historia. El cronograma previsto no acredita las fechas reales de ejecución.',groups:[
  {title:'Diagnóstico y evidencia',fields:[text('visitaReferencia','Visita de referencia'),select('modalidad','Modalidad',['Visita','Remota']),date('fechaIntervencion','Fecha de intervención'),text('tecnico','Técnico interviniente'),text('participantes','Participantes'),area('antecedentes','Antecedentes de la solicitud'),area('condiciones','Condiciones y límites de observación'),area('hallazgos','Hallazgos'),area('pruebas','Pruebas y mediciones'),area('causa','Causa confirmada, probable o no determinada; fundamento'),text('planoReferencia','Ubicación referencial del hallazgo')]},
  {title:'Plan de trabajo',fields:[area('alcance','Objetivo de la intervención'),area('exclusiones','Exclusiones y supuestos'),area('criterios','Criterios generales de aceptación',12)]},
- {title:'Cronograma previsto de los trabajos',fields:[date('inicioPrevisto','Inicio previsto'),date('finPrevisto','Fin previsto'),select('decisionAlcance','Estado del plan',['Propuesto','Pendiente de aprobación','Aprobado con referencia']),area('cronograma','Condiciones y referencia del cronograma'),area('condicionesOperativas','Condiciones de ejecución y tiempos técnicos')]},
+ {title:'Cronograma previsto de los trabajos',fields:[date('inicioPrevisto','Inicio previsto'),date('finPrevisto','Fin previsto'),date('fechaLimitePrevista','Fecha límite acordada'),select('decisionAlcance','Estado del plan',['Propuesto','Pendiente de aprobación','Aprobado con referencia']),area('cronograma','Condiciones y referencia del cronograma'),area('condicionesOperativas','Condiciones de ejecución y tiempos técnicos')]},
  {title:'Garantía',fields:[select('decisionGarantia','Evaluación de garantía',['Por determinar','Aplica con fundamento','No aplica con fundamento']),area('fundamentoGarantia','Fundamento de la decisión')]}
  ]},
  {tipo:'avance',name:'Informe de Avance',subtitle:'Trabajo del período, desvíos y próximos pasos',tag:'Opcional',record:'Avance',newLabel:'Nuevo avance',help:'Registrá un avance si el trabajo requiere informar un período o etapa. Puede haber ninguno, uno o varios; omitirlo no bloquea el cierre. Una versión corregida modifica el mismo corte.',groups:[
@@ -61,7 +61,7 @@ export function camposVacios(tipo:TipoDocumento):Record<string,string> {
 export function validarEtapa(tipo:TipoDocumento,datos:Record<string,unknown>):string|null {
  if(tipo==='acta'){const error=validarConformidad(datos);if(error)return error;}
  const d=(datos[claveEtapa(tipo)]??{}) as Record<string,string>;
- if(tipo==='relevamiento'){try{leerCronograma(d.cronogramaJSON)}catch(e){return e instanceof Error?e.message:'Cronograma inválido.'}}
+ if(tipo==='relevamiento'){const error=validarPlanUnificado(datos);if(error)return error;}
  const fechas=tipo==='relevamiento'?['inicioPrevisto','finPrevisto']:tipo==='cierre'?['inicioReal','finReal']:tipo==='avance'?['periodoDesde','periodoHasta']:[];
  if(fechas.length&&d[fechas[0]]&&d[fechas[1]]&&d[fechas[1]]<d[fechas[0]])return 'La fecha de fin no puede ser anterior al inicio.';
  if(tipo==='visita'&&d.horaInicio&&d.horaFin&&d.horaFin<d.horaInicio)return 'Revisá el horario de inicio y fin de la visita.';

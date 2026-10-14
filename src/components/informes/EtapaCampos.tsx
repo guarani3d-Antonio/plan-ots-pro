@@ -1,5 +1,8 @@
 import {CronogramaRelevamiento} from './CronogramaRelevamiento';
-import { useId } from 'react';
+import { useId, useState } from 'react';
+import {actualizarActividades,datosActividadFuente,type FuenteActividad} from '../../services/workScheduleActivities';
+import {leerCronograma,periodoCronograma} from '../../services/workScheduleModel';
+import type {ItemAlcance} from '../../services/reportService';
 import type { TipoDocumento } from '../../services/documentService';
 import { ETAPAS_OT, TEXTO_ACTA, claveEtapa, type CampoEtapa, type GrupoEtapa } from '../../services/otStageSchema';
 import { VoiceInputButton } from '../ui/VoiceInputButton';
@@ -27,15 +30,20 @@ function Campo({campo,value,onChange,disabled,placeholder,readOnly=false}:{campo
  </div>;
 }
 
-export function EtapaCampos({tipo,datos,onChange,disabled=false,compact=false,contexto,onVinculo,puedeDecidir=false,ocultarDecision=false,scopeKey}:{tipo:TipoDocumento;datos:Record<string,unknown>;onChange:(d:Record<string,unknown>)=>void;disabled?:boolean;compact?:boolean;contexto?:ContextoCamposInforme|null;onVinculo?:(key:string,id:string)=>void;puedeDecidir?:boolean;ocultarDecision?:boolean;scopeKey?:string}) {
+export function EtapaCampos({tipo,datos,onChange,disabled=false,compact=false,contexto,onVinculo,puedeDecidir=false,ocultarDecision=false,scopeKey,fuenteReclamo}:{tipo:TipoDocumento;datos:Record<string,unknown>;onChange:(d:Record<string,unknown>)=>void;disabled?:boolean;compact?:boolean;contexto?:ContextoCamposInforme|null;onVinculo?:(key:string,id:string)=>void;puedeDecidir?:boolean;ocultarDecision?:boolean;scopeKey?:string;fuenteReclamo?:FuenteActividad}) {
  const etapa=ETAPAS_OT.find(s=>s.tipo===tipo)!;
  const key=claveEtapa(tipo), values=(datos[key]??{}) as Record<string,string>;
- const set=(k:string,v:string)=>onChange({...datos,[key]:{...values,[k]:v}});
+ const [errorPlan,setErrorPlan]=useState('');
+ const set=(k:string,v:string)=>onChange({...datos,...(tipo==='relevamiento'&&!disabled?{itemsAlcance:((datos.itemsAlcance??[]) as ItemAlcance[]).map(i=>datosActividadFuente(i,fuenteReclamo))}:{}),[key]:{...values,[k]:v}});
  const itemKey=tipo==='relevamiento'?'itemsAlcance':tipo==='avance'?'itemsAvance':'itemsCierre';
- const items=(Array.isArray(datos[itemKey])?datos[itemKey]:[]) as Record<string,string>[];
- const itemFields:CampoEtapa[]=tipo==='relevamiento'?[text('trabajo','Actividad',6),text('rubro','Rubro',3),text('profesional','Profesional / especialidad',3),text('criterio','Criterio para dar la actividad por terminada',12)]:tipo==='avance'?[text('previsto','Trabajo previsto',12),text('realizado','Realizado en este período'),text('saldo','Saldo pendiente')]:[text('trabajo','Trabajo'),text('criterio','Criterio'),text('resultado','Resultado'),text('verificadorFecha','Verificador y fecha')];
+ const rawItems=(Array.isArray(datos[itemKey])?datos[itemKey]:[]) as Record<string,string>[];
+ const items=tipo==='relevamiento'&&!disabled?rawItems.map(i=>datosActividadFuente(i as unknown as ItemAlcance,fuenteReclamo) as unknown as Record<string,string>):rawItems;
+ const setItems=(next:Record<string,string>[])=>{try{if(tipo!=='relevamiento'){onChange({...datos,[itemKey]:next});return;}const result=actualizarActividades(values.cronogramaJSON,next as unknown as ItemAlcance[],fuenteReclamo,values.inicioPrevisto);onChange({...datos,itemsAlcance:result.actividades,[key]:{...values,...(result.json!==undefined?{cronogramaJSON:result.json}:{}),...(result.periodo?{inicioPrevisto:result.periodo.inicio,finPrevisto:result.periodo.fin}:{}),...(result.json!==undefined&&values.fechaLimitePrevista===undefined?{fechaLimitePrevista:values.finPrevisto??''}:{})}});setErrorPlan('');}catch(e){setErrorPlan((e as Error).message);}};
+ let planUnificado=false;let periodoPlan:{inicio:string;fin:string}|null=null;try{if(tipo==='relevamiento'){const c=leerCronograma(values.cronogramaJSON);if(c){if(!disabled&&c.unificado)periodoPlan=periodoCronograma(c);planUnificado=!!c.unificado;}}}catch{/* Incomplete draft is explained by the save validator. */}
+
+ const itemFields:CampoEtapa[]=tipo==='relevamiento'?[text('trabajo','Actividad',6),text('rubro','Rubro del reclamo',3),text('contratista','Contratista del reclamo',3),text('criterio','Criterio para dar la actividad por terminada',12)]:tipo==='avance'?[text('previsto','Trabajo previsto',12),text('realizado','Realizado en este período'),text('saldo','Saldo pendiente')]:[text('trabajo','Trabajo'),text('criterio','Criterio'),text('resultado','Resultado'),text('verificadorFecha','Verificador y fecha')];
  const alcanceHeredado=tipo==='avance'||tipo==='cierre';
- const itemEditor=<div className={styles.items}>{alcanceHeredado&&<p className={styles.note}>Actividades y criterios del plan referenciado. Completá sus resultados; el alcance se corrige en Relevamiento.</p>}{items.map((item,i)=><fieldset key={item.id} className={styles.item}><legend>{item.id}</legend><div className={styles.grid}>{itemFields.map(f=><Campo key={f.key} campo={f} value={item[f.key]??''} disabled={disabled} readOnly={alcanceHeredado&&['previsto','trabajo','criterio'].includes(f.key)} onChange={v=>onChange({...datos,[itemKey]:items.map((it,j)=>i===j?{...it,[f.key]:v}:it)})}/>)}</div>{!alcanceHeredado&&<button type="button" className={styles.button} disabled={disabled} onClick={()=>onChange({...datos,[itemKey]:items.filter((_,j)=>j!==i)})}>Quitar actividad {item.id}</button>}</fieldset>)}{!alcanceHeredado&&<button type="button" className={styles.button} disabled={disabled||items.length>=100} onClick={()=>{let n=1;while(items.some(i=>i.id===`A-${String(n).padStart(2,'0')}`))n++;onChange({...datos,[itemKey]:[...items,{id:`A-${String(n).padStart(2,'0')}`,...Object.fromEntries(itemFields.map(f=>[f.key,'']))}]})}}>+ Agregar actividad</button>}</div>;
+ const itemEditor=<div className={styles.items}>{alcanceHeredado&&<p className={styles.note}>Actividades y criterios del plan referenciado. Completá sus resultados; el alcance se corrige en Relevamiento.</p>}{items.map((item,i)=><fieldset key={item.id} className={styles.item}><legend>{item.id}</legend><div className={styles.grid}>{itemFields.map(f=><Campo key={f.key} campo={f} value={item[f.key]??''} disabled={disabled} readOnly={alcanceHeredado&&['previsto','trabajo','criterio'].includes(f.key)||tipo==='relevamiento'&&['rubro','contratista'].includes(f.key)} onChange={v=>setItems(items.map((it,j)=>i===j?{...it,[f.key]:v}:it))}/>)}</div>{!alcanceHeredado&&<button type="button" className={styles.button} disabled={disabled} onClick={()=>setItems(items.filter((_,j)=>j!==i))}>Quitar actividad {item.id}</button>}</fieldset>)}{!alcanceHeredado&&<button type="button" className={styles.button} disabled={disabled||items.length>=100} onClick={()=>{let n=1;while(items.some(i=>i.id===`A-${String(n).padStart(2,'0')}`))n++;setItems([...items,{id:`A-${String(n).padStart(2,'0')}`,...Object.fromEntries(itemFields.map(f=>[f.key,'']))}])}}>+ Agregar actividad</button>}{errorPlan&&<p role="alert" className={styles.note}>{errorPlan}</p>}</div>;
  const grupos:GrupoEtapa[] = compact && tipo==='relevamiento' ? [
   {...etapa.groups[0],title:'1 · Hallazgo y diagnóstico'},
   {title:'2 · Plan de trabajo y cronograma',fields:[...etapa.groups[1].fields,...etapa.groups[2].fields]},
@@ -46,8 +54,8 @@ export function EtapaCampos({tipo,datos,onChange,disabled=false,compact=false,co
   const vinculo=CAMPOS_VINCULADOS[tipo]?.[f.key];
   if(vinculo&&contexto&&onVinculo&&!disabled){const options=contexto.opciones[vinculo]??[];return <div key={f.key} className={styles.field} style={{'--field-span':f.span??6} as React.CSSProperties}><span className={styles.inheritedLabel}>{f.label}</span><SelectorBusqueda label={f.label} opciones={options} value={options.find(o=>o.id===contexto.vinculos[vinculo])} onSeleccionar={id=>onVinculo(vinculo,id)} placeholder="Seleccioná un registro vinculado…"/></div>;}
   const field=f.key==='decisionAlcance'&&!puedeDecidir?{...f,options:f.options?.filter(v=>v!=='Aprobado con referencia')}:f;
-  const readOnly=CAMPOS_HEREDADOS[tipo].includes(f.key)||(f.key==='decisionGarantia'&&!puedeDecidir);
-  return <Campo key={f.key} campo={compact&&tipo==='relevamiento'&&f.key==='alcance'?{...field,label:'Plan de trabajo propuesto',span:12}:field} value={values[f.key]??''} onChange={v=>set(f.key,v)} disabled={disabled} readOnly={readOnly}/>;
+  const readOnly=CAMPOS_HEREDADOS[tipo].includes(f.key)||(f.key==='decisionGarantia'&&!puedeDecidir)||!!(periodoPlan&&['inicioPrevisto','finPrevisto'].includes(f.key));
+  return <Campo key={f.key} campo={compact&&tipo==='relevamiento'&&f.key==='alcance'?{...field,label:'Plan de trabajo propuesto',span:12}:field} value={periodoPlan&&f.key==='inicioPrevisto'?periodoPlan.inicio:periodoPlan&&f.key==='finPrevisto'?periodoPlan.fin:values[f.key]??''} onChange={v=>set(f.key,v)} disabled={disabled} readOnly={readOnly}/>;
  };
  const contenidoGrupo=(g:GrupoEtapa,index:number)=>{
   const principal=compact&&tipo==='relevamiento' ? (index===0?['hallazgos','pruebas']:index===1?['alcance','inicioPrevisto','finPrevisto','decisionAlcance']:g.fields.map(f=>f.key)) : g.fields.map(f=>f.key);
@@ -56,10 +64,10 @@ export function EtapaCampos({tipo,datos,onChange,disabled=false,compact=false,co
    {tipo === 'encuesta' && g.title === 'Tu experiencia' && <p className={styles.note}>1 = valoración mínima · 10 = máxima · N/A = no corresponde</p>}
    {compact&&tipo==='relevamiento'&&index===0&&<div className={styles.grid}><Campo campo={{key:'observaciones',label:'Diagnóstico inicial y fundamento',type:'textarea',span:12}} value={String(datos.observaciones??'')} placeholder="Ej.: fisura visible en el encuentro del muro; se requiere verificar el sustrato antes de intervenir." onChange={v=>onChange({...datos,observaciones:v})} disabled={disabled}/></div>}
    <div className={styles.grid}>{g.fields.filter(f=>principal.includes(f.key)).map(renderCampo)}</div>
-   {tipo==='relevamiento'&&((compact&&index===1)||(!compact&&g.title==='Plan de trabajo'))&&<CronogramaRelevamiento key={scopeKey} valor={values.cronogramaJSON} inicio={values.inicioPrevisto} disabled={disabled} onChange={(json,periodo)=>onChange({...datos,[key]:{...values,cronogramaJSON:json,...(periodo?{inicioPrevisto:periodo.inicio,finPrevisto:periodo.fin}:{})}})}/>}
-   {extras.length>0&&<details className={styles.legacy}><summary>{index===0?'Antecedentes, condiciones y referencias':'Actividades, criterios y condiciones'}</summary><div className={styles.grid}>{extras.map(renderCampo)}</div>{index===1&&itemEditor}</details>}
+   {tipo==='relevamiento'&&((compact&&index===1)||(!compact&&g.title==='Plan de trabajo'))&&<>{itemEditor}<CronogramaRelevamiento key={scopeKey} valor={values.cronogramaJSON} inicio={values.inicioPrevisto} limite={planUnificado?(values.fechaLimitePrevista??''):(values.fechaLimitePrevista||values.finPrevisto||'')} actividades={items as unknown as ItemAlcance[]} fuente={fuenteReclamo} disabled={disabled} onChange={(json,periodo,actividades,limite)=>onChange({...datos,itemsAlcance:actividades,[key]:{...values,cronogramaJSON:json,fechaLimitePrevista:limite,...(periodo?{inicioPrevisto:periodo.inicio,finPrevisto:periodo.fin}:{inicioPrevisto:'',finPrevisto:''})}})}/></>}
+   {extras.length>0&&<details className={styles.legacy}><summary>{index===0?'Antecedentes, condiciones y referencias':'Actividades, criterios y condiciones'}</summary><div className={styles.grid}>{extras.map(renderCampo)}</div></details>}
    {tipo==='visita'&&g.title.startsWith('2')&&values.horaLlegada&&values.horaInicio&&<p className={styles.note}>Espera hasta el inicio: {espera(values.horaLlegada,values.horaInicio)}</p>}
-   {!compact&&tipo==='relevamiento'&&g.title==='Plan de trabajo'&&itemEditor}
+
   </>;
  };
  return <div className={`${styles.fields} ${compact?styles.reportEditor:''}`} data-tipo={tipo} data-report-section="texto">

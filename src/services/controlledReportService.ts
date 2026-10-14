@@ -2,6 +2,7 @@
 // Debe ejecutarse en el servicio, después de verificar los SHA-256 del registro
 // y los bytes de cada foto. El cliente nunca aporta HTML al renderizador.
 import { TIPOS_CON_PLANO } from './otStageSchema';
+import {materializarHtmlControlado as materializarCronogramaAnterior} from '../../supabase/functions/_shared/controlled-report-20261014-cronograma.mjs';
 import { espaciosFirma, type FirmaDocumento } from './documentSignatureModel';
 import type { OrdenLocal } from '../types/orden';
 import type { RevisionDocumento, TipoDocumento } from './documentService';
@@ -19,7 +20,7 @@ import type {
 
 type Registro = Record<string, unknown>;
 type Foto = { id: string; file_url: string; descripcion: string | null; descripcion_observacion: string | null };
-export const PLANTILLA_CONTROLADA_VERSION = 'expediente-controlado-2026-10-14-cronograma';
+export const PLANTILLA_CONTROLADA_VERSION = 'expediente-controlado-2026-10-14-cronograma-unificado';
 const PLANTILLA_CONFORMIDAD = 'expediente-controlado-2026-10-13-conformidad';
 const PLANTILLA_FIRMAS = 'expediente-controlado-2026-10-13-firmas';
 const PLANTILLA_DATOS = 'expediente-controlado-2026-10-08-datos';
@@ -58,6 +59,7 @@ export function materializarHtmlControlado(
   imagenesVerificadas: Record<string, string>,
   firmasVerificadas: FirmaDocumento[] = [],
 ): string {
+  if(revision.plantilla_version==='expediente-controlado-2026-10-14-cronograma')return materializarCronogramaAnterior(revision,fuentesValor,imagenesVerificadas,firmasVerificadas);
   const fuentes = objeto(fuentesValor, 'Fuentes');
   if (fuentes.version !== 1) throw new Error('Versión de fuentes no admitida');
   const documento = objeto(fuentes.documento, 'Documento');

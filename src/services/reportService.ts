@@ -2,6 +2,7 @@
 // sobre revisiones y artefactos persistidos; imprimir aquí no equivale a emitir.
 
 import {htmlCronograma} from './workScheduleReport';
+import {htmlCronograma as htmlCronogramaAnterior} from './workScheduleReportLegacy';
 import {leerConformidad} from './customerConformityModel';
 import type { OrdenLocal } from '../types/orden';
 import type { ContextoReporteControlado } from './reportTemplates';
@@ -53,7 +54,7 @@ export interface DatosVisita {
 
 export interface DatosRelevamiento {
   cronogramaJSON?:string;
-  visitaReferencia?: string; inicioPrevisto?: string; finPrevisto?: string;
+  visitaReferencia?: string; inicioPrevisto?: string; finPrevisto?: string; fechaLimitePrevista?:string;
   modalidad: string;
   fechaIntervencion: string;
   tecnico: string;
@@ -75,7 +76,7 @@ export interface DatosRelevamiento {
 }
 
 export interface ItemAlcance {
-  rubro?: string; profesional?: string;
+  rubro?: string; profesional?: string; contratista?:string;
   id: string;
   trabajo: string;
   criterio: string;
@@ -333,6 +334,7 @@ export function generarInformeRelevamiento(
   itemsAlcance: ItemAlcance[] = [],
   contexto?: ContextoReporteControlado,
   planTrabajo = !contexto || contexto.planTrabajo === true,
+  cronogramaUnificado = planTrabajo,
 ): string {
   const campo = (clave: keyof DatosRelevamiento) => {
     const valor = datos?.[clave];
@@ -340,9 +342,11 @@ export function generarInformeRelevamiento(
   };
   const bloque = (titulo: string, clave: keyof DatosRelevamiento) =>
     `<section class="p-4 border border-outline-variant rounded-lg mb-4"><strong>${titulo}</strong>${campo(clave)}</section>`;
+  const cronogramaHtml=planTrabajo?(cronogramaUnificado?htmlCronograma(datos?.cronogramaJSON):htmlCronogramaAnterior(datos?.cronogramaJSON)):'';
+  const horizontal=cronogramaUnificado&&cronogramaHtml.includes('data-page-orientation="landscape"');
   const tablaAlcance = itemsAlcance.length ? `<table class="report-data-table">
-  <thead><tr><th>Ítem</th><th>Trabajo propuesto</th><th>Rubro / profesional</th><th>Criterio de aceptación propuesto</th></tr></thead>
-  <tbody>${itemsAlcance.map((item, index) => `<tr><td>${escapeHtml(item.id)}</td><td id="rel-item-${index}-trabajo">${escapeHtml(item.trabajo.trim() || 'No registrado')}</td><td>${escapeHtml(item.rubro || 'No registrado')}<br/>${escapeHtml(item.profesional || 'No registrado')}</td><td id="rel-item-${index}-criterio">${escapeHtml(item.criterio.trim() || 'No registrado')}</td></tr>`).join('')}</tbody>
+  <thead><tr><th>Ítem</th><th>Trabajo propuesto</th><th>${cronogramaUnificado?'Rubro / contratista':'Rubro / profesional'}</th><th>Criterio de aceptación propuesto</th></tr></thead>
+  <tbody>${itemsAlcance.map((item, index) => `<tr><td>${escapeHtml(item.id)}</td><td id="rel-item-${index}-trabajo">${escapeHtml(item.trabajo.trim() || 'No registrado')}</td><td>${escapeHtml(item.rubro || 'No registrado')}<br/>${escapeHtml(cronogramaUnificado?(item.contratista??item.profesional)||'Sin contratista asignado':item.profesional||'No registrado')}</td><td id="rel-item-${index}-criterio">${escapeHtml(item.criterio.trim() || 'No registrado')}</td></tr>`).join('')}</tbody>
 </table>` : '';
 
   const contenido = `<div class="a4-page relevamiento-page">
@@ -369,7 +373,7 @@ ${itemsAlcance.length ? (datos?.alcance?.trim() ? bloque('Notas generales del al
 ${bloque('Exclusiones y supuestos', 'exclusiones')}
 ${itemsAlcance.length ? (datos?.criterios?.trim() ? bloque('Criterios adicionales', 'criterios') : '') : bloque('Criterios de aceptación propuestos', 'criterios')}
 <section class="grid grid-cols-2 gap-4 mb-6">${bloque('Inicio previsto', 'inicioPrevisto')}${bloque('Fin previsto', 'finPrevisto')}</section>
-${planTrabajo?htmlCronograma(datos?.cronogramaJSON):''}${bloque('Cronograma propuesto o aprobado y su referencia', 'cronograma')}
+${horizontal?'':cronogramaHtml}${bloque('Cronograma propuesto o aprobado y su referencia', 'cronograma')}
 ${bloque('Condiciones operativas acordadas para esta intervención', 'condicionesOperativas')}
 ${_seccionInforme(3, 'Cobertura y decisión')}
 ${bloque('Aplicabilidad de garantía declarada', 'decisionGarantia')}
@@ -387,7 +391,7 @@ ${fotosAntes.length ? `<div class="a4-page">
 </div>
 </div>` : ''}`;
 
-  return _envolverInforme(`${planTrabajo?'Informe de Relevamiento (Plan de Trabajo)':'Informe de relevamiento'}${contexto ? '' : ' — borrador'}`, contenido, contexto);
+  return _envolverInforme(`${planTrabajo?'Informe de Relevamiento (Plan de Trabajo)':'Informe de relevamiento'}${contexto ? '' : ' — borrador'}`, contenido+(horizontal?cronogramaHtml:''), contexto);
 }
 
 // El indicador operativo no se presenta como avance aprobado.

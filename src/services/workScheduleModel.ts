@@ -1,8 +1,8 @@
 export const RELACIONES_TRABAJO = ['FI','II','FF','IF'] as const;
 export type TipoRelacionTrabajo = typeof RELACIONES_TRABAJO[number];
 export interface RelacionTrabajo {predecesora:number;tipo:TipoRelacionTrabajo;desfase:number}
-export interface TrabajoProgramado {id:number;nombre:string;inicio:string;fin:string;relaciones:RelacionTrabajo[]}
-export interface CronogramaTrabajo {version:1;calendario:'corridos';incluir:boolean;incluirMatriz:boolean;trabajos:TrabajoProgramado[]}
+export interface TrabajoProgramado {id:number;actividadId?:string;nombre:string;inicio:string;fin:string;relaciones:RelacionTrabajo[]}
+export interface CronogramaTrabajo {version:1;calendario:'corridos';unificado?:boolean;incluir:boolean;incluirMatriz:boolean;trabajos:TrabajoProgramado[]}
 export const MAX_TRABAJOS = 100;
 const DIA = 86400000;
 export function fechaNumero(iso:string):number {
@@ -16,11 +16,19 @@ export const fechaHoy=()=>{const d=new Date();return `${d.getFullYear()}-${Strin
 export const fechaTrabajo=(s:string)=>new Date(s+'T00:00:00').toLocaleDateString('es-PY',{day:'2-digit',month:'2-digit',year:'numeric'});
 export const duracionTrabajo=(t:TrabajoProgramado)=>fechaNumero(t.fin)-fechaNumero(t.inicio)+1;
 export const nuevoCronograma=():CronogramaTrabajo=>({version:1,calendario:'corridos',incluir:true,incluirMatriz:false,trabajos:[]});
+export function leerDesfase(valor:string):number {
+ const texto=valor.trim().replace(/\s/g,'');
+ if(!/^[+-]?\d+d?$/i.test(texto))throw Error('Usá días enteros: +1d, -1, -1d o 0.');
+ const numero=Number(texto.replace(/d$/i,''));if(Math.abs(numero)>3660)throw Error('El desfase supera el límite de diez años.');return numero;
+}
+export const textoDesfase=(numero:number)=>`${numero>0?'+':''}${numero}d`;
 function comprobar(c:CronogramaTrabajo){
  if(!c||c.version!==1||c.calendario!=='corridos'||typeof c.incluir!=='boolean'||typeof c.incluirMatriz!=='boolean'||!Array.isArray(c.trabajos)||c.trabajos.length>MAX_TRABAJOS)throw Error('Cronograma inválido o fuera del límite de 100 trabajos.');
- const ids=new Set<number>();
+ const ids=new Set<number>(),actividades=new Set<string>();
  for(const t of c.trabajos){
   if(!Number.isSafeInteger(t.id)||t.id<1||ids.has(t.id))throw Error('Los números de trabajo deben ser únicos y positivos.');ids.add(t.id);
+  if(t.actividadId!==undefined){if(typeof t.actividadId!=='string'||!/^A-\d{2,}$/.test(t.actividadId)||actividades.has(t.actividadId))throw Error('Cada trabajo debe vincularse a una actividad única.');actividades.add(t.actividadId);}
+  if(c.unificado&&!t.actividadId)throw Error('Vinculá cada trabajo a una actividad del plan.');
   if(typeof t.nombre!=='string'||!t.nombre.trim()||t.nombre.length>240)throw Error('Completá el nombre de cada trabajo (hasta 240 caracteres).');
   const d=duracionTrabajo(t);if(d<1||d>3660)throw Error('El fin debe ser igual o posterior al inicio; máximo diez años por trabajo.');
   if(!Array.isArray(t.relaciones)||t.relaciones.length>MAX_TRABAJOS)throw Error('Relaciones de trabajo inválidas.');

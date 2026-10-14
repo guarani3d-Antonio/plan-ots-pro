@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { PdfVerificado } from './PdfVerificado';
-import { prepararPaginacionInforme, contarPaginasInforme, mostrarPaginaInforme } from '../../services/reportPreviewPagination';
+import { prepararPaginacionInforme, contarPaginasInforme, mostrarPaginaInforme,dimensionesPaginaInforme } from '../../services/reportPreviewPagination';
 import styles from './VistaPreviaDocumento.module.css';
 
 /** Browser fragmentation is only for the draft preview. Exported HTML and verified PDFs stay intact. */
@@ -15,6 +15,7 @@ export function VistaPreviaDocumento({ html, pdfUrl, ampliada, onAmpliar, soloLe
   const [ancho, setAncho] = useState(280);
   const [alto, setAlto] = useState(450);
   const [ajuste, setAjuste] = useState('pagina');
+  const [papel,setPapel]=useState({ancho:794,alto:1123});
   const paginaRef = useRef(pagina);
   useEffect(() => { paginaRef.current = pagina; }, [pagina]);
 
@@ -50,6 +51,7 @@ export function VistaPreviaDocumento({ html, pdfUrl, ampliada, onAmpliar, soloLe
       const actual = Math.min(paginaRef.current, n);
       setPagina(actual);
       mostrarPaginaInforme(frame.contentDocument, actual);
+      setPapel(dimensionesPaginaInforme(frame.contentDocument,actual));
       onReady?.();
     };
     const cargar = async () => {
@@ -89,10 +91,10 @@ export function VistaPreviaDocumento({ html, pdfUrl, ampliada, onAmpliar, soloLe
   }, [ampliada, ajuste, pagina]);
 
   useEffect(() => {
-    if (iframe.current?.contentDocument) mostrarPaginaInforme(iframe.current.contentDocument, pagina);
+    if (iframe.current?.contentDocument){mostrarPaginaInforme(iframe.current.contentDocument, pagina);setPapel(dimensionesPaginaInforme(iframe.current.contentDocument,pagina));}
   }, [pagina]);
 
-  const escala = Math.min(ancho / 794, ampliada && ajuste === 'ancho' ? 1 : alto / 1123, 1);
+  const escala = Math.min(ancho / papel.ancho, ampliada && ajuste === 'ancho' ? 1 : alto / papel.alto, 1);
   const navegacion = <nav className={styles.pages} aria-label="Páginas del informe">
     <button type="button" disabled={paginas === 0 || pagina <= 1} onClick={()=>setPagina(p=>p-1)}>‹ Anterior</button>
     <span aria-live="polite">{paginas ? `${pagina} / ${paginas}` : 'Preparando…'}</span>
@@ -106,10 +108,10 @@ export function VistaPreviaDocumento({ html, pdfUrl, ampliada, onAmpliar, soloLe
       {ampliada && <>{acciones}{onCerrar && <button type="button" aria-label="Cerrar informe" onClick={onCerrar}>✕</button>}</>}
     </div>
     <div className={styles.stage} ref={stage}>
-      {pdfUrl ? <PdfVerificado key={pdfUrl} url={pdfUrl} pagina={pagina} onPaginas={setPaginas} ancho={794 * escala} alto={1123 * escala} onReady={onReady} /> :
-        <div className={styles.sheet} style={{width:794*escala,height:1123*escala}}>
+      {pdfUrl ? <PdfVerificado key={pdfUrl} url={pdfUrl} pagina={pagina} onPaginas={setPaginas} ancho={ancho} alto={ampliada&&ajuste==='ancho'?100000:alto} onReady={onReady} /> :
+        <div className={styles.sheet} style={{width:papel.ancho*escala,height:papel.alto*escala}}>
           <iframe ref={iframe} srcDoc={html} sandbox="allow-same-origin" scrolling="no" title={`Página ${pagina} del borrador`}
-            style={{transform:`scale(${escala})`}} />
+            style={{width:papel.ancho,height:papel.alto,transform:`scale(${escala})`}} />
         </div>}
     </div>
     {!ampliada && navegacion}

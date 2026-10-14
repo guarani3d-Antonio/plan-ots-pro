@@ -20,7 +20,7 @@ async function loadTs(path) {
   // Los tres modulos del generador solo importan otros modulos locales.
   mod.require = specifier => {
     if (!specifier.startsWith('.')) return require(specifier);
-    const filename = resolve(dirname(absolute), `${specifier}.ts`);
+    const filename = resolve(dirname(absolute), specifier.endsWith('.mjs')?specifier:`${specifier}.ts`);
     const cached = cache.get(filename);
     if (cached) return cached.exports;
     const text = require('node:fs').readFileSync(filename, 'utf8');

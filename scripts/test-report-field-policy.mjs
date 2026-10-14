@@ -24,10 +24,10 @@ try{
  const order=(await one('select plan_crear_orden($1,0.5,0.5) id',[work])).id;
  await db.query("update ordenes set responsable_id=$1,descripcion='Solicitud original exacta',fecha_inicio_trabajos='2026-10-10',fecha_fin_trabajos='2026-10-12' where id=$2",[tech,order]);
  const otherOrder=(await one('select plan_crear_orden($1,0.5,0.5) id',[otherWork])).id;
- await as(null);stage='seed client';
+ await as(null);stage='seed client';await db.exec('begin');await db.query("insert into plan_obra_fichas(obra_id,direccion) values($1,'Dirección oficial')",[work]);
  const client=(await one("insert into plan_clientes(tenant_id,nombre,identificacion,contacto,telefono,correo,direccion,creado_por) values($1,'Cliente oficial','123','Contacto oficial','0981','c@qa.test','Domicilio oficial',$2) returning id",[tenant,creator])).id;
  const location=(await one("insert into plan_cliente_ubicaciones(tenant_id,cliente_id,proyecto_id,tipo_inmueble,nombre_obra,direccion,piso,unidad) values($1,$2,$3,'residencial_altura','Ubicación','Dirección oficial','4','313') returning id",[tenant,client,work])).id;
- await as(creator);
+ await db.exec('commit');await as(creator);
  await db.query('update ordenes set cliente_id=$1,cliente_ubicacion_id=$2 where id=$3',[client,location,order]);
  const types=['orden_servicio','visita','relevamiento','avance','cierre','acta','encuesta'];
  const docs={};
@@ -53,6 +53,7 @@ try{
  const rel=await save(docs.relevamiento,{relevamiento:{decisionAlcance:'Aprobado con referencia',cronograma:'Decisión del jefe registrada',hallazgos:'Hallazgo propio'},itemsAlcance:[{id:'A-01',trabajo:'Reparar el muro',criterio:'Superficie sin fisuras'}]});
  assert.equal(rel.revision.datos.decisionPlan.actor,creator);
  await as(tech);
+ await reject(()=>save(docs.relevamiento,{...rel.revision.datos,relevamiento:{...rel.revision.datos.relevamiento,cronogramaJSON:'{"unificado":false}'}},1,true));
  await reject(()=>save(docs.relevamiento,{...rel.revision.datos,relevamiento:{...rel.revision.datos.relevamiento,alcance:'Ampliación sin autorización'}},1,true));
  const diagnosed=await save(docs.relevamiento,{...rel.revision.datos,relevamiento:{...rel.revision.datos.relevamiento,hallazgos:'Aclaración técnica sin cambiar el plan'}},1,true);
  assert.equal(diagnosed.revision.datos.decisionPlan.actor,creator,'Una aclaración no inventa otra aprobación');

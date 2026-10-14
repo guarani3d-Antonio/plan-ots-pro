@@ -248,6 +248,7 @@ function itemsAlcanceGuardados(valor: unknown): ItemAlcance[] {
       trabajo: typeof item.trabajo === 'string' ? item.trabajo : '',
       rubro: typeof item.rubro === 'string' ? item.rubro : '',
       profesional: typeof item.profesional === 'string' ? item.profesional : '',
+      contratista: typeof item.contratista === 'string' ? item.contratista : '',
       criterio: typeof item.criterio === 'string' ? item.criterio : '',
     }];
   });
@@ -591,7 +592,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
       case 'visita':
         return terminar(generarFichaVisita(ordenDocumento, datosVisita, fa, codigoDocumento));
       case 'relevamiento':
-        return terminar(generarInformeRelevamiento(ordenDocumento, textoActual, fa, datosRelevamiento, codigoDocumento, itemsAlcance,undefined,!conservada||revisionFirma?.plantilla_version===PLANTILLA_CONTROLADA_VERSION));
+        return terminar(generarInformeRelevamiento(ordenDocumento, textoActual, fa, datosRelevamiento, codigoDocumento, itemsAlcance,undefined,!conservada||revisionFirma?.plantilla_version===PLANTILLA_CONTROLADA_VERSION||revisionFirma?.plantilla_version==='expediente-controlado-2026-10-14-cronograma',!conservada||revisionFirma?.plantilla_version!=='expediente-controlado-2026-10-14-cronograma'));
       case 'avance':
         return terminar(generarInformeAvance(ordenDocumento, textoActual, fa, fdu, datosAvance, codigoDocumento, itemsAvance));
       case 'acta':
@@ -1431,7 +1432,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
             {!documento && <p className={styles.sublabel}>Guardá el borrador para consultar sus revisiones y preparar el PDF controlado.</p>}
             </div>
             <div hidden={editorTab !== 'texto'} className={styles.tabContent}>
-            <EtapaCampos scopeKey={orden.id+':'+(documento?.id??'nuevo')+':'+versionBorrador+':'+correccionAbierta} compact tipo={tipo} datos={datosBorrador} contexto={contextoCampos} puedeDecidir={tienePermiso('informe.aprobar',orden.proyecto_id)} onVinculo={(key,id)=>void cambiarVinculo(key,id)} disabled={camposBloqueados}
+            <EtapaCampos fuenteReclamo={{rubro:orden.rubro,contratistas:orden.contratistas??[]}} scopeKey={orden.id+':'+(documento?.id??'nuevo')+':'+versionBorrador+':'+correccionAbierta} compact tipo={tipo} datos={datosBorrador} contexto={contextoCampos} puedeDecidir={tienePermiso('informe.aprobar',orden.proyecto_id)} onVinculo={(key,id)=>void cambiarVinculo(key,id)} disabled={camposBloqueados}
               onChange={d=>{
                 setObservaciones(String(d.observaciones??''));
                 if(d.origen)setOrigenServicio(d.origen as OrigenOrdenServicio);
