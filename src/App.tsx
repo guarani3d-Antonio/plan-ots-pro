@@ -13,6 +13,7 @@ import { Sidebar, type Vista } from './components/layout/Sidebar';
 import { ApplicationTopBar } from './components/layout/ApplicationTopBar';
 import Dashboard      from './components/views/Dashboard';
 import Responsables   from './components/views/Responsables';
+import Clientes from './components/views/Clientes';
 import Gantt          from './components/views/Gantt';
 import Calendario     from './components/views/Calendario';
 import Contratistas   from './components/views/Contratistas';
@@ -219,6 +220,7 @@ function ContenidoApp() {
           />
         );
       case 'responsables':  return <Responsables />;
+      case 'clientes':      return <Clientes />;
       case 'gantt':         return <Gantt />;
       case 'calendario':    return <Calendario />;
       case 'contratistas':  return <Contratistas />;

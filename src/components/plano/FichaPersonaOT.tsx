@@ -21,7 +21,7 @@ export function FichaPersonaOT({ tipo, ficha, tenantId, puedeGestionar, onGuarda
         title={puedeGestionar?'Editar el registro compartido':'El Creador administra esta ficha'} onClick={()=>setEditar(true)}>Editar ficha</button></div>
     </div>
     <dl className={styles.grid}>
-      {([['identificacion','RUC / documento'],['contacto','Contacto'],['telefono','Teléfono'],['correo','Correo'],['direccion',tipo==='cliente'?'Domicilio del cliente':'Dirección']] as const).map(([key,label])=>
+      {([['identificacion','RUC / documento'],['contacto','Contacto'],['telefono','Teléfono'],['correo','Correo'],['direccion',tipo==='cliente'?'Domicilio del cliente':'Dirección']] as const).filter(([key])=>tipo!=='cliente'||key!=='direccion').map(([key,label])=>
         <div key={key}><dt>{label}</dt><dd>{ficha[key]||'Sin registrar'}</dd></div>)}
     </dl>{children}
     {editar&&tenantId&&<EditarFichaPersona tipo={tipo} ficha={ficha} tenantId={tenantId} onCerrar={()=>setEditar(false)} onDatos={onGuardar} onGuardar={f=>{onGuardar(f);setEditar(false)}}/>}
@@ -39,7 +39,7 @@ function EditarFichaPersona({tipo,ficha,tenantId,onCerrar,onGuardar,onDatos}:{ti
   setBusy(true);setError('');
   try{
    const ticket=sessionTicket();const {error}=await supabase.rpc(tipo==='cliente'?'plan_guardar_cliente':'plan_guardar_contratista_ficha',{
-    p_tenant:tenantId,p_id:ficha.id,p_nombre:datos.nombre,p_identificacion:datos.identificacion,p_contacto:datos.contacto,p_telefono:datos.telefono,p_correo:datos.correo,p_direccion:datos.direccion,p_activo:ficha.activo});
+    p_tenant:tenantId,p_id:ficha.id,p_nombre:datos.nombre,p_identificacion:datos.identificacion,p_contacto:datos.contacto,p_telefono:datos.telefono,p_correo:datos.correo,p_direccion:tipo==='cliente'?null:datos.direccion,p_activo:ficha.activo});
    assertSession(ticket);if(error)throw new Error(error.message);
    const updated={...ficha,...Object.fromEntries(Object.entries(datos).map(([k,v])=>[k,v.trim()||null])),nombre:datos.nombre.trim()} as FichaContratista;
    onDatos(updated);
@@ -51,7 +51,7 @@ function EditarFichaPersona({tipo,ficha,tenantId,onCerrar,onGuardar,onDatos}:{ti
   <p className={styles.status}>La edición actualiza el registro compartido del directorio de Creador.</p>
   <fieldset disabled={busy} style={{border:0,padding:0,margin:0,minWidth:0}}>
    <div className={styles.editorPhoto}><FotoDirectorio tipo={tipo} id={ficha.id} nombre={datos.nombre} archivo={foto} onArchivo={setFoto} disabled={busy}/></div>
-   <div className={styles.editGrid}>{campos.map(([key,label,max])=><div key={key} className={styles.field}><span className={styles.label}>{label}<VoiceInputButton compact value={datos[key]} maxLength={max} onChange={v=>setDatos(d=>({...d,[key]:v}))}/></span><input aria-label={label} maxLength={max} value={datos[key]} type={key==='correo'?'email':key==='telefono'?'tel':'text'} placeholder={`Ej.: ${label.toLowerCase()}`} onChange={e=>setDatos(d=>({...d,[key]:e.target.value}))}/></div>)}</div>
+   <div className={styles.editGrid}>{campos.filter(([key])=>tipo!=='cliente'||key!=='direccion').map(([key,label,max])=><div key={key} className={styles.field}><span className={styles.label}>{label}<VoiceInputButton compact value={datos[key]} maxLength={max} onChange={v=>setDatos(d=>({...d,[key]:v}))}/></span><input aria-label={label} maxLength={max} value={datos[key]} type={key==='correo'?'email':key==='telefono'?'tel':'text'} placeholder={`Ej.: ${label.toLowerCase()}`} onChange={e=>setDatos(d=>({...d,[key]:e.target.value}))}/></div>)}</div>
   </fieldset>{error&&<p role="alert">{error}</p>}<div className={styles.actions}><button type="button" className={`${styles.button} ${styles.primary}`} disabled={busy||!datos.nombre.trim()} onClick={()=>void guardar()}>{busy?'Guardando…':'Guardar ficha'}</button><button type="button" className={styles.button} disabled={busy} onClick={onCerrar}>Cancelar</button></div>
  </DialogDirectorioOT>;
 }

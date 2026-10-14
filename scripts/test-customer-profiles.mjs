@@ -1,0 +1,81 @@
+import assert from 'node:assert/strict';
+import {readFile,readdir,mkdir,writeFile} from 'node:fs/promises';
+import {PGlite} from '@electric-sql/pglite';
+import {rolldown} from 'rolldown';
+await mkdir('tmp/customer-profiles-qa',{recursive:true});
+const b=await rolldown({input:'src/services/customerProfileModel.ts'});await b.write({file:'tmp/customer-profiles-qa/model.mjs',format:'esm'});await b.close();
+const model=await import('../tmp/customer-profiles-qa/model.mjs');
+assert.equal(model.valorEncuesta('N/A'),null);assert.equal(model.valorEncuesta('0'),null);assert.equal(model.valorEncuesta('11'),null);assert.equal(model.valorEncuesta('10'),10);
+assert.equal(model.resumenEncuestas([{satisfaccionGeneral:'5'}]).promedio,null);
+assert.equal(model.resumenEncuestas([{respondente:'QA',fechaRespuesta:'2026-10-10',rapidez:'8',calidadTrabajo:'N/A'}]).promedio,8);
+assert.equal(model.resumenEncuestas([{respondente:'QA',fechaRespuesta:'2026-10-10',rapidez:'N/A'}]).respondidas,1);
+assert.equal(model.resumenEncuestas([{rapidez:'8'}]).respondidas,0);
+assert.equal(model.encuestaRespondida({respondente:'QA',fechaRespuesta:'2026-02-30',rapidez:'8'}),false);
+assert.deepEqual(model.limitesPerfil('90',new Date('2026-10-14T00:00:00')),{desde:'2026-07-17',hasta:'2026-10-14'});
+const db=new PGlite(),id=n=>`30000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
+const creator=id(1),outsider=id(2),tenant=id(10),other=id(11),work=id(20),otherWork=id(21),legacy=id(30);
+const one=async(sql,args=[])=>(await db.query(sql,args)).rows[0];
+const as=async user=>{await db.exec('reset role');await db.query("select set_config('request.jwt.claim.sub',$1,false)",[user??'']);if(user)await db.exec('set role authenticated')};
+let nonce=100;
+try{
+ for(const f of ['captured-domain.sql','storage-foundation.sql'])await db.exec(await readFile('supabase/tests/'+f,'utf8'));
+ await db.exec("alter table auth.users add column raw_user_meta_data jsonb default '{}';alter table auth.users add column created_at timestamptz default now();alter table auth.users add column last_sign_in_at timestamptz;alter table storage.buckets add column name text;alter table storage.buckets add column file_size_limit bigint;alter table storage.buckets add column allowed_mime_types text[];");
+ const migration='202610140001_enriched_customer_profiles.sql';
+ for(const f of (await readdir('supabase/migrations')).filter(f=>f.endsWith('.sql')&&f!==migration).sort())await db.exec(await readFile('supabase/migrations/'+f,'utf8'));
+ await db.query('insert into auth.users(id,email) values($1,$2),($3,$4)',[creator,'customers@qa.test',outsider,'outside@qa.test']);await db.query('insert into plataforma_administradores(user_id) values($1)',[creator]);
+ await db.query("insert into tenants(id,nombre,slug) values($1,'Empresa QA','customer-qa'),($2,'Otra empresa','other-customer-qa')",[tenant,other]);
+ await db.query("insert into proyectos(id,tenant_id,nombre,plano_url,created_by) values($1,$2,'Edificio QA','pending://plan-upload-required',$3),($4,$5,'Otra obra','pending://plan-upload-required',$3)",[work,tenant,creator,otherWork,other]);
+ await db.query("insert into plan_obra_fichas(obra_id,direccion) values($1,'Dirección de la obra QA'),($2,'Otra dirección')",[work,otherWork]);
+ await db.query("insert into plan_clientes(id,tenant_id,nombre,direccion,creado_por) values($1,$2,'Cliente previo','Legado personal conservado',$3)",[legacy,tenant,creator]);
+ await db.exec(await readFile('supabase/migrations/'+migration,'utf8'));
+ await as(creator);
+ const datos={nombre:'Cliente QA',tipo:'persona',telefono:'00000000',activo:true,potencialmente_conflictivo:false,direccion:'No debe guardarse'};
+ const save=async(t,p,d,w,u=null,lugar={torre:'Torre A',unidad:'402'},solicitud=id(nonce++))=>(await one('select plan_cliente_ficha_guardar($1,$2,$3,true,$4,$5,$6,$7) id',[t,p,d,w,u,lugar,solicitud])).id;
+ await assert.rejects(save(tenant,null,datos,null),e=>e.code==='22023');
+ await assert.rejects(save(tenant,null,datos,otherWork),e=>e.code==='42501');
+ const attempt=id(nonce++),client=await save(tenant,null,datos,work,null,{torre:'Torre A',unidad:'402'},attempt);
+ assert.equal(await save(tenant,null,datos,work,null,{torre:'Torre A',unidad:'402'},attempt),client);
+ await assert.rejects(save(tenant,null,{...datos,nombre:'Otros datos'},work,null,{torre:'Torre A',unidad:'402'},attempt),e=>e.code==='22023');
+ let locations=(await one('select plan_cliente_ubicaciones_listar($1,$2) r',[tenant,client])).r;
+ assert.equal(locations.length,1);assert.equal(locations[0].nombre_obra,'Edificio QA');assert.equal(locations[0].direccion,'Dirección de la obra QA');assert.equal(locations[0].datos_adicionales.torre,'Torre A');
+ await db.exec('reset role');assert.equal((await one('select direccion from plan_clientes where id=$1',[client])).direccion,null);assert.equal((await one('select direccion from plan_clientes where id=$1',[legacy])).direccion,'Legado personal conservado');await as(creator);
+ await assert.rejects(one('select (plan_guardar_cliente($1,null,$2,null,null,null,null,null)).id',[tenant,'Sin obra']),e=>e.code==='23514');
+ await assert.rejects(save(tenant,client,{...datos,nombre:'No debe cambiar'},work,id(999)),e=>e.code==='42501');
+ assert.equal((await one("select plan_clientes_fichas($1) r",[tenant])).r.find(c=>c.id===client).datos.nombre,'Cliente QA');
+ await db.exec('reset role');await db.query("update plan_obra_fichas set direccion='Dirección actualizada en obra' where obra_id=$1",[work]);await as(creator);
+ locations=(await one('select plan_cliente_ubicaciones_listar($1,$2) r',[tenant,client])).r;assert.equal(locations[0].direccion,'Dirección actualizada en obra');
+ const orders=[];
+ for(let i=0;i<23;i++){
+ const order=(await one('select plan_crear_orden($1,null,null) id',[work])).id;orders.push(order);await db.exec('reset role');
+ await db.query("update ordenes set cliente_id=$1,cliente_ubicacion_id=$2,estado=$3,fecha_ingreso='2026-10-01',fecha_fin_trabajos=$4,descripcion=$5 where id=$6",[client,locations[0].id,i<2?'Pendiente':'Cerrada',i<2?null:'2026-10-03','Atención '+i,order]);await as(creator);
+ }
+ const profile=async(tab='resumen',page=0,state=null,t=tenant,c=client)=>(await one('select plan_cliente_perfil($1,$2,null,null,$3,$4,$5) r',[t,c,tab,page,state])).r;
+ let p=await profile();assert.equal(p.resumen.total,23);assert.equal(p.resumen.cerrada,21);assert.equal(p.resumen.diasCierre,2);assert.equal(p.ordenes.length,20);assert.equal((await profile('reclamos',1)).ordenes.length,3);assert.equal((await profile('reclamos',0,'Activos')).totalOrdenes,2);
+ await assert.rejects(save(tenant,client,datos,otherWork,locations[0].id),e=>e.code==='42501');
+ const doc=(await one("select (plan_documento_reservar($1,'encuesta',1,$2)).id id",[orders[2],id(nonce++)])).id;
+ const survey={observaciones:'',incluirFotos:false,encuesta:{respondente:'Cliente QA',fechaRespuesta:'2026-10-10',modalidad:'Formulario',relacionConOT:'Cliente atendido',referenciaFuente:'Respuesta original QA',rapidez:'8',calidadTrabajo:'N/A',sugerencias:'Comentario del cliente'}};
+ const version=async(data,v=0,corregir=false)=>(await one('select plan_documento_version_guardar($1,$2,$3,$4,$5,$6,1,$7) r',[doc,data,v,id(nonce++),corregir,corregir?'Corregir transcripción':null,'expediente-controlado-2026-10-14-cronograma'])).r;
+ const a=await version(survey);p=await profile('encuestas');assert.equal(p.totalEncuestas,1);assert.equal(model.resumenEncuestas(p.valoraciones).promedio,8);
+ await version({...survey,encuesta:{...survey.encuesta,rapidez:'10'}},a.borrador.version,true);p=await profile('encuestas');assert.equal(p.totalEncuestas,1);assert.equal(p.encuestas[0].revision,a.revision.revision+1);assert.equal(model.resumenEncuestas(p.valoraciones).promedio,10);
+ const original=(await one('select datos from plan_documento_revisiones where id=$1',[a.revision.id])).datos;assert.equal(original.encuesta.rapidez,'8');
+ const unbound=(await one("select (plan_documento_reservar($1,'encuesta',1,$2)).id id",[orders[3],id(nonce++)])).id;assert.ok(unbound);p=await profile('encuestas');assert.equal(p.totalEncuestas,2);assert.equal(model.resumenEncuestas(p.valoraciones).respondidas,1);
+ const otherClient=await save(tenant,null,{...datos,nombre:'Otra persona QA'},work);const otherSite=(await one('select plan_cliente_ubicaciones_listar($1,$2) r',[tenant,otherClient])).r[0];
+ await db.exec('reset role');await db.query('update ordenes set cliente_id=$1,cliente_ubicacion_id=$2 where id=$3',[otherClient,otherSite.id,orders[2]]);await as(creator);
+ p=await profile('encuestas');assert.ok(p.encuestas.some(e=>e.id===doc));assert.equal((await profile('encuestas',0,null,tenant,otherClient)).totalEncuestas,0);
+ await assert.rejects(profile('resumen',0,null,other,client),e=>e.code==='42501');
+ await as(outsider);await assert.rejects(profile(),e=>e.code==='42501');await assert.rejects(save(tenant,client,datos,null),e=>e.code==='42501');
+ await db.exec('reset role');await db.exec('set role anon');await assert.rejects(profile(),e=>e.code==='42501');
+ await as(creator);const context=(await one("select plan_documento_contexto_campos($1,'orden_servicio') c",[orders[0]])).c;assert.equal(context.identificacion.domicilio,'Dirección actualizada en obra');
+ // Same controlled data-load mode as the isolated recovery worker: historical
+ // archives retain their data, including legacy clients without locations.
+ await db.exec('reset role');await db.exec('begin;set local session_replication_role=replica;');
+ await db.query("insert into plan_clientes(id,tenant_id,nombre,direccion,creado_por) values($1,$2,'Cliente de copia anterior','Valor de legado de la copia',$3)",[id(999),tenant,creator]);
+ await db.exec('commit');assert.equal((await one('select direccion from plan_clientes where id=$1',[id(999)])).direccion,'Valor de legado de la copia');
+ assert.match(await readFile('server/backup/recovery.mjs','utf8'),/set local session_replication_role=replica/);
+ await db.query("insert into proyectos(id,tenant_id,nombre,plano_url,created_by,proyecto_padre_id) values($1,$2,'Plano de Edificio QA','pending://plan-upload-required',$3,$4)",[id(800),tenant,creator,work]);await as(creator);
+ assert.ok((await db.query('select cliente_id from plan_clientes_para_obra($1)',[id(800)])).rows.some(r=>r.cliente_id===client));
+ const childOrder=(await one('select plan_crear_orden($1,null,null) id',[id(800)])).id;await db.exec('reset role');await db.query('update ordenes set cliente_id=$1,cliente_ubicacion_id=$2 where id=$3',[client,locations[0].id,childOrder]);
+ await writeFile('tmp/customer-profiles-qa/result.json',JSON.stringify({ok:true,totalOrders:23,correctionsCountedOnce:true,legacyPreserved:true,personalAddressesIgnored:true,foreignTenantDenied:true,pagination:true},null,2));
+ if(process.argv.includes('--test-revert')){await db.exec('reset role');const before=(await one('select count(*)::int n from plan_clientes')).n;await db.exec(await readFile('output/clientes-perfil-20261014/revertir-servidor.sql','utf8'));assert.equal((await one('select count(*)::int n from plan_clientes')).n,before);assert.equal((await one("select to_regprocedure('public.plan_cliente_perfil(uuid,uuid,date,date,text,integer,text)') f")).f,null);console.log('PASS: reversión con definiciones reales del servidor, sin perder clientes.');}
+ console.log('PASS: cliente + obra atómicos, dirección heredada, legado conservado, sin domicilios personales nuevos, versiones de encuestas sin duplicar, fechas, N/A, paginación y aislamiento.');
+}catch(e){console.error({message:e.message,code:e.code,where:e.where});process.exitCode=1}finally{await db.close()}

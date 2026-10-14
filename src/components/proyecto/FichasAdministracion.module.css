@@ -3,3 +3,5 @@
 
 .identity input[type=file]{position:absolute;width:1px!important;height:1px!important;opacity:0;overflow:hidden}.identity [class*=photoLabel]{cursor:pointer;font-size:11px;line-height:1.3}.identity [class*=photoLabel]:focus-within{outline:2px solid var(--accent);outline-offset:2px}.classification input[type=radio]{accent-color:var(--accent)}
 .toolbar>label:last-child{flex:0 0 auto;min-width:0;max-width:140px}
+
+.identity .state{flex-wrap:nowrap;width:max-content;max-width:100%}.identity .state select{width:auto!important;min-width:85px;max-width:125px}

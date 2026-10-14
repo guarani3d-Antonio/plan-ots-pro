@@ -13,6 +13,7 @@ export type Vista =
   | 'grilla'
   | 'plano'
   | 'responsables'
+  | 'clientes'
   | 'gantt'
   | 'calendario'
   | 'contratistas'
@@ -43,6 +44,7 @@ function NavIcon({ children }: { children: ReactNode }) {
 }
 
 const ICONS = {
+  clientes: <NavIcon><path fill="none" d="M3 5h18v14H3V5Zm13 4h3m-3 4h3M6 16a3 3 0 0 1 6 0M9 11a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" /></NavIcon>,
   dashboard: <NavIcon><path d="M4 13h6V4H4v9Zm0 7h6v-4H4v4Zm10 0h6v-9h-6v9Zm0-16v4h6V4h-6Z" /></NavIcon>,
   proyectos: <NavIcon><path d="M3.75 6.75A1.75 1.75 0 0 1 5.5 5h4l1.65 2h7.35a1.75 1.75 0 0 1 1.75 1.75v8.75a1.75 1.75 0 0 1-1.75 1.75h-13a1.75 1.75 0 0 1-1.75-1.75V6.75Z" /></NavIcon>,
   grilla: <NavIcon><path fill="none" d="M3 4.5h18v15H3v-15Zm0 5h18M3 14.5h18M9 4.5v15M15 4.5v15" /></NavIcon>,
@@ -62,6 +64,7 @@ const NAV_PRINCIPAL: NavItem[] = [
 ];
 
 const NAV_GLOBALES: NavItem[] = [
+  { vista: 'clientes', icon: ICONS.clientes, label: 'Clientes' },
   { vista: 'responsables', icon: ICONS.responsables, label: 'Responsables' },
   { vista: 'contratistas', icon: ICONS.contratistas, label: 'Contratistas' },
   { vista: 'gantt',        icon: ICONS.gantt, label: 'Gantt' },

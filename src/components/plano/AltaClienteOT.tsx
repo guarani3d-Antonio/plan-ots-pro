@@ -13,9 +13,9 @@ type Cliente = { id: string; nombre: string; identificacion: string | null };
 const campos = [
   ['nombre', 'Nombre o razón social', 160], ['identificacion', 'RUC o documento', 80],
   ['contacto', 'Persona de contacto', 160], ['telefono', 'Teléfono', 80],
-  ['correo', 'Correo', 254], ['domicilio', 'Domicilio del cliente', 500],
+  ['correo', 'Correo', 254],
 ] as const;
-const lugar = [['direccion_obra', 'Dirección de la obra', 500], ['piso', 'Piso', 40],
+const lugar = [['piso', 'Piso', 40],
   ['unidad', 'Departamento, oficina o unidad', 80], ['sector', 'Sector', 120]] as const;
 const inicial = { nombre: '', identificacion: '', contacto: '', telefono: '', correo: '', domicilio: '',
   tipo_inmueble: 'residencial_altura', direccion_obra: '', piso: '', unidad: '', sector: '' };
@@ -34,6 +34,7 @@ export function AltaClienteOT({ proyectoId, obra, clienteInicial, onGuardar, onC
   const activo = useRef(true);
   useEffect(() => {
     activo.current = true;
+    const ticket=sessionTicket();void Promise.resolve(supabase.rpc('plan_ficha_obra',{p_proyecto:proyectoId})).then(r=>{if(!activo.current)return;assertSession(ticket);if(r.error){setError(r.error.message);return;}setDatos(d=>({...d,direccion_obra:r.data?.direccion??''}));}).catch(()=>{if(activo.current)setError('No se pudo consultar la dirección de la obra.');});
     void Promise.resolve().then(() => { const ticket = sessionTicket(); return supabase.rpc('plan_clientes_gestion_obra', { p_proyecto: proyectoId }).then(({ data, error }) => {
       if (!activo.current) return;
       assertSession(ticket);
@@ -76,6 +77,7 @@ export function AltaClienteOT({ proyectoId, obra, clienteInicial, onGuardar, onC
       </label>)}</div> : <p>Se conservarán los datos de la ficha existente; solo se agregará la nueva ubicación.</p>}
       <h4>Ubicación del reclamo</h4>
       <p><strong>Obra:</strong> {obra}</p>
+      <p><strong>Dirección de la obra:</strong> {datos.direccion_obra||'Pendiente de completar en la ficha de la obra.'}</p>
       <div className={styles.grid}>
         <label>Tipo de inmueble
           <select value={datos.tipo_inmueble} onChange={e => setDatos(d => ({ ...d, tipo_inmueble: e.target.value }))}>
@@ -84,7 +86,7 @@ export function AltaClienteOT({ proyectoId, obra, clienteInicial, onGuardar, onC
           </select>
         </label>
         {lugar.map(([key, label, max]) => <label key={key} htmlFor={`alta-${key}`}>
-          <span className={styles.labelRow}>{label}{key === 'direccion_obra' ? ' *' : ''}<VoiceInputButton compact value={datos[key]} maxLength={max} onChange={v => setDatos(d => ({ ...d, [key]: v }))} /></span>
+          <span className={styles.labelRow}>{label}<VoiceInputButton compact value={datos[key]} maxLength={max} onChange={v => setDatos(d => ({ ...d, [key]: v }))} /></span>
           <input id={`alta-${key}`} value={datos[key]} maxLength={max} onChange={e => setDatos(d => ({ ...d, [key]: e.target.value }))} />
         </label>)}
       </div>

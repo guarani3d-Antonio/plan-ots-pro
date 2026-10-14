@@ -5,8 +5,8 @@ import styles from './AdministracionCreador.module.css';
 import {PanelAdministracionContext} from './panelAdministracionContext';
 
 /** Shared side editor. Master-data forms remain separate from the OT editor. */
-export function PanelAdministracion({ titulo, onCerrar, busy = false, children,acciones,cancelarCompacto=false }: {
-  titulo: string; onCerrar: () => void; busy?: boolean; children: ReactNode;acciones?:ReactNode;cancelarCompacto?:boolean;
+export function PanelAdministracion({ titulo, onCerrar, busy = false, children,acciones,cancelarCompacto=false,modal=false,textoCerrar }: {
+  titulo: string; onCerrar: () => void; busy?: boolean; children: ReactNode;acciones?:ReactNode;cancelarCompacto?:boolean;modal?:boolean;textoCerrar?:string;
 }) {
   const destino = useContext(PanelAdministracionContext);
   const ref = useRef<HTMLElement>(null);
@@ -24,10 +24,11 @@ export function PanelAdministracion({ titulo, onCerrar, busy = false, children,a
     return () => { if (anterior?.isConnected) anterior.focus(); };
   }, []);
   if (!destino) return null;
-  return createPortal(<aside className={styles.sideEditor} ref={ref} role="dialog" aria-busy={busy} aria-labelledby={id}
-    onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); if (!busy) onCerrar(); } }}>
+  const panel=<aside className={`${styles.sideEditor} ${modal?styles.customerDialog:''}`} ref={ref} role="dialog" aria-modal={modal||undefined} aria-busy={busy} aria-labelledby={id}
+    onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); if (!busy) onCerrar(); } if(modal&&e.key==='Tab'){const controls=[...(ref.current?.querySelectorAll<HTMLElement>('button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),a[href]')??[])].filter(el=>el.offsetParent!==null);const first=controls[0],last=controls.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last?.focus()}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first?.focus()}} }}>
     <header className={styles.editorHeader}><h3 id={id}>{titulo}</h3><button type="button" disabled={busy} aria-label={`Cerrar ${titulo}`} onClick={onCerrar}>✕</button></header>
     <div className={styles.editorBody}>{children}</div>
-    <footer className={styles.editorFooter}><button className={styles.secondaryButton} type="button" aria-label={cancelarCompacto?'Cancelar':undefined} title={cancelarCompacto?'Cancelar':undefined} disabled={busy} onClick={onCerrar}>{cancelarCompacto?'✕':acciones?'Cancelar':'Cerrar ficha'}</button>{acciones}</footer>
-  </aside>, destino);
+    <footer className={styles.editorFooter}><button className={styles.secondaryButton} type="button" aria-label={cancelarCompacto?'Cancelar':undefined} title={cancelarCompacto?'Cancelar':undefined} disabled={busy} onClick={onCerrar}>{textoCerrar??(cancelarCompacto?'✕':acciones?'Cancelar':'Cerrar ficha')}</button>{acciones}</footer>
+  </aside>;
+  return createPortal(modal?<div className={styles.customerBackdrop}>{panel}</div>:panel,destino);
 }
