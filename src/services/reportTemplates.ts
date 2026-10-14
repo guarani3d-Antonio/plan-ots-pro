@@ -6,6 +6,7 @@
 
 import type { OrdenLocal } from '../types/orden';
 import { REPORT_PRINT_CSS } from './reportPrintCss';
+import { incorporarFirmas, type EspacioFirma, type FirmaDocumento } from './documentSignatureModel';
 
 // Escapa entidades HTML para inyectar texto del usuario sin romper el parseo.
 export function escapeHtml(s: string): string {
@@ -112,6 +113,9 @@ export const _FOOTER_INFORME = `<footer class="page-footer">
 </footer>`;
 
 export interface ContextoReporteControlado {
+  firmantes?: EspacioFirma[];
+  firmas?: FirmaDocumento[];
+  identidadFirma?: { id:string; hash:string };
   emisor?: string;
   revision: number;
   anio: number;
@@ -176,11 +180,12 @@ export function _envolverInforme(titulo: string, contenido: string,
         'La emisión y la recepción se verifican por separado en el registro digital.')
       .replace('__YEAR__', String(contexto.anio))
     : _FOOTER_INFORME.replace('__YEAR__', String(new Date().getFullYear()));
-  return `${head}
+  const html = `${head}
 <body class="bg-surface font-body-md text-on-surface min-h-screen">
 ${contenido}
 ${pie}
 </body></html>`;
+  return contexto?.firmantes ? incorporarFirmas(html,contexto.firmantes,contexto.firmas,contexto.identidadFirma) : html;
 }
 
 // Identificación mínima de la OT (no atribuye el responsable al cliente).

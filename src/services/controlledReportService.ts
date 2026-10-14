@@ -2,6 +2,7 @@
 // Debe ejecutarse en el servicio, después de verificar los SHA-256 del registro
 // y los bytes de cada foto. El cliente nunca aporta HTML al renderizador.
 import { TIPOS_CON_PLANO } from './otStageSchema';
+import { espaciosFirma, type FirmaDocumento } from './documentSignatureModel';
 import type { OrdenLocal } from '../types/orden';
 import type { RevisionDocumento, TipoDocumento } from './documentService';
 import type { ContextoReporteControlado } from './reportTemplates';
@@ -18,7 +19,8 @@ import type {
 
 type Registro = Record<string, unknown>;
 type Foto = { id: string; file_url: string; descripcion: string | null; descripcion_observacion: string | null };
-export const PLANTILLA_CONTROLADA_VERSION = 'expediente-controlado-2026-10-08-datos';
+export const PLANTILLA_CONTROLADA_VERSION = 'expediente-controlado-2026-10-13-firmas';
+const PLANTILLA_DATOS = 'expediente-controlado-2026-10-08-datos';
 const PLANTILLA_ETAPAS = 'expediente-controlado-2026-10-08';
 const PLANTILLA_PLANO = 'expediente-controlado-2026-10-07';
 const PLANTILLA_ANTERIOR = 'expediente-controlado-2026-10-04';
@@ -52,6 +54,7 @@ export function materializarHtmlControlado(
   revision: RevisionDocumento,
   fuentesValor: unknown,
   imagenesVerificadas: Record<string, string>,
+  firmasVerificadas: FirmaDocumento[] = [],
 ): string {
   const fuentes = objeto(fuentesValor, 'Fuentes');
   if (fuentes.version !== 1) throw new Error('Versión de fuentes no admitida');
@@ -72,7 +75,7 @@ export function materializarHtmlControlado(
   if (!Number.isInteger(anio) || anio < 2020 || anio > 2100)
     throw new Error('Año documental inválido');
   const contexto: ContextoReporteControlado = { codigo, anio, revision: revision.revision };
-  if (![PLANTILLA_CONTROLADA_VERSION, PLANTILLA_ETAPAS, PLANTILLA_PLANO, PLANTILLA_ANTERIOR, PLANTILLA_LEGACY].includes(revision.plantilla_version))
+  if (![PLANTILLA_CONTROLADA_VERSION, PLANTILLA_DATOS, PLANTILLA_ETAPAS, PLANTILLA_PLANO, PLANTILLA_ANTERIOR, PLANTILLA_LEGACY].includes(revision.plantilla_version))
     throw new Error('Versión de plantilla no compatible con este renderizador');
   if (revision.plantilla_version !== PLANTILLA_LEGACY && fuentes.empresa) {
     const empresa = objeto(fuentes.empresa, 'Empresa emisora');
@@ -82,6 +85,13 @@ export function materializarHtmlControlado(
       ? `${nombre} / Facility Services` : nombre;
   }
   const datos = objeto(revision.datos, 'Datos de revisión');
+  if (revision.plantilla_version === PLANTILLA_CONTROLADA_VERSION) {
+    contexto.firmantes=espaciosFirma(datos.firmantes ?? []);
+    contexto.firmas=firmasVerificadas;
+    contexto.identidadFirma={id:revision.id,hash:revision.contenido_sha256};
+    if(firmasVerificadas.some(f=>f.revision_id!==revision.id||f.contenido_sha256!==revision.contenido_sha256||!contexto.firmantes!.some(s=>s.id===f.espacio_id&&s.categoria===f.categoria)))
+      throw new Error('La firma no corresponde a esta revisión.');
+  }
   const observaciones = texto(datos.observaciones ?? '', 'Observaciones');
   if (typeof datos.incluirFotos !== 'boolean') throw new Error('Selección de fotos inválida');
   const ids = datos.fotoIds ?? [];
@@ -126,7 +136,7 @@ export function materializarHtmlControlado(
   const orden = revision.plantilla_version === PLANTILLA_LEGACY ? ordenOriginal
     : ordenParaInforme(ordenOriginal, restaurarCampos(
       prepararAutocompletado(ordenOriginal, proyectoNombre).identificacion, identidadGuardada));
-  if (revision.plantilla_version === PLANTILLA_PLANO || ([PLANTILLA_CONTROLADA_VERSION,PLANTILLA_ETAPAS].includes(revision.plantilla_version) && TIPOS_CON_PLANO.includes(tipo))) {
+  if (revision.plantilla_version === PLANTILLA_PLANO || ([PLANTILLA_CONTROLADA_VERSION,PLANTILLA_DATOS,PLANTILLA_ETAPAS].includes(revision.plantilla_version) && TIPOS_CON_PLANO.includes(tipo))) {
     const tienePunto = ordenOriginal.pos_x != null && ordenOriginal.pos_y != null &&
       Number.isFinite(ordenOriginal.pos_x) && Number.isFinite(ordenOriginal.pos_y);
     if (tienePunto) {

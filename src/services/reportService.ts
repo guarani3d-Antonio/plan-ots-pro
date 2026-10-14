@@ -472,7 +472,6 @@ ${_seccionInforme(3, 'Condiciones y formalización')}
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Cobertura y condiciones acordadas</strong>${campo('garantiaCondiciones')}</div>
 </section>
 <section class="p-4 border border-outline-variant rounded-lg mb-4"><strong>Alcance de la conformidad</strong><p>${escapeHtml(TEXTO_ACTA)}</p><small>Texto sujeto a revisión jurídica de BBC.</small><p>Pendientes de manifestación expresa del receptor autorizado y vínculo con la revisión exacta del acta. ${contexto ? 'La emisión de esta acta no acredita por sí sola aceptación, firma ni garantía nueva.' : 'Este borrador no acredita aceptación, firma ni garantía nueva.'}</p></section>
-<section class="grid grid-cols-2 gap-4 no-break" style="margin-top:40px"><div style="border-top:1px solid #94a3b8;padding-top:8px">Firma del cliente o representante<br/>Nombre y documento: ____________________<br/>Carácter: ____________________<br/>Fecha y hora: ____________________</div><div style="border-top:1px solid #94a3b8;padding-top:8px">Representante de la empresa<br/>Nombre y documento: ____________________<br/>Carácter: ____________________<br/>Fecha y hora: ____________________</div></section>
 </div>`;
 
   return _envolverInforme(`Acta de Conformidad${contexto ? '' : ' — borrador'}`, contenido, contexto);

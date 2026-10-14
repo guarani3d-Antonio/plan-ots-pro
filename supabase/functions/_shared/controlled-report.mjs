@@ -370,6 +370,47 @@ const ETAPAS_OT = [
 	}
 ];
 //#endregion
+//#region src/services/documentSignatureModel.ts
+const CATEGORIAS_FIRMA = [
+	"Cliente",
+	"Contacto",
+	"Técnico / Supervisor",
+	"Contratista"
+];
+const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+function espaciosFirma(valor) {
+	if (!Array.isArray(valor) || valor.length > 4) throw new Error("Se admiten hasta cuatro firmantes.");
+	const ids = /* @__PURE__ */ new Set();
+	return valor.map((v) => {
+		if (!v || typeof v !== "object" || !uuid.test(v.id) || ids.has(v.id) || !CATEGORIAS_FIRMA.includes(v.categoria)) throw new Error("Configuración de firmantes inválida.");
+		ids.add(v.id);
+		return {
+			id: v.id,
+			categoria: v.categoria
+		};
+	});
+}
+function firmaPngValida(imagen) {
+	return imagen.length <= 16e4 && /^data:image\/png;base64,iVBORw0KGgo[A-Za-z0-9+/]*={0,2}$/.test(imagen);
+}
+function htmlFirmas(espacios, firmas = [], revision) {
+	const list = espaciosFirma(espacios);
+	if (!list.length) return "";
+	return `<div class="report-signatures" data-document-signatures="true">${list.map((slot) => {
+		const firma = revision ? firmas.find((f) => f.revision_id === revision.id && f.contenido_sha256 === revision.hash && f.espacio_id === slot.id && f.categoria === slot.categoria) : void 0;
+		if (firma && !firmaPngValida(firma.imagen_png)) throw new Error("Imagen de firma inválida.");
+		return `<div class="report-signature" data-signature-slot="${slot.id}">${firma ? `<img src="${firma.imagen_png}" alt="Firma manuscrita: ${slot.categoria}"/>` : "<div class=\"report-signature-blank\"></div>"}<div class="report-signature-line"></div><div class="report-signature-label">${slot.categoria}</div></div>`;
+	}).join("")}</div>`;
+}
+function incorporarFirmas(html, espacios, firmas = [], revision) {
+	const block = htmlFirmas(espacios, firmas, revision);
+	if (!block) return html;
+	const footer = html.indexOf("<footer class=\"page-footer\"");
+	const end = html.lastIndexOf("</div>", footer < 0 ? html.length : footer);
+	if (end < 0) throw new Error("No se encontró el final del documento.");
+	return html.slice(0, end) + block + "\n" + html.slice(end);
+}
+//#endregion
 //#region src/services/reportAutofillService.ts
 const textoFuente = (value) => typeof value === "string" ? value : "";
 const objetoFuente = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : {};
@@ -628,6 +669,12 @@ strong{font-weight:700;color:#243954}
 .a4-page.acta-page section{margin-bottom:6px!important}
 .a4-page.acta-page section.grid{padding:8px 10px!important;gap:6px 8px!important}
 .a4-page.acta-page section.grid>div{padding:6px 8px!important}
+.report-signatures{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 18px;margin-top:16px;break-inside:auto;page-break-inside:auto}
+.report-signature{background:#fff;border:1px solid #d7e1ec;border-radius:5px;padding:8px 12px;break-inside:avoid;page-break-inside:avoid;min-height:100px;display:flex;flex-direction:column;justify-content:flex-end}
+.report-signature img{width:100%;height:70px;max-height:70px;object-fit:contain;display:block;margin:0}
+.report-signature-blank{height:70px}
+.report-signature-line{border-top:1px solid #738197;width:85%;margin:0 auto 5px}
+.report-signature-label{text-align:center;font-size:10px;color:#172b45}
 .page-break{break-after:page;page-break-after:always}
 @media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
 @media screen{
@@ -781,11 +828,12 @@ function _envolverInforme(titulo, contenido, contexto) {
 	let head = _HEAD_INFORME.replace("__TITLE__", escapeHtml(titulo)).replace("Plan-OTs · BORRADOR · SIN EMISIÓN NI APROBACIÓN", contexto ? "Plan-OTs · ESTADO VERIFICABLE EN LA APLICACIÓN" : "Plan-OTs · BORRADOR · SIN EMISIÓN NI APROBACIÓN");
 	if (contexto) head = head.replace("</head>", "<style>@media print{@page{@bottom-left{content:none}@bottom-right{content:none}}}</style></head>");
 	const pie = contexto ? _FOOTER_INFORME.replace("Documento de trabajo", "Expediente documental").replace("BORRADOR · SIN EMISIÓN NI APROBACIÓN", `${escapeHtml(contexto.codigo)} · R${String(contexto.revision).padStart(2, "0")}`).replace("Vista de trabajo. No constituye constancia de recepción ni conformidad.", "La emisión y la recepción se verifican por separado en el registro digital.").replace("__YEAR__", String(contexto.anio)) : _FOOTER_INFORME.replace("__YEAR__", String((/* @__PURE__ */ new Date()).getFullYear()));
-	return `${head}
+	const html = `${head}
 <body class="bg-surface font-body-md text-on-surface min-h-screen">
 ${contenido}
 ${pie}
 </body></html>`;
+	return contexto?.firmantes ? incorporarFirmas(html, contexto.firmantes, contexto.firmas, contexto.identidadFirma) : html;
 }
 function _bloqueDatosCliente(orden, incluirGestion = true) {
 	const snapshot = orden.campos?.identificacion_informe;
@@ -1066,13 +1114,13 @@ ${_seccionInforme(3, "Condiciones y formalización")}
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Cobertura y condiciones acordadas</strong>${campo("garantiaCondiciones")}</div>
 </section>
 <section class="p-4 border border-outline-variant rounded-lg mb-4"><strong>Alcance de la conformidad</strong><p>${escapeHtml(TEXTO_ACTA)}</p><small>Texto sujeto a revisión jurídica de BBC.</small><p>Pendientes de manifestación expresa del receptor autorizado y vínculo con la revisión exacta del acta. ${contexto ? "La emisión de esta acta no acredita por sí sola aceptación, firma ni garantía nueva." : "Este borrador no acredita aceptación, firma ni garantía nueva."}</p></section>
-<section class="grid grid-cols-2 gap-4 no-break" style="margin-top:40px"><div style="border-top:1px solid #94a3b8;padding-top:8px">Firma del cliente o representante<br/>Nombre y documento: ____________________<br/>Carácter: ____________________<br/>Fecha y hora: ____________________</div><div style="border-top:1px solid #94a3b8;padding-top:8px">Representante de la empresa<br/>Nombre y documento: ____________________<br/>Carácter: ____________________<br/>Fecha y hora: ____________________</div></section>
 </div>`;
 	return _envolverInforme(`Acta de Conformidad${contexto ? "" : " — borrador"}`, contenido, contexto);
 }
 //#endregion
 //#region src/services/controlledReportService.ts
-const PLANTILLA_CONTROLADA_VERSION = "expediente-controlado-2026-10-08-datos";
+const PLANTILLA_CONTROLADA_VERSION = "expediente-controlado-2026-10-13-firmas";
+const PLANTILLA_DATOS = "expediente-controlado-2026-10-08-datos";
 const PLANTILLA_ETAPAS = "expediente-controlado-2026-10-08";
 const PLANTILLA_PLANO = "expediente-controlado-2026-10-07";
 const PLANTILLA_ANTERIOR = "expediente-controlado-2026-10-04";
@@ -1095,7 +1143,7 @@ function listaTexto(valor, etiqueta) {
 	if (!Array.isArray(valor) || valor.length > 100) throw new Error(`${etiqueta} inválido`);
 	return valor.map((item, i) => camposTexto(item, `${etiqueta}[${i}]`));
 }
-function materializarHtmlControlado(revision, fuentesValor, imagenesVerificadas) {
+function materializarHtmlControlado(revision, fuentesValor, imagenesVerificadas, firmasVerificadas = []) {
 	const fuentes = objeto(fuentesValor, "Fuentes");
 	if (fuentes.version !== 1) throw new Error("Versión de fuentes no admitida");
 	const documento = objeto(fuentes.documento, "Documento");
@@ -1113,7 +1161,8 @@ function materializarHtmlControlado(revision, fuentesValor, imagenesVerificadas)
 		revision: revision.revision
 	};
 	if (![
-		"expediente-controlado-2026-10-08-datos",
+		"expediente-controlado-2026-10-13-firmas",
+		PLANTILLA_DATOS,
 		PLANTILLA_ETAPAS,
 		PLANTILLA_PLANO,
 		PLANTILLA_ANTERIOR,
@@ -1126,6 +1175,15 @@ function materializarHtmlControlado(revision, fuentesValor, imagenesVerificadas)
 		contexto.emisor = nombre === "Benítez Bittar Constructora" ? `${nombre} / Facility Services` : nombre;
 	}
 	const datos = objeto(revision.datos, "Datos de revisión");
+	if (revision.plantilla_version === "expediente-controlado-2026-10-13-firmas") {
+		contexto.firmantes = espaciosFirma(datos.firmantes ?? []);
+		contexto.firmas = firmasVerificadas;
+		contexto.identidadFirma = {
+			id: revision.id,
+			hash: revision.contenido_sha256
+		};
+		if (firmasVerificadas.some((f) => f.revision_id !== revision.id || f.contenido_sha256 !== revision.contenido_sha256 || !contexto.firmantes.some((s) => s.id === f.espacio_id && s.categoria === f.categoria))) throw new Error("La firma no corresponde a esta revisión.");
+	}
 	const observaciones = texto(datos.observaciones ?? "", "Observaciones");
 	if (typeof datos.incluirFotos !== "boolean") throw new Error("Selección de fotos inválida");
 	const ids = datos.fotoIds ?? [];
@@ -1167,7 +1225,11 @@ function materializarHtmlControlado(revision, fuentesValor, imagenesVerificadas)
 	const ordenOriginal = ordenFuente;
 	const identidadGuardada = datos.identificacion === void 0 ? void 0 : camposTexto(datos.identificacion, "Identificación");
 	const orden = revision.plantilla_version === PLANTILLA_LEGACY ? ordenOriginal : ordenParaInforme(ordenOriginal, restaurarCampos(prepararAutocompletado(ordenOriginal, proyectoNombre).identificacion, identidadGuardada));
-	if (revision.plantilla_version === PLANTILLA_PLANO || ["expediente-controlado-2026-10-08-datos", PLANTILLA_ETAPAS].includes(revision.plantilla_version) && TIPOS_CON_PLANO.includes(tipo)) {
+	if (revision.plantilla_version === PLANTILLA_PLANO || [
+		"expediente-controlado-2026-10-13-firmas",
+		PLANTILLA_DATOS,
+		PLANTILLA_ETAPAS
+	].includes(revision.plantilla_version) && TIPOS_CON_PLANO.includes(tipo)) {
 		if (ordenOriginal.pos_x != null && ordenOriginal.pos_y != null && Number.isFinite(ordenOriginal.pos_x) && Number.isFinite(ordenOriginal.pos_y)) {
 			const plano = objeto(datos.planoContexto, "Referencia visual del plano");
 			const imagen = texto(plano.imagen, "Imagen del plano");

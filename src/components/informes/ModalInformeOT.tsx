@@ -58,6 +58,9 @@ import { colorEstado } from '../../utils/calculos';
 import styles from './ModalInformeOT.module.css';
 import { PLANTILLA_CONTROLADA_VERSION } from '../../services/controlledReportService';
 import { generarContextoPlano, type PlanoContexto } from '../../services/planLocationService';
+import { FirmasDocumento } from './FirmasDocumento';
+import { espaciosFirma, espaciosIniciales, incorporarFirmas, type EspacioFirma, type FirmaDocumento } from '../../services/documentSignatureModel';
+import { cargarFirmasDocumento, registrarFirmaDocumento } from '../../services/documentSignatureService';
 
 export type TipoInforme = 'cierre' | 'orden_servicio' | 'visita' | 'relevamiento' | 'avance' | 'acta' | 'encuesta';
 
@@ -425,7 +428,25 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
   const prevIncluirFotosRef = useRef(incluirFotos);
   const editorRef = useRef<HTMLDivElement>(null);
   const accionesRef = useRef<HTMLDetailsElement>(null);
-  const [editorTab, setEditorTab] = useState<'datos' | 'texto' | 'fotos' | 'revision'>('texto');
+  const [editorTab, setEditorTab] = useState<'datos' | 'texto' | 'fotos' | 'revision' | 'firmas'>('texto');
+  const [firmantes,setFirmantes]=useState<EspacioFirma[]>([]);
+  const [firmas,setFirmas]=useState<FirmaDocumento[]>([]);
+  const [firmasRevision,setFirmasRevision]=useState<string|null>(null);
+  const [cargandoFirmas,setCargandoFirmas]=useState(false);
+  const [errorFirmas,setErrorFirmas]=useState<string|null>(null);
+  const [firmaRefresh,setFirmaRefresh]=useState(0);
+  const revisionFirma=revisiones.find(r=>r.borrador_version===versionBorrador);
+  const firmaScopeRef=useRef<string|null>(null);
+  useEffect(()=>{
+    const id=isOpen&&!correccionAbierta?revisionFirma?.id:null;
+    firmaScopeRef.current=id??null;setFirmas([]);setFirmasRevision(null);setErrorFirmas(null);
+    if(!id||!revisionFirma?.datos.firmantes){setCargandoFirmas(false);return;}
+    let cancelado=false;setCargandoFirmas(true);
+    cargarFirmasDocumento(id).then(rows=>{if(!cancelado){setFirmas(rows);setFirmasRevision(id);}})
+      .catch(e=>{if(!cancelado)setErrorFirmas(e instanceof Error?e.message:'No se pudieron consultar las firmas.');})
+      .finally(()=>{if(!cancelado)setCargandoFirmas(false);});
+    return()=>{cancelado=true;firmaScopeRef.current=null;};
+  },[isOpen,revisionFirma?.id,correccionAbierta,firmaRefresh]);
   const [previewAmpliada, setPreviewAmpliada] = useState(false);
 
   useEffect(() => {
@@ -557,21 +578,25 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
     const fa  = incluirFotos ? (origenFotos?origenFotos.filter(f=>f.categoria==='ANTES'):fotosAntes).filter(f => seleccion.has(f.id)) : [];
     const fd  = incluirFotos ? (origenFotos?origenFotos.filter(f=>f.categoria==='DESPUES'):fotosDespues).filter(f => seleccion.has(f.id)) : [];
     const fdu = incluirFotos ? (origenFotos?origenFotos.filter(f=>f.categoria==='DURANTE'):fotosDurante).filter(f => seleccion.has(f.id)) : [];
+    const terminar=(html:string)=>{
+      if(conservada&&revisionFirma?.datos.firmantes&&(cargandoFirmas||errorFirmas||firmasRevision!==revisionFirma.id))throw new Error(errorFirmas||'Consultando las firmas conservadas de esta versión…');
+      return incorporarFirmas(html,firmantes,conservada&&firmasRevision===revisionFirma?.id?firmas:[],conservada&&revisionFirma?{id:revisionFirma.id,hash:revisionFirma.contenido_sha256}:undefined);
+    };
     switch (tipo) {
       case 'cierre':
-        return generarInformeCierre(ordenDocumento, identificacion.obra || proyectoNombre, textoActual, fa, fd, datosCierre, codigoDocumento, itemsCierre);
+        return terminar(generarInformeCierre(ordenDocumento, identificacion.obra || proyectoNombre, textoActual, fa, fd, datosCierre, codigoDocumento, itemsCierre));
       case 'orden_servicio':
-        return generarInformeOrdenServicio(ordenDocumento, textoActual, origenServicio, codigoDocumento, fa);
+        return terminar(generarInformeOrdenServicio(ordenDocumento, textoActual, origenServicio, codigoDocumento, fa));
       case 'visita':
-        return generarFichaVisita(ordenDocumento, datosVisita, fa, codigoDocumento);
+        return terminar(generarFichaVisita(ordenDocumento, datosVisita, fa, codigoDocumento));
       case 'relevamiento':
-        return generarInformeRelevamiento(ordenDocumento, textoActual, fa, datosRelevamiento, codigoDocumento, itemsAlcance);
+        return terminar(generarInformeRelevamiento(ordenDocumento, textoActual, fa, datosRelevamiento, codigoDocumento, itemsAlcance));
       case 'avance':
-        return generarInformeAvance(ordenDocumento, textoActual, fa, fdu, datosAvance, codigoDocumento, itemsAvance);
+        return terminar(generarInformeAvance(ordenDocumento, textoActual, fa, fdu, datosAvance, codigoDocumento, itemsAvance));
       case 'acta':
-        return generarInformeActaConformidad(ordenDocumento, datosActa, codigoDocumento);
+        return terminar(generarInformeActaConformidad(ordenDocumento, datosActa, codigoDocumento));
       case 'encuesta':
-        return generarEncuestaSatisfaccion(ordenDocumento, datosEncuesta, codigoDocumento);
+        return terminar(generarEncuestaSatisfaccion(ordenDocumento, datosEncuesta, codigoDocumento));
     }
   };
 
@@ -645,6 +670,8 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
         const cierreItems = itemsCierreGuardados(datos?.itemsCierre ?? inicial.itemsCierre);
         const acta = actaGuardada(datos?.acta, { ...ACTA_INICIAL, ...inicial.acta });
         const encuesta = encuestaGuardada(datos?.encuesta, { ...ENCUESTA_INICIAL, ...inicial.encuesta });
+        const espacios=datos?.firmantes===undefined?(resultado?.borrador?[]:espaciosIniciales()):espaciosFirma(datos.firmantes);
+        setFirmantes(espacios);
         const elegibles = fotos.filter(f =>
           (cfg.necesitaFotosAntes && f.categoria === 'ANTES') ||
           (cfg.necesitaFotosDurante && f.categoria === 'DURANTE') ||
@@ -677,7 +704,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
         setMotivoRevision(String(datos?.motivoCorreccion??''));
         setCorreccionAbierta(false);
         setVersionBorrador(resultado?.borrador?.version ?? 0);
-        const contenidoInicial = { ...(datos?.politicaCampos?{politicaCampos:datos.politicaCampos,vinculos:datos.vinculos}:{}), motivoCorreccion:String(datos?.motivoCorreccion??''), identificacion: datos?.identificacion ?? (resultado?.borrador ? undefined : identidad), observaciones: texto,
+        const contenidoInicial = { ...(datos?.firmantes!==undefined||!resultado?.borrador?{firmantes:espacios}:{}), ...(datos?.politicaCampos?{politicaCampos:datos.politicaCampos,vinculos:datos.vinculos}:{}), motivoCorreccion:String(datos?.motivoCorreccion??''), identificacion: datos?.identificacion ?? (resultado?.borrador ? undefined : identidad), observaciones: texto,
           planoContexto: datos?.planoContexto ?? null,
           incluirFotos: datos?.incluirFotos !== false,
           ...(necesitaFotos ? { fotoIds: idsFotos } : {}),
@@ -797,6 +824,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
     itemsAvance,
     itemsCierre,
     identificacion, observaciones, origenServicio, datosVisita, datosRelevamiento, datosAvance, datosCierre, datosActa, datosEncuesta,
+    firmantes,firmas,firmasRevision,cargandoFirmas,errorFirmas,
   ]);
 
   if (!isOpen) return null;
@@ -824,7 +852,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
     } finally { setGenerandoPreview(false); }
   };
 
-  const datosBorrador = { motivoCorreccion:motivoRevision, identificacion, observaciones, incluirFotos, planoContexto,
+  const datosBorrador = { ...(versionBorrador===0||correccionAbierta||revisionActualConFirmantes()?{firmantes}:{}), motivoCorreccion:motivoRevision, identificacion, observaciones, incluirFotos, planoContexto,
     ...metadataCampos, ...(contextoCampos?{politicaCampos:1,vinculos:contextoCampos.vinculos}:{}),
     ...(necesitaFotos ? { fotoIds } : {}),
     ...(tipo === 'orden_servicio' ? { origen: origenServicio } : {}),
@@ -839,6 +867,14 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
   const cambiosBorrador = borradorModificado(guardado, datosBorrador);
   const revisionActual = revisiones.find(revision => revision.borrador_version === versionBorrador);
   const camposBloqueados = !persistenciaDisponible || !!revisionInicialId || !tienePermiso('informe.editar',orden.proyecto_id) || cargandoComentario || actualizandoCampos || (versionBorrador>0 && !correccionAbierta);
+  function revisionActualConFirmantes(){return revisionFirma?.datos.firmantes!==undefined;}
+  const handleFirma=async(espacio:string,imagen:string,solicitud:string)=>{
+    const r=revisionFirma;
+    if(!r||correccionAbierta||cambiosBorrador||firmaScopeRef.current!==r.id)throw new Error('Guardá y revisá la versión antes de firmar.');
+    const f=await registrarFirmaDocumento(r.id,r.contenido_sha256,espacio,imagen,solicitud);
+    if(firmaScopeRef.current!==r.id)return;
+    setFirmas(actual=>[...actual.filter(x=>x.espacio_id!==espacio),f]);setFirmasRevision(r.id);setErrorFirmas(null);
+  };
   function actualizarCampos(d:Record<string,unknown>) {
     if(d.identificacion)setIdentificacion(d.identificacion as IdentificacionInforme);
     if(d.origen)setOrigenServicio(d.origen as OrigenOrdenServicio);
@@ -857,6 +893,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
       const ctx=await cargarContextoCamposInforme(orden.id,tipo,revisiones.find(r=>r.borrador_version===versionBorrador)?.datos.vinculos,documento?.id??null);
       setContextoCampos(ctx);actualizarCampos(aplicarContextoCampos(tipo,datosBorrador,ctx));
       setMotivoRevision('');setCorreccionAbierta(true);
+      if(!firmantes.length&&!revisionFirma?.datos.firmantes)setFirmantes(espaciosIniciales());
     }catch(e){setErrorBorrador(e instanceof Error?e.message:'No se pudieron recuperar las fuentes del informe.');}
     finally{setActualizandoCampos(false);}
   };
@@ -1212,7 +1249,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
               </div>
             )}
             <nav className={styles.editorTabs} aria-label="Edición del informe">
-              {([['datos','Identificación'],['texto','Contenido'],['fotos','Fotos y plano'],['revision','Revisión']] as const).map(([id,label]) =>
+              {([['datos','Identificación'],['texto','Contenido'],['fotos','Fotos y plano'],['revision','Revisión'],['firmas','Firmas']] as const).map(([id,label]) =>
                 <button type="button" key={id} aria-pressed={editorTab===id} onClick={()=>{setEditorTab(id);editorRef.current?.scrollTo({top:0});}}>{label}</button>)}
             </nav>
             <div className={styles.identitySummary}>
@@ -1222,6 +1259,13 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
             </div>
             {versionBorrador>0&&<div className={styles.identitySummary}><span>{correccionAbierta?'Nueva versión en preparación':`Versión ${versionBorrador} guardada`}</span>{!correccionAbierta&&<EtiquetaLectura/>}<button type="button" className={styles.btnSecondary} disabled={!!revisionInicialId||!tienePermiso('informe.crear',orden.proyecto_id)||!tienePermiso('informe.editar',orden.proyecto_id)||cargandoComentario||guardandoBorrador||correccionAbierta||actualizandoCampos} onClick={()=>void prepararCorreccion()}>Crear versión corregida</button></div>}
             {correccionAbierta&&<CampoTextoInforme etiqueta="Motivo de la versión corregida" multiline rows={4} value={motivoRevision} onChange={setMotivoRevision}/>}
+            <div hidden={editorTab!=='firmas'} className={styles.tabContent}>
+              <FirmasDocumento espacios={firmantes} firmas={!correccionAbierta&&firmasRevision===revisionFirma?.id?firmas:[]} revision={!correccionAbierta?revisionFirma:undefined} codigo={documento?.codigo}
+                editable={!camposBloqueados} cargando={cargandoFirmas} error={errorFirmas}
+                puedeFirmar={!!revisionFirma&&!correccionAbierta&&!cambiosBorrador&&!cargandoFirmas&&!errorFirmas&&firmasRevision===revisionFirma.id&&tienePermiso('informe.editar',orden.proyecto_id)&&!revisionInicialId&&!candidatos.some(c=>c.revision_id===revisionFirma.id)}
+                onChange={setFirmantes} onFirmar={handleFirma} onActualizar={()=>setFirmaRefresh(n=>n+1)}/>
+              {!!revisionFirma&&candidatos.some(c=>c.revision_id===revisionFirma.id)&&<p className={styles.sublabel}>Esta versión ya inició su PDF formal. Para otras firmas, creá una versión corregida.</p>}
+            </div>
             <div hidden={editorTab !== 'datos'} className={styles.tabContent}>
               <IdentificacionInformeCampos tipo={tipo} identificacion={identificacion} disabled={camposBloqueados}
                 onUbicacion={ubicacion=>setIdentificacion(actual=>({...actual,ubicacion}))}/>

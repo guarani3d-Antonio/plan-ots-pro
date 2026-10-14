@@ -1,5 +1,6 @@
 import { materializarHtmlControlado as materializarAnterior } from '../_shared/controlled-report-20261007.mjs';
 import { materializarHtmlControlado as materializarEtapas } from '../_shared/controlled-report-20261008.mjs';
+import { materializarHtmlControlado as materializarDatos } from '../_shared/controlled-report-20261012.mjs';
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2.105.4';
 import { materializarHtmlControlado } from '../_shared/controlled-report.mjs';
 import { leerSolicitudDocumento } from '../_shared/document-request.mjs';
@@ -191,8 +192,19 @@ Deno.serve(async request => {
     const previo = await pdfExistente(admin, prefijo);
     let pdf = previo;
     if (!pdf) {
-      const render = rev.plantilla_version === 'expediente-controlado-2026-10-08-datos' ? materializarHtmlControlado : rev.plantilla_version === 'expediente-controlado-2026-10-08' ? materializarEtapas : materializarAnterior;
-      const html = render(rev, fuentes, imagenes);
+      let html: string;
+      if(rev.plantilla_version === 'expediente-controlado-2026-10-13-firmas') {
+        const {data:firmas,error:errorFirmas}=await admin.from('plan_documento_firmas').select('*').eq('revision_id',revisionId);
+        const registradas=necesario(firmas,errorFirmas,'Firmas de la revisión');
+        for(const firma of registradas){
+          const bytes=Uint8Array.from(atob(firma.imagen_png.slice(22)),c=>c.charCodeAt(0));
+          if(await sha256(bytes)!==firma.imagen_sha256)throw new Error('Firma alterada');
+        }
+        html=materializarHtmlControlado(rev,fuentes,imagenes,registradas);
+      }else{
+        const render=rev.plantilla_version==='expediente-controlado-2026-10-08-datos'?materializarDatos:rev.plantilla_version==='expediente-controlado-2026-10-08'?materializarEtapas:materializarAnterior;
+        html=render(rev,fuentes,imagenes);
+      }
       const payload = JSON.stringify({ html,
         pdfOptions: opcionesPdfDocumento(doc.codigo, rev.revision) });
       if (new TextEncoder().encode(payload).byteLength > 48 * 1024 * 1024)

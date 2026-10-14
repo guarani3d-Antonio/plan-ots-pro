@@ -133,6 +133,12 @@ strong{font-weight:700;color:#243954}
 .a4-page.acta-page section{margin-bottom:6px!important}
 .a4-page.acta-page section.grid{padding:8px 10px!important;gap:6px 8px!important}
 .a4-page.acta-page section.grid>div{padding:6px 8px!important}
+.report-signatures{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 18px;margin-top:16px;break-inside:auto;page-break-inside:auto}
+.report-signature{background:#fff;border:1px solid #d7e1ec;border-radius:5px;padding:8px 12px;break-inside:avoid;page-break-inside:avoid;min-height:100px;display:flex;flex-direction:column;justify-content:flex-end}
+.report-signature img{width:100%;height:70px;max-height:70px;object-fit:contain;display:block;margin:0}
+.report-signature-blank{height:70px}
+.report-signature-line{border-top:1px solid #738197;width:85%;margin:0 auto 5px}
+.report-signature-label{text-align:center;font-size:10px;color:#172b45}
 .page-break{break-after:page;page-break-after:always}
 @media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
 @media screen{

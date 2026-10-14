@@ -6,6 +6,7 @@ import { prepararAutocompletado, objetoFuente, type ClienteInforme, type Fuentes
 import { camposVacios, claveEtapa, ETAPAS_OT, TIPOS_CON_PLANO, validarEtapa } from '../../services/otStageSchema';
 import { PLANTILLA_CONTROLADA_VERSION } from '../../services/controlledReportService';
 import { generarContextoPlano } from '../../services/planLocationService';
+import { espaciosIniciales } from '../../services/documentSignatureModel';
 import { informeDisponible } from '../../services/reportService';
 import { EtapaCampos } from './EtapaCampos';
 import { EtiquetaLectura } from './CampoTextoInforme';
@@ -74,6 +75,7 @@ export const EtapasOT=forwardRef<EtapasOTHandle,Props>(function EtapasOT({orden,
    let datos=content(etapa.tipo,r,ot);if(!Array.isArray(datos.fotoIds)&&evidenciasIds)datos={...datos,fotoIds:evidenciasIds(etapa.tipo)};const validation=validarEtapa(etapa.tipo,datos);if(validation)throw new Error(`${etapa.name}: ${validation}`);
    if(r.version>0&&!r.correcting)throw new Error(`${etapa.name}: creá una versión corregida antes de modificar la versión guardada.`);
    if(r.correcting&&!r.motivo.trim())throw new Error(`${etapa.name}: indicá el motivo de la versión corregida.`);
+   if(datos.firmantes===undefined){datos={...datos,firmantes:espaciosIniciales()};patch(etapa.tipo,{datos});}
    // OT save precedes this step. Rebase a new revision on its authoritative
    // sources, never on a free-text identity or another unsaved stage.
    const contexto=await cargarContextoCamposInforme(ot.id,etapa.tipo,datos.vinculos,r.doc?.id??null);
