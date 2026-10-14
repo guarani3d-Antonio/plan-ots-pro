@@ -4,8 +4,11 @@ let customers=[{id:client,tenant_id:tenant,datos:{nombre:'Lucía QA',tipo:'perso
 const orders=[{id:'orden-qa',ot:'OT-QA001',proyecto_id:work,obra:'Edificio Bernardino QA',unidad:'402',torre:'Torre A',sector:'',descripcion:'Revisar aire acondicionado',rubro:'Aire acondicionado',estado:'Pendiente',prioridad:'Media',ubicacion:'Departamento 402',responsable:'Técnico QA',recepcion:'2026-10-13',cierre:null,comentarios:'Coordinar visita.',reclamos_qr:[{numero:'REC-QA001',fecha:'2026-10-13',estado:'Vinculado a OT'}]}];
 const ratings=[{respondente:'Lucía QA',fechaRespuesta:'2026-10-10',referenciaFuente:'Respuesta original QA',modalidad:'Presencial',rapidez:'8',calidadTrabajo:'9',sugerencias:'Muy buena atención.'}];
 const ok=(data:any)=>Promise.resolve({data,error:null});
+let failDirectory=false;
+export function escenarioDirectorioQA(fallo:boolean){failDirectory=fallo;}
 export const supabase:any={
  rpc:async(name:string,args:any)=>{
+ if(name==='plan_clientes_directorio')return failDirectory?{data:null,error:{message:'Error de conexión simulado QA'}}:{data:customers.filter(c=>c.tenant_id===args.p_tenant).map(c=>({...c,ubicaciones:sites.filter(u=>u.cliente_id===c.id),indicadores:{total:c.id===client?1:0,abiertas:c.id===client?1:0,ultima:c.id===client?'2026-10-13':null,encuestasRespondidas:c.id===client?1:0,satisfaccion:c.id===client?8.5:null}})),error:null};
  if(name==='plan_clientes_fichas')return {data:customers.map(c=>({...c,ubicaciones:sites.filter(u=>u.cliente_id===c.id)})),error:null};
  if(name==='plan_directorio_listar')return {data:args.p_tipo==='empresa'?[{id:tenant,tenant_id:tenant,datos:{nombre:'Empresa QA',activo:true},vinculos:[],completa:true}]:[],error:null};
  if(name==='plan_cliente_obras')return {data:[{id:work,obra_id:work,nombre:'Edificio Bernardino QA',proyecto_nombre:'Edificio Bernardino QA',direccion:'Dirección de la obra QA',ciudad:'Asunción',tipo:'Residencial',activo:true}],error:null};

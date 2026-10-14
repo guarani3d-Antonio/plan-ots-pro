@@ -1,0 +1,8 @@
+.creator{padding:16px clamp(12px,3vw,32px);display:grid;gap:14px;color:var(--text-primary);min-width:0}
+.pageHeader{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.pageHeader h1{font-size:24px;margin:0}.pageHeader p{margin:4px 0 0;color:var(--text-secondary);font-size:12px}
+.companyContext{display:grid;gap:4px;flex:0 1 230px;min-width:0;font-size:12px;color:var(--text-secondary)}
+.companyContext select{font:inherit;min-width:0;width:100%;min-height:34px;border:1px solid var(--border-default);border-radius:7px;padding:6px 9px;background:var(--bg-surface);color:var(--text-primary)}
+.companyName{font-size:12px;color:var(--text-secondary);overflow-wrap:anywhere}.hint{font-size:13px;color:var(--text-secondary)}
+@media(max-width:600px){.creator{padding:12px}.companyContext{flex:1 1 100%}.pageHeader h1{font-size:22px}}
+@media(pointer:coarse){.companyContext select{font-size:16px;min-height:44px}}

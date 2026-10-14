@@ -12,7 +12,8 @@ import {EtiquetaObra,SelectorColorObra} from '../ui/ColorObra';
 import {PanelAdministracion} from './PanelAdministracion';
 import {EliminarDirectorio} from './EliminarDirectorio';
 import {GuardiaAdministracionContext} from './guardiaAdministracionContext';
-import {listarClientes,guardarFichaCliente,type FichaCliente} from '../../services/customerProfileService';
+import {listarClientes,listarDirectorioClientes,guardarFichaCliente,type FichaCliente,type ClienteDirectorio} from '../../services/customerProfileService';
+import {ListadoClientes} from '../clientes/ListadoClientes';
 import {PerfilCliente,type PestanaCliente} from '../clientes/PerfilCliente';
 import {UbicacionCliente,nuevoLugarCliente,type LugarCliente} from '../clientes/UbicacionCliente';
 import {lugarCliente} from '../../services/customerProfileModel';
@@ -46,14 +47,18 @@ function datosFicha(tipo:TipoMaestro,ficha?:FichaMaestra):DatosMaestros{
 
 async function actualizarContexto(){const ticket=sessionTicket();const r=await supabase.rpc('plan_contexto_acceso');assertSession(ticket);if(r.error)throw new Error(r.error.message);useAccessStore.setState({contexto:r.data as ContextoAcceso});await useProyectosStore.getState().cargarProyectos()}
 
-export function FichasAdministracion({tipo,tenantId,onSeleccionar,mostrarTitulo=true}:{tipo:TipoMaestro;tenantId:string;onSeleccionar:(id:string)=>void;mostrarTitulo?:boolean}){
+export function FichasAdministracion({tipo,tenantId,onSeleccionar,mostrarTitulo=true,listadoClientes=false}:{tipo:TipoMaestro;tenantId:string;onSeleccionar:(id:string)=>void;mostrarTitulo?:boolean;listadoClientes?:boolean}){
  const guardia=useContext(GuardiaAdministracionContext);
  const [registros,setRegistros]=useState<FichaMaestra[]>([]),[buscar,setBuscar]=useState(''),[estado,setEstado]=useState('todos'),[version,setVersion]=useState(0),[cargando,setCargando]=useState(true),[empresaActiva,setEmpresaActiva]=useState(true),[error,setError]=useState('');
  const [editor,setEditor]=useState<{ficha?:FichaMaestra;lectura:boolean}|null>(null);
- useEffect(()=>{let active=true;void Promise.resolve().then(()=>Promise.all([tipo==='cliente'?listarClientes(tenantId):listarMaestros(tipo,tenantId),tipo==='empresa'||!tienePermiso('empresa.ver',undefined,tenantId)?Promise.resolve<FichaMaestra[]>([]):listarMaestros('empresa',tenantId)])).then(([r,empresas])=>{if(active){setEmpresaActiva((tipo==='empresa'?r:empresas).find(e=>e.id===tenantId)?.datos.activo!==false);setRegistros(r);setError('');setCargando(false)}}).catch(e=>{if(active){setError(e.message);setCargando(false)}});return()=>{active=false}},[tipo,tenantId,version]);
+ useEffect(()=>{let active=true;void Promise.resolve().then(()=>{if(active){setCargando(true);setError('');}return Promise.all([tipo==='cliente'?(listadoClientes?listarDirectorioClientes(tenantId):listarClientes(tenantId)):listarMaestros(tipo,tenantId),tipo==='empresa'||!tienePermiso('empresa.ver',undefined,tenantId)?Promise.resolve<FichaMaestra[]>([]):listarMaestros('empresa',tenantId)])}).then(([r,empresas])=>{if(active){setEmpresaActiva((tipo==='empresa'?r:empresas).find(e=>e.id===tenantId)?.datos.activo!==false);setRegistros(r);setError('');setCargando(false)}}).catch(e=>{if(active){setError(e.message);setCargando(false)}});return()=>{active=false}},[tipo,tenantId,version,listadoClientes]);
  const meta=nombresMaestros[tipo];
  const resultados=registros.filter(r=>(estado==='todos'||(estado==='activos'?r.datos.activo!==false:r.datos.activo===false))&&normalizarMaestro(Object.values(r.datos).join(' ')+' '+((r as FichaCliente).ubicaciones??[]).map(u=>lugarCliente(u)+' '+(u.direccion??'')).join(' ')).includes(normalizarMaestro(buscar)));
  const abrir=(ficha?:FichaMaestra,lectura=false)=>guardia.solicitar(()=>setEditor({ficha,lectura}));
+ if(tipo==='cliente'&&listadoClientes)return <>
+  <ListadoClientes registros={registros as ClienteDirectorio[]} cargando={cargando} error={error} puedeCrear={tienePermiso('cliente.crear',undefined,tenantId)&&empresaActiva} onCrear={()=>abrir()} onVer={r=>abrir(r,true)} onReintentar={()=>setVersion(v=>v+1)}/>
+  {editor&&<EditorFicha key={`cliente-${editor.ficha?.id??'nueva'}-${editor.lectura}`} tipo="cliente" tenantId={tenantId} ficha={editor.ficha} lectura={editor.lectura} permiteAltas={empresaActiva} onCerrar={()=>setEditor(null)} onEditar={()=>setEditor(prev=>prev?{...prev,lectura:false}:prev)} onGuardado={()=>setVersion(v=>v+1)}/>}
+ </>;
  return <section className={styles.workspace} aria-label={meta.plural}>
   <div className={styles.sectionHeader}><div>{mostrarTitulo&&<h2>{meta.plural}</h2>}<p>{registros.length} registrada(s) · Datos compartidos e historial conservado</p></div><button type="button" className={styles.primaryButton} disabled={cargando||!tienePermiso(tipo+'.crear',undefined,tenantId)||(tipo!=='empresa'&&!empresaActiva)} title={!empresaActiva?'Reactivá la empresa para crear fichas':undefined} onClick={()=>abrir()}>+ Crear {meta.singular}</button></div>
   {tipo==='empresa'&&!tenantId&&<p className={styles.hint}>Seleccioná una empresa para administrar sus obras, clientes, contratistas y contactos.</p>}
