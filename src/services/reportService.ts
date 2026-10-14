@@ -1,6 +1,7 @@
 // Borradores de los documentos de una OT. La emisión formal se implementa
 // sobre revisiones y artefactos persistidos; imprimir aquí no equivale a emitir.
 
+import {htmlCronograma} from './workScheduleReport';
 import {leerConformidad} from './customerConformityModel';
 import type { OrdenLocal } from '../types/orden';
 import type { ContextoReporteControlado } from './reportTemplates';
@@ -51,6 +52,7 @@ export interface DatosVisita {
 }
 
 export interface DatosRelevamiento {
+  cronogramaJSON?:string;
   visitaReferencia?: string; inicioPrevisto?: string; finPrevisto?: string;
   modalidad: string;
   fechaIntervencion: string;
@@ -330,6 +332,7 @@ export function generarInformeRelevamiento(
   codigoDocumento?: string,
   itemsAlcance: ItemAlcance[] = [],
   contexto?: ContextoReporteControlado,
+  planTrabajo = !contexto || contexto.planTrabajo === true,
 ): string {
   const campo = (clave: keyof DatosRelevamiento) => {
     const valor = datos?.[clave];
@@ -343,7 +346,7 @@ export function generarInformeRelevamiento(
 </table>` : '';
 
   const contenido = `<div class="a4-page relevamiento-page">
-${_paginaHeader(orden, 'INFORME DE RELEVAMIENTO', 'Diagnóstico técnico inicial y detección del alcance de la intervención requerida.', codigoDocumento, contexto)}
+${_paginaHeader(orden, planTrabajo?'INFORME DE RELEVAMIENTO (PLAN DE TRABAJO)':'INFORME DE RELEVAMIENTO', 'Diagnóstico técnico inicial y detección del alcance de la intervención requerida.', codigoDocumento, contexto)}
 ${_bloqueDatosCliente(orden)}
 ${_seccionInforme(1, 'Hallazgo y diagnóstico')}
 <section class="grid grid-cols-2 gap-4 mb-6">
@@ -366,7 +369,7 @@ ${itemsAlcance.length ? (datos?.alcance?.trim() ? bloque('Notas generales del al
 ${bloque('Exclusiones y supuestos', 'exclusiones')}
 ${itemsAlcance.length ? (datos?.criterios?.trim() ? bloque('Criterios adicionales', 'criterios') : '') : bloque('Criterios de aceptación propuestos', 'criterios')}
 <section class="grid grid-cols-2 gap-4 mb-6">${bloque('Inicio previsto', 'inicioPrevisto')}${bloque('Fin previsto', 'finPrevisto')}</section>
-${bloque('Cronograma propuesto o aprobado y su referencia', 'cronograma')}
+${planTrabajo?htmlCronograma(datos?.cronogramaJSON):''}${bloque('Cronograma propuesto o aprobado y su referencia', 'cronograma')}
 ${bloque('Condiciones operativas acordadas para esta intervención', 'condicionesOperativas')}
 ${_seccionInforme(3, 'Cobertura y decisión')}
 ${bloque('Aplicabilidad de garantía declarada', 'decisionGarantia')}
@@ -384,7 +387,7 @@ ${fotosAntes.length ? `<div class="a4-page">
 </div>
 </div>` : ''}`;
 
-  return _envolverInforme(`Informe de relevamiento${contexto ? '' : ' — borrador'}`, contenido, contexto);
+  return _envolverInforme(`${planTrabajo?'Informe de Relevamiento (Plan de Trabajo)':'Informe de relevamiento'}${contexto ? '' : ' — borrador'}`, contenido, contexto);
 }
 
 // El indicador operativo no se presenta como avance aprobado.

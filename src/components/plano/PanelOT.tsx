@@ -919,7 +919,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
   const INFORMES_CONFIG: { tipo: TipoInforme; icono: string; nombre: string; codigo?: string; subtitulo: string }[] = [
     { tipo: 'orden_servicio',   icono: '📋', nombre: 'Orden de Servicio',        subtitulo: 'Solicitud y apertura de OT' },
     { tipo: 'visita',           icono: '📍', nombre: 'Ficha de Visita Técnica',   subtitulo: 'Visita realizada y observaciones' },
-    { tipo: 'relevamiento',     icono: '🔍', nombre: 'Informe de Relevamiento',                      subtitulo: 'Diagnóstico técnico' },
+    { tipo: 'relevamiento',     icono: '🔍', nombre: 'Informe de Relevamiento (Plan de Trabajo)',                      subtitulo: 'Diagnóstico técnico' },
     { tipo: 'avance',           icono: '📊', nombre: 'Informe de Avance',                            subtitulo: 'Progreso de ejecución' },
     { tipo: 'cierre',           icono: '✅', nombre: 'Informe de Cierre',                            subtitulo: 'Resultado y verificación técnica' },
     { tipo: 'acta_conformidad', icono: '🏛️', nombre: 'Acta de Conformidad',                          subtitulo: 'Recepción y decisión del cliente' },

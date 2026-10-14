@@ -129,8 +129,8 @@ const TIPO_CFG: Record<TipoInforme, TipoCfg> = {
     necesitaFotosDurante: false,
   },
   relevamiento: {
-    titulo: 'Informe de Relevamiento',
-    tituloDoc: 'Informe de Relevamiento - borrador',
+    titulo: 'Informe de Relevamiento (Plan de Trabajo)',
+    tituloDoc: 'Informe de Relevamiento (Plan de Trabajo) - borrador',
     fileSlug: 'Informe_Relevamiento_Borrador',
     labelTextarea: 'Diagnóstico Inicial',
     placeholderTextarea: 'Detallá el diagnóstico técnico inicial...',
@@ -220,7 +220,7 @@ const RELEVAMIENTO_INICIAL: DatosRelevamiento = {
   modalidad: '', fechaIntervencion: '', tecnico: '', participantes: '',
   antecedentes: '', condiciones: '', hallazgos: '', pruebas: '', causa: '',
   planoReferencia: '', alcance: '', exclusiones: '', criterios: '',
-  cronograma: '', condicionesOperativas: '', decisionGarantia: '',
+  cronogramaJSON: '', cronograma: '', condicionesOperativas: '', decisionGarantia: '',
   fundamentoGarantia: '', decisionAlcance: '',
 };
 
@@ -591,7 +591,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
       case 'visita':
         return terminar(generarFichaVisita(ordenDocumento, datosVisita, fa, codigoDocumento));
       case 'relevamiento':
-        return terminar(generarInformeRelevamiento(ordenDocumento, textoActual, fa, datosRelevamiento, codigoDocumento, itemsAlcance));
+        return terminar(generarInformeRelevamiento(ordenDocumento, textoActual, fa, datosRelevamiento, codigoDocumento, itemsAlcance,undefined,!conservada||revisionFirma?.plantilla_version===PLANTILLA_CONTROLADA_VERSION));
       case 'avance':
         return terminar(generarInformeAvance(ordenDocumento, textoActual, fa, fdu, datosAvance, codigoDocumento, itemsAvance));
       case 'acta':
@@ -1431,7 +1431,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
             {!documento && <p className={styles.sublabel}>Guardá el borrador para consultar sus revisiones y preparar el PDF controlado.</p>}
             </div>
             <div hidden={editorTab !== 'texto'} className={styles.tabContent}>
-            <EtapaCampos compact tipo={tipo} datos={datosBorrador} contexto={contextoCampos} puedeDecidir={tienePermiso('informe.aprobar',orden.proyecto_id)} onVinculo={(key,id)=>void cambiarVinculo(key,id)} disabled={camposBloqueados}
+            <EtapaCampos scopeKey={orden.id+':'+(documento?.id??'nuevo')+':'+versionBorrador+':'+correccionAbierta} compact tipo={tipo} datos={datosBorrador} contexto={contextoCampos} puedeDecidir={tienePermiso('informe.aprobar',orden.proyecto_id)} onVinculo={(key,id)=>void cambiarVinculo(key,id)} disabled={camposBloqueados}
               onChange={d=>{
                 setObservaciones(String(d.observaciones??''));
                 if(d.origen)setOrigenServicio(d.origen as OrigenOrdenServicio);

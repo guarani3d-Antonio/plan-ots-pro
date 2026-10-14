@@ -19,7 +19,8 @@ import type {
 
 type Registro = Record<string, unknown>;
 type Foto = { id: string; file_url: string; descripcion: string | null; descripcion_observacion: string | null };
-export const PLANTILLA_CONTROLADA_VERSION = 'expediente-controlado-2026-10-13-conformidad';
+export const PLANTILLA_CONTROLADA_VERSION = 'expediente-controlado-2026-10-14-cronograma';
+const PLANTILLA_CONFORMIDAD = 'expediente-controlado-2026-10-13-conformidad';
 const PLANTILLA_FIRMAS = 'expediente-controlado-2026-10-13-firmas';
 const PLANTILLA_DATOS = 'expediente-controlado-2026-10-08-datos';
 const PLANTILLA_ETAPAS = 'expediente-controlado-2026-10-08';
@@ -75,8 +76,8 @@ export function materializarHtmlControlado(
   const anio = Number(/^POT-(\d{4})-/.exec(codigo)?.[1]);
   if (!Number.isInteger(anio) || anio < 2020 || anio > 2100)
     throw new Error('Año documental inválido');
-  const contexto: ContextoReporteControlado = { codigo, anio, revision: revision.revision };
-  if (![PLANTILLA_CONTROLADA_VERSION, PLANTILLA_FIRMAS, PLANTILLA_DATOS, PLANTILLA_ETAPAS, PLANTILLA_PLANO, PLANTILLA_ANTERIOR, PLANTILLA_LEGACY].includes(revision.plantilla_version))
+  const contexto: ContextoReporteControlado = { codigo, anio, revision: revision.revision,planTrabajo:revision.plantilla_version===PLANTILLA_CONTROLADA_VERSION };
+  if (![PLANTILLA_CONTROLADA_VERSION,PLANTILLA_CONFORMIDAD, PLANTILLA_FIRMAS, PLANTILLA_DATOS, PLANTILLA_ETAPAS, PLANTILLA_PLANO, PLANTILLA_ANTERIOR, PLANTILLA_LEGACY].includes(revision.plantilla_version))
     throw new Error('Versión de plantilla no compatible con este renderizador');
   if (revision.plantilla_version !== PLANTILLA_LEGACY && fuentes.empresa) {
     const empresa = objeto(fuentes.empresa, 'Empresa emisora');
@@ -86,7 +87,7 @@ export function materializarHtmlControlado(
       ? `${nombre} / Facility Services` : nombre;
   }
   const datos = objeto(revision.datos, 'Datos de revisión');
-  if ([PLANTILLA_CONTROLADA_VERSION,PLANTILLA_FIRMAS].includes(revision.plantilla_version)) {
+  if ([PLANTILLA_CONTROLADA_VERSION,PLANTILLA_CONFORMIDAD,PLANTILLA_FIRMAS].includes(revision.plantilla_version)) {
     contexto.firmantes=espaciosFirma(datos.firmantes ?? []);
     contexto.firmas=firmasVerificadas;
     contexto.identidadFirma={id:revision.id,hash:revision.contenido_sha256};
@@ -137,7 +138,7 @@ export function materializarHtmlControlado(
   const orden = revision.plantilla_version === PLANTILLA_LEGACY ? ordenOriginal
     : ordenParaInforme(ordenOriginal, restaurarCampos(
       prepararAutocompletado(ordenOriginal, proyectoNombre).identificacion, identidadGuardada));
-  if (revision.plantilla_version === PLANTILLA_PLANO || ([PLANTILLA_CONTROLADA_VERSION,PLANTILLA_FIRMAS,PLANTILLA_DATOS,PLANTILLA_ETAPAS].includes(revision.plantilla_version) && TIPOS_CON_PLANO.includes(tipo))) {
+  if (revision.plantilla_version === PLANTILLA_PLANO || ([PLANTILLA_CONTROLADA_VERSION,PLANTILLA_CONFORMIDAD,PLANTILLA_FIRMAS,PLANTILLA_DATOS,PLANTILLA_ETAPAS].includes(revision.plantilla_version) && TIPOS_CON_PLANO.includes(tipo))) {
     const tienePunto = ordenOriginal.pos_x != null && ordenOriginal.pos_y != null &&
       Number.isFinite(ordenOriginal.pos_x) && Number.isFinite(ordenOriginal.pos_y);
     if (tienePunto) {

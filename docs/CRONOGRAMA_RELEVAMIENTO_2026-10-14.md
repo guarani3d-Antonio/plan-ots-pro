@@ -1,0 +1,13 @@
+# Cronograma en Relevamiento (Plan de Trabajo)
+
+Implementación autorizada del mockup: botón en Plan de trabajo, editor superpuesto, matriz y Gantt sincronizados, herramientas Seleccionar / Trabajo / Flecha y hasta 100 trabajos. Calendario de días corridos, duración inclusiva y relaciones FI, II, FF, IF con desfases positivos o negativos. Cada tarea admite varias predecesoras; se impiden ciclos, duplicados y fechas inexistentes. El arrastre modifica el desfase de tareas vinculadas; estirar el fin conserva coherencia con las relaciones.
+
+Aplicar al informe cambia el borrador; Guardar cambios / Guardar versión conserva la revisión mediante el RPC existente. Cancelar el editor descarta solamente su preparación local. Las revisiones guardadas son de solo lectura; modificar exige versión corregida, motivo y nuevas firmas. La posición del cronograma es Plan de trabajo, antes de las condiciones operativas. Las firmas continúan al final del documento.
+
+Se conserva `relevamiento.cronogramaJSON` como texto JSON dentro de los datos inmutables. Incluye calendario, tareas, fechas, relaciones e inclusión del diagrama y de su matriz. No requiere nuevas tablas ni migración. Los snapshots de respaldo conservan el JSON y los hashes de las revisiones. El técnico puede preparar el cronograma y excluirlo del informe sin borrar sus datos.
+
+Plantilla nueva: `expediente-controlado-2026-10-14-cronograma`. El generador anterior se conserva byte por byte en `controlled-report-20261013-conformidad.mjs`; render-documento distingue versiones y conserva la comprobación de firmas y JWT. Los informes anteriores mantienen su título y HTML. Los nuevos se llaman Informe de Relevamiento (Plan de Trabajo).
+
+Validación: motor de fechas y cuatro relaciones, adelantos / retrasos, desplazamiento reversible, tareas independientes, ciclos, eliminación, salida escapada, inclusión opcional y bloques de impresión. Ensayo PostgreSQL: dos versiones conservadas, hash diferente para la corrección, aislamiento por obra, snapshot con datos e igualdad del render histórico. Pruebas existentes de siete documentos, permisos de campos, firmas, conformidad, editor y recuperación de render completadas. La interfaz React se ensayó con datos ficticios y eventos de dedo sintéticos, incluidos dibujo, arrastre de flecha, edición directa y bloqueo de versión. La prueba física en tablet queda a cargo del piloto.
+
+Respaldo de fuentes comprobado en `backups/relevamiento-gantt-20261014/`; baseline Git 3556681. Reversión: restaurar frontend al baseline y el renderizador anterior respaldado, conservando todos los datos y firmas; las revisiones de la nueva plantilla necesitan su renderizador para regenerarse. No borrar revisiones ni cronogramas para revertir la interfaz.

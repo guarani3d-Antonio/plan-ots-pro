@@ -113,6 +113,7 @@ export const _FOOTER_INFORME = `<footer class="page-footer">
 </footer>`;
 
 export interface ContextoReporteControlado {
+  planTrabajo?:boolean;
   firmantes?: EspacioFirma[];
   firmas?: FirmaDocumento[];
   identidadFirma?: { id:string; hash:string };

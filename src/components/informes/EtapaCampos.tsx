@@ -1,3 +1,4 @@
+import {CronogramaRelevamiento} from './CronogramaRelevamiento';
 import { useId } from 'react';
 import type { TipoDocumento } from '../../services/documentService';
 import { ETAPAS_OT, TEXTO_ACTA, claveEtapa, type CampoEtapa, type GrupoEtapa } from '../../services/otStageSchema';
@@ -26,7 +27,7 @@ function Campo({campo,value,onChange,disabled,placeholder,readOnly=false}:{campo
  </div>;
 }
 
-export function EtapaCampos({tipo,datos,onChange,disabled=false,compact=false,contexto,onVinculo,puedeDecidir=false,ocultarDecision=false}:{tipo:TipoDocumento;datos:Record<string,unknown>;onChange:(d:Record<string,unknown>)=>void;disabled?:boolean;compact?:boolean;contexto?:ContextoCamposInforme|null;onVinculo?:(key:string,id:string)=>void;puedeDecidir?:boolean;ocultarDecision?:boolean}) {
+export function EtapaCampos({tipo,datos,onChange,disabled=false,compact=false,contexto,onVinculo,puedeDecidir=false,ocultarDecision=false,scopeKey}:{tipo:TipoDocumento;datos:Record<string,unknown>;onChange:(d:Record<string,unknown>)=>void;disabled?:boolean;compact?:boolean;contexto?:ContextoCamposInforme|null;onVinculo?:(key:string,id:string)=>void;puedeDecidir?:boolean;ocultarDecision?:boolean;scopeKey?:string}) {
  const etapa=ETAPAS_OT.find(s=>s.tipo===tipo)!;
  const key=claveEtapa(tipo), values=(datos[key]??{}) as Record<string,string>;
  const set=(k:string,v:string)=>onChange({...datos,[key]:{...values,[k]:v}});
@@ -55,6 +56,7 @@ export function EtapaCampos({tipo,datos,onChange,disabled=false,compact=false,co
    {tipo === 'encuesta' && g.title === 'Tu experiencia' && <p className={styles.note}>1 = valoración mínima · 10 = máxima · N/A = no corresponde</p>}
    {compact&&tipo==='relevamiento'&&index===0&&<div className={styles.grid}><Campo campo={{key:'observaciones',label:'Diagnóstico inicial y fundamento',type:'textarea',span:12}} value={String(datos.observaciones??'')} placeholder="Ej.: fisura visible en el encuentro del muro; se requiere verificar el sustrato antes de intervenir." onChange={v=>onChange({...datos,observaciones:v})} disabled={disabled}/></div>}
    <div className={styles.grid}>{g.fields.filter(f=>principal.includes(f.key)).map(renderCampo)}</div>
+   {tipo==='relevamiento'&&((compact&&index===1)||(!compact&&g.title==='Plan de trabajo'))&&<CronogramaRelevamiento key={scopeKey} valor={values.cronogramaJSON} inicio={values.inicioPrevisto} disabled={disabled} onChange={(json,periodo)=>onChange({...datos,[key]:{...values,cronogramaJSON:json,...(periodo?{inicioPrevisto:periodo.inicio,finPrevisto:periodo.fin}:{})}})}/>}
    {extras.length>0&&<details className={styles.legacy}><summary>{index===0?'Antecedentes, condiciones y referencias':'Actividades, criterios y condiciones'}</summary><div className={styles.grid}>{extras.map(renderCampo)}</div>{index===1&&itemEditor}</details>}
    {tipo==='visita'&&g.title.startsWith('2')&&values.horaLlegada&&values.horaInicio&&<p className={styles.note}>Espera hasta el inicio: {espera(values.horaLlegada,values.horaInicio)}</p>}
    {!compact&&tipo==='relevamiento'&&g.title==='Plan de trabajo'&&itemEditor}
@@ -68,7 +70,7 @@ export function EtapaCampos({tipo,datos,onChange,disabled=false,compact=false,co
   {grupos.map((g,i)=>compact?<details key={g.title} className={styles.editorGroup} open={i===0&&tipo!=='acta'}><summary>{g.title}</summary><div className={styles.editorGroupBody}>{contenidoGrupo(g,i)}</div></details>:<fieldset key={g.title} className={styles.group}><legend>{g.title}</legend>{contenidoGrupo(g,i)}</fieldset>)}
   {['avance','cierre'].includes(tipo)&&itemEditor}
   {['orden_servicio','relevamiento','avance','cierre'].includes(tipo)&&!(compact&&tipo==='relevamiento')&&<div className={styles.grid}><Campo campo={{key:'observaciones',label:tipo==='orden_servicio'?'Aclaración posterior de la solicitud':tipo==='relevamiento'?'Diagnóstico y fundamento':tipo==='avance'?'Trabajos ejecutados en el período':'Síntesis del resultado técnico',type:'textarea',span:12}} value={String(datos.observaciones??'')} onChange={v=>onChange({...datos,observaciones:v})} disabled={disabled}/></div>}
-  {tipo==='relevamiento'&&<div className={styles.actions}><button type="button" className={styles.button} disabled>Gantt por etapas · futuro</button><button type="button" className={styles.button} disabled>Presupuesto · futuro</button></div>}
+  {tipo==='relevamiento'&&<div className={styles.actions}><button type="button" className={styles.button} disabled>Presupuesto · futuro</button></div>}
   {tipo==='acta'&&<div className={styles.legal}><strong>Constancia de recepción y alcance de la conformidad</strong><p>{TEXTO_ACTA}</p><small>Texto sujeto a revisión jurídica de BBC. Las firmas se registran en «Ver acta → Firmas» y corresponden a esa versión exacta.</small></div>}
   {tipo==='encuesta'&&<details className={styles.legacy}><summary>Otros datos de encuestas anteriores</summary><div className={styles.grid}>{[['satisfaccionGeneral','Satisfacción general'],['resolucion','Resolución'],['comunicacion','Comunicación'],['expectativas','Expectativas']].map(([k,l])=><Campo key={k} campo={text(k,l)} value={values[k]??''} onChange={v=>set(k,v)} disabled={disabled}/>)}</div></details>}
  </div>;

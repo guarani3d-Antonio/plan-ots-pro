@@ -126,7 +126,7 @@ const DOC_LABEL: Record<string, string> = {
 const TIPOS_DOCUMENTO: { tipo: TipoDocumento; nombre: string }[] = [
   { tipo: 'orden_servicio', nombre: 'Orden de Servicio' },
   { tipo: 'visita', nombre: 'Ficha de Visita Técnica' },
-  { tipo: 'relevamiento', nombre: 'Informe de Relevamiento' },
+  { tipo: 'relevamiento', nombre: 'Informe de Relevamiento (Plan de Trabajo)' },
   { tipo: 'avance', nombre: 'Informe de Avance' },
   { tipo: 'cierre', nombre: 'Informe de Cierre' },
   { tipo: 'acta', nombre: 'Acta de Conformidad' },
@@ -373,7 +373,7 @@ export const ModalDetalleOT: React.FC<Props> = ({
           {/* ────── Sección 4 – Documentos ────── */}
           <Seccion titulo="📄 Documentos">
             <Campo label="Acta de conformidad"><InformeChip valor={orden.acta_conformidad} /></Campo>
-            <Campo label="Informe relevamiento"><InformeChip valor={orden.informe_relevamiento} /></Campo>
+            <Campo label="Relevamiento (Plan de Trabajo)"><InformeChip valor={orden.informe_relevamiento} /></Campo>
             <Campo label="Informe avance"><InformeChip valor={orden.informe_avance} /></Campo>
             <Campo label="Informe cierre"><InformeChip valor={orden.informe_cierre} /></Campo>
             {onVerInforme && <Campo label="Vistas previas" full>
