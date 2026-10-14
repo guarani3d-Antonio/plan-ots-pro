@@ -9,6 +9,7 @@ import { generarContextoPlano } from '../../services/planLocationService';
 import { espaciosIniciales } from '../../services/documentSignatureModel';
 import { informeDisponible } from '../../services/reportService';
 import { EtapaCampos } from './EtapaCampos';
+import { ConformidadCliente } from './ConformidadCliente';
 import { EtiquetaLectura } from './CampoTextoInforme';
 import { VoiceInputButton } from '../ui/VoiceInputButton';
 import TooltipAyuda from '../ayuda/TooltipAyuda';
@@ -24,10 +25,10 @@ export interface EtapasOTHandle {
  vincularEvidencia:(tipo:TipoDocumento,id:string)=>void;
  actualizarDocumento:(doc:DocumentoRegistro,borrador?:{datos:Record<string,unknown>;version:number},revisiones?:RevisionDocumento[])=>void;
 }
-interface Props { orden:OrdenLocal; cliente?:ClienteInforme|null; proyectoNombre:string; disabled:boolean; puedeRevisar:boolean; onDirty:(dirty:boolean)=>void; onPreview:(tipo:TipoDocumento,revision?:string)=>void; onOrigen?:(datos:Record<string,unknown>)=>void; solicitud:(datos:Record<string,unknown>,onChange:(datos:Record<string,unknown>)=>void,soloLectura:boolean)=>ReactNode; ejecucion:ReactNode; evidencia?:(tipo:TipoDocumento,datos:Record<string,unknown>,readOnly:boolean)=>ReactNode; evidenciasIds?:(tipo:TipoDocumento)=>string[]; refresh:number }
+interface Props { orden:OrdenLocal; cliente?:ClienteInforme|null; proyectoNombre:string; disabled:boolean; puedeRevisar:boolean; onDirty:(dirty:boolean)=>void; onPreview:(tipo:TipoDocumento,revision?:string)=>void; onOrigen?:(datos:Record<string,unknown>)=>void; solicitud:(datos:Record<string,unknown>,onChange:(datos:Record<string,unknown>)=>void,soloLectura:boolean)=>ReactNode; ejecucion:ReactNode; evidencia?:(tipo:TipoDocumento,datos:Record<string,unknown>,readOnly:boolean)=>ReactNode; evidenciasIds?:(tipo:TipoDocumento)=>string[]; refresh:number;onGuardarVersion?:()=>Promise<unknown> }
 const vacio=():Registro=>({doc:null,datos:{},version:0,dirty:false,revisiones:[],historical:'',correcting:false,motivo:'',request:crypto.randomUUID(),saveRequest:crypto.randomUUID(),contexto:null});
 
-export const EtapasOT=forwardRef<EtapasOTHandle,Props>(function EtapasOT({orden,cliente,proyectoNombre,disabled,onDirty,onPreview,onOrigen,solicitud,ejecucion,evidencia,evidenciasIds,refresh},ref){
+export const EtapasOT=forwardRef<EtapasOTHandle,Props>(function EtapasOT({orden,cliente,proyectoNombre,disabled,onDirty,onPreview,onOrigen,solicitud,ejecucion,evidencia,evidenciasIds,refresh,onGuardarVersion},ref){
  const puedeCorregir=tienePermiso('informe.crear',orden.proyecto_id)&&tienePermiso('informe.editar',orden.proyecto_id);
  const [state,setState]=useState<Estado>(()=>Object.fromEntries(ETAPAS_OT.map(e=>[e.tipo,vacio()])) as Estado);
  const stateRef=useRef(state);stateRef.current=state;
@@ -131,7 +132,8 @@ export const EtapasOT=forwardRef<EtapasOTHandle,Props>(function EtapasOT({orden,
     {r.correcting&&<div className={styles.reason}><div className={styles.labelRow}><label htmlFor={`motivo-${e.tipo}`}>Motivo de la versión corregida</label><VoiceInputButton compact value={r.motivo} onChange={v=>patch(e.tipo,{motivo:v,dirty:true,saveRequest:crypto.randomUUID()})} disabled={blocked}/></div><textarea rows={4} id={`motivo-${e.tipo}`} value={r.motivo} disabled={blocked} onChange={event=>patch(e.tipo,{motivo:event.target.value,dirty:true,saveRequest:crypto.randomUUID()})}/></div>}
     {e.tipo==='avance'&&!r.doc&&!r.dirty?<><p className={styles.note}>Sin informe de avance por ahora. Podés continuar con el cierre cuando corresponda.</p><button type="button" className={styles.button} disabled={blocked} onClick={()=>patch('avance',{dirty:true})}>Registrar un informe de avance</button></>:<>
      {e.tipo==='orden_servicio'&&<fieldset className={styles.slot} disabled={blocked||readOnly}>{solicitud(datos,d=>editar(e.tipo,d),blocked||readOnly)}</fieldset>}
-     <EtapaCampos tipo={e.tipo} datos={datos} contexto={r.contexto} puedeDecidir={tienePermiso('informe.aprobar',orden.proyecto_id)} onVinculo={(key,id)=>void run(async()=>{const contexto=await cargarContextoCamposInforme(orden.id,e.tipo,{...r.contexto?.vinculos,[key]:id},r.doc?.id??null);patch(e.tipo,{contexto,datos:aplicarContextoCampos(e.tipo,datos,contexto),dirty:true,saveRequest:crypto.randomUUID()});})} disabled={blocked||readOnly} onChange={d=>{if(!editar(e.tipo,d))return;if(e.tipo==='orden_servicio')onOrigen?.(objetoFuente(d.origen));}}/>
+     {e.tipo==='acta'&&<ConformidadCliente datos={datos} onChange={d=>editar('acta',d)} revision={r.historical?r.revisiones.find(v=>v.id===r.historical):!r.correcting?r.revisiones.find(v=>v.borrador_version===r.version):undefined} codigo={r.doc?.codigo} proyecto={orden.proyecto_id} editable={!readOnly} blocked={blocked} vigente={!r.historical&&!r.correcting&&!r.dirty} responsable={orden.responsable??''} onGuardar={onGuardarVersion} onVerActa={()=>onPreview('acta',r.historical||undefined)} puedeFirmar={orden.estado==='Cerrada'}/>}
+     <EtapaCampos compact={e.tipo==='acta'} ocultarDecision={e.tipo==='acta'&&(!readOnly||!!(datos.acta as Record<string,unknown>)?.conformidadJSON)} tipo={e.tipo} datos={datos} contexto={r.contexto} puedeDecidir={tienePermiso('informe.aprobar',orden.proyecto_id)} onVinculo={(key,id)=>void run(async()=>{const contexto=await cargarContextoCamposInforme(orden.id,e.tipo,{...r.contexto?.vinculos,[key]:id},r.doc?.id??null);patch(e.tipo,{contexto,datos:aplicarContextoCampos(e.tipo,datos,contexto),dirty:true,saveRequest:crypto.randomUUID()});})} disabled={blocked||readOnly} onChange={d=>{if(!editar(e.tipo,d))return;if(e.tipo==='orden_servicio')onOrigen?.(objetoFuente(d.origen));}}/>
      {e.tipo==='cierre'&&<fieldset className={styles.slot} disabled={blocked||readOnly}>{ejecucion}</fieldset>}
      {evidencia?.(e.tipo,datos,readOnly)}
     </>}

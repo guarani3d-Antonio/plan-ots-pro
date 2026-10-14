@@ -1,4 +1,5 @@
 import { EtapaCampos } from './EtapaCampos';
+import { confirmacionConformidad } from '../../services/customerConformityModel';
 import { camposVacios, TIPOS_CON_PLANO, ETAPAS_OT, validarEtapa } from '../../services/otStageSchema';
 import TooltipAyuda from '../ayuda/TooltipAyuda';
 import { CampoTextoInforme, EtiquetaLectura } from './CampoTextoInforme';
@@ -319,7 +320,7 @@ function itemsCierreGuardados(valor: unknown): ItemCierre[] {
 
 
 const ACTA_INICIAL: DatosActa = {
-  ...camposVacios('acta'),
+  ...camposVacios('acta'), conformidadJSON:'',
   cierreReferencia: '', objetoEntrega: '', anexosEntregados: '', receptor: '',
   organizacion: '', cargo: '', facultad: '', decisionPreparada: '',
   observacionesCliente: '', reservas: '', garantiaReferencia: '', garantiaCondiciones: '',
@@ -1260,8 +1261,8 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
             {versionBorrador>0&&<div className={styles.identitySummary}><span>{correccionAbierta?'Nueva versión en preparación':`Versión ${versionBorrador} guardada`}</span>{!correccionAbierta&&<EtiquetaLectura/>}<button type="button" className={styles.btnSecondary} disabled={!!revisionInicialId||!tienePermiso('informe.crear',orden.proyecto_id)||!tienePermiso('informe.editar',orden.proyecto_id)||cargandoComentario||guardandoBorrador||correccionAbierta||actualizandoCampos} onClick={()=>void prepararCorreccion()}>Crear versión corregida</button></div>}
             {correccionAbierta&&<CampoTextoInforme etiqueta="Motivo de la versión corregida" multiline rows={4} value={motivoRevision} onChange={setMotivoRevision}/>}
             <div hidden={editorTab!=='firmas'} className={styles.tabContent}>
-              <FirmasDocumento espacios={firmantes} firmas={!correccionAbierta&&firmasRevision===revisionFirma?.id?firmas:[]} revision={!correccionAbierta?revisionFirma:undefined} codigo={documento?.codigo}
-                editable={!camposBloqueados} cargando={cargandoFirmas} error={errorFirmas}
+              <FirmasDocumento confirmacion={s=>tipo==='acta'?confirmacionConformidad(datosActa,s):undefined} espacios={firmantes} firmas={!correccionAbierta&&firmasRevision===revisionFirma?.id?firmas:[]} revision={!correccionAbierta?revisionFirma:undefined} codigo={documento?.codigo}
+                editable={!camposBloqueados&&!(tipo==='acta'&&datosActa.conformidadJSON)} cargando={cargandoFirmas} error={errorFirmas}
                 puedeFirmar={!!revisionFirma&&!correccionAbierta&&!cambiosBorrador&&!cargandoFirmas&&!errorFirmas&&firmasRevision===revisionFirma.id&&tienePermiso('informe.editar',orden.proyecto_id)&&!revisionInicialId&&!candidatos.some(c=>c.revision_id===revisionFirma.id)}
                 onChange={setFirmantes} onFirmar={handleFirma} onActualizar={()=>setFirmaRefresh(n=>n+1)}/>
               {!!revisionFirma&&candidatos.some(c=>c.revision_id===revisionFirma.id)&&<p className={styles.sublabel}>Esta versión ya inició su PDF formal. Para otras firmas, creá una versión corregida.</p>}

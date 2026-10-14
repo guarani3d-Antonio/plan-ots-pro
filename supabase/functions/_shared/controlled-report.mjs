@@ -1,3 +1,61 @@
+//#region src/services/documentSignatureModel.ts
+const CATEGORIAS_FIRMA = [
+	"Cliente",
+	"Contacto",
+	"Técnico / Supervisor",
+	"Contratista"
+];
+const uuid$1 = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+function espaciosFirma(valor) {
+	if (!Array.isArray(valor) || valor.length > 4) throw new Error("Se admiten hasta cuatro firmantes.");
+	const ids = /* @__PURE__ */ new Set();
+	return valor.map((v) => {
+		if (!v || typeof v !== "object" || !uuid$1.test(v.id) || ids.has(v.id) || !CATEGORIAS_FIRMA.includes(v.categoria)) throw new Error("Configuración de firmantes inválida.");
+		ids.add(v.id);
+		return {
+			id: v.id,
+			categoria: v.categoria
+		};
+	});
+}
+function firmaPngValida(imagen) {
+	return imagen.length <= 16e4 && /^data:image\/png;base64,iVBORw0KGgo[A-Za-z0-9+/]*={0,2}$/.test(imagen);
+}
+function htmlFirmas(espacios, firmas = [], revision) {
+	const list = espaciosFirma(espacios);
+	if (!list.length) return "";
+	return `<div class="report-signatures" data-document-signatures="true">${list.map((slot) => {
+		const firma = revision ? firmas.find((f) => f.revision_id === revision.id && f.contenido_sha256 === revision.hash && f.espacio_id === slot.id && f.categoria === slot.categoria) : void 0;
+		if (firma && !firmaPngValida(firma.imagen_png)) throw new Error("Imagen de firma inválida.");
+		return `<div class="report-signature" data-signature-slot="${slot.id}">${firma ? `<img src="${firma.imagen_png}" alt="Firma manuscrita: ${slot.categoria}"/>` : "<div class=\"report-signature-blank\"></div>"}<div class="report-signature-line"></div><div class="report-signature-label">${slot.categoria}</div></div>`;
+	}).join("")}</div>`;
+}
+function incorporarFirmas(html, espacios, firmas = [], revision) {
+	const block = htmlFirmas(espacios, firmas, revision);
+	if (!block) return html;
+	const footer = html.indexOf("<footer class=\"page-footer\"");
+	const end = html.lastIndexOf("</div>", footer < 0 ? html.length : footer);
+	if (end < 0) throw new Error("No se encontró el final del documento.");
+	return html.slice(0, end) + block + "\n" + html.slice(end);
+}
+//#endregion
+//#region src/services/customerConformityModel.ts
+const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+function leerConformidad(acta) {
+	const raw = acta?.conformidadJSON;
+	if (!raw) return null;
+	if (typeof raw !== "string") throw new Error("Conformidad inválida.");
+	let c;
+	try {
+		c = JSON.parse(raw);
+	} catch {
+		throw new Error("Conformidad inválida.");
+	}
+	if (!c || c.version !== 1 || !Array.isArray(c.pendientes) || typeof c.decision !== "string" || typeof c.receptor !== "string" || !["Cliente", "Contacto"].includes(c.calidad) || typeof c.espacioReceptor !== "string" || typeof c.motivo !== "string" || typeof c.confirmada !== "boolean") throw new Error("Conformidad inválida.");
+	if (c.pendientes.length > 100 || c.pendientes.some((p) => !p || !uuid.test(p.id) || typeof p.descripcion !== "string" || typeof p.responsable !== "string" || typeof p.fecha !== "string") || new Set(c.pendientes.map((p) => p.id)).size !== c.pendientes.length) throw new Error("Pendientes inválidos.");
+	return c;
+}
+//#endregion
 //#region src/services/otStageSchema.ts
 const text = (key, label, span = 6) => ({
 	key,
@@ -369,47 +427,6 @@ const ETAPAS_OT = [
 		]
 	}
 ];
-//#endregion
-//#region src/services/documentSignatureModel.ts
-const CATEGORIAS_FIRMA = [
-	"Cliente",
-	"Contacto",
-	"Técnico / Supervisor",
-	"Contratista"
-];
-const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-function espaciosFirma(valor) {
-	if (!Array.isArray(valor) || valor.length > 4) throw new Error("Se admiten hasta cuatro firmantes.");
-	const ids = /* @__PURE__ */ new Set();
-	return valor.map((v) => {
-		if (!v || typeof v !== "object" || !uuid.test(v.id) || ids.has(v.id) || !CATEGORIAS_FIRMA.includes(v.categoria)) throw new Error("Configuración de firmantes inválida.");
-		ids.add(v.id);
-		return {
-			id: v.id,
-			categoria: v.categoria
-		};
-	});
-}
-function firmaPngValida(imagen) {
-	return imagen.length <= 16e4 && /^data:image\/png;base64,iVBORw0KGgo[A-Za-z0-9+/]*={0,2}$/.test(imagen);
-}
-function htmlFirmas(espacios, firmas = [], revision) {
-	const list = espaciosFirma(espacios);
-	if (!list.length) return "";
-	return `<div class="report-signatures" data-document-signatures="true">${list.map((slot) => {
-		const firma = revision ? firmas.find((f) => f.revision_id === revision.id && f.contenido_sha256 === revision.hash && f.espacio_id === slot.id && f.categoria === slot.categoria) : void 0;
-		if (firma && !firmaPngValida(firma.imagen_png)) throw new Error("Imagen de firma inválida.");
-		return `<div class="report-signature" data-signature-slot="${slot.id}">${firma ? `<img src="${firma.imagen_png}" alt="Firma manuscrita: ${slot.categoria}"/>` : "<div class=\"report-signature-blank\"></div>"}<div class="report-signature-line"></div><div class="report-signature-label">${slot.categoria}</div></div>`;
-	}).join("")}</div>`;
-}
-function incorporarFirmas(html, espacios, firmas = [], revision) {
-	const block = htmlFirmas(espacios, firmas, revision);
-	if (!block) return html;
-	const footer = html.indexOf("<footer class=\"page-footer\"");
-	const end = html.lastIndexOf("</div>", footer < 0 ? html.length : footer);
-	if (end < 0) throw new Error("No se encontró el final del documento.");
-	return html.slice(0, end) + block + "\n" + html.slice(end);
-}
 //#endregion
 //#region src/services/reportAutofillService.ts
 const textoFuente = (value) => typeof value === "string" ? value : "";
@@ -1081,10 +1098,11 @@ ${generarGridFotos(fotosDurante)}` : ""}
 	return _envolverInforme(`Informe de avance${contexto ? "" : " — borrador"}`, contenido, contexto);
 }
 function generarInformeActaConformidad(orden, datos, codigoDocumento, contexto) {
-	const campo = (clave) => `<p id="act-${clave}" style="white-space:pre-line">${escapeHtml(datos?.[clave] || "No registrado")}</p>`;
+	const conformidad = leerConformidad(datos);
+	const campo = (clave) => `<p id="act-${clave}" style="white-space:pre-line">${escapeHtml(String(conformidad && clave === "receptor" ? conformidad.receptor : conformidad && clave === "cargo" ? conformidad.calidad : conformidad && clave === "decisionPreparada" ? conformidad.decision : datos?.[clave] || "No registrado"))}</p>`;
 	const bloque = (titulo, clave) => `<section class="p-4 border border-outline-variant rounded-lg mb-4"><strong>${titulo}</strong>${campo(clave)}</section>`;
 	const contenido = `<div class="a4-page acta-page">
-${_paginaHeader(orden, "ACTA DE CONFORMIDAD", "Instrumento de recepción pendiente de decisión expresa del cliente.", codigoDocumento, contexto)}
+${_paginaHeader(orden, "ACTA DE CONFORMIDAD", conformidad ? "Entrega y decisión del receptor de esta versión." : "Instrumento de recepción pendiente de decisión expresa del cliente.", codigoDocumento, contexto)}
 ${_bloqueDatosCliente(orden)}
 ${_seccionInforme(1, "Objeto de recepción")}
 <p>Solicitud recibida el ${escapeHtml(String(orden.campos?.fecha_solicitud || orden.fecha_ingreso || "No registrado"))}. Orden de trabajo: <strong>${escapeHtml(orden.ot)}</strong>. Alcance individualizado en los documentos referenciados a continuación.</p>
@@ -1103,23 +1121,24 @@ ${bloque("Documento del receptor", "documentoReceptor")}
 </section>
 ${_seccionInforme(2, "Decisión y reservas")}
 <section class="grid grid-cols-2 gap-4 mb-6">
-  <div class="p-4 border border-outline-variant rounded-lg"><strong>Opción preparada (sin manifestación)</strong>${campo("decisionPreparada")}</div>
-  <div class="p-4 border border-outline-variant rounded-lg"><strong>Reservas propuestas y tratamiento</strong>${campo("reservas")}</div>
+  <div class="p-4 border border-outline-variant rounded-lg"><strong>${conformidad ? "Decisión indicada por el receptor" : "Opción preparada (sin manifestación)"}</strong>${campo("decisionPreparada")}</div>
+  <div class="p-4 border border-outline-variant rounded-lg"><strong>${conformidad ? "Motivo de la decisión" : "Reservas propuestas y tratamiento"}</strong>${conformidad ? escapeHtml(conformidad.motivo) : campo("reservas")}</div>
 </section>
 ${datos?.decisionReferencia ? bloque("Referencia de la decisión expresada por el receptor", "decisionReferencia") : ""}
-${bloque("Observaciones del cliente registradas para revisión", "observacionesCliente")}
+${conformidad?.pendientes.length ? `<section class="p-4 border border-outline-variant rounded-lg mb-4"><strong>Observaciones y pendientes al firmar esta versión</strong><ul>${conformidad.pendientes.map((p) => `<li>${escapeHtml(p.descripcion)} — ${escapeHtml(p.responsable)} · ${escapeHtml(formatearFechaCorta(p.fecha))}</li>`).join("")}</ul></section>` : bloque("Observaciones del cliente registradas para revisión", "observacionesCliente")}
 ${_seccionInforme(3, "Condiciones y formalización")}
 <section class="grid grid-cols-2 gap-4 mb-6">
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Garantía contractual de referencia</strong>${campo("garantiaReferencia")}</div>
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Cobertura y condiciones acordadas</strong>${campo("garantiaCondiciones")}</div>
 </section>
-<section class="p-4 border border-outline-variant rounded-lg mb-4"><strong>Alcance de la conformidad</strong><p>${escapeHtml(TEXTO_ACTA)}</p><small>Texto sujeto a revisión jurídica de BBC.</small><p>Pendientes de manifestación expresa del receptor autorizado y vínculo con la revisión exacta del acta. ${contexto ? "La emisión de esta acta no acredita por sí sola aceptación, firma ni garantía nueva." : "Este borrador no acredita aceptación, firma ni garantía nueva."}</p></section>
+<section class="p-4 border border-outline-variant rounded-lg mb-4"><strong>Alcance de la conformidad</strong><p>${escapeHtml(TEXTO_ACTA)}</p><small>Texto sujeto a revisión jurídica de BBC.</small><p>${conformidad ? "La decisión se registra mediante la firma del receptor de esta versión. El seguimiento se conserva por separado y no modifica las observaciones firmadas. No implica una garantía nueva." : `Pendientes de manifestación expresa del receptor autorizado y vínculo con la revisión exacta del acta. ${contexto ? "La emisión de esta acta no acredita por sí sola aceptación, firma ni garantía nueva." : "Este borrador no acredita aceptación, firma ni garantía nueva."}`}</p></section>
 </div>`;
 	return _envolverInforme(`Acta de Conformidad${contexto ? "" : " — borrador"}`, contenido, contexto);
 }
 //#endregion
 //#region src/services/controlledReportService.ts
-const PLANTILLA_CONTROLADA_VERSION = "expediente-controlado-2026-10-13-firmas";
+const PLANTILLA_CONTROLADA_VERSION = "expediente-controlado-2026-10-13-conformidad";
+const PLANTILLA_FIRMAS = "expediente-controlado-2026-10-13-firmas";
 const PLANTILLA_DATOS = "expediente-controlado-2026-10-08-datos";
 const PLANTILLA_ETAPAS = "expediente-controlado-2026-10-08";
 const PLANTILLA_PLANO = "expediente-controlado-2026-10-07";
@@ -1161,7 +1180,8 @@ function materializarHtmlControlado(revision, fuentesValor, imagenesVerificadas,
 		revision: revision.revision
 	};
 	if (![
-		"expediente-controlado-2026-10-13-firmas",
+		"expediente-controlado-2026-10-13-conformidad",
+		PLANTILLA_FIRMAS,
 		PLANTILLA_DATOS,
 		PLANTILLA_ETAPAS,
 		PLANTILLA_PLANO,
@@ -1175,7 +1195,7 @@ function materializarHtmlControlado(revision, fuentesValor, imagenesVerificadas,
 		contexto.emisor = nombre === "Benítez Bittar Constructora" ? `${nombre} / Facility Services` : nombre;
 	}
 	const datos = objeto(revision.datos, "Datos de revisión");
-	if (revision.plantilla_version === "expediente-controlado-2026-10-13-firmas") {
+	if (["expediente-controlado-2026-10-13-conformidad", PLANTILLA_FIRMAS].includes(revision.plantilla_version)) {
 		contexto.firmantes = espaciosFirma(datos.firmantes ?? []);
 		contexto.firmas = firmasVerificadas;
 		contexto.identidadFirma = {
@@ -1226,7 +1246,8 @@ function materializarHtmlControlado(revision, fuentesValor, imagenesVerificadas,
 	const identidadGuardada = datos.identificacion === void 0 ? void 0 : camposTexto(datos.identificacion, "Identificación");
 	const orden = revision.plantilla_version === PLANTILLA_LEGACY ? ordenOriginal : ordenParaInforme(ordenOriginal, restaurarCampos(prepararAutocompletado(ordenOriginal, proyectoNombre).identificacion, identidadGuardada));
 	if (revision.plantilla_version === PLANTILLA_PLANO || [
-		"expediente-controlado-2026-10-13-firmas",
+		"expediente-controlado-2026-10-13-conformidad",
+		PLANTILLA_FIRMAS,
 		PLANTILLA_DATOS,
 		PLANTILLA_ETAPAS
 	].includes(revision.plantilla_version) && TIPOS_CON_PLANO.includes(tipo)) {

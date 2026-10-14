@@ -1,0 +1,7 @@
+export const qaStore:any={revision:null,prepared:null,firmas:[],conformidad:null,pendientes:[]};
+export function setRevision(revision:any,prepared:any){Object.assign(qaStore,{revision,prepared,firmas:[],conformidad:null,pendientes:[]});}
+export function tienePermiso(){return true;}
+export async function cargarFirmasDocumento(){return [...qaStore.firmas];}
+export async function cargarConformidad(){return structuredClone({conformidad:qaStore.conformidad,pendientes:qaStore.pendientes});}
+export async function registrarFirmaDocumento(revision:string,hash:string,espacio:string,imagen:string){const slot=qaStore.revision.datos.firmantes.find((s:any)=>s.id===espacio);const f={id:crypto.randomUUID(),revision_id:revision,contenido_sha256:hash,espacio_id:espacio,categoria:slot.categoria,imagen_png:imagen,imagen_sha256:'b'.repeat(64),registrada_por:'QA',registrada_en:new Date().toISOString()};qaStore.firmas.push(f);if(espacio===qaStore.prepared.espacioReceptor){qaStore.conformidad={id:crypto.randomUUID(),revision_id:revision,firma_id:f.id,contenido_sha256:hash,decision:qaStore.prepared.decision,receptor:qaStore.prepared.receptor,calidad:qaStore.prepared.calidad,registrada_en:f.registrada_en,registrada_por:'QA'};qaStore.pendientes=qaStore.prepared.pendientes.map((p:any)=>({...p,pendiente_id:crypto.randomUUID(),resuelto_en:null,constancia:null}));}return f;}
+export async function resolverPendienteConformidad(id:string,constancia:string){const t=qaStore.pendientes.find((p:any)=>p.pendiente_id===id);t.resuelto_en=new Date().toISOString();t.constancia=constancia;}

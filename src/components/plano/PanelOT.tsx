@@ -1192,7 +1192,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
 </div></details>
               <details className={styles.dataGroup} open><summary>Datos del reclamo <small>Pedido, visitas y seguimiento</small></summary><div className={styles.dataContent}>
               <EtapasOT ref={etapasRef} orden={{...ordenFresca,...form,campos:valoresCampos}} cliente={ubicacionElegida} proyectoNombre={proyectoNombre ?? ''}
-                disabled={!puedeEditar || guardando || guardandoCliente} puedeRevisar={esSupervisor} onDirty={setEtapasDirty} refresh={0}
+                onGuardarVersion={handleGuardar} disabled={!puedeEditar || guardando || guardandoCliente} puedeRevisar={esSupervisor} onDirty={setEtapasDirty} refresh={0}
                 onOrigen={d=>setValoresCampos(c=>({...c,canal_solicitud:d.canal,fecha_solicitud:d.fechaRecepcion,solicitante:d.solicitante,contacto_solicitante:d.contacto,referencia_solicitud:d.referencia,urgencia_solicitada:d.urgencia,proximo_paso:d.proximoPaso}))}
                 onPreview={async (tipo,revision)=>{
                   if(saveLock.current||clienteBusyRef.current)return;

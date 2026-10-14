@@ -1,4 +1,5 @@
 import type { TipoDocumento } from './documentService';
+import {validarConformidad} from './customerConformityModel';
 
 export interface CampoEtapa { key: string; label: string; type?: 'text' | 'textarea' | 'date' | 'time' | 'datetime-local' | 'scale'; options?: string[]; span?: 2 | 3 | 6 | 12 }
 export interface GrupoEtapa { title: string; fields: CampoEtapa[] }
@@ -57,6 +58,7 @@ export function camposVacios(tipo:TipoDocumento):Record<string,string> {
  return Object.fromEntries(ETAPAS_OT.find(s=>s.tipo===tipo)!.groups.flatMap(g=>g.fields.map(f=>[f.key,''])));
 }
 export function validarEtapa(tipo:TipoDocumento,datos:Record<string,unknown>):string|null {
+ if(tipo==='acta'){const error=validarConformidad(datos);if(error)return error;}
  const d=(datos[claveEtapa(tipo)]??{}) as Record<string,string>;
  const fechas=tipo==='relevamiento'?['inicioPrevisto','finPrevisto']:tipo==='cierre'?['inicioReal','finReal']:tipo==='avance'?['periodoDesde','periodoHasta']:[];
  if(fechas.length&&d[fechas[0]]&&d[fechas[1]]&&d[fechas[1]]<d[fechas[0]])return 'La fecha de fin no puede ser anterior al inicio.';

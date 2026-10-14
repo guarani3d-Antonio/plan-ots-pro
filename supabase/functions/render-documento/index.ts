@@ -3,6 +3,7 @@ import { materializarHtmlControlado as materializarEtapas } from '../_shared/con
 import { materializarHtmlControlado as materializarDatos } from '../_shared/controlled-report-20261012.mjs';
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2.105.4';
 import { materializarHtmlControlado } from '../_shared/controlled-report.mjs';
+import { materializarHtmlControlado as materializarFirmas } from '../_shared/controlled-report-20261013-firmas.mjs';
 import { leerSolicitudDocumento } from '../_shared/document-request.mjs';
 import { opcionesPdfDocumento } from '../_shared/document-pdf-options.mjs';
 
@@ -193,14 +194,14 @@ Deno.serve(async request => {
     let pdf = previo;
     if (!pdf) {
       let html: string;
-      if(rev.plantilla_version === 'expediente-controlado-2026-10-13-firmas') {
+      if(['expediente-controlado-2026-10-13-firmas','expediente-controlado-2026-10-13-conformidad'].includes(rev.plantilla_version)) {
         const {data:firmas,error:errorFirmas}=await admin.from('plan_documento_firmas').select('*').eq('revision_id',revisionId);
         const registradas=necesario(firmas,errorFirmas,'Firmas de la revisión');
         for(const firma of registradas){
           const bytes=Uint8Array.from(atob(firma.imagen_png.slice(22)),c=>c.charCodeAt(0));
           if(await sha256(bytes)!==firma.imagen_sha256)throw new Error('Firma alterada');
         }
-        html=materializarHtmlControlado(rev,fuentes,imagenes,registradas);
+        html=(rev.plantilla_version==='expediente-controlado-2026-10-13-firmas'?materializarFirmas:materializarHtmlControlado)(rev,fuentes,imagenes,registradas);
       }else{
         const render=rev.plantilla_version==='expediente-controlado-2026-10-08-datos'?materializarDatos:rev.plantilla_version==='expediente-controlado-2026-10-08'?materializarEtapas:materializarAnterior;
         html=render(rev,fuentes,imagenes);

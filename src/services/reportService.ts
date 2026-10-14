@@ -1,6 +1,7 @@
 // Borradores de los documentos de una OT. La emisión formal se implementa
 // sobre revisiones y artefactos persistidos; imprimir aquí no equivale a emitir.
 
+import {leerConformidad} from './customerConformityModel';
 import type { OrdenLocal } from '../types/orden';
 import type { ContextoReporteControlado } from './reportTemplates';
 import { ETAPAS_OT, ENCUESTA_PREGUNTAS, TEXTO_ACTA } from './otStageSchema';
@@ -121,6 +122,7 @@ export interface ItemCierre {
 }
 
 export interface DatosActa {
+  conformidadJSON?: string;
   documentoReceptor?: string; fechaEntrega?: string;
   cierreReferencia: string;
   objetoEntrega: string;
@@ -437,12 +439,13 @@ ${generarGridFotos(fotosDurante)}` : ''}
 
 export function generarInformeActaConformidad(orden: OrdenLocal, datos?: DatosActa,
   codigoDocumento?: string, contexto?: ContextoReporteControlado): string {
+  const conformidad=leerConformidad(datos);
   const campo = (clave: keyof DatosActa) =>
-    `<p id="act-${clave}" style="white-space:pre-line">${escapeHtml(datos?.[clave] || 'No registrado')}</p>`;
+    `<p id="act-${clave}" style="white-space:pre-line">${escapeHtml(String(conformidad&&clave==='receptor'?conformidad.receptor:conformidad&&clave==='cargo'?conformidad.calidad:conformidad&&clave==='decisionPreparada'?conformidad.decision:datos?.[clave] || 'No registrado'))}</p>`;
   const bloque = (titulo: string, clave: keyof DatosActa) =>
     `<section class="p-4 border border-outline-variant rounded-lg mb-4"><strong>${titulo}</strong>${campo(clave)}</section>`;
   const contenido = `<div class="a4-page acta-page">
-${_paginaHeader(orden, 'ACTA DE CONFORMIDAD', 'Instrumento de recepción pendiente de decisión expresa del cliente.', codigoDocumento, contexto)}
+${_paginaHeader(orden, 'ACTA DE CONFORMIDAD', conformidad?'Entrega y decisión del receptor de esta versión.':'Instrumento de recepción pendiente de decisión expresa del cliente.', codigoDocumento, contexto)}
 ${_bloqueDatosCliente(orden)}
 ${_seccionInforme(1, 'Objeto de recepción')}
 <p>Solicitud recibida el ${escapeHtml(String(orden.campos?.fecha_solicitud || orden.fecha_ingreso || 'No registrado'))}. Orden de trabajo: <strong>${escapeHtml(orden.ot)}</strong>. Alcance individualizado en los documentos referenciados a continuación.</p>
@@ -461,17 +464,17 @@ ${bloque('Documento del receptor', 'documentoReceptor')}
 </section>
 ${_seccionInforme(2, 'Decisión y reservas')}
 <section class="grid grid-cols-2 gap-4 mb-6">
-  <div class="p-4 border border-outline-variant rounded-lg"><strong>Opción preparada (sin manifestación)</strong>${campo('decisionPreparada')}</div>
-  <div class="p-4 border border-outline-variant rounded-lg"><strong>Reservas propuestas y tratamiento</strong>${campo('reservas')}</div>
+  <div class="p-4 border border-outline-variant rounded-lg"><strong>${conformidad?'Decisión indicada por el receptor':'Opción preparada (sin manifestación)'}</strong>${campo('decisionPreparada')}</div>
+  <div class="p-4 border border-outline-variant rounded-lg"><strong>${conformidad?'Motivo de la decisión':'Reservas propuestas y tratamiento'}</strong>${conformidad?escapeHtml(conformidad.motivo):campo('reservas')}</div>
 </section>
 ${datos?.decisionReferencia ? bloque('Referencia de la decisión expresada por el receptor', 'decisionReferencia') : ''}
-${bloque('Observaciones del cliente registradas para revisión', 'observacionesCliente')}
+${conformidad?.pendientes.length?`<section class="p-4 border border-outline-variant rounded-lg mb-4"><strong>Observaciones y pendientes al firmar esta versión</strong><ul>${conformidad.pendientes.map(p=>`<li>${escapeHtml(p.descripcion)} — ${escapeHtml(p.responsable)} · ${escapeHtml(formatearFechaCorta(p.fecha))}</li>`).join('')}</ul></section>`:bloque('Observaciones del cliente registradas para revisión', 'observacionesCliente')}
 ${_seccionInforme(3, 'Condiciones y formalización')}
 <section class="grid grid-cols-2 gap-4 mb-6">
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Garantía contractual de referencia</strong>${campo('garantiaReferencia')}</div>
   <div class="p-4 border border-outline-variant rounded-lg"><strong>Cobertura y condiciones acordadas</strong>${campo('garantiaCondiciones')}</div>
 </section>
-<section class="p-4 border border-outline-variant rounded-lg mb-4"><strong>Alcance de la conformidad</strong><p>${escapeHtml(TEXTO_ACTA)}</p><small>Texto sujeto a revisión jurídica de BBC.</small><p>Pendientes de manifestación expresa del receptor autorizado y vínculo con la revisión exacta del acta. ${contexto ? 'La emisión de esta acta no acredita por sí sola aceptación, firma ni garantía nueva.' : 'Este borrador no acredita aceptación, firma ni garantía nueva.'}</p></section>
+<section class="p-4 border border-outline-variant rounded-lg mb-4"><strong>Alcance de la conformidad</strong><p>${escapeHtml(TEXTO_ACTA)}</p><small>Texto sujeto a revisión jurídica de BBC.</small><p>${conformidad?'La decisión se registra mediante la firma del receptor de esta versión. El seguimiento se conserva por separado y no modifica las observaciones firmadas. No implica una garantía nueva.':`Pendientes de manifestación expresa del receptor autorizado y vínculo con la revisión exacta del acta. ${contexto ? 'La emisión de esta acta no acredita por sí sola aceptación, firma ni garantía nueva.' : 'Este borrador no acredita aceptación, firma ni garantía nueva.'}`}</p></section>
 </div>`;
 
   return _envolverInforme(`Acta de Conformidad${contexto ? '' : ' — borrador'}`, contenido, contexto);

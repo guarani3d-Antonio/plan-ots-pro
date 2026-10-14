@@ -26,7 +26,7 @@ function Campo({campo,value,onChange,disabled,placeholder,readOnly=false}:{campo
  </div>;
 }
 
-export function EtapaCampos({tipo,datos,onChange,disabled=false,compact=false,contexto,onVinculo,puedeDecidir=false}:{tipo:TipoDocumento;datos:Record<string,unknown>;onChange:(d:Record<string,unknown>)=>void;disabled?:boolean;compact?:boolean;contexto?:ContextoCamposInforme|null;onVinculo?:(key:string,id:string)=>void;puedeDecidir?:boolean}) {
+export function EtapaCampos({tipo,datos,onChange,disabled=false,compact=false,contexto,onVinculo,puedeDecidir=false,ocultarDecision=false}:{tipo:TipoDocumento;datos:Record<string,unknown>;onChange:(d:Record<string,unknown>)=>void;disabled?:boolean;compact?:boolean;contexto?:ContextoCamposInforme|null;onVinculo?:(key:string,id:string)=>void;puedeDecidir?:boolean;ocultarDecision?:boolean}) {
  const etapa=ETAPAS_OT.find(s=>s.tipo===tipo)!;
  const key=claveEtapa(tipo), values=(datos[key]??{}) as Record<string,string>;
  const set=(k:string,v:string)=>onChange({...datos,[key]:{...values,[k]:v}});
@@ -41,6 +41,7 @@ export function EtapaCampos({tipo,datos,onChange,disabled=false,compact=false,co
   {...etapa.groups[3],title:'3 · Cobertura y decisión'},
  ] : etapa.groups;
  const renderCampo=(f:CampoEtapa)=>{
+  if(tipo==='acta'&&(ocultarDecision||!!values.conformidadJSON)&&['receptor','cargo','decisionPreparada','decisionReferencia','observacionesCliente','reservas'].includes(f.key))return null;
   const vinculo=CAMPOS_VINCULADOS[tipo]?.[f.key];
   if(vinculo&&contexto&&onVinculo&&!disabled){const options=contexto.opciones[vinculo]??[];return <div key={f.key} className={styles.field} style={{'--field-span':f.span??6} as React.CSSProperties}><span className={styles.inheritedLabel}>{f.label}</span><SelectorBusqueda label={f.label} opciones={options} value={options.find(o=>o.id===contexto.vinculos[vinculo])} onSeleccionar={id=>onVinculo(vinculo,id)} placeholder="Seleccioná un registro vinculado…"/></div>;}
   const field=f.key==='decisionAlcance'&&!puedeDecidir?{...f,options:f.options?.filter(v=>v!=='Aprobado con referencia')}:f;
@@ -64,7 +65,7 @@ export function EtapaCampos({tipo,datos,onChange,disabled=false,compact=false,co
   {tipo==='encuesta'&&<p className={styles.note}>Transcribí únicamente respuestas del cliente e indicá su procedencia. La encuesta no acredita firma ni autoría verificada.</p>}
   {tipo==='acta'&&<p className={styles.note}>La decisión y las reservas deben provenir del receptor. Indicá su referencia; este registro no reemplaza su firma.</p>}
   {['avance','cierre'].includes(tipo)&&!values.alcanceReferencia&&<p className={styles.note}>Sin plan aprobado vinculado. Registrá su aprobación en Relevamiento para heredar actividades y criterios.</p>}
-  {grupos.map((g,i)=>compact?<details key={g.title} className={styles.editorGroup} open={i===0}><summary>{g.title}</summary><div className={styles.editorGroupBody}>{contenidoGrupo(g,i)}</div></details>:<fieldset key={g.title} className={styles.group}><legend>{g.title}</legend>{contenidoGrupo(g,i)}</fieldset>)}
+  {grupos.map((g,i)=>compact?<details key={g.title} className={styles.editorGroup} open={i===0&&tipo!=='acta'}><summary>{g.title}</summary><div className={styles.editorGroupBody}>{contenidoGrupo(g,i)}</div></details>:<fieldset key={g.title} className={styles.group}><legend>{g.title}</legend>{contenidoGrupo(g,i)}</fieldset>)}
   {['avance','cierre'].includes(tipo)&&itemEditor}
   {['orden_servicio','relevamiento','avance','cierre'].includes(tipo)&&!(compact&&tipo==='relevamiento')&&<div className={styles.grid}><Campo campo={{key:'observaciones',label:tipo==='orden_servicio'?'Aclaración posterior de la solicitud':tipo==='relevamiento'?'Diagnóstico y fundamento':tipo==='avance'?'Trabajos ejecutados en el período':'Síntesis del resultado técnico',type:'textarea',span:12}} value={String(datos.observaciones??'')} onChange={v=>onChange({...datos,observaciones:v})} disabled={disabled}/></div>}
   {tipo==='relevamiento'&&<div className={styles.actions}><button type="button" className={styles.button} disabled>Gantt por etapas · futuro</button><button type="button" className={styles.button} disabled>Presupuesto · futuro</button></div>}
