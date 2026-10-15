@@ -1,3 +1,4 @@
+import {OperacionesContratistaOT} from '../contratistas/OperacionesContratistaOT';
 import { EtapasOT, type EtapasOTHandle } from '../informes/EtapasOT';
 import { EvidenciaEtapa } from '../informes/EvidenciaEtapa';
 import { categoriaEtapa } from '../../services/otStageSchema';
@@ -1374,6 +1375,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
             {tab === 'informes' && (
               <div className={styles.section}>
                 <p className={styles.informesIntro}>Los informes se generan con los datos y fotos de esta OT.</p>
+                <OperacionesContratistaOT ordenId={ordenFresca.id} proyectoId={ordenFresca.proyecto_id} bloqueado={cambiosSinGuardar} onBloqueado={()=>mostrar('Guardá los cambios de la OT antes de continuar.','info')}/>
                 {INFORMES_CONFIG.map(({ tipo, icono, nombre, codigo, subtitulo }) => {
                   const disponible = informeDisponible(tipo, estado);
                   return (

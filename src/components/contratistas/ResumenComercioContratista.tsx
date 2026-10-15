@@ -1,0 +1,11 @@
+import {useEffect,useState} from 'react';
+import {leerPresupuestos,leerEvaluaciones} from '../../services/contractorCommerceService';
+import {importePresupuesto,versionAdjudicada,type EstadoPresupuestos,type MonedaPresupuesto} from '../../services/contractorBudgetModel';
+import {promedioEvaluacion,mostrarEvaluacion,type EstadoEvaluaciones} from '../../services/contractorEvaluationModel';
+import s from './ComercioContratista.module.css';
+export function ResumenComercioContratista({id,onPresupuestos,onEvaluaciones}:{id:string;onPresupuestos:()=>void;onEvaluaciones:()=>void}){
+ const [finance,setFinance]=useState<EstadoPresupuestos|null>(null),[reviews,setReviews]=useState<EstadoEvaluaciones|null>(null),[error,setError]=useState('');
+ useEffect(()=>{let active=true;setFinance(null);setReviews(null);setError('');void Promise.allSettled([leerPresupuestos(id),leerEvaluaciones(id)]).then(([f,e])=>{if(!active)return;if(f.status==='fulfilled')setFinance(f.value);if(e.status==='fulfilled')setReviews(e.value);if(f.status==='rejected'||e.status==='rejected')setError('No se pudo cargar parte del resumen. Abrí la sección para reintentar.');});return()=>{active=false};},[id]);
+ const values=reviews?.evaluaciones.map(e=>promedioEvaluacion(e.versiones.at(-1)!.criterios)).filter((v):v is number=>v!==null)??[],mean=values.length?values.reduce((n,v)=>n+v,0)/values.length:null;
+ return <section className={s.root}><div className={s.card}><div className={s.toolbar}><div><h3>Económico y administrativo</h3>{!finance?<small>Cargando…</small>:finance.presupuestos.length?(['PYG','USD'] as MonedaPresupuesto[]).map(c=>{const accepted=finance.presupuestos.map(versionAdjudicada).filter(v=>v?.moneda===c);return accepted.length?<small key={c}>{accepted.length} adjudicados · {importePresupuesto(accepted.reduce((n,v)=>n+v!.total,0),c)}</small>:null}):<small>Sin presupuestos registrados visibles.</small>}</div><button type="button" onClick={onPresupuestos}>Ver presupuestos</button></div></div><div className={s.card}><div className={s.toolbar}><div><h3>Evaluaciones</h3><strong>{mostrarEvaluacion(mean)}</strong><small>{reviews?`${reviews.evaluaciones.length} trabajos evaluados`:'Cargando…'}</small></div><button type="button" onClick={onEvaluaciones}>Ver evaluaciones</button></div></div>{error&&<small role="alert">{error}</small>}</section>;
+}

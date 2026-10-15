@@ -1,0 +1,9 @@
+import {useEffect,useRef,type ReactNode} from 'react';
+import {createPortal} from 'react-dom';
+import s from './ComercioContratista.module.css';
+export function DialogoComercio({titulo,busy=false,dirty=false,onClose,children,acciones}:{titulo:string;busy?:boolean;dirty?:boolean;onClose:()=>void;children:ReactNode;acciones?:ReactNode}){
+ const ref=useRef<HTMLElement>(null);const close=()=>{if(!busy&&(!dirty||window.confirm('¿Descartar los cambios sin guardar de esta ventana?')))onClose();};
+ useEffect(()=>{const prev=document.activeElement as HTMLElement|null;ref.current?.querySelector<HTMLElement>('button,input,select,textarea')?.focus();return()=>{if(prev?.isConnected)prev.focus();};},[]);
+ useEffect(()=>{if(!dirty)return;const listener=(e:BeforeUnloadEvent)=>{e.preventDefault();e.returnValue='';};window.addEventListener('beforeunload',listener);return()=>window.removeEventListener('beforeunload',listener);},[dirty]);
+ return createPortal(<div className={s.shade} onKeyDown={e=>{e.stopPropagation();if(e.key==='Escape'){e.preventDefault();close();}if(e.key==='Tab'){const nodes=[...ref.current!.querySelectorAll<HTMLElement>('button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),a[href]')].filter(n=>n.getClientRects().length),first=nodes[0],last=nodes.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last?.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first?.focus();}}}}><section ref={ref} className={`${s.dialog} ${s.root}`} role="dialog" aria-modal="true" aria-label={titulo} aria-busy={busy}><header className={s.header}><h3>{titulo}</h3><button type="button" onClick={close} disabled={busy} aria-label={`Cerrar ${titulo}`}>✕</button></header><div className={s.body}>{children}</div><footer className={s.footer}><button type="button" onClick={close} disabled={busy}>{acciones?'Cancelar':'Cerrar'}</button>{acciones}</footer></section></div>,document.body);
+}

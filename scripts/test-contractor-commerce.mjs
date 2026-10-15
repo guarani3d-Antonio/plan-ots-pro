@@ -1,0 +1,68 @@
+import assert from 'node:assert/strict';
+import {readFile,readdir,mkdir,writeFile} from 'node:fs/promises';
+import {PGlite} from '@electric-sql/pglite';
+import {deflateSync} from 'node:zlib';
+const db=new PGlite(),id=n=>`42000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
+const creator=id(1),outsider=id(2),tenant=id(10),other=id(11),work=id(20),foreign=id(22);let nonce=500;
+const one=async(sql,args=[])=>(await db.query(sql,args)).rows[0];
+const as=async user=>{await db.exec('reset role');await db.query("select set_config('request.jwt.claim.sub',$1,false)",[user??'']);if(user)await db.exec('set role authenticated')};
+try{
+ for(const f of ['captured-domain.sql','storage-foundation.sql'])await db.exec(await readFile('supabase/tests/'+f,'utf8'));
+ await db.exec("alter table auth.users add column raw_user_meta_data jsonb default '{}';alter table auth.users add column created_at timestamptz default now();alter table auth.users add column last_sign_in_at timestamptz;alter table storage.buckets add column name text;alter table storage.buckets add column file_size_limit bigint;alter table storage.buckets add column allowed_mime_types text[];");
+ for(const f of (await readdir('supabase/migrations')).filter(f=>f.endsWith('.sql')).sort())await db.exec(await readFile('supabase/migrations/'+f,'utf8'));
+ await db.query('insert into auth.users(id,email) values($1,$2),($3,$4)',[creator,'commerce@qa.test',outsider,'outsider@qa.test']);await db.query('insert into plataforma_administradores(user_id) values($1)',[creator]);
+ await db.query("insert into tenants(id,nombre,slug) values($1,'Empresa QA','commerce-qa'),($2,'Otra empresa','commerce-other')",[tenant,other]);
+ for(const [w,t,name] of [[work,tenant,'Edificio QA'],[foreign,other,'Obra ajena']])await db.query("insert into proyectos(id,tenant_id,nombre,created_by,plano_url) values($1,$2,$3,$4,'pending://plan-upload-required')",[w,t,name,creator]);
+ await as(creator);
+ const contractor=(await one("select plan_directorio_guardar('contratista',$1,null,$2,false) id",[tenant,{nombre:'Contratista QA',activo:true,tipo:'independiente',especialidad:'Electricidad'}])).id;
+ const order=(await one('select plan_crear_orden($1,null,null) id',[work])).id,foreignOrder=(await one('select plan_crear_orden($1,null,null) id',[foreign])).id;
+ await db.exec('reset role');await db.query("update ordenes set contratistas=array['Contratista QA'],rubro='Electricidad' where id=$1",[order]);await as(creator);
+ const slots=[{id:id(70),rol:'Jefe / Supervisor'},{id:id(71),rol:'Técnico'}];
+ const data={moneda:'PYG',iva:'agregar',items:[{descripcion:'Trabajo QA',cantidad:2,unidad:'un.',precio:50000}],condiciones:'Pago contra comprobante.',vence:'2099-12-31',firmantes:slots,adjunto:null,documento_revision:null};
+ const save=async(d=data,b=null,base=null,request=id(nonce++),o=order,c=contractor)=>(await one('select plan_presupuesto_guardar($1,$2,$3,$4,$5,$6) r',[o,c,d,b,base,request])).r;
+ const read=async(c=contractor,o=null)=>(await one('select plan_presupuestos_leer($1,$2) r',[c,o])).r;
+ const state=async(v,s,reason='Decisión QA',request=id(nonce++))=>(await one('select plan_presupuesto_estado($1,$2,$3,$4) r',[v,s,reason,request])).r;
+ const invoice=async(b,amount,ref='FACT-QA',request=id(nonce++))=>(await one('select plan_presupuesto_comprobante($1,$2,$3,$4,$5,$6) r',[b,ref,amount,'2026-10-15','2026-10-30',request])).r;
+ const pay=async(b,i,amount,apply=false,request=id(nonce++))=>(await one('select plan_presupuesto_pago($1,$2,$3,$4,$5,$6,$7,$8) r',[b,i,amount,apply,'TR-QA','Transferencia','2026-10-15',request])).r;
+ const token=id(nonce++),v1=await save(data,null,null,token),b=v1.presupuesto_id;
+ assert.equal(v1.base,100000);assert.equal(v1.iva,10000);assert.equal(v1.total,110000);assert.equal(v1.fuentes.orden.rubro,'Electricidad');assert.equal(v1.fuentes.empresa.nombre,'Empresa QA');
+ assert.equal((await save(data,null,null,token)).id,v1.id);
+ await assert.rejects(save({...data,iva:'incluido'},null,null,token),e=>e.code==='22023');
+ for(const d of [{...data,items:[]},{...data,firmantes:slots.slice(0,1)},{...data,firmantes:[slots[0],slots[0]]},{...data,firmantes:slots.map(s=>({...s,rol:'Cliente'}))},{...data,iva:'exento'},{...data,moneda:'EUR'},{...data,items:[{...data.items[0],cantidad:-1}]},{...data,adjunto:{path:`${tenant}/${foreignOrder}/bad.pdf`,nombre:'No pertenece'}}])await assert.rejects(save(d));
+ await assert.rejects(save(data,null,null,id(nonce++),foreignOrder),e=>e.code==='42501');
+ const included=await save({...data,iva:'incluido',items:[{...data.items[0],cantidad:1,precio:110000}]});assert.equal(included.base,100000);assert.equal(included.iva,10000);assert.equal(included.total,110000);
+ const usd=await save({...data,moneda:'USD',items:[{...data.items[0],cantidad:1.5,precio:10.01}]});assert.equal(usd.base,15.02);assert.equal(usd.iva,1.5);assert.equal(usd.total,16.52);
+ function crc(bytes){let c=0xffffffff;for(const x of bytes){c^=x;for(let n=0;n<8;n++)c=c&1?0xedb88320^(c>>>1):c>>>1;}return(c^0xffffffff)>>>0;}
+ function chunk(type,bytes){const head=Buffer.alloc(4),tail=Buffer.alloc(4),body=Buffer.concat([Buffer.from(type),bytes]);head.writeUInt32BE(bytes.length);tail.writeUInt32BE(crc(body));return Buffer.concat([head,body,tail]);}
+ const header=Buffer.alloc(13);header.writeUInt32BE(96);header.writeUInt32BE(32,4);header[8]=8;header[9]=6;const pixels=Buffer.alloc(32*(96*4+1));for(let y=0;y<32;y++)for(let x=0;x<96;x++){pixels[y*(96*4+1)+1+x*4+3]=Math.abs(y-(6+x%20))<2?255:0;}
+ const png=Buffer.concat([Buffer.from('89504e470d0a1a0a','hex'),chunk('IHDR',header),chunk('IDAT',deflateSync(pixels)),chunk('IEND',Buffer.alloc(0))]);const image='data:image/png;base64,'+png.toString('base64');
+ const signature=async(v,slot=slots[0].id,hash=v.contenido_sha256,request=id(nonce++))=>(await one('select plan_presupuesto_firmar($1,$2,$3,$4,$5) r',[v.id,hash,slot,image,request])).r;
+ const signNonce=id(nonce++),signed=await signature(included,slots[0].id,included.contenido_sha256,signNonce);assert.equal((await signature(included,slots[0].id,included.contenido_sha256,signNonce)).id,signed.id);await assert.rejects(signature(included,slots[1].id,'f'.repeat(64)),e=>e.code==='22023');await signature(included,slots[1].id);assert.equal((await read()).presupuestos.find(p=>p.id===included.presupuesto_id).firmas.length,2);
+ await assert.rejects(state(v1.id,'Adjudicado'),e=>e.code==='22023');await state(v1.id,'Presentado');const decisionNonce=id(nonce++),decision=await state(v1.id,'Adjudicado','Aceptado QA',decisionNonce);assert.equal((await state(v1.id,'Adjudicado','Aceptado QA',decisionNonce)).id,decision.id);
+ const invoiceNonce=id(nonce++),bill=await invoice(b,50000,'FACT-QA',invoiceNonce);assert.equal((await invoice(b,50000,'FACT-QA',invoiceNonce)).id,bill.id);await assert.rejects(invoice(b,70000,'FACT-EXCESO'),e=>e.code==='22023');
+ const advanceNonce=id(nonce++),advance=await pay(b,null,20000,false,advanceNonce);assert.equal((await pay(b,null,20000,false,advanceNonce)).id,advance.id);
+ const applied=await pay(b,bill.id,10000,true);assert.equal(applied.anticipo_aplicado,20000);assert.equal(applied.importe,10000);await assert.rejects(pay(b,bill.id,21000),e=>e.code==='22023');
+ let r=await read();assert.equal(r.pagos.reduce((n,p)=>n+p.importe,0),30000);assert.equal(r.comprobantes[0].importe-r.pagos.filter(p=>p.comprobante_id===bill.id).reduce((n,p)=>n+p.importe+p.anticipo_aplicado,0),20000);
+ const v2=await save({...data,items:[{...data.items[0],precio:70000}]},b,v1.id);assert.equal(v2.version,2);assert.equal(v1.total,110000);r=await read();assert.equal(r.presupuestos.find(x=>x.id===b).versiones.length,2);
+ await assert.rejects(save(data,b,v1.id),e=>e.code==='40001');await assert.rejects(state(v1.id,'No adjudicado'),e=>e.code==='40001');
+ await assert.rejects(signature(v1),e=>e.code==='40001');
+ const tooSmall=await save({...data,items:[{...data.items[0],cantidad:1,precio:100}]},b,v2.id);await state(tooSmall.id,'Presentado');await assert.rejects(state(tooSmall.id,'Adjudicado'),e=>e.code==='22023');
+ await assert.rejects(one('select * from plan_presupuestos'),e=>e.code==='42501');await assert.rejects(one('select plan_presupuesto_aceptada($1)',[b]),e=>e.code==='42501');
+ await as(outsider);assert.equal((await read()).presupuestos.length,0);await assert.rejects(save(),e=>e.code==='42501');await assert.rejects(pay(b,null,100),e=>e.code==='42501');
+ await db.exec('reset role');await db.query("insert into tenant_miembros(tenant_id,user_id,rol) values($1,$2,'supervisor')",[tenant,outsider]);await db.query("insert into proyecto_miembros(proyecto_id,user_id,rol) values($1,$2,'supervisor')",[work,outsider]);await as(outsider);assert.equal((await read()).presupuestos.length,3);
+ await db.exec('reset role');await db.query("update plan_equipo_permisos set permitido=false where tenant_id=$1 and user_id=$2 and clave='costos.editar'",[tenant,outsider]);await as(outsider);assert.equal((await read()).presupuestos.length,3);await assert.rejects(save(),e=>e.code==='42501');
+ await as(creator);let evaluators=(await one('select plan_contratista_evaluadores($1) r',[work])).r;assert.equal(evaluators.length,1);assert.equal(evaluators[0].id,outsider);
+ await db.exec('reset role');await db.query("update ordenes set estado='Cerrada',fecha_fin_trabajos='2026-10-14' where id=$1",[order]);await as(creator);
+ const document=(await one("select (plan_documento_reservar($1,'cierre',1,$2)).id id",[order,id(nonce++)])).id;
+ const report=(await one("select plan_documento_version_guardar($1,$2,0,$3,false,null,1,'expediente-controlado-2026-10-08-datos') r",[document,{observaciones:'Cierre QA',cierre:{}},id(nonce++)])).r.revision;
+ const evalData={evaluador_id:outsider,documento_revision:report.id,criterios:[5,4,5,null],fundamento:'Evaluación QA fundamentada.',fecha:'2026-10-15'};
+ const evaluation=async(d=evalData,base=null,request=id(nonce++))=>(await one('select plan_contratista_evaluacion_guardar($1,$2,$3,$4,$5) r',[order,contractor,d,base,request])).r;
+ const evalNonce=id(nonce++),ev1=await evaluation(evalData,null,evalNonce);assert.equal((await evaluation(evalData,null,evalNonce)).id,ev1.id);assert.equal(ev1.evaluador_id,outsider);assert.equal(ev1.registrada_por,creator);assert.equal(ev1.fuentes.documento.sha256,report.contenido_sha256);assert.deepEqual(ev1.criterios,[5,4,5,null]);
+ await assert.rejects(evaluation({...evalData,evaluador_id:creator},ev1.id),e=>e.code==='42501');await assert.rejects(evaluation({...evalData,criterios:[null,null,null,null]},ev1.id),e=>e.code==='22023');await assert.rejects(evaluation({...evalData,criterios:[0,4,5,null]},ev1.id),e=>e.code==='22023');await assert.rejects(evaluation({...evalData,documento_revision:id(999)},ev1.id),e=>e.code==='22023');
+ const ev2=await evaluation({...evalData,criterios:[4,4,5,null],fundamento:'Corrección QA.'},ev1.id);assert.equal(ev2.version,2);await assert.rejects(evaluation(evalData,ev1.id),e=>e.code==='40001');
+ const assessments=(await one('select plan_contratista_evaluaciones_leer($1,null) r',[contractor])).r;assert.equal(assessments.evaluaciones[0].versiones.length,2);assert.equal(assessments.ordenes[0].evaluadores.length,1);
+ await db.exec('reset role');await assert.rejects(one('update plan_presupuesto_versiones set total=1 where id=$1',[v1.id]),e=>e.code==='22023');await assert.rejects(one('delete from plan_contratista_evaluacion_versiones where id=$1',[ev1.id]),e=>e.code==='22023');const snapshot=(await one('select plan_respaldo_snapshot() r')).r;assert.equal(snapshot.tablas.plan_presupuesto_firmas.length,2);assert.equal(snapshot.tablas.plan_contratista_evaluacion_versiones.length,2);assert.ok(snapshot.buckets.some(b=>b.id==='contractor-evidence'));await as(creator);
+ await db.exec('reset role');await db.query('update tenant_miembros set activo=false where tenant_id=$1 and user_id=$2',[tenant,outsider]);await as(creator);assert.equal((await one('select plan_contratista_evaluadores($1) r',[work])).r.length,0);await assert.rejects(evaluation(evalData,ev2.id),e=>e.code==='42501');
+ await as(outsider);assert.equal((await one('select plan_contratista_evaluaciones_leer($1,null) r',[contractor])).r.evaluaciones.length,0);await assert.rejects(evaluation(evalData,ev2.id),e=>e.code==='42501');
+ await mkdir('output/contractor-commerce-20261015',{recursive:true});const checks=['IVA incluido y agregado, PYG y USD','versiones y fuente de OT congeladas','idempotencia y conflictos','firmantes mínimos','adjuntos privados','adjudicación y topes facturados','anticipo sin duplicar pagos','permisos por empresa y obra','evaluador de cuenta activa con acceso a la obra','N/A excluido y valores válidos','evaluación ligada a versión real del informe','correcciones sin reescribir historia'];await writeFile('output/contractor-commerce-20261015/servidor-presupuestos.json',JSON.stringify({resultado:'PASS',checks},null,2));console.log('PASS: '+checks.join(', '));
+}finally{await db.close()}

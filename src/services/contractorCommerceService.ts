@@ -1,0 +1,20 @@
+import {supabase} from '../db/supabase';
+import {assertSession,sessionTicket} from '../security/sessionScope';
+import type {DatosPresupuesto,EstadoPresupuestos,VersionPresupuesto,FirmaPresupuesto} from './contractorBudgetModel';
+import type {DatosEvaluacion,EstadoEvaluaciones,VersionEvaluacion} from './contractorEvaluationModel';
+export async function comercioRpc<T>(name:string,args:Record<string,unknown>):Promise<T>{const ticket=sessionTicket();const r=await supabase.rpc(name,args);assertSession(ticket);if(r.error)throw new Error(r.error.message);return r.data as T;}
+export const leerPresupuestos=(contratista?:string,orden?:string)=>comercioRpc<EstadoPresupuestos>('plan_presupuestos_leer',{p_contratista:contratista||null,p_orden:orden||null});
+export const guardarPresupuesto=(orden:string,contratista:string,datos:DatosPresupuesto,presupuesto:string|null,base:string|null,solicitud:string)=>comercioRpc<VersionPresupuesto>('plan_presupuesto_guardar',{p_orden:orden,p_contratista:contratista,p_datos:datos,p_presupuesto:presupuesto,p_base:base,p_solicitud:solicitud});
+export const decidirPresupuesto=(revision:string,estado:string,fundamento:string,solicitud:string)=>comercioRpc('plan_presupuesto_estado',{p_revision:revision,p_estado:estado,p_fundamento:fundamento,p_solicitud:solicitud});
+export const registrarComprobante=(presupuesto:string,referencia:string,importe:number,fecha:string,vence:string,solicitud:string)=>comercioRpc('plan_presupuesto_comprobante',{p_presupuesto:presupuesto,p_referencia:referencia,p_importe:importe,p_fecha:fecha,p_vence:vence,p_solicitud:solicitud});
+export const registrarPago=(presupuesto:string,comprobante:string|null,importe:number,aplicar:boolean,referencia:string,medio:string,fecha:string,solicitud:string)=>comercioRpc('plan_presupuesto_pago',{p_presupuesto:presupuesto,p_comprobante:comprobante,p_importe:importe,p_aplicar_anticipo:aplicar,p_referencia:referencia,p_medio:medio,p_fecha:fecha,p_solicitud:solicitud});
+export const firmarPresupuesto=(revision:string,hash:string,espacio:string,imagen:string,solicitud:string)=>comercioRpc<FirmaPresupuesto>('plan_presupuesto_firmar',{p_revision:revision,p_hash:hash,p_espacio:espacio,p_imagen:imagen,p_solicitud:solicitud});
+export const leerEvaluaciones=(contratista?:string,orden?:string)=>comercioRpc<EstadoEvaluaciones>('plan_contratista_evaluaciones_leer',{p_contratista:contratista||null,p_orden:orden||null});
+export const guardarEvaluacion=(orden:string,contratista:string,datos:DatosEvaluacion,base:string|null,solicitud:string)=>comercioRpc<VersionEvaluacion>('plan_contratista_evaluacion_guardar',{p_orden:orden,p_contratista:contratista,p_datos:datos,p_base:base,p_solicitud:solicitud});
+export async function subirAdjuntoPresupuesto(tenant:string,orden:string,file:File,bucket:'contractor-files'|'contractor-evidence'='contractor-files'):Promise<{path:string;nombre:string}>{
+ const ticket=sessionTicket(),ext=({'application/pdf':'pdf','image/png':'png','image/jpeg':'jpg'} as Record<string,string>)[file.type];
+ if(!ext||file.size>8*1024*1024||!file.size)throw new Error('Elegí un PDF, JPG o PNG de hasta 8 MB.');
+ const head=new Uint8Array(await file.slice(0,8).arrayBuffer());assertSession(ticket);if(ext==='pdf'&&String.fromCharCode(...head.slice(0,5))!=='%PDF-'||ext==='png'&&[137,80,78,71,13,10,26,10].some((b,i)=>head[i]!==b)||ext==='jpg'&&(head[0]!==255||head[1]!==216||head[2]!==255))throw new Error('El contenido del archivo no corresponde a un PDF, JPG o PNG válido.');
+ const path=`${tenant}/${orden}/${crypto.randomUUID()}.${ext}`;const r=await supabase.storage.from(bucket).upload(path,file,{upsert:false,contentType:file.type});assertSession(ticket);if(r.error)throw new Error(r.error.message);return {path,nombre:file.name};
+}
+export async function descargarArchivoPresupuesto(bucket:'contractor-files'|'contractor-evidence'|'directory-photos',path:string):Promise<Blob>{const ticket=sessionTicket();const r=await supabase.storage.from(bucket).download(path);assertSession(ticket);if(r.error||!r.data)throw new Error(r.error?.message??'Archivo no disponible.');return r.data;}

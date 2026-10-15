@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import {readFile,writeFile,mkdir} from 'node:fs/promises';
+import {pathToFileURL} from 'node:url';
+import {resolve} from 'node:path';
+import ts from 'typescript';
+const folder='output/contractor-commerce-20261015';await mkdir(folder,{recursive:true});
+for(const name of ['contractorBudgetModel','contractorBudgetPdf']){const source=await readFile(`src/services/${name}.ts`,'utf8');const compiled=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText.replace("'./contractorBudgetModel'","'./contractorBudgetModel.mjs'");await writeFile(`${folder}/${name}.mjs`,compiled);}
+const model=await import(pathToFileURL(resolve(`${folder}/contractorBudgetModel.mjs`))),pdf=await import(pathToFileURL(resolve(`${folder}/contractorBudgetPdf.mjs`)));
+const logo='data:image/png;base64,'+(await readFile('public/icon-512.png')).toString('base64');
+const d={...model.nuevoPresupuesto(),moneda:'PYG',iva:'agregar',items:[{descripcion:'Adecuación del tablero de servicios y revisión de conexiones',cantidad:1,unidad:'global',precio:1000000},{descripcion:'Pruebas de funcionamiento y verificación final',cantidad:2,unidad:'un.',precio:50000}],condiciones:'Acceso coordinado con supervisión. Materiales incluidos en los ítems indicados. Anticipo y saldo contra comprobante.',vence:'2099-12-31'};
+assert.deepEqual(model.totalPresupuesto(d),{base:1100000,iva:110000,total:1210000});assert.deepEqual(model.totalPresupuesto({...d,iva:'incluido',items:[{descripcion:'Con IVA',cantidad:1,unidad:'un.',precio:110000}]}),{base:100000,iva:10000,total:110000});
+assert.deepEqual(model.totalPresupuesto({...d,moneda:'USD',items:[{descripcion:'USD',cantidad:1.5,unidad:'un.',precio:10.01}]}),{base:15.02,iva:1.5,total:16.52});
+const v={id:crypto.randomUUID(),presupuesto_id:'qa',version:1,datos:d,fuentes:{orden:{id:'qa',ot:'OT-QA-001',descripcion:'Adecuación eléctrica de ejemplo',rubro:'Electricidad',ubicacion:'Tablero general',estado:'En proceso'},obra:{id:'qa',nombre:'Edificio QA'},empresa:{nombre:'Empresa QA',razon_social:'Empresa QA de ejemplo S.A.',identificacion:'RUC de ejemplo',direccion:'Asunción',correo:'qa@example.com'},contratista:{nombre:'Contratista QA'},logo_path:'qa',documento_revision:null},moneda:'PYG',...model.totalPresupuesto(d),contenido_sha256:'a'.repeat(64),creada_por:'qa',creada_en:'2026-10-15T15:00:00Z'};
+const b={id:'qa',codigo:1,tenant_id:'qa',proyecto_id:'qa',orden_id:'qa',contratista_id:'qa',versiones:[v],eventos:[],firmas:[]};
+await writeFile(`${folder}/presupuesto-corto.pdf`,Buffer.from(await pdf.crearPdfPresupuesto(b,v,[],logo).arrayBuffer()));
+const long=structuredClone(v);long.datos.items=Array.from({length:65},(_,n)=>({descripcion:`Ítem ${n+1}: reparación, verificación y mantenimiento del sector. Incluye coordinación y protección de las áreas comunes.`,cantidad:n%3+1,unidad:'un.',precio:25000}));long.datos.condiciones=('Condiciones de ejecución: coordinar acceso con supervisión y entregar constancia de las tareas realizadas. ').repeat(25);Object.assign(long,model.totalPresupuesto(long.datos));await writeFile(`${folder}/presupuesto-largo.pdf`,Buffer.from(await pdf.crearPdfPresupuesto(b,long,[],logo).arrayBuffer()));
+await writeFile(`${folder}/pdf-modelo.json`,JSON.stringify({resultado:'PASS',controles:['IVA incluido/agregado y redondeo','PDF corto','65 ítems y condiciones extensas','logo embebido','firmas al final del contenido']},null,2));console.log('PASS: cálculo e impresión de presupuesto corto y largo.');

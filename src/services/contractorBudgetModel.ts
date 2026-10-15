@@ -1,0 +1,22 @@
+export type MonedaPresupuesto='PYG'|'USD';
+export type RolPresupuesto='Jefe / Supervisor'|'Técnico'|'Cliente'|'Contacto'|'Contratista';
+export interface ItemPresupuesto {descripcion:string;cantidad:number;unidad:string;precio:number}
+export interface FirmantePresupuesto {id:string;rol:RolPresupuesto}
+export interface DatosPresupuesto {moneda:MonedaPresupuesto;iva:'incluido'|'agregar';items:ItemPresupuesto[];firmantes:FirmantePresupuesto[];condiciones:string;vence:string;adjunto:{path:string;nombre:string}|null;documento_revision:string|null}
+export interface VersionPresupuesto {id:string;presupuesto_id:string;version:number;datos:DatosPresupuesto;fuentes:{orden:{id:string;ot:string;descripcion:string;rubro:string;ubicacion:string;estado:string};obra:{id:string;nombre:string};empresa:Record<string,string>;contratista:Record<string,string>;logo_path:string|null;documento_revision:{id:string;version:number;sha256:string}|null};moneda:MonedaPresupuesto;base:number;iva:number;total:number;contenido_sha256:string;creada_por:string;creada_en:string}
+export interface EventoPresupuesto {id:string;revision_id:string;estado:'Presentado'|'Adjudicado'|'No adjudicado';fundamento:string;actor:string;registrado_en:string}
+export interface FirmaPresupuesto {id:string;revision_id:string;espacio_id:string;rol:RolPresupuesto;contenido_sha256:string;imagen_png:string;imagen_sha256:string;registrada_por:string;registrada_en:string}
+export interface Presupuesto {id:string;codigo:number;tenant_id:string;proyecto_id:string;orden_id:string;contratista_id:string;versiones:VersionPresupuesto[];eventos:EventoPresupuesto[];firmas:FirmaPresupuesto[]}
+export interface ComprobantePresupuesto {id:string;presupuesto_id:string;revision_id:string;referencia:string;importe:number;fecha:string;vence:string}
+export interface PagoPresupuesto {id:string;presupuesto_id:string;comprobante_id:string|null;importe:number;anticipo_aplicado:number;referencia:string;medio:string;fecha:string}
+export interface OrdenPresupuesto {id:string;proyecto_id:string;tenant_id:string;ot:string;descripcion:string;rubro:string;estado:string;obra:string;editar:boolean;adjudicar:boolean;contratistas:{id:string;nombre:string}[];documentos:{id:string;codigo:string;tipo:string;version:number;hash:string}[]}
+export interface EstadoPresupuestos {presupuestos:Presupuesto[];comprobantes:ComprobantePresupuesto[];pagos:PagoPresupuesto[];ordenes:OrdenPresupuesto[]}
+export const ultimaVersion=(p:Presupuesto)=>p.versiones.at(-1)!;
+export const estadoPresupuesto=(p:Presupuesto,v:VersionPresupuesto)=>p.eventos.filter(e=>e.revision_id===v.id).at(-1)?.estado??'Borrador';
+export const versionAdjudicada=(p:Presupuesto)=>p.versiones.filter(v=>p.eventos.some(e=>e.revision_id===v.id&&e.estado==='Adjudicado')).at(-1);
+export function totalPresupuesto(d:DatosPresupuesto){const n=d.moneda==='PYG'?0:2,f=10**n,round=(x:number)=>Math.round((x+Number.EPSILON)*f)/f;const subtotal=round(d.items.reduce((s,i)=>s+round(i.cantidad*i.precio),0));const base=d.iva==='incluido'?round(subtotal/1.1):subtotal,iva=d.iva==='incluido'?round(subtotal-base):round(base*.1);return {base,iva,total:d.iva==='incluido'?subtotal:round(base+iva)};}
+export const importePresupuesto=(n:number,c:MonedaPresupuesto='PYG')=>(c==='PYG'?'G. ':'USD ')+Number(n).toLocaleString('es-PY',{minimumFractionDigits:c==='PYG'?0:2,maximumFractionDigits:c==='PYG'?0:2});
+export const fechaComercio=(d:string)=>d?new Date(d.includes('T')?d:d+'T00:00:00').toLocaleDateString('es-PY'):'—';
+export const saldoComprobante=(c:ComprobantePresupuesto,pagos:PagoPresupuesto[])=>c.importe-pagos.filter(p=>p.comprobante_id===c.id).reduce((s,p)=>s+p.importe+p.anticipo_aplicado,0);
+export const anticipoDisponible=(id:string,pagos:PagoPresupuesto[])=>pagos.filter(p=>p.presupuesto_id===id).reduce((s,p)=>s+(p.comprobante_id?-p.anticipo_aplicado:p.importe),0);
+export function nuevoPresupuesto():DatosPresupuesto{const now=new Date(),due=new Date(now);due.setDate(due.getDate()+15);const local=(d:Date)=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;return {moneda:'PYG',iva:'agregar',items:[{descripcion:'',cantidad:1,unidad:'global',precio:0}],firmantes:[{id:crypto.randomUUID(),rol:'Jefe / Supervisor'},{id:crypto.randomUUID(),rol:'Técnico'}],condiciones:'',vence:local(due),adjunto:null,documento_revision:null};}
