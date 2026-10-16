@@ -28,6 +28,8 @@ Las pruebas de contratistas usaron la OT-QA1 aislada: IVA incluido/agregado, dos
 
 ## Activación y límites
 
+El 16/10 el propietario confirmó haber seleccionado Cloudflare en Chrome y ver «Versión e5cd197 · verificada». El aviso de verificación correcta se oculta a los seis segundos; los avisos de error o actualización siguen visibles. El HTML solicitado al actualizar lleva un parámetro temporal para evitar que un worker previo responda desde precache cuando se usa la dirección raíz sin parámetros. Ambos comportamientos se comprobaron con el navegador aislado.
+
 Una instalación anterior necesita obtener al menos una vez el código nuevo por una conexión que resuelva el dominio. No es posible reparar DNS ajeno desde JavaScript de una página. El control de Chrome no está disponible en esta sesión; el DNS seguro de Chrome no fue cambiado por el agente. No se debe afirmar que ese ajuste se completó.
 
 Después de resolver DNS, guardar cualquier edición y hacer una recarga completa permite incorporar el nuevo registro. Desde entonces la versión y los avisos son visibles. Las pruebas de desconexión se realizaron en el entorno aislado, no desconectando la computadora ni borrando cachés.

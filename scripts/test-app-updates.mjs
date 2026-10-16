@@ -24,7 +24,11 @@ qa.state.remote=b;qa.events.online();await qa.flush();assert.equal(qa.notice.dat
 qa=await boot({remote:a,current:b,remembered:b});assert.equal(qa.notice.dataset.state,'rollback');await qa.button.listeners.click();await qa.flush();assert.equal(qa.state.reloads,0);assert.equal(JSON.parse(qa.store.get('planots-last-verified-build')).id,b.id);
 qa=await boot({remote:a,current:b});assert.equal(qa.notice.dataset.state,'rollback');assert.equal(qa.state.reloads,0);
 qa=await boot({remote:'HTML'});assert.equal(qa.notice.dataset.state,'offline');
-qa=await boot({remote:b,serviceWorker:true});assert.equal(qa.notice.dataset.state,'update');assert.equal(qa.state.reloads,0);assert.equal(qa.state.registered.options.updateViaCache,'none');await qa.button.listeners.click();await qa.flush();assert.equal(qa.state.reloads,1);assert.equal(qa.state.messages[0].type,'SKIP_WAITING');assert.equal(qa.store.get('work-pending'),'PRESERVAR');
+qa=await boot({remote:b,serviceWorker:true});assert.equal(qa.notice.dataset.state,'update');assert.equal(qa.state.reloads,0);assert.equal(qa.state.registered.options.updateViaCache,'none');
+// Un worker anterior puede servir index.html desde precache incluso a un fetch de la raíz.
+qa.context.window.location.href='https://qa.test/';const fetchOriginal=qa.context.fetch;
+qa.context.fetch=async(url,options)=>String(url).startsWith('https:')&&!new URL(url).searchParams.has('planots-update')?new Response('<meta name="planots-build" content="a123456"><meta name="planots-built-at" content="100">',{headers:{'content-type':'text/html'}}):fetchOriginal(url,options);
+await qa.button.listeners.click();await qa.flush();assert.equal(qa.state.reloads,1);assert.equal(qa.state.messages[0].type,'SKIP_WAITING');assert.equal(qa.store.get('work-pending'),'PRESERVAR');
 vm.runInNewContext(source,qa.context);await qa.flush();assert.equal(qa.state.reloads,1); // no doble registro al repetir el script
 qa=await boot({remote:b,serviceWorker:true,dirty:true});await qa.button.listeners.click();await qa.flush();assert.equal(qa.notice.dataset.state,'dirty');assert.equal(qa.state.reloads,0);assert.equal(qa.state.messages.length,0);assert.equal(qa.store.get('work-pending'),'PRESERVAR');
 qa=await boot({current:b,remote:b,serviceWorker:true,dirty:true});await qa.flush();assert.ok(qa.state.messages.some(m=>m.type==='SKIP_WAITING'));assert.equal(qa.state.reloads,0); // mismo código: cambia controlador sin recargar ni perder formulario
