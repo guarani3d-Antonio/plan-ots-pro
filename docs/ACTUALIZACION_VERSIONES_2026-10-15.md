@@ -14,6 +14,7 @@ El cliente previo precargaba index.html y registraba el service worker sin escuc
 - Ofrece actualización explícita. Las guardas beforeunload de formularios con cambios bloquean la actualización hasta guardar o cerrar el formulario.
 - Descarga y valida el HTML de destino antes de recargar. Activa el worker en espera y conserva el último HTML válido para conexiones lentas.
 - Navegaciones: NetworkFirst, con copia de respaldo y rechazo de respuestas más antiguas que la página conservada. Un HTTP de error tampoco sustituye la copia válida.
+- El worker lleva su propio identificador de compilación y rechaza una navegación cacheada anterior a él. Cuando una recarga completa ya abrió el HTML nuevo, activa únicamente el worker de esa misma compilación, sin recargar la página ni perder formularios abiertos. No activa silenciosamente un worker de otra compilación.
 - El endpoint de versión y el registro quedan fuera del precache; HTML, versión y registro tienen cabeceras no-store. No se borra IndexedDB, localStorage, sesiones, cola de sincronización ni archivos del usuario.
 - Si existe release en la URL se actualiza al ID real, conservando los demás parámetros, hash y estado de navegación.
 

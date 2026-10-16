@@ -4,13 +4,17 @@ import { execFileSync } from 'node:child_process';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
+const id = (process.env.CF_PAGES_COMMIT_SHA || execFileSync('git', ['rev-parse', 'HEAD'], {encoding:'utf8'}).trim()).slice(0,7);
+const version = {schema:1, id, builtAt:Date.now()};
+const workerVersionFile = `sw-version-${id}-${version.builtAt}.js`;
 function appVersion(): Plugin {
-  const id = (process.env.CF_PAGES_COMMIT_SHA || execFileSync('git', ['rev-parse', 'HEAD'], {encoding:'utf8'}).trim()).slice(0,7);
-  const version = {schema:1, id, builtAt:Date.now()};
   return {name:'planots-app-version', transformIndexHtml:()=>[
     {tag:'meta',attrs:{name:'planots-build',content:id},injectTo:'head'},
     {tag:'meta',attrs:{name:'planots-built-at',content:String(version.builtAt)},injectTo:'head'},
-  ], generateBundle(){this.emitFile({type:'asset',fileName:'version.json',source:JSON.stringify(version)});}};
+  ], generateBundle(){
+    this.emitFile({type:'asset',fileName:'version.json',source:JSON.stringify(version)});
+    this.emitFile({type:'asset',fileName:workerVersionFile,source:`self.__planotsBuild=${JSON.stringify(version)};self.addEventListener('message',event=>{if(event.data?.type==='PLANOTS_BUILD')event.ports[0]?.postMessage(self.__planotsBuild);});`});
+  }};
 }
 
 export default defineConfig({
@@ -27,10 +31,10 @@ export default defineConfig({
         skipWaiting: false,
         clientsClaim: true,
         navigateFallback: null,
-        importScripts: ['/storage-cache-cleanup.js'],
+        importScripts: [`/${workerVersionFile}`, '/storage-cache-cleanup.js'],
         globPatterns: ['**/*.{js,css,html,png,svg,woff2,ico}'],
         // Don't precache pdf.worker (too large, loaded on demand)
-        globIgnores: ['**/pdf.worker*', '**/registerSW.js'],
+        globIgnores: ['**/pdf.worker*', '**/registerSW.js', '**/sw-version-*.js'],
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024, // 3 MiB — lo exige
         // únicamente el bundle principal (2,07 MiB), que no está dividido en
         // chunks. El fondo obra_bg ya no pesa: pasó de PNG de 2,78 MB a JPEG
@@ -45,6 +49,12 @@ export default defineConfig({
               cacheName:'planots-navigation-v1', networkTimeoutSeconds:6,
               cacheableResponse:{statuses:[200]},
               plugins:[{
+                cachedResponseWillBeUsed: async ({cachedResponse}) => {
+                  if(!cachedResponse)return undefined;
+                  const build=(self as typeof self & {__planotsBuild?:{builtAt:number}}).__planotsBuild;
+                  const stamp=Number((await cachedResponse.clone().text()).match(/<meta\s+name="planots-built-at"\s+content="(\d+)"/)?.[1]||0);
+                  return stamp>=(build?.builtAt||0)?cachedResponse:undefined;
+                },
                 cacheKeyWillBeUsed: async ({request}) => {
                   const url=new URL(request.url);url.pathname='/';url.searchParams.delete('release');return url.href;
                 },

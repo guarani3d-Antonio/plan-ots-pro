@@ -30,6 +30,18 @@
     else if(next==='loading'){label.textContent='Preparando la actualización. Se conservan los datos guardados.';action.hidden=true;}
     else {label.textContent=`${build} · comprobando actualización…`;action.hidden=true;}
   }
+  async function adoptMatchingWorker() {
+    const worker=registration?.waiting;
+    if(!worker || status!=='current')return;
+    // HTML nuevo bajo un controlador anterior: activar solo el worker de esta misma compilación.
+    const build=await new Promise(resolve=>{
+      const channel=new MessageChannel();
+      const timer=setTimeout(()=>{channel.port1.close();resolve(null);},1500);
+      channel.port1.onmessage=event=>{clearTimeout(timer);channel.port1.close();resolve(event.data);};
+      worker.postMessage({type:'PLANOTS_BUILD'},[channel.port2]);
+    });
+    if(valid(build) && build.id===current.id && build.builtAt===current.builtAt)worker.postMessage({type:'SKIP_WAITING'});
+  }
   async function verify(force=false) {
     if(inFlight)return inFlight;
     if(!force && Date.now()-checkedAt<60000)return;
@@ -44,6 +56,7 @@
         if(highest && value.builtAt<highest.builtAt){render('rollback');return;}
         highest=value;try{localStorage.setItem(storageKey,JSON.stringify(value));}catch{/* almacenamiento opcional */}
         render(value.id===current.id && value.builtAt===current.builtAt ? 'current' : 'update');
+        void adoptMatchingWorker();
         void registration?.update().catch(()=>{});
       } catch {render('offline');}
       finally {clearTimeout(timer);inFlight=null;}
@@ -104,6 +117,7 @@
   if('serviceWorker' in navigator){
     void navigator.serviceWorker.register('/sw.js',{scope:'/',updateViaCache:'none'}).then(value=>{
       registration=value;void value.update().catch(()=>{});
+      void adoptMatchingWorker();
       value.addEventListener('updatefound',()=>{const worker=value.installing;worker?.addEventListener('statechange',()=>{if(worker.state==='installed')void verify(true);});});
     }).catch(()=>{});
   }
