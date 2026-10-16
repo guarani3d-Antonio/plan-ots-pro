@@ -1,3 +1,6 @@
+import {ContratacionPlan} from './ContratacionPlan';
+import {fuenteContratacion} from '../../services/planContractingModel';
+import type {FichaContratista} from '../../services/workDirectoryService';
 import { EtapaCampos } from './EtapaCampos';
 import { confirmacionConformidad } from '../../services/customerConformityModel';
 import { camposVacios, TIPOS_CON_PLANO, ETAPAS_OT, validarEtapa } from '../../services/otStageSchema';
@@ -220,7 +223,7 @@ const RELEVAMIENTO_INICIAL: DatosRelevamiento = {
   modalidad: '', fechaIntervencion: '', tecnico: '', participantes: '',
   antecedentes: '', condiciones: '', hallazgos: '', pruebas: '', causa: '',
   planoReferencia: '', alcance: '', exclusiones: '', criterios: '',
-  cronogramaJSON: '', cronograma: '', condicionesOperativas: '', decisionGarantia: '',
+  contratacionJSON: '', cronogramaJSON: '', cronograma: '', condicionesOperativas: '', decisionGarantia: '',
   fundamentoGarantia: '', decisionAlcance: '',
 };
 
@@ -377,6 +380,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
   const [avisoPlano, setAvisoPlano] = useState('');
   const [origenServicio, setOrigenServicio] = useState<OrigenOrdenServicio>(() => origenInicial(orden));
   const [datosVisita, setDatosVisita] = useState<DatosVisita>({ ...VISITA_INICIAL });
+  const [fichasContratacion,setFichasContratacion]=useState<FichaContratista[]>([]);
   const [datosRelevamiento, setDatosRelevamiento] = useState<DatosRelevamiento>({ ...RELEVAMIENTO_INICIAL });
   const [itemsAlcance, setItemsAlcance] = useState<ItemAlcance[]>([]);
   const [datosAvance, setDatosAvance] = useState<DatosAvance>({ ...AVANCE_INICIAL });
@@ -1252,7 +1256,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
             )}
             <nav className={styles.editorTabs} aria-label="Edición del informe">
               {([['datos','Identificación'],['texto','Contenido'],['fotos','Fotos y plano'],['revision','Revisión'],['firmas','Firmas']] as const).map(([id,label]) =>
-                <button type="button" key={id} aria-pressed={editorTab===id} onClick={()=>{setEditorTab(id);editorRef.current?.scrollTo({top:0});}}>{label}</button>)}
+                <button type="button" key={id} aria-pressed={editorTab===id} onClick={()=>{setEditorTab(id);editorRef.current?.scrollTo({top:0});}}>{id==='fotos'&&tipo==='relevamiento'?'Fotos y contratación':label}</button>)}
             </nav>
             <div className={styles.identitySummary}>
               <span><strong>Obra</strong> {identificacion.obra || proyectoNombre}</span>
@@ -1432,7 +1436,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
             {!documento && <p className={styles.sublabel}>Guardá el borrador para consultar sus revisiones y preparar el PDF controlado.</p>}
             </div>
             <div hidden={editorTab !== 'texto'} className={styles.tabContent}>
-            <EtapaCampos fuenteReclamo={{rubro:orden.rubro,contratistas:orden.contratistas??[]}} scopeKey={orden.id+':'+(documento?.id??'nuevo')+':'+versionBorrador+':'+correccionAbierta} compact tipo={tipo} datos={datosBorrador} contexto={contextoCampos} puedeDecidir={tienePermiso('informe.aprobar',orden.proyecto_id)} onVinculo={(key,id)=>void cambiarVinculo(key,id)} disabled={camposBloqueados}
+            <EtapaCampos fuenteReclamo={tipo==='relevamiento'?fuenteContratacion(datosRelevamiento.contratacionJSON,{rubro:orden.rubro,contratistas:orden.contratistas??[]},fichasContratacion):{rubro:orden.rubro,contratistas:orden.contratistas??[]}} scopeKey={orden.id+':'+(documento?.id??'nuevo')+':'+versionBorrador+':'+correccionAbierta} compact tipo={tipo} datos={datosBorrador} contexto={contextoCampos} puedeDecidir={tienePermiso('informe.aprobar',orden.proyecto_id)} onVinculo={(key,id)=>void cambiarVinculo(key,id)} disabled={camposBloqueados}
               onChange={d=>{
                 setObservaciones(String(d.observaciones??''));
                 if(d.origen)setOrigenServicio(d.origen as OrigenOrdenServicio);
@@ -1502,6 +1506,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
               </div>
             )}
 
+            {tipo==='relevamiento'&&<ContratacionPlan ordenId={orden.id} proyectoId={orden.proyecto_id} valor={datosRelevamiento.contratacionJSON} actividades={itemsAlcance} evidencias={fotoIds.length} disabled={camposBloqueados} dirty={cambiosBorrador||correccionAbierta} historical={!!revisionInicialId} revision={documento&&revisionFirma&&!correccionAbierta?{id:revisionFirma.id,codigo:documento.codigo,version:versionBorrador}:undefined} onChange={json=>setDatosRelevamiento(d=>({...d,contratacionJSON:json}))} onVinculados={f=>setFichasContratacion(prev=>JSON.stringify(prev)===JSON.stringify(f)?prev:f)}/>}
             </div>
             <div className={styles.section}>
               <button

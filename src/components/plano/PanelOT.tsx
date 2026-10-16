@@ -4,7 +4,8 @@ import { EvidenciaEtapa } from '../informes/EvidenciaEtapa';
 import { categoriaEtapa } from '../../services/otStageSchema';
 import type { TipoDocumento } from '../../services/documentService';
 import { AltaClienteOT, type ClienteObra } from './AltaClienteOT';
-import { LEGACY_OFFLINE_ENABLED } from '../../security/sessionScope';
+import {ORDEN_SELECT,rowToOrden} from '../../data/ordenMapper';
+import { LEGACY_OFFLINE_ENABLED,assertSession,sessionTicket } from '../../security/sessionScope';
 import { useAccessStore, usePermisoObra, tienePermiso } from '../../stores/accessStore';
 import { BuscarDirectorioOT, DialogDirectorioOT } from './DialogDirectorioOT';
 import { AltaContratistaOT } from './AltaContratistaOT';
@@ -269,11 +270,13 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
   const [altaContratista, setAltaContratista] = useState(false);
   const creador = useAccessStore(s => s.disponible && !!s.contexto?.creador);
   const [clientesDirectorio, setClientesDirectorio] = useState<{ id:string; nombre:string; identificacion:string | null }[]>([]);
-  const [contratistasGlobales, setContratistasGlobales] = useState<string[]>([]);
+  const [, setContratistasGlobales] = useState<string[]>([]);
   const [contratistaFichas,setContratistaFichas]=useState<FichaContratista[]>([]);
   const [clienteFicha,setClienteFicha]=useState<FichaCliente|null>(null);
   const [errorClienteFicha,setErrorClienteFicha]=useState('');
   const [contratistasVinculados,setContratistasVinculados]=useState<FichaContratista[]>([]);
+  const [fichasPlanOT,setFichasPlanOT]=useState<FichaContratista[]>([]);
+  useEffect(()=>{setFichasPlanOT([]);},[ordenFresca?.id]);
   const [errorDirectorio, setErrorDirectorio] = useState<string | null>(null);
   const [responsablesCuenta, setResponsablesCuenta] = useState<ResponsableCuenta[]>([]);
   const [errorResponsables, setErrorResponsables] = useState<string | null>(null);
@@ -1173,26 +1176,16 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
                 {errorClientes&&<p role="alert">No se pudo cargar el directorio: {errorClientes}</p>}
                 {form.cliente_id&&errorClienteFicha&&<p role="alert">No se pudo actualizar la ficha: {errorClienteFicha}</p>}
               </div></details>
-              <details className={styles.dataGroup}><summary>Datos del contratista <small>{(form.contratistas??[]).length?`${form.contratistas?.length} seleccionado(s)`:'Sin asignar · planificación'}</small></summary><div className={styles.dataContent}>
-{[...new Map([...contratistaFichas,...contratistasVinculados].map(f=>[f.id,f])).values()].filter(f=>(form.contratistas??[]).includes(f.nombre_ot??f.nombre)).map(f=><FichaPersonaOT key={f.id} tipo="contratista" ficha={f} tenantId={permiso?.tenant_id} puedeGestionar={creador} onGuardar={saved=>{if(!contratistasVinculados.some(c=>c.id===saved.id))setForm(current=>({...current,contratistas:(current.contratistas??[]).map(nombre=>nombre===f.nombre?saved.nombre:nombre)}));setContratistaFichas(rows=>rows.map(c=>c.id===saved.id?{...saved,nombre_ot:c.nombre_ot}:c));setContratistasVinculados(rows=>rows.map(c=>c.id===saved.id?{...saved,nombre_ot:c.nombre_ot}:c))}}/>)}
-                <div className={styles.field}>
-                  {(form.contratistas ?? []).length > 0 && (
-                    <div className={styles.chipsWrap} style={{ marginBottom: 6 }}>
-                      {(form.contratistas ?? []).map(c => (
-                        <span key={c} className={styles.chip}>{c}<button type="button" className={styles.chipRemove} onClick={() => set('contratistas', (form.contratistas ?? []).filter(x => x !== c))} aria-label={`Quitar ${c}`}>×</button></span>
-                      ))}
-                    </div>
-                  )}
-                  {errorDirectorio && <p role="alert">No se pudo cargar el directorio de contratistas: {errorDirectorio}. Volvé a intentarlo o avisá al Creador.</p>}
-                  <div className={styles.directoryActions}>
-                    <button type="button" className={styles.directoryBtn} onClick={() => setBuscador('contratista')}>Buscar contratista</button>
-                    <button type="button" className={styles.directoryBtn} disabled={!creador || !permiso?.tenant_id} title={creador ? 'Registrar una ficha en el directorio' : 'El Creador registra los contratistas de la empresa'} onClick={() => setAltaContratista(true)}>+ Nuevo contratista</button>
-                  </div>
-                  {!contratistasGlobales.length && <small>Sin contratistas disponibles. El Creador puede registrarlos.</small>}
-                </div>
-</div></details>
+              <details className={styles.dataGroup}><summary>Datos del contratista <small>{fichasPlanOT.length?`${fichasPlanOT.length} vinculado(s) desde el plan`:'Disponible al vincularlo desde el Plan de Trabajo'}</small></summary><div className={styles.dataContent}>
+                {!fichasPlanOT.length&&<p className={styles.label}>Seleccioná o creá el contratista en el Plan de Trabajo, después de la evidencia fotográfica. Luego se habilita su ficha aquí.</p>}
+                {!fichasPlanOT.length&&!!form.contratistas?.length&&<small>Participaciones anteriores conservadas: {form.contratistas.join(' · ')}.</small>}
+                {fichasPlanOT.map(f=><FichaPersonaOT key={f.id} tipo="contratista" ficha={contratistaFichas.find(c=>c.id===f.id)??f} tenantId={permiso?.tenant_id} puedeGestionar={creador} onGuardar={saved=>{setFichasPlanOT(rows=>rows.map(c=>c.id===saved.id?saved:c));setContratistaFichas(rows=>rows.map(c=>c.id===saved.id?{...saved,nombre_ot:c.nombre_ot}:c));setContratistasVinculados(rows=>rows.map(c=>c.id===saved.id?{...saved,nombre_ot:c.nombre_ot}:c));}}/>)}
+                <OperacionesContratistaOT ordenId={ordenFresca.id} proyectoId={ordenFresca.proyecto_id} bloqueado={cambiosSinGuardar} onBloqueado={()=>mostrar('Guardá los cambios de la OT antes de continuar.','info')}/>
+              </div></details>
               <details className={styles.dataGroup} open><summary>Datos del reclamo <small>Pedido, visitas y seguimiento</small></summary><div className={styles.dataContent}>
               <EtapasOT ref={etapasRef} orden={{...ordenFresca,...form,campos:valoresCampos}} cliente={ubicacionElegida} proyectoNombre={proyectoNombre ?? ''}
+                onContratistasPlan={(f,editando)=>{setFichasPlanOT(prev=>JSON.stringify(prev)===JSON.stringify(f)?prev:f);setContratistaFichas(prev=>{const joined=[...new Map([...prev,...f].map(c=>[c.id,c])).values()];return JSON.stringify(prev)===JSON.stringify(joined)?prev:joined;});if(editando&&f.length)setForm(current=>{const names=[...new Set([...(current.contratistas??[]),...f.map(c=>c.nombre_ot??c.nombre)])];return JSON.stringify(names)===JSON.stringify(current.contratistas??[])?current:{...current,contratistas:names};});}}
+                onPlanGuardado={async()=>{const ticket=sessionTicket();const result=await supabase.from('ordenes').select(ORDEN_SELECT).eq('id',ordenFresca.id).single();assertSession(ticket);if(result.error)throw new Error('El plan se guardó, pero no se pudo actualizar la ficha de la OT. Reabrila para comprobarla.');const latest=rowToOrden(result.data);useOrdenesStore.getState().agregarOActualizarOrden(latest);baseEdicion.current=latest;setBaseVisible(latest);setForm(ordenToForm(latest));}}
                 onGuardarVersion={handleGuardar} disabled={!puedeEditar || guardando || guardandoCliente} puedeRevisar={esSupervisor} onDirty={setEtapasDirty} refresh={0}
                 onOrigen={d=>setValoresCampos(c=>({...c,canal_solicitud:d.canal,fecha_solicitud:d.fechaRecepcion,solicitante:d.solicitante,contacto_solicitante:d.contacto,referencia_solicitud:d.referencia,urgencia_solicitada:d.urgencia,proximo_paso:d.proximoPaso}))}
                 onPreview={async (tipo,revision)=>{
@@ -1375,7 +1368,6 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
             {tab === 'informes' && (
               <div className={styles.section}>
                 <p className={styles.informesIntro}>Los informes se generan con los datos y fotos de esta OT.</p>
-                <OperacionesContratistaOT ordenId={ordenFresca.id} proyectoId={ordenFresca.proyecto_id} bloqueado={cambiosSinGuardar} onBloqueado={()=>mostrar('Guardá los cambios de la OT antes de continuar.','info')}/>
                 {INFORMES_CONFIG.map(({ tipo, icono, nombre, codigo, subtitulo }) => {
                   const disponible = informeDisponible(tipo, estado);
                   return (
@@ -1526,7 +1518,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
 
       {modalCierre && (
         <InformeErrorBoundary key={`${ordenFresca.id}:${tipoInforme}`} onClose={() => setModalCierre(false)}>
-          <ModalInformeOT isOpen={modalCierre} onClose={() => setModalCierre(false)} onDocumentoChange={(doc,borrador,revisiones)=>etapasRef.current?.actualizarDocumento(doc,borrador,revisiones)} documentoInicialId={documentoInicialId} revisionInicialId={revisionInicialId} orden={ordenFresca} proyectoNombre={proyectoNombre ?? (proyectoActivo?.id === ordenFresca.proyecto_id ? proyectoActivo.nombre : '')} tipo={tipoInforme} puedeRevisar={esSupervisor} />
+          <ModalInformeOT isOpen={modalCierre} onClose={() => setModalCierre(false)} onDocumentoChange={(doc,borrador,revisiones)=>{etapasRef.current?.actualizarDocumento(doc,borrador,revisiones);if(doc.tipo==='relevamiento'&&borrador)void useOrdenesStore.getState().cargarOrdenes(ordenFresca.proyecto_id).then(()=>{const latest=useOrdenesStore.getState().ordenes.find(o=>o.id===ordenFresca.id);if(latest){baseEdicion.current=latest;setBaseVisible(latest);setForm(ordenToForm(latest));}}).catch(()=>mostrar('Plan guardado. Reabrí la OT para actualizar sus datos.','info'));}} documentoInicialId={documentoInicialId} revisionInicialId={revisionInicialId} orden={ordenFresca} proyectoNombre={proyectoNombre ?? (proyectoActivo?.id === ordenFresca.proyecto_id ? proyectoActivo.nombre : '')} tipo={tipoInforme} puedeRevisar={esSupervisor} />
         </InformeErrorBoundary>
       )}
 

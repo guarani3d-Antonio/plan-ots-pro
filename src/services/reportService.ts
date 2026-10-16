@@ -53,6 +53,7 @@ export interface DatosVisita {
 }
 
 export interface DatosRelevamiento {
+  contratacionJSON?:string;
   cronogramaJSON?:string;
   visitaReferencia?: string; inicioPrevisto?: string; finPrevisto?: string; fechaLimitePrevista?:string;
   modalidad: string;

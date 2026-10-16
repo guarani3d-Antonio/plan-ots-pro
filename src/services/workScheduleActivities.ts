@@ -1,11 +1,11 @@
 import type {ItemAlcance} from './reportService';
 import {fechaHoy,fechaNumero,leerCronograma,nuevoCronograma,periodoCronograma,recalcularCronograma,serializarCronograma,type CronogramaTrabajo} from './workScheduleModel';
 
-export interface FuenteActividad {rubro:string;contratistas:string[]}
+export interface FuenteActividad {rubro:string;contratistas:string[];asignaciones?:Record<string,string>}
 export const idActividad=(n:number)=>`A-${String(n).padStart(2,'0')}`;
 export function siguienteActividad(items:ItemAlcance[]):string {let n=1;while(items.some(i=>i.id===idActividad(n)))n++;return idActividad(n);}
 export function datosActividadFuente(item:ItemAlcance,fuente?:FuenteActividad):ItemAlcance {
- return fuente?{...item,rubro:fuente.rubro,contratista:fuente.contratistas.join(' · ')}:{...item};
+ return fuente?{...item,rubro:fuente.rubro,contratista:fuente.asignaciones?fuente.asignaciones[item.id]??'':fuente.contratistas.join(' · ')}:{...item};
 }
 /** A correction never guesses a match between two old, independently edited lists. */
 export function enlacesAnteriores(c:CronogramaTrabajo,items:ItemAlcance[]):Record<number,string> {

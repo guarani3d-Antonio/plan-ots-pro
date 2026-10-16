@@ -19,7 +19,7 @@ export function crearPdfPresupuesto(b:Presupuesto,v:VersionPresupuesto,signature
  if(y+28>bottom)page();write(`Base imponible: ${importePresupuesto(v.base,v.moneda)}`,10);write(`IVA 10% ${v.datos.iva==='incluido'?'incluido en los precios':'agregado al final'}: ${importePresupuesto(v.iva,v.moneda)}`,10);write(`TOTAL: ${importePresupuesto(v.total,v.moneda)}`,12,true);
  write('Alcance y condiciones',11,true);write(v.datos.condiciones,10);
  if(v.datos.adjunto)write(`Referencia del proveedor: ${v.datos.adjunto.nombre}`,9);
- if(v.fuentes.documento_revision)write(`Informe de origen: versión ${v.fuentes.documento_revision.version} | ID ${v.fuentes.documento_revision.id}`,8);
+ if(v.fuentes.documento_revision)write(`Plan de Trabajo de origen: ${v.fuentes.documento_revision.codigo||'Relevamiento'} - versión ${v.fuentes.documento_revision.version} | ID ${v.fuentes.documento_revision.id}`,8);
  write(`Estado registrado: ${estadoPresupuesto(b,v)}`,9);const decision=b.eventos.filter(e=>e.revision_id===v.id&&e.estado!=='Presentado').at(-1);if(decision)write(`${fechaComercio(decision.registrado_en)} - ${decision.estado}: ${decision.fundamento}`,9);
  write(`Contenido de versión SHA-256: ${v.contenido_sha256}`,7);
  // Flow after the last content; new page only when the next row of signatures does not fit.

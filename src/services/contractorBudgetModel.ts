@@ -1,15 +1,15 @@
 export type MonedaPresupuesto='PYG'|'USD';
 export type RolPresupuesto='Jefe / Supervisor'|'Técnico'|'Cliente'|'Contacto'|'Contratista';
-export interface ItemPresupuesto {descripcion:string;cantidad:number;unidad:string;precio:number}
+export interface ItemPresupuesto {actividad_id?:string;descripcion:string;cantidad:number;unidad:string;precio:number}
 export interface FirmantePresupuesto {id:string;rol:RolPresupuesto}
-export interface DatosPresupuesto {moneda:MonedaPresupuesto;iva:'incluido'|'agregar';items:ItemPresupuesto[];firmantes:FirmantePresupuesto[];condiciones:string;vence:string;adjunto:{path:string;nombre:string}|null;documento_revision:string|null}
-export interface VersionPresupuesto {id:string;presupuesto_id:string;version:number;datos:DatosPresupuesto;fuentes:{orden:{id:string;ot:string;descripcion:string;rubro:string;ubicacion:string;estado:string};obra:{id:string;nombre:string};empresa:Record<string,string>;contratista:Record<string,string>;logo_path:string|null;documento_revision:{id:string;version:number;sha256:string}|null};moneda:MonedaPresupuesto;base:number;iva:number;total:number;contenido_sha256:string;creada_por:string;creada_en:string}
+export interface DatosPresupuesto {moneda:MonedaPresupuesto;iva:'incluido'|'agregar';items:ItemPresupuesto[];firmantes:FirmantePresupuesto[];condiciones:string;vence:string;adjunto:{path:string;nombre:string}|null;documento_revision:string|null;contratacion_id?:string|null}
+export interface VersionPresupuesto {id:string;presupuesto_id:string;version:number;datos:DatosPresupuesto;fuentes:{orden:{id:string;ot:string;descripcion:string;rubro:string;ubicacion:string;estado:string};obra:{id:string;nombre:string};empresa:Record<string,string>;contratista:Record<string,string>;logo_path:string|null;documento_revision:{id:string;version:number;sha256:string;codigo?:string}|null};moneda:MonedaPresupuesto;base:number;iva:number;total:number;contenido_sha256:string;creada_por:string;creada_en:string}
 export interface EventoPresupuesto {id:string;revision_id:string;estado:'Presentado'|'Adjudicado'|'No adjudicado';fundamento:string;actor:string;registrado_en:string}
 export interface FirmaPresupuesto {id:string;revision_id:string;espacio_id:string;rol:RolPresupuesto;contenido_sha256:string;imagen_png:string;imagen_sha256:string;registrada_por:string;registrada_en:string}
 export interface Presupuesto {id:string;codigo:number;tenant_id:string;proyecto_id:string;orden_id:string;contratista_id:string;versiones:VersionPresupuesto[];eventos:EventoPresupuesto[];firmas:FirmaPresupuesto[]}
 export interface ComprobantePresupuesto {id:string;presupuesto_id:string;revision_id:string;referencia:string;importe:number;fecha:string;vence:string}
 export interface PagoPresupuesto {id:string;presupuesto_id:string;comprobante_id:string|null;importe:number;anticipo_aplicado:number;referencia:string;medio:string;fecha:string}
-export interface OrdenPresupuesto {id:string;proyecto_id:string;tenant_id:string;ot:string;descripcion:string;rubro:string;estado:string;obra:string;editar:boolean;adjudicar:boolean;contratistas:{id:string;nombre:string}[];documentos:{id:string;codigo:string;tipo:string;version:number;hash:string}[]}
+export interface OrdenPresupuesto {id:string;proyecto_id:string;tenant_id:string;ot:string;descripcion:string;rubro:string;estado:string;obra:string;editar:boolean;adjudicar:boolean;contratistas:{id:string;nombre:string}[];documentos:{id:string;codigo:string;tipo:string;version:number;hash:string}[];planes?:import('./planContractingModel').PlanPresupuestable[]}
 export interface EstadoPresupuestos {presupuestos:Presupuesto[];comprobantes:ComprobantePresupuesto[];pagos:PagoPresupuesto[];ordenes:OrdenPresupuesto[]}
 export const ultimaVersion=(p:Presupuesto)=>p.versiones.at(-1)!;
 export const estadoPresupuesto=(p:Presupuesto,v:VersionPresupuesto)=>p.eventos.filter(e=>e.revision_id===v.id).at(-1)?.estado??'Borrador';

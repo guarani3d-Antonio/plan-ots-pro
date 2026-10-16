@@ -1,5 +1,6 @@
 import type { TipoDocumento } from './documentService';
 import {validarPlanUnificado} from './workScheduleActivities';
+import {validarContrataciones} from './planContractingModel';
 import {validarConformidad} from './customerConformityModel';
 
 export interface CampoEtapa { key: string; label: string; type?: 'text' | 'textarea' | 'date' | 'time' | 'datetime-local' | 'scale'; options?: string[]; span?: 2 | 3 | 6 | 12 }
@@ -61,7 +62,7 @@ export function camposVacios(tipo:TipoDocumento):Record<string,string> {
 export function validarEtapa(tipo:TipoDocumento,datos:Record<string,unknown>):string|null {
  if(tipo==='acta'){const error=validarConformidad(datos);if(error)return error;}
  const d=(datos[claveEtapa(tipo)]??{}) as Record<string,string>;
- if(tipo==='relevamiento'){const error=validarPlanUnificado(datos);if(error)return error;}
+ if(tipo==='relevamiento'){const error=validarPlanUnificado(datos)||validarContrataciones((datos.relevamiento as Record<string,unknown>|undefined)?.contratacionJSON,(datos.itemsAlcance??[]) as import('./reportService').ItemAlcance[],Array.isArray(datos.fotoIds)?datos.fotoIds.length:0);if(error)return error;}
  const fechas=tipo==='relevamiento'?['inicioPrevisto','finPrevisto']:tipo==='cierre'?['inicioReal','finReal']:tipo==='avance'?['periodoDesde','periodoHasta']:[];
  if(fechas.length&&d[fechas[0]]&&d[fechas[1]]&&d[fechas[1]]<d[fechas[0]])return 'La fecha de fin no puede ser anterior al inicio.';
  if(tipo==='visita'&&d.horaInicio&&d.horaFin&&d.horaFin<d.horaInicio)return 'Revisá el horario de inicio y fin de la visita.';
