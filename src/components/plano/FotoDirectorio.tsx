@@ -13,6 +13,7 @@ export function FotoDirectorio({ tipo, id, nombre, archivo, onArchivo, disabled 
   const [local, setLocal] = useState<{file:File;url:string}|null>(null);
   const [ampliar, setAmpliar] = useState(false);
   const [falloImagen, setFalloImagen] = useState('');
+  const imagenNombre = tipo === 'empresa' ? 'logo' : 'foto';
   useEffect(() => {
     if (!archivo) return;
     let active=true;
@@ -34,15 +35,15 @@ export function FotoDirectorio({ tipo, id, nombre, archivo, onArchivo, disabled 
   }, [tipo, id]);
   const source = archivo ? local?.file===archivo?local.url:'' : remote.key === `${tipo}/${id}` ? remote.url : '';
   const initials = nombre.trim().split(/\s+/).slice(0, 2).map(p => p[0]).join('').toUpperCase();
-  const image = source && falloImagen !== source ? <img src={source} alt={`Foto de ${nombre}`} onError={() => setFalloImagen(source)} />
+  const image = source && falloImagen !== source ? <img src={source} alt={`${tipo==='empresa'?'Logo':'Foto'} de ${nombre}`} onError={() => setFalloImagen(source)} />
     : <span aria-label={tipo === 'obra' ? 'Obra sin foto' : 'Ficha sin foto'}>{tipo === 'obra' ? '▥' : initials || '—'}</span>;
   return <div className={styles.photoColumn}>
-    <button type="button" className={`${styles.photo} ${tipo === 'obra' ? styles.workPhoto : ''}`} disabled={disabled||(!onArchivo&&(!source || falloImagen === source))}
-      aria-label={`${!source&&onArchivo?'Cargar':'Ampliar'} foto de ${nombre}`} title={!source?'Sin foto cargada. Usá Editar para agregarla.':'Ampliar foto'} onClick={() => {if(source&&falloImagen!==source)setAmpliar(true);else input.current?.click();}}>{image}</button>
-    {onArchivo && <><label htmlFor={inputId} className={styles.photoLabel}>{source?'Cambiar foto':'Cargar foto'}<input ref={input} aria-label={`Seleccionar foto de ${nombre}`} id={inputId} type="file" accept="image/jpeg,image/png,image/webp" disabled={disabled}
+    <button type="button" className={`${styles.photo} ${tipo === 'obra' ? styles.workPhoto : ''} ${tipo==='empresa'?styles.logoPhoto:''}`} disabled={disabled||(!onArchivo&&(!source || falloImagen === source))}
+      aria-label={`${!source&&onArchivo?'Cargar':'Ampliar'} ${imagenNombre} de ${nombre}`} title={!source?(tipo==='empresa'?'Sin logo cargado. Usá Editar para agregarlo.':'Sin foto cargada. Usá Editar para agregarla.'):`Ampliar ${imagenNombre}`} onClick={() => {if(source&&falloImagen!==source)setAmpliar(true);else input.current?.click();}}>{image}</button>
+    {onArchivo && <><label htmlFor={inputId} className={styles.photoLabel}>{source?`Cambiar ${imagenNombre}`:`Cargar ${imagenNombre}`}<input ref={input} aria-label={`Seleccionar ${imagenNombre} de ${nombre}`} id={inputId} type="file" accept="image/jpeg,image/png,image/webp" disabled={disabled}
       onChange={e => { const file = e.target.files?.[0]; if (file) onArchivo(file); e.target.value = ''; }} /></label>
-      {archivo && <button type="button" className={styles.linkButton} disabled={disabled} onClick={() => onArchivo(null)}>Descartar foto nueva</button>}</>}
-    {remote.key === `${tipo}/${id}` && remote.error && <small role="alert" className={styles.photoError}>No se pudo cargar la foto: {remote.error}</small>}
-    {ampliar && source && <DialogDirectorioOT titulo={`Foto de ${nombre}`} onCerrar={() => setAmpliar(false)}><img className={styles.fullPhoto} src={source} alt={`Foto de ${nombre}`} /></DialogDirectorioOT>}
+      {archivo && <button type="button" className={styles.linkButton} disabled={disabled} onClick={() => onArchivo(null)}>{tipo==='empresa'?'Descartar logo nuevo':'Descartar foto nueva'}</button>}</>}
+    {remote.key === `${tipo}/${id}` && remote.error && <small role="alert" className={styles.photoError}>No se pudo cargar {tipo==='empresa'?'el logo':'la foto'}: {remote.error}</small>}
+    {ampliar && source && <DialogDirectorioOT titulo={`${tipo==='empresa'?'Logo':'Foto'} de ${nombre}`} onCerrar={() => setAmpliar(false)}><img className={styles.fullPhoto} src={source} alt={`${tipo==='empresa'?'Logo':'Foto'} de ${nombre}`} /></DialogDirectorioOT>}
   </div>;
 }

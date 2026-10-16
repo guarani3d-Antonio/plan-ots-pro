@@ -9,10 +9,11 @@ const as=async user=>{await db.exec('reset role');await db.query("select set_con
 try{
  for(const f of ['captured-domain.sql','storage-foundation.sql'])await db.exec(await readFile('supabase/tests/'+f,'utf8'));
  await db.exec("alter table auth.users add column raw_user_meta_data jsonb default '{}';alter table auth.users add column created_at timestamptz default now();alter table auth.users add column last_sign_in_at timestamptz;alter table storage.buckets add column name text;alter table storage.buckets add column file_size_limit bigint;alter table storage.buckets add column allowed_mime_types text[];");
- let rollbackExpected;
+ let rollbackExpected,cardRollbackExpected;
  const modifiedFunctions=['plan_documento_proteger_campos','plan_presupuesto_guardar','plan_presupuestos_leer'];
  for(const f of (await readdir('supabase/migrations')).filter(f=>f.endsWith('.sql')).sort()){
   if(f==='202610160001_plan_contracting.sql')rollbackExpected=(await db.query("select proname,md5(prosrc) hash from pg_proc where pronamespace='public'::regnamespace and proname=any($1) order by proname",[modifiedFunctions])).rows;
+  if(f==='202610160002_plan_contractor_card.sql')cardRollbackExpected=(await one("select md5(prosrc) hash from pg_proc where oid='public.plan_contratista_crear_desde_plan(uuid,jsonb,uuid)'::regprocedure")).hash;
   await db.exec(await readFile('supabase/migrations/'+f,'utf8'));
  }
  await db.query('insert into auth.users(id,email) values($1,$2),($3,$4)',[creator,'commerce@qa.test',outsider,'outsider@qa.test']);await db.query('insert into plataforma_administradores(user_id) values($1)',[creator]);
@@ -88,9 +89,13 @@ try{
  await as(outsider);assert.equal((await one('select plan_contratista_evaluaciones_leer($1,null) r',[contractor])).r.evaluaciones.length,0);await assert.rejects(evaluation(evalData,ev2.id),e=>e.code==='42501');
  await assert.rejects(one('select plan_contratista_crear_desde_plan($1,$2,$3) r',[order,{nombre:'No autorizado',identificacion:'',especialidad:'',telefono:'',correo:''},id(nonce++)]),e=>e.code==='42501');
  await as(creator);
- const altaReq=id(nonce++),altaData={nombre:'Alta desde plan QA',identificacion:'QA',especialidad:'Pintura',telefono:'',correo:''};
+ const altaReq=id(nonce++),altaData={nombre:'Alta desde plan QA',identificacion:'QA',especialidad:'Pintura',telefono:'',correo:'',contacto:'Contacto del plan QA',direccion:'Dirección de contratista QA '.repeat(12).trim()};
  const alta=(await one('select plan_contratista_crear_desde_plan($1,$2,$3) r',[order,altaData,altaReq])).r;
  assert.equal((await one('select plan_contratista_crear_desde_plan($1,$2,$3) r',[order,altaData,altaReq])).r.id,alta.id);
+ assert.equal(alta.contacto,altaData.contacto);assert.equal(alta.direccion,altaData.direccion);
+ const directory=(await one("select plan_directorio_listar('contratista',$1) r",[tenant])).r.find(r=>r.id===alta.id);
+ assert.equal(directory.datos.contacto,altaData.contacto);assert.equal(directory.datos.direccion,altaData.direccion);
+ for(const fields of [{contacto:'x'.repeat(161)},{direccion:'x'.repeat(501)},{tenant_id:other}])await assert.rejects(one('select plan_contratista_crear_desde_plan($1,$2,$3) r',[order,{...altaData,...fields},id(nonce++)]),e=>e.code==='22023');
  await assert.rejects(one('select plan_contratista_crear_desde_plan($1,$2,$3) r',[order,{...altaData,nombre:'Otro'},altaReq]),e=>e.code==='22023');
  await assert.rejects(savePlan({...planData,relevamiento:{}},1),e=>e.code==='22023');
  const secondContract={...contract,id:id(73),contratistaId:alta.id};
@@ -108,6 +113,11 @@ try{
  await writeFile('output/plan-contracting-20261016/verificar-instalacion.sql',`with esperado(nombre,hash) as(values ${expected.map(r=>`('${r.nombre}','${r.hash}')`).join(',')}), revisado as(select e.nombre,e.hash=md5(btrim(regexp_replace(p.prosrc,'\\s+',' ','g'))) coincide from esperado e left join pg_proc p on p.proname=e.nombre and p.pronamespace='public'::regnamespace) select jsonb_build_object('funciones',(select jsonb_agg(to_jsonb(r)) from revisado r),'ordenes',(select count(*) from public.ordenes),'revisiones',(select count(*) from public.plan_documento_revisiones),'presupuestos',(select count(*) from public.plan_presupuestos),'firmas_presupuesto',(select count(*) from public.plan_presupuesto_firmas),'validacion_interna_no_expuesta',not has_function_privilege('authenticated','public.plan_presupuesto_validar_plan(uuid,uuid,jsonb)','EXECUTE'),'alta_solo_autenticada',has_function_privilege('authenticated','public.plan_contratista_crear_desde_plan(uuid,jsonb,uuid)','EXECUTE') and not has_function_privilege('anon','public.plan_contratista_crear_desde_plan(uuid,jsonb,uuid)','EXECUTE')) verificacion;`);
  await db.exec('reset role');
  const beforeRollback=(await one('select count(*)::int n from plan_documento_revisiones')).n;
+ const contractorCount=(await one('select count(*)::int n from plan_contratistas')).n;
+ await db.exec(await readFile('supabase/rollback/202610160002_plan_contractor_card.rollback.sql','utf8'));
+ assert.equal((await one("select md5(prosrc) hash from pg_proc where oid='public.plan_contratista_crear_desde_plan(uuid,jsonb,uuid)'::regprocedure")).hash,cardRollbackExpected);
+ assert.equal((await one('select count(*)::int n from plan_contratistas')).n,contractorCount);
+ assert.equal((await one('select direccion from plan_contratista_fichas where contratista_id=$1',[alta.id])).direccion,altaData.direccion);
  await db.exec(await readFile('supabase/rollback/202610160001_plan_contracting.rollback.sql','utf8'));
  const reverted=(await db.query("select proname,md5(prosrc) hash from pg_proc where pronamespace='public'::regnamespace and proname=any($1) order by proname",[modifiedFunctions])).rows;
  assert.deepEqual(reverted,rollbackExpected);assert.equal((await one('select count(*)::int n from plan_documento_revisiones')).n,beforeRollback);

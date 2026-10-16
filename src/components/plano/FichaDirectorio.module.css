@@ -3,3 +3,4 @@
 @container(max-width:370px){.grid{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:570px){.editGrid{grid-template-columns:minmax(0,1fr)}}
 @media(pointer:coarse){.button,.linkButton,.location select,.field input,.search input,.photoLabel input{min-height:44px}.location select,.field input,.search input{font-size:16px}}
+.logoPhoto{width:100px;height:64px;border-radius:7px}.logoPhoto img{object-fit:contain}
