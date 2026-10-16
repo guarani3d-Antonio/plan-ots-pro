@@ -105,7 +105,7 @@ $$;
 do $$declare def text;anchor text:='from public.ordenes o join public.proyectos p on p.id=o.proyecto_id join public.proyectos w on w.id=coalesce(p.proyecto_padre_id,p.id)';begin
  def:=pg_get_functiondef('public.plan_presupuestos_leer(uuid,uuid)'::regprocedure);
  if position(anchor in def)=0 then raise exception 'La consulta de presupuestos cambió. Revisá la instalación.';end if;
- def:=replace(def,' documentos'||E'\n '||anchor,' documentos,public.plan_presupuestos_planes(o.id) planes'||E'\n '||anchor);
+ def:=replace(def,') documentos',') documentos,public.plan_presupuestos_planes(o.id) planes');
  if position(' planes' in def)=0 then raise exception 'No se pudo vincular la consulta de planes.';end if;execute def;
 end $$;
 
