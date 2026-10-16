@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {readFile,readdir,mkdir,writeFile} from 'node:fs/promises';
 import {PGlite} from '@electric-sql/pglite';
 import {deflateSync} from 'node:zlib';
+import {probarMarcaDocumental} from './test-document-branding-server-cases.mjs';
 const db=new PGlite(),id=n=>`42000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 const creator=id(1),outsider=id(2),tenant=id(10),other=id(11),work=id(20),foreign=id(22);let nonce=500;
 const one=async(sql,args=[])=>(await db.query(sql,args)).rows[0];
@@ -9,11 +10,12 @@ const as=async user=>{await db.exec('reset role');await db.query("select set_con
 try{
  for(const f of ['captured-domain.sql','storage-foundation.sql'])await db.exec(await readFile('supabase/tests/'+f,'utf8'));
  await db.exec("alter table auth.users add column raw_user_meta_data jsonb default '{}';alter table auth.users add column created_at timestamptz default now();alter table auth.users add column last_sign_in_at timestamptz;alter table storage.buckets add column name text;alter table storage.buckets add column file_size_limit bigint;alter table storage.buckets add column allowed_mime_types text[];");
- let rollbackExpected,cardRollbackExpected;
+ let rollbackExpected,cardRollbackExpected,brandingRollbackExpected;
  const modifiedFunctions=['plan_documento_proteger_campos','plan_presupuesto_guardar','plan_presupuestos_leer'];
  for(const f of (await readdir('supabase/migrations')).filter(f=>f.endsWith('.sql')).sort()){
   if(f==='202610160001_plan_contracting.sql')rollbackExpected=(await db.query("select proname,md5(prosrc) hash from pg_proc where pronamespace='public'::regnamespace and proname=any($1) order by proname",[modifiedFunctions])).rows;
   if(f==='202610160002_plan_contractor_card.sql')cardRollbackExpected=(await one("select md5(prosrc) hash from pg_proc where oid='public.plan_contratista_crear_desde_plan(uuid,jsonb,uuid)'::regprocedure")).hash;
+  if(f==='202610160003_versioned_document_branding.sql')brandingRollbackExpected=(await db.query("select proname,md5(prosrc) hash from pg_proc where pronamespace='public'::regnamespace and proname=any($1) order by proname",[['plan_documento_capturar_fuentes','plan_documento_pdf_listo','plan_documento_version_guardar','plan_presupuesto_guardar']])).rows;
   await db.exec(await readFile('supabase/migrations/'+f,'utf8'));
  }
  await db.query('insert into auth.users(id,email) values($1,$2),($3,$4)',[creator,'commerce@qa.test',outsider,'outsider@qa.test']);await db.query('insert into plataforma_administradores(user_id) values($1)',[creator]);
@@ -106,14 +108,18 @@ try{
  await assert.rejects(save({...data,documento_revision:noCost.id}),e=>e.code==='22023');
  await assert.rejects(save(data),e=>e.code==='40001');
  assert.equal((await read()).presupuestos.find(p=>p.id===included.presupuesto_id).versiones[0].fuentes.documento_revision.id,plan.id);
+ await probarMarcaDocumental({db,one,as,creator,outsider,tenant,work,order,contractor,planDoc,planData,budgetData:data,previousRevision:plan.id,id});
  await mkdir('output/contractor-commerce-20261015',{recursive:true});const checks=['IVA incluido y agregado, PYG y USD','versiones y fuente de OT congeladas','idempotencia y conflictos','firmantes mínimos','adjuntos privados','adjudicación y topes facturados','anticipo sin duplicar pagos','permisos por empresa y obra','evaluador de cuenta activa con acceso a la obra','N/A excluido y valores válidos','evaluación ligada a versión real del informe','correcciones sin reescribir historia'];await writeFile('output/contractor-commerce-20261015/servidor-presupuestos.json',JSON.stringify({resultado:'PASS',checks},null,2));console.log('PASS: '+checks.join(', '));
- const functionNames=[...modifiedFunctions,'plan_contrataciones_config','plan_validar_contratacion_plan','plan_fuentes_contratacion_actividades','plan_contratacion_proyectar_ot','plan_presupuesto_validar_plan','plan_presupuestos_planes','plan_contratista_crear_desde_plan'];
+ const functionNames=[...modifiedFunctions,'plan_contrataciones_config','plan_validar_contratacion_plan','plan_fuentes_contratacion_actividades','plan_contratacion_proyectar_ot','plan_presupuesto_validar_plan','plan_presupuestos_planes','plan_contratista_crear_desde_plan','plan_documento_capturar_fuentes','plan_documento_pdf_listo','plan_documento_version_guardar','plan_empresa_marca_obra','plan_documento_logo_leer','plan_documento_logo_conservar','plan_documento_logo_binario_validar'];
  const expected=(await db.query("select proname nombre,md5(btrim(regexp_replace(prosrc,'\\s+',' ','g'))) hash from pg_proc where pronamespace='public'::regnamespace and proname=any($1) order by proname",[functionNames])).rows;
  await mkdir('output/plan-contracting-20261016',{recursive:true});await writeFile('output/plan-contracting-20261016/expected-functions.json',JSON.stringify(expected,null,2));await writeFile('output/plan-contracting-20261016/baseline-functions.json',JSON.stringify(rollbackExpected,null,2));
  await writeFile('output/plan-contracting-20261016/verificar-instalacion.sql',`with esperado(nombre,hash) as(values ${expected.map(r=>`('${r.nombre}','${r.hash}')`).join(',')}), revisado as(select e.nombre,e.hash=md5(btrim(regexp_replace(p.prosrc,'\\s+',' ','g'))) coincide from esperado e left join pg_proc p on p.proname=e.nombre and p.pronamespace='public'::regnamespace) select jsonb_build_object('funciones',(select jsonb_agg(to_jsonb(r)) from revisado r),'ordenes',(select count(*) from public.ordenes),'revisiones',(select count(*) from public.plan_documento_revisiones),'presupuestos',(select count(*) from public.plan_presupuestos),'firmas_presupuesto',(select count(*) from public.plan_presupuesto_firmas),'validacion_interna_no_expuesta',not has_function_privilege('authenticated','public.plan_presupuesto_validar_plan(uuid,uuid,jsonb)','EXECUTE'),'alta_solo_autenticada',has_function_privilege('authenticated','public.plan_contratista_crear_desde_plan(uuid,jsonb,uuid)','EXECUTE') and not has_function_privilege('anon','public.plan_contratista_crear_desde_plan(uuid,jsonb,uuid)','EXECUTE')) verificacion;`);
+ await mkdir('output/branding-documents-20261016',{recursive:true});await writeFile('output/branding-documents-20261016/expected-functions.json',JSON.stringify(expected,null,2));await writeFile('output/branding-documents-20261016/verificar-instalacion.sql',await readFile('output/plan-contracting-20261016/verificar-instalacion.sql','utf8'));
  await db.exec('reset role');
  const beforeRollback=(await one('select count(*)::int n from plan_documento_revisiones')).n;
  const contractorCount=(await one('select count(*)::int n from plan_contratistas')).n;
+ await db.exec(await readFile('supabase/rollback/202610160003_versioned_document_branding.rollback.sql','utf8'));
+ assert.deepEqual((await db.query("select proname,md5(prosrc) hash from pg_proc where pronamespace='public'::regnamespace and proname=any($1) order by proname",[['plan_documento_capturar_fuentes','plan_documento_pdf_listo','plan_documento_version_guardar','plan_presupuesto_guardar']])).rows,brandingRollbackExpected);
  await db.exec(await readFile('supabase/rollback/202610160002_plan_contractor_card.rollback.sql','utf8'));
  assert.equal((await one("select md5(prosrc) hash from pg_proc where oid='public.plan_contratista_crear_desde_plan(uuid,jsonb,uuid)'::regprocedure")).hash,cardRollbackExpected);
  assert.equal((await one('select count(*)::int n from plan_contratistas')).n,contractorCount);

@@ -41,7 +41,9 @@ export interface RevisionDocumento {
 }
 export interface FuentesVersion {
  orden: import('../types/orden').OrdenLocal;
- proyecto:{nombre:string};
+ proyecto:{nombre:string;tenant_id?:string};
+ empresa?:{id:string;nombre:string};
+ logo_path?:string|null;
  fotos:{id:string;categoria:string;descripcion:string|null;descripcion_observacion:string|null;edicion_path:string}[];
 }
 export async function cargarFuentesVersion(revision:string):Promise<FuentesVersion>{

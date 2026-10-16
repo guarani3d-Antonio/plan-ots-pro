@@ -21,7 +21,7 @@ const pdfPath = `${prefix}/${hash(pdf)}.pdf`;
 const ok = data => ({ data, error: null });
 const failed = message => ({ data: null, error: { message } });
 
-function fixture() {
+function fixture(branded=false) {
   const s = { objects: new Map(), lock: null, renders: 0, readyCalls: 0,
     uploadFails: 0, registerFails: 0, renderFails: 0, corruptUpload: false, logs: [],
     candidate: { id: 'candidate', estado: 'preparando', revision_id: revisionId,
@@ -33,6 +33,9 @@ function fixture() {
         codigo: 'POT-2026-VIS-00000001' }, orden: { id: 'order' }, fotos: [],
     } },
   };
+  const logo=Buffer.from([255,216,255,224,1,2,3,4]);
+  const logoPath='empresa/tenant/00000000-0000-4000-8000-000000000099.jpg';
+  if(branded){tables.plan_documento_revisiones.plantilla_version='expediente-controlado-2026-10-16-marca';tables.plan_documento_fuentes.fuentes.logo_path=logoPath;tables.plan_documento_fuentes.fuentes.empresa={nombre:'Empresa QA'};tables.plan_documento_firmas=[];}
   const user = {
     auth: { getUser: async token => { assert.equal(token, 'test-session'); return ok({ user: { id: 'reviewer' } }); } },
     rpc: async (name, args) => {
@@ -44,6 +47,7 @@ function fixture() {
   const admin = {
     from: name => {
       assert.ok(Object.hasOwn(tables, name), `Unexpected table ${name}`);
+      if(name==='plan_documento_firmas')return {select:()=>({eq:async()=>ok([])})};
       return { select: () => ({ eq: (column, value) => {
         assert.equal(column, name === 'plan_documento_revisiones' ? 'id' : 'revision_id');
         assert.equal(value, revisionId);
@@ -64,6 +68,7 @@ function fixture() {
       assert.equal(name, 'plan_documento_pdf_listo');
       assert.equal(args.p_token, s.lock);
       s.readyCalls++;
+      if(branded){assert.equal(args.p_fuentes_binarias.length,1);assert.equal(args.p_fuentes_binarias[0].tipo,'logo');assert.equal(args.p_fuentes_binarias[0].sha256,hash(logo));}
       if (s.registerFails-- > 0) return failed('simulated database interruption');
       const bytes = s.objects.get(args.p_path);
       assert.ok(bytes);
@@ -74,6 +79,7 @@ function fixture() {
       return ok({ ...s.candidate });
     },
     storage: { from: bucket => {
+      if(bucket==='directory-photos'){assert.ok(branded);return {download:async path=>{assert.equal(path,logoPath);return s.logoFails?failed('logo unavailable'):ok(new Blob([logo]));}};}
       assert.equal(bucket, 'exports');
       return {
         list: async directory => {
@@ -129,6 +135,7 @@ function fixture() {
 }
 
 const checks = [];
+
 async function test(name, action) { await action(); checks.push(name); console.log(`OK ${name}`); }
 
 await test('fallo antes de subir: no declara listo y permite reintento', async () => {
@@ -176,6 +183,7 @@ await test('proveedor caido: libera bloqueo y permite recuperacion', async () =>
   assert.equal(s.objects.size, 0); assert.equal(s.readyCalls, 0);
   assert.equal((await s.run()).status, 200);
 });
+await test('logo: conserva bytes y manifiesto; no renderiza si falta y recupera sin cambios históricos',async()=>{const s=fixture(true);s.logoFails=true;assert.equal((await s.run()).status,503);assert.equal(s.renders,0);s.logoFails=false;const result=await s.run();if(result.status!==200)console.log(await result.text(),s.logs);assert.equal(result.status,200);assert.equal(s.objects.size,2);assert.equal(s.renders,1);assert.equal((await s.run()).status,200);assert.equal(s.renders,1);});
 await mkdir('tmp/pdfs/live-flow', { recursive: true });
 await writeFile('tmp/pdfs/live-flow/recovery-results.json', JSON.stringify({
   date: new Date().toISOString(), scope: 'local actual handler; injected transport failures', checks,

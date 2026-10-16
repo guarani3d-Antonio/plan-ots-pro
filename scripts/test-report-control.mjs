@@ -101,8 +101,21 @@ for (let i = 0; i < nombres.length; i++) {
     fotos: [],
   };
   const materializado = materializarHtmlControlado(revision, fuentes, {});
+  const logoPath='empresa/tenant-qa/00000000-0000-4000-8000-000000000099.jpg';
+  const logoData='data:image/png;base64,'+(await readFile('public/icon-512.png')).toString('base64');
+  const conLogo=materializarHtmlControlado(revision,{...fuentes,logo_path:logoPath},{[logoPath]:logoData});
+  assert.match(conLogo,/data-company-brand="true"/);assert.ok(conLogo.includes(logoData));
+  assert.equal(conLogo,materializarHtmlServidor(revision,{...fuentes,logo_path:logoPath},{[logoPath]:logoData}),'Cliente y servidor usan idéntica marca');
+  assert.throws(()=>materializarHtmlControlado(revision,{...fuentes,logo_path:logoPath},{}),/logo verificado/);
+  assert.throws(()=>materializarHtmlControlado(revision,{...fuentes,logo_path:'empresa/ajena/foto.jpg'},{'empresa/ajena/foto.jpg':logoData}),/Logo ajeno/);
+  const oldRevision={...revision,plantilla_version:'expediente-controlado-2026-10-14-cronograma-unificado'};
+  const oldSources={...fuentes,revision:{...fuentes.revision,plantilla_version:oldRevision.plantilla_version}};
+  const historical=materializarHtmlControlado(oldRevision,oldSources,{});
+  const archived=await import('../supabase/functions/_shared/controlled-report-20261014-unificado.mjs');
+  assert.equal(historical,archived.materializarHtmlControlado(oldRevision,oldSources,{}),'La plantilla anterior no cambia');
+
   assert.match(materializado, /Estado de emisión verificable en Plan-OTs/);
-  assert.match(materializado, /Emisor: Emisor de prueba &lt;literal&gt;/);
+  assert.match(materializado, /report-company-name[^>]*>Emisor de prueba &lt;literal&gt;/);
   assert.throws(() => materializarHtmlControlado(revision, {...fuentes,empresa:{id:'ajena',nombre:'Otra'}}, {}), /Empresa emisora ajena/);
   assert.doesNotMatch(materializado, /\bborrador\b|sin emitir|sin emisión/i);
   const originales = JSON.stringify({ revision, fuentes });
@@ -127,7 +140,7 @@ for (let i = 0; i < nombres.length; i++) {
   assert.doesNotMatch(htmlLegacy, /OBRA CORREGIDA QA/);
   if (process.argv.includes('--write-qa-html')) {
     numero++;
-    await writeFile(`tmp/pdfs/controlado-${numero}.html`, materializado);
+    await writeFile(`tmp/pdfs/controlado-${numero}.html`, conLogo);
     if (nombres[i] === 'cierre') {
       const imagen = `data:image/png;base64,${(await readFile('scripts/fixtures/document-photo-qa.png')).toString('base64')}`;
       const fotos = Array.from({ length: 8 }, (_, j) => ({
@@ -151,7 +164,7 @@ for (let i = 0; i < nombres.length; i++) {
         })),
       } };
       const htmlLargo = materializarHtmlControlado(revisionLarga,
-        { ...fuentes, fotos }, Object.fromEntries(fotos.map(f => [f.edicion_path, imagen])));
+        { ...fuentes, fotos,logo_path:logoPath }, {...Object.fromEntries(fotos.map(f => [f.edicion_path, imagen])),[logoPath]:logoData});
       for (const foto of fotos) assert.ok(htmlLargo.includes(foto.id));
       assert.match(htmlLargo, /QA-18/);
       await writeFile('tmp/pdfs/controlado-8.html', htmlLargo);

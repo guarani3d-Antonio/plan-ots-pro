@@ -161,6 +161,16 @@ Deno.serve(async request => {
     const cache = new Map<string, { bytes: Bytes; mime: string; hash: string }>();
     let totalImagenes = 0;
     let totalFuentes = 0;
+    if(rev.plantilla_version==='expediente-controlado-2026-10-16-marca'&&fuentes.logo_path){
+      const logo=fuentes.logo_path;
+      if(typeof logo!=='string'||!new RegExp(`^empresa/${doc.tenant_id}/[0-9a-f-]{36}\\.jpg$`,'i').test(logo))throw new Error('Logo ajeno a la empresa emisora');
+      const bytes=await descargar(admin,'directory-photos',logo,2*1024*1024),mime=mimeImagen(bytes);
+      if(mime!=='image/jpeg')throw new Error('Formato de logo conservado inválido');
+      const hash=await sha256(bytes),path=`${prefijo}/logo/${hash}`;
+      await subirExacto(admin,path,bytes,mime,hash);
+      manifiesto.push({tipo:'logo',fuente_path:logo,path,sha256:hash,bytes:bytes.length,mime});
+      imagenes[logo]=`data:${mime};base64,${base64(bytes)}`;totalFuentes+=bytes.length;
+    }
     for (const foto of fuentes.fotos ?? []) {
       if (!idValido.test(foto.id)) throw new Error('ID de foto inválido');
       const item: Record<string, unknown> = { id: foto.id };
@@ -196,7 +206,7 @@ Deno.serve(async request => {
     let pdf = previo;
     if (!pdf) {
       let html: string;
-      if(['expediente-controlado-2026-10-13-firmas','expediente-controlado-2026-10-13-conformidad','expediente-controlado-2026-10-14-cronograma','expediente-controlado-2026-10-14-cronograma-unificado'].includes(rev.plantilla_version)) {
+      if(['expediente-controlado-2026-10-13-firmas','expediente-controlado-2026-10-13-conformidad','expediente-controlado-2026-10-14-cronograma','expediente-controlado-2026-10-14-cronograma-unificado','expediente-controlado-2026-10-16-marca'].includes(rev.plantilla_version)) {
         const {data:firmas,error:errorFirmas}=await admin.from('plan_documento_firmas').select('*').eq('revision_id',revisionId);
         const registradas=necesario(firmas,errorFirmas,'Firmas de la revisión');
         for(const firma of registradas){
@@ -209,7 +219,7 @@ Deno.serve(async request => {
         html=render(rev,fuentes,imagenes);
       }
       const payload = JSON.stringify({ html,
-        pdfOptions: opcionesPdfDocumento(doc.codigo, rev.revision) });
+        pdfOptions: opcionesPdfDocumento(doc.codigo, rev.revision,rev.plantilla_version==='expediente-controlado-2026-10-16-marca'?{empresa:fuentes.empresa?.nombre}:undefined) });
       if (new TextEncoder().encode(payload).byteLength > 48 * 1024 * 1024)
         throw new Error('El expediente supera el límite del renderizador PDF');
       const respuesta = await fetch(

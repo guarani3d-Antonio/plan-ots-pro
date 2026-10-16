@@ -60,6 +60,8 @@ import {
 import { supabase } from '../../db/supabase';
 import { colorEstado } from '../../utils/calculos';
 import styles from './ModalInformeOT.module.css';
+import {cargarLogoEmpresa,cargarMarcaEmpresaProyecto} from '../../services/companyLogoService';
+import {aplicarMarcaDocumento,REPORT_BRANDING_VERSION} from '../../services/documentBranding';
 import { PLANTILLA_CONTROLADA_VERSION } from '../../services/controlledReportService';
 import { generarContextoPlano, type PlanoContexto } from '../../services/planLocationService';
 import { FirmasDocumento } from './FirmasDocumento';
@@ -573,6 +575,16 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
     if (pdfBlobUrl) URL.revokeObjectURL(pdfBlobUrl);
   }, [pdfBlobUrl]);
 
+  const tenantMarca=fuentesVersion?.empresa?.id??'';
+  const marcaConservada=versionBorrador>0&&!correccionAbierta;
+  const usaMarca=!marcaConservada||revisionFirma?.plantilla_version===REPORT_BRANDING_VERSION;
+  const claveMarca=`${orden.proyecto_id}/${tenantMarca}/${marcaConservada?revisionFirma?.id??'cargando':'borrador'}/${fuentesVersion?.logo_path??''}`;
+  const [marca,setMarca]=useState<{key:string;nombre?:string;logo?:string;error?:string}>({key:''});
+  useEffect(()=>{if(!isOpen||!usaMarca||marcaConservada&&!fuentesVersion?.empresa)return;let active=true;
+    const lectura=marcaConservada?cargarLogoEmpresa(tenantMarca,fuentesVersion?.logo_path??null).then(logo=>({nombre:fuentesVersion!.empresa!.nombre,logo})):cargarMarcaEmpresaProyecto(orden.proyecto_id);
+    void lectura.then(datos=>{if(active)setMarca({key:claveMarca,...datos});}).catch(e=>{if(active)setMarca({key:claveMarca,error:e.message||'No se pudo cargar el logo.'});});
+    return()=>{active=false};
+  },[isOpen,tenantMarca,claveMarca,marcaConservada,usaMarca,orden.proyecto_id]);
   const construirHtml = (textoActual: string): string => {
     if(!persistenciaDisponible || versionBorrador>0&&!correccionAbierta&&revisionActual&&!fuentesVersion)throw new Error('No se pudieron recuperar las fuentes conservadas. Reabrí el informe.');
     const conservada=versionBorrador>0&&!correccionAbierta&&fuentesVersion;
@@ -586,6 +598,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
     const fdu = incluirFotos ? (origenFotos?origenFotos.filter(f=>f.categoria==='DURANTE'):fotosDurante).filter(f => seleccion.has(f.id)) : [];
     const terminar=(html:string)=>{
       if(conservada&&revisionFirma?.datos.firmantes&&(cargandoFirmas||errorFirmas||firmasRevision!==revisionFirma.id))throw new Error(errorFirmas||'Consultando las firmas conservadas de esta versión…');
+      if(usaMarca){if(marca.key!==claveMarca)throw Error('Cargando el logo de la empresa…');if(marca.error)throw Error(marca.error);html=aplicarMarcaDocumento(html,marca.nombre??'Empresa emisora',marca.logo);}
       return incorporarFirmas(html,firmantes,conservada&&firmasRevision===revisionFirma?.id?firmas:[],conservada&&revisionFirma?{id:revisionFirma.id,hash:revisionFirma.contenido_sha256}:undefined);
     };
     switch (tipo) {
@@ -596,7 +609,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
       case 'visita':
         return terminar(generarFichaVisita(ordenDocumento, datosVisita, fa, codigoDocumento));
       case 'relevamiento':
-        return terminar(generarInformeRelevamiento(ordenDocumento, textoActual, fa, datosRelevamiento, codigoDocumento, itemsAlcance,undefined,!conservada||revisionFirma?.plantilla_version===PLANTILLA_CONTROLADA_VERSION||revisionFirma?.plantilla_version==='expediente-controlado-2026-10-14-cronograma',!conservada||revisionFirma?.plantilla_version!=='expediente-controlado-2026-10-14-cronograma'));
+        return terminar(generarInformeRelevamiento(ordenDocumento, textoActual, fa, datosRelevamiento, codigoDocumento, itemsAlcance,undefined,!conservada||revisionFirma?.plantilla_version===PLANTILLA_CONTROLADA_VERSION||revisionFirma?.plantilla_version==='expediente-controlado-2026-10-14-cronograma-unificado'||revisionFirma?.plantilla_version==='expediente-controlado-2026-10-14-cronograma',!conservada||revisionFirma?.plantilla_version!=='expediente-controlado-2026-10-14-cronograma'));
       case 'avance':
         return terminar(generarInformeAvance(ordenDocumento, textoActual, fa, fdu, datosAvance, codigoDocumento, itemsAvance));
       case 'acta':
@@ -825,7 +838,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
     proyectoNombre,
     tipo,
     documento,
-    fuentesVersion,fotosVersion,versionBorrador,correccionAbierta,persistenciaDisponible,
+    fuentesVersion,fotosVersion,versionBorrador,correccionAbierta,persistenciaDisponible,marca,claveMarca,usaMarca,tenantMarca,
     itemsAlcance,
     itemsAvance,
     itemsCierre,

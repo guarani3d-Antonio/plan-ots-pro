@@ -1,6 +1,8 @@
 // Materializa un candidato desde una revisión y sus fuentes congeladas.
 // Debe ejecutarse en el servicio, después de verificar los SHA-256 del registro
 // y los bytes de cada foto. El cliente nunca aporta HTML al renderizador.
+import {aplicarMarcaDocumento,REPORT_BRANDING_VERSION} from './documentBranding';
+import {materializarHtmlControlado as materializarUnificadoAnterior} from '../../supabase/functions/_shared/controlled-report-20261014-unificado.mjs';
 import { TIPOS_CON_PLANO } from './otStageSchema';
 import {materializarHtmlControlado as materializarCronogramaAnterior} from '../../supabase/functions/_shared/controlled-report-20261014-cronograma.mjs';
 import { espaciosFirma, type FirmaDocumento } from './documentSignatureModel';
@@ -20,7 +22,7 @@ import type {
 
 type Registro = Record<string, unknown>;
 type Foto = { id: string; file_url: string; descripcion: string | null; descripcion_observacion: string | null };
-export const PLANTILLA_CONTROLADA_VERSION = 'expediente-controlado-2026-10-14-cronograma-unificado';
+export const PLANTILLA_CONTROLADA_VERSION = REPORT_BRANDING_VERSION;
 const PLANTILLA_CONFORMIDAD = 'expediente-controlado-2026-10-13-conformidad';
 const PLANTILLA_FIRMAS = 'expediente-controlado-2026-10-13-firmas';
 const PLANTILLA_DATOS = 'expediente-controlado-2026-10-08-datos';
@@ -59,6 +61,7 @@ export function materializarHtmlControlado(
   imagenesVerificadas: Record<string, string>,
   firmasVerificadas: FirmaDocumento[] = [],
 ): string {
+  if(revision.plantilla_version==='expediente-controlado-2026-10-14-cronograma-unificado')return materializarUnificadoAnterior(revision,fuentesValor,imagenesVerificadas,firmasVerificadas);
   if(revision.plantilla_version==='expediente-controlado-2026-10-14-cronograma')return materializarCronogramaAnterior(revision,fuentesValor,imagenesVerificadas,firmasVerificadas);
   const fuentes = objeto(fuentesValor, 'Fuentes');
   if (fuentes.version !== 1) throw new Error('Versión de fuentes no admitida');
@@ -158,28 +161,29 @@ export function materializarHtmlControlado(
     }
   }
 
+  const marcar=(html:string)=>{if(revision.plantilla_version!==REPORT_BRANDING_VERSION)return html;const path=fuentes.logo_path;if(path!==null&&path!==undefined&&(typeof path!=='string'||!path.startsWith(`empresa/${documento.tenant_id}/`)))throw Error('Logo ajeno a la empresa emisora.');if(path&&!imagenesVerificadas[path])throw Error('Falta el logo verificado de esta versión.');return aplicarMarcaDocumento(html,texto(objeto(fuentes.empresa,'Empresa emisora').nombre,'Nombre de empresa emisora'),path?imagenesVerificadas[String(path)]:undefined);};
   switch (tipo) {
     case 'orden_servicio':
-      return generarInformeOrdenServicio(orden, observaciones,
-        camposTexto<OrigenOrdenServicio>(datos.origen, 'Origen'), codigo, antes, contexto);
+      return marcar(generarInformeOrdenServicio(orden, observaciones,
+        camposTexto<OrigenOrdenServicio>(datos.origen, 'Origen'), codigo, antes, contexto));
     case 'visita':
-      return generarFichaVisita(orden, camposTexto<DatosVisita>(datos.visita, 'Visita'), antes, codigo, contexto);
+      return marcar(generarFichaVisita(orden, camposTexto<DatosVisita>(datos.visita, 'Visita'), antes, codigo, contexto));
     case 'relevamiento':
-      return generarInformeRelevamiento(orden, observaciones, antes,
+      return marcar(generarInformeRelevamiento(orden, observaciones, antes,
         camposTexto<DatosRelevamiento>(datos.relevamiento, 'Relevamiento'), codigo,
-        listaTexto<ItemAlcance>(datos.itemsAlcance, 'Alcance'), contexto);
+        listaTexto<ItemAlcance>(datos.itemsAlcance, 'Alcance'), contexto));
     case 'avance':
-      return generarInformeAvance(orden, observaciones, antes, durante,
+      return marcar(generarInformeAvance(orden, observaciones, antes, durante,
         camposTexto<DatosAvance>(datos.avance, 'Avance'), codigo,
-        listaTexto<ItemAvance>(datos.itemsAvance, 'Items de avance'), contexto);
+        listaTexto<ItemAvance>(datos.itemsAvance, 'Items de avance'), contexto));
     case 'cierre':
-      return generarInformeCierre(orden, proyectoNombre, observaciones, antes, despues,
+      return marcar(generarInformeCierre(orden, proyectoNombre, observaciones, antes, despues,
         camposTexto<DatosCierre>(datos.cierre, 'Cierre'), codigo,
-        listaTexto<ItemCierre>(datos.itemsCierre, 'Items de cierre'), contexto);
+        listaTexto<ItemCierre>(datos.itemsCierre, 'Items de cierre'), contexto));
     case 'acta':
-      return generarInformeActaConformidad(orden, camposTexto<DatosActa>(datos.acta, 'Acta'), codigo, contexto);
+      return marcar(generarInformeActaConformidad(orden, camposTexto<DatosActa>(datos.acta, 'Acta'), codigo, contexto));
     case 'encuesta':
-      return generarEncuestaSatisfaccion(orden, camposTexto<DatosEncuesta>(datos.encuesta, 'Encuesta'), codigo, contexto);
+      return marcar(generarEncuestaSatisfaccion(orden, camposTexto<DatosEncuesta>(datos.encuesta, 'Encuesta'), codigo, contexto));
     default:
       throw new Error('Tipo documental no admitido');
   }
