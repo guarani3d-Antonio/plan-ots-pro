@@ -1,0 +1,64 @@
+import assert from 'node:assert/strict';
+import {readFile,readdir,mkdir,writeFile} from 'node:fs/promises';
+import {PGlite} from '@electric-sql/pglite';
+const db=new PGlite(),id=n=>`51000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
+const [creator,boss,tech,twin,empty,outsider,peer]=[1,2,3,4,5,6,7].map(id),tenant=id(10),other=id(11),work=id(20),work2=id(21),foreign=id(22);
+const one=async(sql,args=[])=>(await db.query(sql,args)).rows[0];
+const as=async u=>{await db.exec('reset role');await db.query("select set_config('request.jwt.claim.sub',$1,false)",[u??'']);if(u)await db.exec('set role authenticated')};
+const list=async(t=tenant)=>(await one('select plan_responsables_directorio($1) r',[t])).r;
+const profile=async(u=tech,t=tenant,page=0,state=null,from=null,to=null,w=null)=>(await one('select plan_responsable_perfil($1,$2,$3,$4,$5,$6,$7) r',[t,u,from,to,page,state,w])).r;
+const save=async(u,rev,datos,t=tenant)=>(await one('select plan_responsable_guardar($1,$2,$3,$4) r',[t,u,rev,datos])).r;
+try{
+ for(const f of ['captured-domain.sql','storage-foundation.sql'])await db.exec(await readFile('supabase/tests/'+f,'utf8'));
+ await db.exec("alter table auth.users add column raw_user_meta_data jsonb default '{}';alter table auth.users add column created_at timestamptz default now();alter table auth.users add column last_sign_in_at timestamptz;alter table storage.buckets add column name text;alter table storage.buckets add column file_size_limit bigint;alter table storage.buckets add column allowed_mime_types text[];");
+ for(const f of (await readdir('supabase/migrations')).filter(f=>f.endsWith('.sql')).sort())await db.exec(await readFile('supabase/migrations/'+f,'utf8'));
+ for(const [i,u] of [creator,boss,tech,twin,empty,outsider,peer].entries())await db.query('insert into auth.users(id,email,raw_user_meta_data) values($1,$2,$3)',[u,`responsable${i}@example.test`,{nombre:[tech,twin].includes(u)?'Mismo Nombre':'Cuenta '+i}]);
+ await db.query('insert into plataforma_administradores(user_id) values($1)',[creator]);
+ await db.query("insert into tenants(id,nombre,slug) values($1,'Empresa QA','responsible-qa'),($2,'Ajena QA','responsible-other')",[tenant,other]);
+ for(const [u,t,rol] of [[boss,tenant,'supervisor'],[tech,tenant,'tecnico'],[twin,tenant,'tecnico'],[empty,tenant,'tecnico'],[peer,tenant,'supervisor'],[outsider,other,'supervisor']]){
+  await db.query('insert into tenant_miembros(tenant_id,user_id,rol) values($1,$2,$3)',[t,u,rol]);
+  await db.query('insert into plan_equipo_nodos(tenant_id,user_id,perfil,superior_id) values($1,$2,$3,$4) on conflict(tenant_id,user_id) do update set perfil=excluded.perfil,superior_id=excluded.superior_id',[t,u,rol==='supervisor'?'jefe':'tecnico',t===tenant&&[tech,twin,empty].includes(u)?boss:null]);
+  await db.query("insert into plan_equipo_permisos(tenant_id,user_id,clave,permitido,delegable) select $1,$2,clave,($3=any(base_roles) or clave='equipo.editar') and not solo_creador,($3=any(base_roles) or clave='equipo.editar') and not solo_creador from plan_permiso_catalogo on conflict(tenant_id,user_id,clave) do update set permitido=excluded.permitido,delegable=excluded.delegable",[t,u,rol]);
+ }
+ for(const [w,t,name] of [[work,tenant,'Edificio QA'],[work2,tenant,'Casa QA'],[foreign,other,'Obra ajena']])await db.query("insert into proyectos(id,tenant_id,nombre,created_by,plano_url) values($1,$2,$3,$4,'pending://plan-upload-required')",[w,t,name,creator]);
+ for(const [u,w] of [[boss,work],[boss,work2],[tech,work],[twin,work2],[peer,work],[outsider,foreign]])await db.query("insert into proyecto_miembros(proyecto_id,user_id,rol) values($1,$2,'tecnico')",[w,u]);
+ await as(creator);
+ const order=async(u,w=work,state='Cerrada',start='2026-10-01',end='2026-10-03',due='2026-10-03')=>{
+  const o=(await one('select plan_crear_orden($1,null,null) id',[w])).id;
+  await db.exec('reset role');await db.query("update ordenes set responsable_id=$1,estado=$2,fecha_ingreso='2026-10-01',fecha_inicio_trabajos=$3,fecha_fin_trabajos=$4,fecha_limite=$5 where id=$6",[u,state,start,end,due,o]);await as(creator);return o;
+ };
+ const ids=[];for(let i=0;i<22;i++)ids.push(await order(tech));
+ await order(twin,work2);await order(outsider,foreign);
+ const legacy=await order(null);await db.exec('reset role');await db.query("update ordenes set responsable='Mismo Nombre' where id=$1",[legacy]);await as(creator);
+ let p=await profile();assert.equal(p.resumen.total,22);assert.equal(p.ordenes.length,20);assert.equal((await profile(tech,tenant,1)).ordenes.length,2);assert.equal(p.resumen.diasEjecucion,3);assert.equal(p.resumen.cierresConFecha,22);assert.equal(p.resumen.cierresEnPlazo,22);
+ assert.equal((await profile(twin)).resumen.total,1);await assert.rejects(profile(tech,other),e=>e.code==='42501');
+ assert.equal((await list()).sinCuenta,1);assert.equal((await list()).responsables.length,2);
+ const candidates=(await one('select plan_responsables_cuentas($1) r',[tenant])).r;assert(candidates.some(p=>p.id===empty));assert(!candidates.some(p=>p.id===tech));
+ assert.equal(await save(empty,0,{especialidad:'Electricidad',documento:'QA',telefono:'0000',observaciones:''}),1);
+ assert.equal((await list()).responsables.length,3);assert.equal((await profile(empty)).resumen.diasEjecucion,null);assert.equal((await profile(empty)).resumen.cierresConPlazo,0);
+ assert.equal(await save(tech,0,{especialidad:'Civil',telefono:'0000'}),1);await assert.rejects(save(tech,0,{especialidad:'Otra empresa'},other),e=>e.code==='42501');
+ assert.equal((await list()).responsables.find(p=>p.id===tech).datos.especialidad,'Civil');
+ assert(!(await list(other)).responsables.some(p=>p.id===tech));
+ await assert.rejects(save(tech,0,{especialidad:'Sobrescribir'}),e=>e.code==='40001');
+ await assert.rejects(save(tech,1,{nombre:'Cambiar la cuenta'}),e=>e.code==='22023');
+ await assert.rejects(save(tech,1,{observaciones:'x'.repeat(2001)}),e=>e.code==='22023');
+ await assert.rejects(save(tech,1,{activo:false}),e=>e.code==='22023');
+ assert.equal((await profile(tech,tenant,0,null,'2026-11-01')).resumen.total,0);
+ assert.equal((await profile(tech,tenant,0,null,null,null,work2)).resumen.total,0);
+ const overdue=await order(tech,work,'Pendiente',null,null,'2000-01-01');await order(tech,work,'No aplica',null,null,'2000-01-01');
+ assert.equal((await profile()).resumen.vencidas,1);assert.equal((await profile(tech,tenant,0,'Vencidas')).ordenes[0].id,overdue);assert.equal((await profile(tech,tenant,0,'Abiertas')).totalOrdenes,1);
+ await db.exec('reset role');await db.query("update ordenes set fecha_fin_trabajos='2026-09-30' where id=$1",[ids[0]]);await db.query('update ordenes set deleted_at=now() where id=$1',[ids[1]]);await db.query("update auth.users set raw_user_meta_data='{"+'"nombre":"Renombrado"'+"}' where id=$1",[tech]);await as(creator);
+ assert.equal((await profile()).resumen.cierresConFecha,20);assert.equal((await profile()).resumen.cierresConPlazo,20);assert.equal((await profile()).resumen.diasEjecucion,3);assert.equal((await list()).responsables.find(p=>p.id===tech).nombre,'Renombrado');
+ await assert.rejects(profile(tech,tenant,-1),e=>e.code==='22023');await assert.rejects(profile(outsider,tenant),e=>e.code==='42501');
+ await assert.rejects(one('select * from plan_responsables_fichas'),e=>e.code==='42501');await assert.rejects(one('select * from plan_responsable_historial_base($1)',[tenant]),e=>e.code==='42501');
+ await as(outsider);await assert.rejects(list(),e=>e.code==='42501');await assert.rejects(profile(),e=>e.code==='42501');await assert.rejects(save(tech,1,{}),e=>e.code==='42501');
+ await as(tech);assert.equal((await profile()).resumen.total,23);await assert.rejects(profile(twin),e=>e.code==='42501');await assert.rejects(save(tech,1,{}),e=>e.code==='42501');
+ await as(boss);assert.equal((await list()).responsables.length,3);assert.equal(await save(tech,1,{especialidad:'Ajuste autorizado'}),2);
+ await db.exec('reset role');await db.query('delete from proyecto_miembros where proyecto_id=$1 and user_id=$2',[work2,boss]);await as(boss);assert.equal((await profile(twin)).resumen.total,0);await db.exec('reset role');await db.query("insert into proyecto_miembros(proyecto_id,user_id,rol) values($1,$2,'tecnico')",[work2,boss]);
+ await as(peer);assert.equal((await list()).responsables.length,0);await assert.rejects(profile(),e=>e.code==='42501');
+ await db.exec('reset role');await db.query("update plan_equipo_permisos set permitido=false,delegable=false where tenant_id=$1 and user_id=$2 and clave='equipo.ver'",[tenant,boss]);await as(tech);await assert.rejects(list(),e=>e.code==='42501');
+ await db.exec('reset role');assert.equal((await one("select has_function_privilege('anon','plan_responsables_directorio(uuid)','execute') ok")).ok,false);
+ const fuentes=(await one("select jsonb_object_agg(proname,md5(replace(prosrc,chr(13),''))) r from pg_proc where pronamespace='public'::regnamespace and proname in ('plan_responsable_visible','plan_responsable_historial_base','plan_responsables_cuentas','plan_responsables_directorio','plan_responsable_perfil','plan_responsable_guardar')")).r;
+ const result={resultado:'PASS',fuentes,controles:['cuentas homónimas separadas','nombre actualizado sin perder historia','sin atribuir OT por nombre','aislamiento de empresa y obra','ramas privadas del equipo','permisos revocados','escritura con jerarquía sin cambiar roles','campos permitidos y revisión concurrente','paginación y filtros','vencidas en días locales','días inclusivos con fechas válidas','sin datos no es cero','internas y tabla inaccesibles','sin acceso anónimo']};
+ await mkdir('output/responsables-perfil-20261017',{recursive:true});await writeFile('output/responsables-perfil-20261017/pruebas-servidor.json',JSON.stringify(result,null,2));console.log('PASS: '+result.controles.join(', '));
+}catch(e){console.error('FAIL:',e.message,e.code??'',e.query?.slice(0,220)??'');process.exitCode=1}finally{await db.close()}

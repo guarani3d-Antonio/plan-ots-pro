@@ -1,0 +1,28 @@
+import {useContext,useEffect,useId,useState} from 'react';
+import {cuentasResponsables,datosResponsable,guardarResponsable,type CuentaResponsable,type DatosResponsable,type ResponsableFicha} from '../../services/responsibleProfileService';
+import {saveTeamPhoto} from '../../services/teamService';
+import {GuardiaAdministracionContext} from '../proyecto/guardiaAdministracionContext';
+import {SelectorBusqueda} from '../ui/SelectorBusqueda';
+import {FotoResponsable} from './FotoResponsable';
+import s from './Responsables.module.css';
+export function FormularioResponsable({tenant,persona,onGuardado,onCancelar}:{tenant:string;persona?:ResponsableFicha;onGuardado:(id:string)=>Promise<void>;onCancelar:()=>void}){
+ const guard=useContext(GuardiaAdministracionContext),guardId=useId();
+ const [cuentas,setCuentas]=useState<CuentaResponsable[]>([]),[cuenta,setCuenta]=useState<CuentaResponsable|null>(persona??null),[cargando,setCargando]=useState(!persona),[datos,setDatos]=useState(()=>datosResponsable(persona?.datos)),[base,setBase]=useState(()=>JSON.stringify(datosResponsable(persona?.datos))),[revision,setRevision]=useState(persona?.revision??0),[foto,setFoto]=useState<File|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState(''),[mensaje,setMensaje]=useState('');
+ const dirty=JSON.stringify(datos)!==base||!!foto;
+ useEffect(()=>guard.registrar(guardId,dirty,busy),[guard,guardId,dirty,busy]);
+ useEffect(()=>{if(persona)return;let active=true;void cuentasResponsables(tenant).then(r=>{if(active){setCuentas(r);if(r.length===1)setCuenta(r[0])}}).catch(e=>{if(active)setError(e.message)}).finally(()=>{if(active)setCargando(false)});return()=>{active=false}},[tenant,persona]);
+ async function guardar(){if(!cuenta||busy)return;setBusy(true);setError('');setMensaje('');let saved=false;try{
+  const next=await guardarResponsable(tenant,cuenta.id,revision,datos);saved=true;setRevision(next);setBase(JSON.stringify(datos));
+  if(foto){await saveTeamPhoto(tenant,cuenta.id,foto);setFoto(null)}
+  await onGuardado(cuenta.id);
+ }catch(e){setError((saved?'La ficha se guardó. Falta completar la foto o actualizar la vista: ':'')+(e instanceof Error?e.message:'No se pudo guardar.'));if(saved)setMensaje('Los datos profesionales ya están guardados; no se cambiaron permisos.')}finally{setBusy(false)}}
+ const cambiar=(key:keyof DatosResponsable,value:string)=>setDatos(d=>({...d,[key]:value}));
+ return <form className={s.sectionStack} onSubmit={e=>{e.preventDefault();void guardar()}}>
+  {!persona&&(cargando?<p role="status">Buscando cuentas disponibles…</p>:cuentas.length===0?<p className={s.notice}>No hay cuentas técnicas disponibles para vincular. Las invitaciones y los accesos se administran en Equipo; las cuentas que ya tienen OT asignadas aparecen en el listado.</p>:cuentas.length===1?<div><strong>{cuentas[0].nombre}</strong><small>{cuentas[0].email} · Única cuenta disponible</small></div>:<label>Cuenta de la empresa<SelectorBusqueda label="Cuenta del responsable" value={cuenta?{id:cuenta.id,nombre:cuenta.nombre,detalle:cuenta.email}:undefined} opciones={cuentas.map(c=>({id:c.id,nombre:c.nombre,detalle:c.email}))} onSeleccionar={id=>guard.solicitar(()=>{setCuenta(cuentas.find(c=>c.id===id)??null);setDatos(datosResponsable());setBase(JSON.stringify(datosResponsable()));setRevision(0);setFoto(null);setError('');setMensaje('')},guardId)} placeholder="Buscar nombre o correo…" disabled={busy}/></label>)}
+  {cuenta&&<><div className={s.photoField}><FotoResponsable id={cuenta.id} nombre={cuenta.nombre} path={persona?.avatar_path} archivo={foto}/><label>Foto de la cuenta<input aria-label="Foto del responsable" disabled={busy} type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>{const f=e.target.files?.[0];if(f){if(!['image/jpeg','image/png','image/webp'].includes(f.type)||f.size>8*1024*1024)setError('Elegí una foto JPG, PNG o WebP de hasta 8 MB.');else{setFoto(f);setError('')}}e.target.value=''}}/>{foto&&<button className={s.link} type="button" disabled={busy} onClick={()=>setFoto(null)}>Descartar foto nueva</button>}</label></div>
+   <div className={s.fields}><label>Nombre de la cuenta<input className={s.readOnly} readOnly value={cuenta.nombre}/></label><label>Correo de la cuenta<input className={s.readOnly} readOnly value={cuenta.email}/></label><label>CI / documento<input aria-label="CI / documento" maxLength={80} disabled={busy} value={datos.documento} onChange={e=>cambiar('documento',e.target.value)}/></label><label>Especialidad<input aria-label="Especialidad" maxLength={160} disabled={busy} value={datos.especialidad} onChange={e=>cambiar('especialidad',e.target.value)}/></label><label>Teléfono<input aria-label="Teléfono" type="tel" maxLength={80} disabled={busy} value={datos.telefono} onChange={e=>cambiar('telefono',e.target.value)}/></label><label className={s.full}>Observaciones profesionales<textarea aria-label="Observaciones profesionales" maxLength={2000} rows={3} disabled={busy} value={datos.observaciones} onChange={e=>cambiar('observaciones',e.target.value)}/></label></div>
+   <p className={s.notice}>El nombre, el correo y las obras proceden de la cuenta. Esta ficha guarda sus datos profesionales; no modifica jerarquías ni accesos.</p></>}
+  {mensaje&&<p className={s.success} role="status">{mensaje}</p>}{error&&<p className={s.error} role="alert">{error}</p>}
+  <div className={s.filter}><button className={s.link} type="button" disabled={busy} onClick={()=>guard.solicitar(onCancelar,guardId)}>Cancelar</button><button className={`${s.link} ${s.primary}`} type="submit" disabled={busy||!cuenta||cargando}>{busy?'Guardando…':persona?'Guardar ficha':'Vincular responsable'}</button></div>
+ </form>;
+}
