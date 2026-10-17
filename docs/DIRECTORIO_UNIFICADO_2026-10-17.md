@@ -28,3 +28,11 @@ Punto de retorno: `be86c77`; respaldos verificados en `backups/directorio-unific
 - El ensayo de desarrollo generó un aviso de `createRoot` durante la recarga de módulos del propio arnés. No se cambió la inicialización de la app de producción.
 
 Evidencia local: `output/directorio-implementation-20261017/`. Verificar Cloudflare y la versión pública antes de dar la publicación por terminada.
+
+## Ajuste visual posterior
+
+- Se eliminan los topes de ancho del inicio y del selector de empresa. Los accesos se distribuyen en cuatro, dos o una columna según el espacio real del contenido, incluyendo la barra lateral expandida o contraída.
+- Las empresas usan columnas adaptativas que ocupan el ancho disponible; la búsqueda se alinea con el encabezado y se apila en pantallas pequeñas.
+- Tarjetas más compactas, con iconos menores y el aviso de Contactos junto al título. En la comprobación amplia, los cuatro accesos miden 120 px de alto y sus acciones quedan alineadas.
+- Verificación local de TypeScript y compilación Vite correcta; selección de empresa a 320 px con contenido de 320 px y sin controles fuera del ancho. No se modifica la lógica de permisos, empresa, obra o fichas.
+- Punto de retorno del ajuste: `3547205`; respaldos en `backups/directorio-interfaz-20261017/`. Evidencias en `output/directorio-layout-20261017/`.
