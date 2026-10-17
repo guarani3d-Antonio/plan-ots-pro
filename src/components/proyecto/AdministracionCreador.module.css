@@ -109,3 +109,6 @@
 .matrixLayout .catalogArea:has(.editorSlot:not(:empty)){grid-template-columns:minmax(0,1fr)}.matrixLayout .editorSlot:not(:empty){position:fixed;top:max(12px,20vh);left:50%;right:auto;bottom:auto;transform:translateX(-50%);width:min(420px,calc(100vw - 24px));z-index:1200;box-shadow:0 0 0 100vmax #0f172a55;border-radius:10px}
 .customerBackdrop{position:fixed;inset:60px 0 0;z-index:900;background:color-mix(in srgb,var(--text-primary) 20%,transparent);display:flex;align-items:center;justify-content:center;padding:14px}.customerDialog{width:min(840px,100%);max-height:calc(100dvh - 90px);box-shadow:0 10px 35px color-mix(in srgb,var(--text-primary) 20%,transparent)}.customerDialog .editorBody{padding:14px}.customerDialog .editorBody h3{font-size:14px!important}@media(max-width:500px){.customerBackdrop{inset:54px 0 0;padding:6px}.customerDialog{max-height:calc(100dvh - 70px)}.customerDialog .editorBody{padding:10px}}
 .customerBackdrop:not(:last-child){display:none}
+/* Keep the modal anchored while its asynchronously loaded sections change. */
+.stableDialog{height:min(660px,calc(100dvh - 90px))}.stableDialog .editorBody{flex:1;align-content:start;scrollbar-gutter:stable;overflow-anchor:none}
+@media(max-width:500px){.stableDialog{height:min(660px,calc(100dvh - 70px))}}

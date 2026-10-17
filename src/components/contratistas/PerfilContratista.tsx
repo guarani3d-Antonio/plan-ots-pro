@@ -7,6 +7,7 @@ import {fechaPerfil,limitesPerfil} from '../../services/customerProfileModel';
 import {ModalDetalleOT} from '../grilla/ModalDetalleOT';
 import s from '../clientes/PerfilCliente.module.css';
 import c from './PerfilContratista.module.css';
+import {CargaDirectorio} from '../clientes/CargaDirectorio';
 export type PestanaContratista='dashboard'|'datos'|'trabajos'|'presupuestos'|'evaluaciones';
 export function PerfilContratista({tenantId,contratistaId,tab,onTab}:{tenantId:string;contratistaId:string;tab:Exclude<PestanaContratista,'datos'>;onTab:(t:PestanaContratista)=>void}){
  const [periodo,setPeriodo]=useState('todos'),[estado,setEstado]=useState('Todos'),[pagina,setPagina]=useState(0),[perfil,setPerfil]=useState<PerfilContratistaDatos|null>(null),[error,setError]=useState(''),[cargando,setCargando]=useState(true),[revision,setRevision]=useState(0),[detalle,setDetalle]=useState<string|null>(null),[modal,setModal]=useState<TrabajoContratista|null>(null);
@@ -18,7 +19,7 @@ export function PerfilContratista({tenantId,contratistaId,tab,onTab}:{tenantId:s
  if(tab==='presupuestos')return <PresupuestosContratista contratistaId={contratistaId}/>;
  if(tab==='evaluaciones')return <EvaluacionesContratista contratistaId={contratistaId}/>;
  return <div className={s.profile}><div className={s.toolbar}><strong>{tab==='dashboard'?'Dashboard del contratista':'Historial de trabajos'}</strong><label>Período<select aria-label="Período del historial" value={periodo} onChange={e=>{setPeriodo(e.target.value);setPagina(0)}}><option value="todos">Todo el historial</option><option value="90">Últimos 90 días</option><option value="mes">Mes actual</option></select></label></div>
- {cargando&&<p role="status">Cargando historial…</p>}{error&&<div role="alert"><p>{error}</p><button onClick={()=>setRevision(v=>v+1)}>Reintentar</button></div>}
+ {cargando&&<CargaDirectorio nombre="historial del contratista"/>}{error&&<div role="alert"><p>{error}</p><button onClick={()=>setRevision(v=>v+1)}>Reintentar</button></div>}
  {perfil&&<>{tab==='dashboard'?<><div className={s.metrics}>
  <button onClick={()=>go('trabajos')}><span>OT vinculadas</span><b>{perfil.resumen.total}</b><small>Según fecha de ingreso</small></button>
  <button onClick={()=>go('trabajos','Activos')}><span>Por atender</span><b>{perfil.resumen.pendiente+perfil.resumen.enProceso}</b><small>Pendientes y en proceso</small></button>

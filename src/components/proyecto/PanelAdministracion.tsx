@@ -1,12 +1,12 @@
-import { useContext, useEffect,useLayoutEffect, useId, useRef, type ReactNode } from 'react';
+import { useContext, useLayoutEffect, useId, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import styles from './AdministracionCreador.module.css';
 
 import {PanelAdministracionContext} from './panelAdministracionContext';
 
 /** Shared side editor. Master-data forms remain separate from the OT editor. */
-export function PanelAdministracion({ titulo, onCerrar, busy = false, children,acciones,cancelarCompacto=false,modal=false,textoCerrar }: {
-  titulo: string; onCerrar: () => void; busy?: boolean; children: ReactNode;acciones?:ReactNode;cancelarCompacto?:boolean;modal?:boolean;textoCerrar?:string;
+export function PanelAdministracion({ titulo, onCerrar, busy = false, children,acciones,cancelarCompacto=false,modal=false,textoCerrar,alturaEstable=false }: {
+  titulo: string; onCerrar: () => void; busy?: boolean; children: ReactNode;acciones?:ReactNode;cancelarCompacto?:boolean;modal?:boolean;textoCerrar?:string;alturaEstable?:boolean;
 }) {
   const destino = useContext(PanelAdministracionContext);
   const ref = useRef<HTMLElement>(null);
@@ -18,13 +18,13 @@ export function PanelAdministracion({ titulo, onCerrar, busy = false, children,a
     window.addEventListener('resize',ajustar);window.addEventListener('scroll',ajustar,true);
     return()=>{observer.disconnect();window.removeEventListener('resize',ajustar);window.removeEventListener('scroll',ajustar,true)};
   },[destino]);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const anterior = document.activeElement as HTMLElement | null;
-    ref.current?.querySelector<HTMLElement>('button:not(:disabled)')?.focus();
-    return () => { if (anterior?.isConnected) anterior.focus(); };
-  }, []);
+    ref.current?.querySelector<HTMLElement>('button:not(:disabled)')?.focus({preventScroll:true});
+    return () => { if (anterior?.isConnected) anterior.focus({preventScroll:true}); };
+  }, [destino]);
   if (!destino) return null;
-  const panel=<aside className={`${styles.sideEditor} ${modal?styles.customerDialog:''}`} ref={ref} role="dialog" aria-modal={modal||undefined} aria-busy={busy} aria-labelledby={id}
+  const panel=<aside className={`${styles.sideEditor} ${modal?styles.customerDialog:''} ${alturaEstable?styles.stableDialog:''}`} ref={ref} role="dialog" aria-modal={modal||undefined} aria-busy={busy} aria-labelledby={id}
     onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); if (!busy) onCerrar(); } if(modal&&e.key==='Tab'){const controls=[...(ref.current?.querySelectorAll<HTMLElement>('button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),a[href]')??[])].filter(el=>el.offsetParent!==null);const first=controls[0],last=controls.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last?.focus()}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first?.focus()}} }}>
     <header className={styles.editorHeader}><h3 id={id}>{titulo}</h3><button type="button" disabled={busy} aria-label={`Cerrar ${titulo}`} onClick={onCerrar}>✕</button></header>
     <div className={styles.editorBody}>{children}</div>
