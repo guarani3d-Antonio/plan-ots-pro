@@ -110,7 +110,7 @@ export default function Configuracion() {
 
   return (
     <main style={{ flex: 1, overflowY: 'auto', padding: 'clamp(16px, 3vw, 32px)', background: 'var(--bg-subtle)' }}>
-      <div style={{ maxWidth: 960, margin: '0 auto', display: 'grid', gap: 20 }}>
+      <div style={{ width: '100%', minWidth: 0, display: 'grid', gap: 20 }}>
         <header>
           <h1 style={{ margin: 0, color: 'var(--text-primary)' }}>Configuración</h1>
           <p style={{ color: 'var(--text-secondary)', marginBottom: 0 }}>Tu perfil y acceso actual</p>
@@ -125,7 +125,7 @@ export default function Configuracion() {
           <label style={{ display: 'inline-flex', padding: '8px 13px', border: '1px solid var(--border-default)', borderRadius: 8, cursor: 'pointer', marginBottom: 16 }}>Cambiar foto
             <input type="file" accept="image/*" style={{ position: 'absolute', width: 1, height: 1, opacity: 0 }} onChange={e => setFoto(e.target.files?.[0] ?? null)} />
           </label>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: 16 }}>
             <label style={{ display: 'grid', gap: 6 }}>Nombre
               <input style={fieldStyle} autoComplete="given-name" value={nombre} onChange={e => setNombre(e.target.value)} />
             </label>

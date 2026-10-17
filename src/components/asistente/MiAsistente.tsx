@@ -80,14 +80,15 @@ export function MiAsistente() {
   const connection = assistantConnection(assistant.connectionOwner === userId ? assistant.connectionStatus : status, assistant.connectionOwner === userId && assistant.connectionError);
   return <section className={styles.settings} aria-label="Mi asistente">
     <header className={styles.heading}><span className={`${styles.face} ${connection.active ? styles.apiActive : ''}`}><RobotAsistente /></span><div><h1>Mi asistente</h1><p>Tu conexión personal de IA y tus preferencias.</p></div></header>
-    <div className={styles.section}>
+    <div className={styles.layout}>
+    <div className={`${styles.section} ${styles.preferences}`}>
       <h2>Avatar y conversación</h2>
       <label className={styles.field}>Nombre del asistente<input value={name} maxLength={24} onChange={e => setName(e.target.value)} /></label>
       <label className={styles.check}><input type="checkbox" checked={readAloud} onChange={e => setReadAloud(e.target.checked)} />Ofrecer lectura en voz alta</label>
       {readAloud && <small>La voz del dispositivo se habilitará en la etapa de audio. No se conecta ningún servicio de voz con esta preferencia.</small>}
       <div className={styles.actions}><button type="button" onClick={() => { if (userId) { assistant.preferences(userId, { name, readAloud }); setNotice('Preferencias guardadas.'); } }}>Guardar preferencias</button><button type="button" className={styles.secondary} onClick={() => { if (userId) assistant.preferences(userId, { position: { x: 1, y: 1 } }); }}>Restablecer posición</button></div>
     </div>
-    <div className={styles.section}>
+    <div className={`${styles.section} ${styles.api}`}>
       <div className={styles.usageHeader}><h2>API personal</h2><button type="button" disabled={busy} onClick={() => setUsageRevision(value => value + 1)}>Actualizar estado</button></div>
       <div className={styles.connection} role="status"><strong>{connection.label}</strong><p>{connection.detail}</p>{status?.connected && <small>{status.provider === 'openai' ? 'OpenAI' : 'Anthropic'} · {status.models.find(m => m.id === status.model)?.name ?? status.model} · clave {status.hint} · sujeto al saldo y acceso del proveedor.</small>}</div>
       <div className={styles.fields}>
@@ -105,12 +106,13 @@ export function MiAsistente() {
       {connectionFeedback && <p className={connectionFeedback.error ? styles.error : styles.feedback} role={connectionFeedback.error ? 'alert' : 'status'}>{connectionFeedback.text}</p>}
       {confirmDisconnect && <div className={styles.confirm}><p>¿Desconectar tu clave del asistente? El consumo ya registrado se conserva.</p><div className={styles.actions}><button type="button" onClick={() => void disconnect()} disabled={busy}>Confirmar desconexión</button><button type="button" className={styles.secondary} onClick={() => setConfirmDisconnect(false)} disabled={busy}>Cancelar</button></div></div>}
     </div>
-    {remaining !== null && <div className={styles.section}>
+    {remaining !== null && <div className={`${styles.section} ${styles.usage}`}>
       <div className={styles.usageHeader}><h2>Consumo de este mes en Plan-OTs</h2></div>
       <div className={styles.metrics}><div><small>Consumo y reservas estimadas</small><strong>USD {(status?.usedUsd ?? 0).toFixed(4)}</strong></div><div><small>Disponible de tu tope</small><strong>USD {remaining.toFixed(4)}</strong></div><div><small>Tokens registrados</small><strong>{status?.usage ? (status.usage.inputTokens + status.usage.outputTokens).toLocaleString('es-PY') : 'No disponible'}</strong></div></div>
       {status?.usage && <><p className={styles.hint}>Entrada: {status.usage.inputTokens.toLocaleString('es-PY')} · Salida: {status.usage.outputTokens.toLocaleString('es-PY')} · Reservas pendientes: USD {status.usage.reservedUsd.toFixed(4)}</p>{(status.usage.pendingRequests > 0 || status.usage.unknownTokenRequests > 0) && <small>Hay consultas sin consumo de tokens confirmado. Sus reservas se conservan.</small>}<details className={styles.history}><summary>Últimas consultas ({status.usage.recent.length})</summary>{status.usage.recent.length === 0 ? <p className={styles.hint}>Todavía no hiciste consultas pagas desde Plan-OTs.</p> : status.usage.recent.map(row => <div key={row.id} className={styles.historyRow}><span>{new Date(row.created_at).toLocaleString('es-PY', { timeZone: 'America/Asuncion' })}<small>{row.model ?? 'Modelo no registrado'}</small></span><span>{row.state === 'completed' ? 'Registrada' : 'Reserva pendiente'}<small>{row.input_tokens === null || row.output_tokens === null ? 'Tokens no confirmados' : `${row.input_tokens} entrada · ${row.output_tokens} salida`} · USD {((row.charged_micro ?? row.reserved_micro) / 1e6).toFixed(6)}</small></span></div>)}</details></>}
       <small>Saldo total del proveedor: no disponible. Este contador sólo incluye Plan-OTs; los importes son estimados, sin impuestos. No equivale a tokens restantes en tu cuenta.</small>
     </div>}
+    </div>
     {error && assistant.connectionError && <p className={styles.error} role="alert">{error}</p>}{notice && <p className={styles.hint} role="status">{notice}</p>}
   </section>;
 }

@@ -65,7 +65,7 @@ export function ConfiguracionDashboardCreador() {
         {usuarios.map(u => <option key={u.user_id} value={u.user_id}>{u.nombre} · {u.email}</option>)}
       </select>
     </label>
-    {usuarioId && <div aria-busy={cargando} style={{ display: 'grid', gap: 8, maxWidth: 680 }}>
+    {usuarioId && <div aria-busy={cargando} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 340px), 1fr))', gap: 8, width: '100%', minWidth: 0 }}>
       {widgets.map((w, index) => <div key={w.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: 10, background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', borderRadius: 8 }}>
         <label style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}><input type="checkbox" checked={w.visible} disabled={cargando} onChange={() => setWidgets(prev => prev.map(item => item.id === w.id ? { ...item, visible: !item.visible } : item))} />{w.label}</label>
         <div style={{ display: 'flex', gap: 4 }}>
@@ -73,7 +73,7 @@ export function ConfiguracionDashboardCreador() {
           <button type="button" aria-label={`Bajar ${w.label}`} disabled={cargando || index === widgets.length - 1} onClick={() => mover(w.id, 1)}>↓</button>
         </div>
       </div>)}
-      <button type="button" style={{ justifySelf: 'start', padding: '10px 16px', borderRadius: 8, background: 'var(--accent)', color: 'white', fontWeight: 600 }} disabled={cargando || guardando} onClick={() => void guardar()}>{guardando ? 'Guardando…' : 'Guardar dashboard'}</button>
+      <button type="button" style={{ gridColumn: '1 / -1', justifySelf: 'start', padding: '10px 16px', borderRadius: 8, background: 'var(--accent)', color: 'white', fontWeight: 600 }} disabled={cargando || guardando} onClick={() => void guardar()}>{guardando ? 'Guardando…' : 'Guardar dashboard'}</button>
     </div>}
     {mensaje && <p role="status" style={{ marginBottom: 0 }}>{mensaje}</p>}
   </section>;

@@ -9,6 +9,23 @@ export const categoriasDirectorio = [
 export type CategoriaDirectorio = typeof categoriasDirectorio[number]['id'];
 export type ObraFiltroDirectorio = readonly [id:string,nombre:string];
 
+export interface HistorialDirectorio {
+ entradas: readonly (CategoriaDirectorio|null)[];
+ indice: number;
+}
+export function iniciarHistorialDirectorio(categoria:CategoriaDirectorio|null=null):HistorialDirectorio {
+ return {entradas:categoria?[null,categoria]:[null],indice:categoria?1:0};
+}
+export function visitarDirectorio(historial:HistorialDirectorio,categoria:CategoriaDirectorio|null):HistorialDirectorio {
+ if(historial.entradas[historial.indice]===categoria)return historial;
+ const entradas=[...historial.entradas.slice(0,historial.indice+1),categoria];
+ return {entradas,indice:entradas.length-1};
+}
+export function recorrerDirectorio(historial:HistorialDirectorio,paso:-1|1):HistorialDirectorio {
+ const indice=historial.indice+paso;
+ return indice<0||indice>=historial.entradas.length?historial:{...historial,indice};
+}
+
 export function puedeVerDirectorio(contexto:ContextoAcceso|null,tenant?:string,categoria?:CategoriaDirectorio):boolean {
  if(!contexto)return false;
  if(contexto.creador)return !tenant||contexto.empresas.some(e=>e.id===tenant);

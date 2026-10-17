@@ -97,7 +97,7 @@
   flex: 1;
   padding: 40px 48px;
   overflow-y: auto;
-  max-width: 860px;
+  container-type: inline-size;
 }
 
 .contenidoHeader {
@@ -167,7 +167,7 @@
   align-items: center;
   justify-content: center;
 }
-.pasoCuerpo { flex: 1; }
+.pasoCuerpo { flex: 1; min-width:0; overflow-wrap:anywhere; }
 .pasoTexto {
   margin: 0;
   font-size: 14.5px;
@@ -186,6 +186,7 @@
 }
 
 .railItem { min-height:44px; flex-shrink:0; }
+@container(min-width:850px){.pasos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}}
 .railSub, .badgeProx { color:#64748B; }
 @container (max-width:850px) { .rail { width:220px; } .contenido { padding:24px; } .railHeader { padding:16px; } }
 @container (max-width:500px) { .rail { width:100%; max-height:220px; border-right:0; border-bottom:1px solid #E5E7EB; } .contenido { padding:16px; } .paso { padding:12px; gap:10px; } }

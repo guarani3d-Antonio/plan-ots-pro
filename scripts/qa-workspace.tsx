@@ -1,0 +1,12 @@
+import {createRoot} from 'react-dom/client';
+import {MiAsistente} from '../src/components/asistente/MiAsistente';
+import PantallaAyuda from '../src/components/ayuda/PantallaAyuda';
+import {useAuthStore} from '../src/stores/authStore';
+import {useAssistantStore} from '../src/stores/assistantStore';
+import type {User} from '@supabase/supabase-js';
+import '../src/index.css';
+const id='61000000-0000-4000-8000-000000000001';
+useAuthStore.setState({user:{id,email:'qa@example.test',user_metadata:{},app_metadata:{},aud:'authenticated',created_at:'2026-10-17'} as User});
+useAssistantStore.setState({name:'MIA',readAloud:true,connectionOwner:id,connectionStatus:{installed:true,ready:true,connected:true,provider:'openai',model:'qa',hint:'••••QA',budgetUsd:.05,usedUsd:.001,models:[],usage:{month:'2026-10',requests:0,inputTokens:120,outputTokens:30,unknownTokenRequests:0,pendingRequests:0,confirmedUsd:.001,reservedUsd:0,recent:[]}}});
+const query=new URLSearchParams(location.search),narrow=query.has('narrow');
+createRoot(document.getElementById('root')!).render(narrow?<iframe title="Pantalla a 320 px" src={`/scripts/qa-workspace.html?${query.has('help')?'help=1':''}`} style={{width:320,height:1600,border:0}}/>:<div style={{width:'100%',minHeight:'100vh',background:'var(--bg-subtle)'}}>{query.has('help')?<div style={{height:'100vh'}}><PantallaAyuda/></div>:<MiAsistente/>}</div>);

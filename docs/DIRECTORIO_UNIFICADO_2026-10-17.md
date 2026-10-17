@@ -3,7 +3,7 @@
 ## Comportamiento
 
 - La barra lateral agrupa Clientes, Responsables/Técnicos, Contratistas y el acceso previsto a Contactos bajo **Directorio**. Gantt y Calendario mantienen sus entradas.
-- El inicio muestra cuatro accesos; al entrar en una categoría aparecen pestañas para cambiar sin volver al inicio. Pulsar Directorio en la barra estando dentro vuelve al inicio, conservando el contexto.
+- El inicio muestra cuatro accesos. Dentro se usan flechas Atrás y Adelante para recorrer las pantallas visitadas, sin repetir las categorías como pestañas. Directorio vuelve al inicio conservando el contexto. Una visita nueva después de retroceder reemplaza el recorrido hacia adelante; los extremos quedan deshabilitados.
 - Solo el creador ve la búsqueda y selección de empresa. Se aprovecha una empresa activa válida; si aún no la eligió, se muestran opciones con búsqueda después de entrar en la categoría.
 - Una cuenta de empresa utiliza su empresa asignada o su contexto activo autorizado. No existe selector de empresa para estas cuentas. Si hay varias membresías y no hay contexto activo válido, se informa el problema sin asumir una empresa arbitraria.
 - La obra se comparte entre las categorías y se conserva también al volver al inicio. Los filtros se guardan en memoria por empresa durante esta visita al Directorio; no se escribe información de negocio en almacenamiento nuevo.
@@ -36,3 +36,12 @@ Evidencia local: `output/directorio-implementation-20261017/`. Verificar Cloudfl
 - Tarjetas más compactas, con iconos menores y el aviso de Contactos junto al título. En la comprobación amplia, los cuatro accesos miden 120 px de alto y sus acciones quedan alineadas.
 - Verificación local de TypeScript y compilación Vite correcta; selección de empresa a 320 px con contenido de 320 px y sin controles fuera del ancho. No se modifica la lógica de permisos, empresa, obra o fichas.
 - Punto de retorno del ajuste: `3547205`; respaldos en `backups/directorio-interfaz-20261017/`. Evidencias en `output/directorio-layout-20261017/`.
+
+## Navegación y aprovechamiento del ancho
+
+- Flechas con nombres accesibles y enlace al inicio. Las entradas históricas directas a categorías permiten retroceder al inicio. La guardia de cambios sigue protegiendo las fichas; empresa y obra quedan fuera del historial y conservan su selección actual.
+- Mi asistente elimina el tope de 850 px y distribuye preferencias y consumo a la izquierda, conexión a la derecha cuando el contenido dispone de 960 px. En espacios menores se apila sin desbordes.
+- Configuración, Ayuda, Proyectos y las secciones de reglas de notificaciones y configuración de dashboard del creador eliminan topes de ancho fijos. Ayuda distribuye los pasos en dos columnas cuando hay espacio suficiente. Se mantienen los límites de campos, diálogos, imágenes y avisos que corresponden a su contenido.
+- Dashboard, Grilla, Gantt, Calendario y Administración ya disponen de contenedores fluidos; no se modifican por este motivo.
+- Verificación: prueba de historial, TypeScript y compilación correctos; ensayo con datos ficticios de retroceso/avance, selección de obra conservada, nueva categoría y guardia de borrador. Asistente a 1280 px utiliza el ancho completo y a 320 px no desborda. Ayuda ocupa el ancho restante y presenta pasos en dos columnas a 1280 px.
+- Punto de retorno: `048cbc7`; respaldos con hashes verificados en `backups/directorio-navegacion-20261017/`. Evidencia: `output/directorio-navigation-20261017/`.
