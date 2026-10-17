@@ -34,6 +34,11 @@
 
 Evidencia local: `output/responsables-perfil-20261017/`.
 
+## Publicación
+
+- Implementación publicada: `2f552f0`, con Cloudflare correcto y verificación visual de la cuenta real en Empresa prueba de campo: 3 OT, 2 abiertas, 1 cerrada; promedio de 4 días con una OT con fechas válidas.
+- Ajuste de cierre: el avatar cerrado de MIA queda por debajo de las ventanas modales, para que no tape los botones de la ficha en pantallas pequeñas. La conversación abierta conserva su superposición habitual.
+
 ## Reversión
 
 Punto de retorno anterior: `ea4bd4e`. Revertir primero el cliente al estado anterior de Responsables y luego ejecutar `supabase/rollback/202610170001_responsible_profiles.sql`. La reversión deshabilita las nuevas RPC y conserva las fichas, las fotos y la auditoría; no elimina información.
