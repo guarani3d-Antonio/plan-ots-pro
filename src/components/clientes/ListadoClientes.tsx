@@ -4,20 +4,21 @@ import {filtrarDirectorioClientes} from '../../services/customerDirectoryModel';
 import {fechaPerfil} from '../../services/customerProfileModel';
 import {FotoDirectorio} from '../plano/FotoDirectorio';
 import {CargaDirectorio} from './CargaDirectorio';
+import {useFiltroObraDirectorio} from '../directorio/FiltroObraDirectorio';
 import s from './ListadoClientes.module.css';
 
 export function ListadoClientes({registros,cargando,error,puedeCrear,onCrear,onVer,onReintentar}:{
  registros:ClienteDirectorio[];cargando:boolean;error:string;puedeCrear:boolean;
  onCrear:()=>void;onVer:(f:ClienteDirectorio)=>void;onReintentar:()=>void;
 }){
- const [buscar,setBuscar]=useState(''),[obra,setObra]=useState('todos'),[estado,setEstado]=useState('todos');
- const obras=useMemo(()=>[...new Map(registros.flatMap(c=>c.ubicaciones.map(u=>[u.obra_id,u.nombre_obra] as const))).entries()].sort((a,b)=>a[1].localeCompare(b[1],'es')),[registros]);
- const obraActual=obras.some(([id])=>id===obra)?obra:'todos';
+ const [buscar,setBuscar]=useState(''),[estado,setEstado]=useState('todos');
+ const locales=useMemo(()=>[...new Map(registros.flatMap(c=>c.ubicaciones.map(u=>[u.obra_id,u.nombre_obra] as const))).entries()].sort((a,b)=>a[1].localeCompare(b[1],'es')),[registros]);
+ const {obras,obra,setObra}=useFiltroObraDirectorio(locales),obraActual=obra||'todos';
  const resultados=filtrarDirectorioClientes(registros,buscar,obraActual,estado);
  return <section className={s.listado} aria-label="Directorio de clientes">
   <div className={s.toolbar}>
    <label className={s.search}><span aria-hidden="true">⌕</span><input type="search" aria-label="Buscar clientes" placeholder="Buscar cliente, CI / RUC, obra o unidad…" value={buscar} onChange={e=>setBuscar(e.target.value)}/></label>
-   <select aria-label="Filtrar clientes por obra" value={obraActual} onChange={e=>setObra(e.target.value)}><option value="todos">Todas las obras</option>{obras.map(([id,nombre])=><option key={id} value={id}>{nombre}</option>)}</select>
+   <select aria-label="Filtrar clientes por obra" value={obraActual} onChange={e=>setObra(e.target.value==='todos'?'':e.target.value)}><option value="todos">Todas las obras</option>{obras.map(([id,nombre])=><option key={id} value={id}>{nombre}</option>)}</select>
    <select aria-label="Filtrar clientes por estado" value={estado} onChange={e=>setEstado(e.target.value)}><option value="todos">Todos los clientes</option><option value="activos">Activos</option><option value="inactivos">Inactivos</option><option value="abiertas">Con OTs abiertas</option></select>
    <button className={s.crear} type="button" disabled={cargando||!puedeCrear} onClick={onCrear}>+ Crear cliente</button>
   </div>

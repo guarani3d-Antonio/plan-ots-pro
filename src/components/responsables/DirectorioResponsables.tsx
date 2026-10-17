@@ -19,11 +19,11 @@ function Directorio({setTarget}:{setTarget:(el:HTMLDivElement|null)=>void}){
  const tenant=disponible?(empresas.some(e=>e.id===empresaId)?empresaId:!creador&&empresas.length===1?empresas[0].id:''):'',empresa=empresas.find(e=>e.id===tenant);
  useEffect(()=>{if(disponible&&!creador&&tenant&&empresaId!==tenant)useAccessStore.setState({empresaId:tenant})},[tenant,disponible,creador,empresaId]);
  return <div className={page.creator}><header className={page.pageHeader}><div><h1>Responsables / Técnicos</h1><p>{creador&&empresa?empresa.nombre+' · ':''}Tu equipo, sus obras y su carga de trabajo.</p></div>{creador?<label className={page.companyContext}>Empresa<select aria-label="Empresa del directorio de responsables" value={tenant} onChange={e=>guard.solicitar(()=>useAccessStore.setState({empresaId:e.target.value}))}><option value="">Seleccionar una empresa…</option>{empresas.map(e=><option key={e.id} value={e.id}>{e.nombre}</option>)}</select></label>:empresa&&<span className={page.companyName}>{empresa.nombre}</span>}</header>
-  {empresa?<ContenidoDirectorio key={tenant} tenant={tenant}/>:<p className={page.hint}>{!disponible?'Validando los permisos…':creador?'Seleccioná una empresa para consultar sus responsables.':'No se pudo identificar la empresa o el permiso del perfil.'}</p>}
+  {empresa?<ContenidoResponsables key={tenant} tenant={tenant}/>:<p className={page.hint}>{!disponible?'Validando los permisos…':creador?'Seleccioná una empresa para consultar sus responsables.':'No se pudo identificar la empresa o el permiso del perfil.'}</p>}
   <div ref={setTarget}/>
  </div>;
 }
-function ContenidoDirectorio({tenant}:{tenant:string}){
+export function ContenidoResponsables({tenant}:{tenant:string}){
  const guard=useContext(GuardiaAdministracionContext),[registros,setRegistros]=useState<ResponsableFicha[]>([]),[sinCuenta,setSinCuenta]=useState(0),[cargando,setCargando]=useState(true),[error,setError]=useState(''),[version,setVersion]=useState(0),[seleccion,setSeleccion]=useState<string|null>(null),[nuevo,setNuevo]=useState(false);
  useEffect(()=>{let active=true;setCargando(true);setError('');void listarResponsables(tenant).then(r=>{if(active){setRegistros(r.responsables);setSinCuenta(r.sinCuenta);setSeleccion(id=>r.responsables.some(p=>p.id===id)?id:null)}}).catch(e=>{if(active){setError(e.message);setSeleccion(null);setNuevo(false)}}).finally(()=>{if(active)setCargando(false)});return()=>{active=false}},[tenant,version]);
  const persona=registros.find(p=>p.id===seleccion);

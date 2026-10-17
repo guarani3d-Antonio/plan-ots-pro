@@ -14,6 +14,7 @@ export type Vista =
   | 'plano'
   | 'responsables'
   | 'clientes'
+  | 'directorio'
   | 'gantt'
   | 'calendario'
   | 'contratistas'
@@ -64,9 +65,7 @@ const NAV_PRINCIPAL: NavItem[] = [
 ];
 
 const NAV_GLOBALES: NavItem[] = [
-  { vista: 'clientes', icon: ICONS.clientes, label: 'Clientes' },
-  { vista: 'responsables', icon: ICONS.responsables, label: 'Responsables' },
-  { vista: 'contratistas', icon: ICONS.contratistas, label: 'Contratistas' },
+  { vista: 'directorio', icon: ICONS.clientes, label: 'Directorio' },
   { vista: 'gantt',        icon: ICONS.gantt, label: 'Gantt' },
   { vista: 'calendario',   icon: ICONS.calendario, label: 'Calendario' },
 ];
@@ -118,7 +117,7 @@ export function Sidebar({
   if (hidden) return null;
 
   const renderItem = (it: NavItem) => {
-    const activo = vistaActiva === it.vista;
+    const activo = vistaActiva === it.vista || it.vista === 'directorio' && ['clientes','responsables','contratistas'].includes(vistaActiva);
     return (
       <button
         key={it.vista}

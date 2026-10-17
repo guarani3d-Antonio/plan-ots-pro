@@ -12,11 +12,9 @@ import { VistaGrilla } from './components/grilla/VistaGrilla';
 import { Sidebar, type Vista } from './components/layout/Sidebar';
 import { ApplicationTopBar } from './components/layout/ApplicationTopBar';
 import Dashboard      from './components/views/Dashboard';
-import Responsables   from './components/views/Responsables';
-import Clientes from './components/views/Clientes';
+import Directorio, {type DirectorioHandle} from './components/directorio/Directorio';
 import Gantt          from './components/views/Gantt';
 import Calendario     from './components/views/Calendario';
-import Contratistas   from './components/views/Contratistas';
 import Configuracion  from './components/views/Configuracion';
 import { useModoTablet } from './hooks/useModoTablet';
 import { useHeartbeat } from './hooks/useHeartbeat';
@@ -44,6 +42,7 @@ function ContenidoApp() {
   const proyectoActivo                = useProyectosStore(s => s.proyectoActivo);
   const setProyectoActivo             = useProyectosStore(s => s.setProyectoActivo);
   const [vista, setVista]             = useState<Vista>('proyectos');
+  const directorioRef = useRef<DirectorioHandle|null>(null);
   const [fullscreen, setFullscreen]   = useState(false);
   const [accionPendiente, setAccionPendiente] = useState<(() => void) | null>(null);
   const rutaActual = useRef<RutaApp>({ planots: true, vista: 'proyectos', proyectoId: null });
@@ -154,6 +153,7 @@ function ContenidoApp() {
   };
 
   const cambiarVista = useCallback((v: Vista) => {
+    if (v === 'directorio' && v === vista) { directorioRef.current?.irInicio(); return; }
     if (v === vista) return;
     intentarNavegar(() => navegarARuta(v, v === 'grilla' ? null : undefined));
   }, [intentarNavegar, navegarARuta, vista]);
@@ -219,11 +219,12 @@ function ContenidoApp() {
             onAbrirProyecto={(p) => navegarARuta('plano', p)}
           />
         );
-      case 'responsables':  return <Responsables />;
-      case 'clientes':      return <Clientes />;
+      case 'directorio':   return <Directorio key="directorio" ref={directorioRef} />;
+      case 'responsables':
+      case 'clientes':
+      case 'contratistas': return <Directorio key={vista} categoriaInicial={vista} ref={directorioRef} />;
       case 'gantt':         return <Gantt />;
       case 'calendario':    return <Calendario />;
-      case 'contratistas':  return <Contratistas />;
       case 'creador':      return <AdministracionCreador />;
       case 'configuracion': return <Configuracion />;
       case 'ayuda':         return <PantallaAyuda />;

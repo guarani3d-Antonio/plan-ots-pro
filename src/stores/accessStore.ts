@@ -39,6 +39,7 @@ export function tienePermiso(clave:string,proyecto?:string|null,tenant?:string):
  return contexto.empresas.some(e=>(!tenant||e.id===tenant)&&e.permisos?.includes(clave));
 }
 export function permisoVista(vista:string):boolean {
+ if(vista==='directorio')return ['cliente.ver','equipo.ver','contratista.ver','contacto.ver'].some(k=>tienePermiso(k));
  if(vista==='responsables')return tienePermiso('equipo.ver');
  if(vista==='clientes')return tienePermiso('cliente.ver');
  if(vista==='creador')return ['equipo.ver','empresa.ver','obra.ver','cliente.ver','contratista.ver','contacto.ver'].some(k=>tienePermiso(k));

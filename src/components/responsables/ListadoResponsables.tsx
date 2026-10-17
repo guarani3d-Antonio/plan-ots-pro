@@ -3,10 +3,12 @@ import type {ResponsableFicha} from '../../services/responsibleProfileService';
 import {coincideBusqueda} from '../../utils/busqueda';
 import {CargaDirectorio} from '../clientes/CargaDirectorio';
 import {FotoResponsable} from './FotoResponsable';
+import {useFiltroObraDirectorio} from '../directorio/FiltroObraDirectorio';
 import s from '../clientes/ListadoClientes.module.css';
 export function ListadoResponsables({registros,cargando,error,puedeCrear,onCrear,onVer,onReintentar}:{registros:ResponsableFicha[];cargando:boolean;error:string;puedeCrear:boolean;onCrear:()=>void;onVer:(p:ResponsableFicha)=>void;onReintentar:()=>void}){
- const [texto,setTexto]=useState(''),[obra,setObra]=useState('');
- const obras=useMemo(()=>[...new Map(registros.flatMap(p=>p.obras.map(w=>[w.id,w.nombre] as const)))].sort((a,b)=>a[1].localeCompare(b[1],'es')),[registros]),actual=obras.some(([id])=>id===obra)?obra:'';
+ const [texto,setTexto]=useState('');
+ const locales=useMemo(()=>[...new Map(registros.flatMap(p=>p.obras.map(w=>[w.id,w.nombre] as const)))].sort((a,b)=>a[1].localeCompare(b[1],'es')),[registros]);
+ const {obras,obra:actual,setObra}=useFiltroObraDirectorio(locales);
  const visibles=registros.filter(p=>(!actual||p.obras.some(w=>w.id===actual))&&coincideBusqueda([p.nombre,p.email,p.cargo,...Object.values(p.datos)].join(' '),texto));
  return <section className={s.listado} aria-label="Directorio de responsables"><div className={s.toolbar}>
   <label className={s.search}><span aria-hidden="true">⌕</span><input type="search" aria-label="Buscar responsables" placeholder="Nombre, documento, especialidad o correo…" value={texto} onChange={e=>setTexto(e.target.value)}/></label>
