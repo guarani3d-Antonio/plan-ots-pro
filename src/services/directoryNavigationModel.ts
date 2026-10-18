@@ -4,7 +4,7 @@ export const categoriasDirectorio = [
  {id:'clientes',nombre:'Clientes',permiso:'cliente.ver',descripcion:'Datos, unidades, reclamos y encuestas.'},
  {id:'responsables',nombre:'Responsables / Técnicos',corto:'Responsables',permiso:'equipo.ver',descripcion:'Cuentas del equipo, OT e indicadores.'},
  {id:'contratistas',nombre:'Contratistas',permiso:'contratista.ver',descripcion:'Trabajos, presupuestos y evaluaciones.'},
- {id:'contactos',nombre:'Contactos',permiso:'contacto.ver',descripcion:'Personas de contacto de cada obra.',proxima:true},
+ {id:'contactos',nombre:'Contactos',permiso:'contacto.ver',descripcion:'Personas, obras y comunicaciones.'},
 ] as const;
 export type CategoriaDirectorio = typeof categoriasDirectorio[number]['id'];
 export type ObraFiltroDirectorio = readonly [id:string,nombre:string];
