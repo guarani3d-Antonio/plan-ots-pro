@@ -13,7 +13,7 @@
     "test:document-request": "node scripts/test-document-request.mjs",
     "build:controlled-report": "node scripts/build-controlled-report.mjs",
     "preview": "vite preview",
-    "test:backups": "node scripts/test-backups.mjs && node scripts/test-backup-download.mjs && node scripts/test-backup-work-check.mjs",
+    "test:backups": "node scripts/test-backups.mjs && node scripts/test-backup-download.mjs && node scripts/test-backup-work-check.mjs && node scripts/test-backup-contractor-storage.mjs",
     "test:claims": "node scripts/test-claims-pilot.mjs",
     "backup:check": "node server/backup/check.mjs",
     "backup:lab-check": "node server/backup/lab-check.mjs",

@@ -15,6 +15,7 @@ import {randomUUID} from 'node:crypto';
 import {writeArchive,unpackArchive,scopeSnapshot,canonical,hashFile,reuseIndex} from './archive.mjs';
 import {rehearseRecovery,recoveryFailure} from './recovery.mjs';
 import {databaseOptions,dumpEnvironment} from './database.mjs';
+import {assertStorageCoverage} from './coverage.mjs';
 const required=['SUPABASE_URL','SUPABASE_SERVICE_ROLE_KEY','SUPABASE_ANON_KEY','DATABASE_URL','BACKUP_MASTER_KEY','BACKUP_RELEASE_ID','R2_ENDPOINT','R2_ACCESS_KEY_ID','R2_SECRET_ACCESS_KEY','R2_BUCKET','BACKUP_ALLOWED_ORIGIN'];
 for(const name of required)if(!process.env[name])throw new Error('Falta configurar '+name);
 const E=process.env,api=createClient(E.SUPABASE_URL,E.SUPABASE_SERVICE_ROLE_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
@@ -55,6 +56,7 @@ async function patch(job,values){const r=await api.from('plan_respaldos').update
   if(!job.tenant_id)for(const r of (await db.query("select tablename from pg_tables where schemaname='auth'")).rows){const name=r.tablename.replaceAll('"','""');raw.entorno.authConteos[r.tablename]=(await db.query(`select count(*)::text n from auth."${name}"`)).rows[0].n;}
   raw.entorno.settings=(await db.query("select jsonb_object_agg(name,setting) settings from pg_settings where name in ('TimeZone','DateStyle','IntervalStyle','extra_float_digits')")).rows[0].settings;
   const snapshot=scopeSnapshot(raw,job.tenant_id),corte=snapshot.corte_en;
+  assertStorageCoverage(snapshot);
   const data=canonical(snapshot);const sourceBytes=snapshot.storage.reduce((sum,o)=>sum+Number(o.metadata?.size||0),Buffer.byteLength(data));
   const config=ok(await api.from('plan_respaldo_config').select('*').eq('id',true).single());
   // Conservative ceiling leaves room for the dump, encryption and multipart upload.
@@ -84,7 +86,6 @@ async function patch(job,values){const r=await api.from('plan_respaldos').update
   }
   let objectIndex=0,bytes=Buffer.byteLength(data),copiedSourceBytes=0,reusedObjects=0;
   for(const object of snapshot.storage){
-   if(!['planos','fotos','exports','directory-photos','profile-photos'].includes(object.bucket_id))throw new Error('Nuevo depósito requiere revisar la cobertura: '+object.bucket_id);
    const metadata=()=>api.rpc('plan_respaldo_objeto',{p_bucket:object.bucket_id,p_path:object.name}).then(ok);
    if(canonical(await metadata())!==canonical(object))throw new Error('Un archivo cambió después del corte; repetir copia');
    const file=join(dir,`object-${objectIndex}.bin`),cached=reusable.get(`${object.bucket_id}/${object.name}`);
