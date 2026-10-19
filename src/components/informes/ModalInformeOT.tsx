@@ -30,7 +30,7 @@ import { borradorModificado } from '../../services/reportDraftComparison';
 // S33: FotoMin incluye descripcion_observacion (campo del EditorFoto).
 //      Los tres mapeos de fotos ahora pasan ese campo al generador de informes.
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useAccessStore, tienePermiso } from '../../stores/accessStore';
 import { useAuthStore } from '../../stores/authStore';
 import type { OrdenLocal } from '../../types/orden';
@@ -78,6 +78,7 @@ interface Props {
   tipo: TipoInforme;
   puedeRevisar?: boolean;
   soloVistaPrevia?: boolean;
+  salidaGuardRef?: React.MutableRefObject<(() => boolean) | null>;
   documentoInicialId?: string;
   revisionInicialId?: string;
   onDocumentoChange?: (doc:DocumentoRegistro,borrador?:{datos:Record<string,unknown>;version:number},revisiones?:RevisionDocumento[])=>void;
@@ -363,7 +364,7 @@ function encuestaGuardada(valor: unknown, inicial: DatosEncuesta = ENCUESTA_INIC
 
 
 export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, puedeRevisar = false,
-  soloVistaPrevia = false, documentoInicialId, revisionInicialId, onDocumentoChange }: Props) {
+  soloVistaPrevia = false, documentoInicialId, revisionInicialId, onDocumentoChange, salidaGuardRef }: Props) {
   const emisionDisponible = import.meta.env.VITE_DOCUMENT_ISSUANCE_ENABLED === 'true';
   const esCreador = useAccessStore(s => s.disponible && s.contexto?.creador === true);
   const usuarioId = useAuthStore(s => s.user?.id);
@@ -846,6 +847,21 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
     firmantes,firmas,firmasRevision,cargandoFirmas,errorFirmas,
   ]);
 
+  const validarSalidaRef = useRef<() => boolean>(() => true);
+  const cambiosSalidaRef = useRef(false);
+  useLayoutEffect(() => {
+    if (!salidaGuardRef || !isOpen) return;
+    salidaGuardRef.current = () => validarSalidaRef.current();
+    return () => { salidaGuardRef.current = null; };
+  }, [salidaGuardRef, isOpen]);
+  useEffect(() => {
+    if (!isOpen || soloVistaPrevia) return;
+    const warn = (event: BeforeUnloadEvent) => {
+      if (cambiosSalidaRef.current) { event.preventDefault(); event.returnValue=''; }
+    };
+    window.addEventListener('beforeunload',warn);
+    return () => window.removeEventListener('beforeunload',warn);
+  }, [isOpen,soloVistaPrevia]);
   if (!isOpen) return null;
 
   const reintentarPlano = async () => {
@@ -884,6 +900,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
   const planoRequerido = TIPOS_CON_PLANO.includes(tipo) && orden.pos_x != null && orden.pos_y != null &&
     Number.isFinite(orden.pos_x) && Number.isFinite(orden.pos_y);
   const cambiosBorrador = borradorModificado(guardado, datosBorrador);
+  cambiosSalidaRef.current = cambiosBorrador && !cargandoComentario;
   const revisionActual = revisiones.find(revision => revision.borrador_version === versionBorrador);
   const camposBloqueados = !persistenciaDisponible || !!revisionInicialId || !tienePermiso('informe.editar',orden.proyecto_id) || cargandoComentario || actualizandoCampos || (versionBorrador>0 && !correccionAbierta);
   function revisionActualConFirmantes(){return revisionFirma?.datos.firmantes!==undefined;}
@@ -1166,11 +1183,15 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
   const aprobacionEmitible = aprobaciones.find(a => a.candidato_id === candidatoEmitible?.id);
   const emisionActual = emisiones.find(e => e.candidato_id === candidatoEmitible?.id);
   const candidatoEmitido = candidatos.find(c => c.id === emisiones[0]?.candidato_id);
-  const cerrarInforme = () => {
-    if (guardandoBorrador || congelandoRevision || procesandoDocumento) return;
+  validarSalidaRef.current = () => {
+    if (guardandoBorrador || congelandoRevision || procesandoDocumento) return false;
     if (!soloVistaPrevia && !cargandoComentario && cambiosBorrador &&
-      !window.confirm('Hay cambios sin guardar en este informe. ¿Querés descartarlos y cerrar?')) return;
-    onClose();
+      !window.confirm('Hay cambios sin guardar en este informe. ¿Querés descartarlos y cerrar?')) return false;
+    return true;
+  };
+  const cerrarInforme = () => {
+    // El propietario comprueba la salida tanto con X como con Atrás/Adelante.
+    if (salidaGuardRef || validarSalidaRef.current()) onClose();
   };
   const verificandoEstado = soloVistaPrevia && !!documento && estadoEmisionConsultado !== documento.id;
   const pdfEmitidoPendiente = soloVistaPrevia && (emisiones.length > 0 || !!errorEmision) && !pdfBlobUrl;

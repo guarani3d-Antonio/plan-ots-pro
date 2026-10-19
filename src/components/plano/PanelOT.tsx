@@ -68,6 +68,8 @@ import EditorFoto, { type FotoMinima } from './EditorFoto';
 import ModalDescripcionFoto from './ModalDescripcionFoto';
 import { describirFotoConIA } from '../../services/iaService';
 import { usePuedeVerCostos } from '../../hooks/usePuedeVerCostos';
+import { useHistoryState } from '../../hooks/useHistoryState';
+import { leerRutaInforme } from '../../services/gridNavigation';
 
 interface PanelOTProps {
   orden: OrdenLocal | null;
@@ -76,6 +78,8 @@ interface PanelOTProps {
   modoForzadoFotos?: boolean;
   esNueva?: boolean;
   tabInicial?: Tab;
+  historialExterno?: boolean;
+  salidaGuardRef?: React.MutableRefObject<(() => boolean) | null>;
 }
 
 type Tab = 'datos' | 'fotos' | 'informes' | 'campos';
@@ -242,7 +246,7 @@ function BtnEditarFotoCard({ onClick, disabled = false, title }: { onClick: () =
   );
 }
 
-export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzadoFotos = false, esNueva = false, tabInicial = 'datos' }: PanelOTProps) {
+export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzadoFotos = false, esNueva = false, tabInicial = 'datos', historialExterno = false, salidaGuardRef }: PanelOTProps) {
   const { actualizarOrden, cambiarEstado, cancelarOrdenNueva, eliminarOrden, moverOrden } = useOrdenesStore();
   const { user } = useAuthStore();
   const proyectoActivo = useProyectosStore(s => s.proyectoActivo);
@@ -290,11 +294,16 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
   const [errorGuardado,    setErrorGuardado]   = useState(false);
   const etapasRef = useRef<EtapasOTHandle>(null);
   const [etapasDirty,setEtapasDirty] = useState(false);
-  const [documentoInicialId,setDocumentoInicialId] = useState<string>();
-  const [revisionInicialId,setRevisionInicialId] = useState<string>();
+  const informeSalidaRef = useRef<(() => boolean) | null>(null);
+  const [rutaInforme, abrirInforme, cerrarInforme] = useHistoryState(
+    `planotsInforme:${ordenProp?.id}`, leerRutaInforme,
+    () => informeSalidaRef.current?.() ?? true,
+  );
+  const documentoInicialId = rutaInforme?.documentoId;
+  const revisionInicialId = rutaInforme?.revisionId;
+  const modalCierre = rutaInforme !== null;
+  const tipoInforme = rutaInforme?.tipo ?? 'cierre';
   const retornoDatosRef=useRef(false);
-  const [modalCierre,     setModalCierre]     = useState(false);
-  const [tipoInforme,     setTipoInforme]     = useState<TipoInformeModal>('cierre');
 
   // ── Rol del usuario en el proyecto ──────────────────────
   const permiso = usePermisoObra(ordenFresca?.proyecto_id);
@@ -544,7 +553,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
     || JSON.stringify(valoresCampos) !== JSON.stringify(baseVisible?.campos ?? {});
   useLayoutEffect(() => { cambiosRef.current = cambiosSinGuardar; }, [cambiosSinGuardar]);
   useEffect(() => {
-    if (!ordenProp?.id) return;
+    if (!ordenProp?.id || historialExterno) return;
     const marcador = `ot:${ordenProp.id}`;
     history.pushState({ ...history.state, planotsOT: marcador }, '');
     const alVolver = (event: PopStateEvent) => {
@@ -560,8 +569,9 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
     };
     window.addEventListener('popstate', alVolver);
     return () => window.removeEventListener('popstate', alVolver);
-  }, [ordenProp?.id]);
+  }, [ordenProp?.id, historialExterno]);
   const cerrarPanel = () => {
+    if (historialExterno) { onCerrar(); return; }
     if (history.state?.planotsOT === `ot:${ordenProp?.id}`) {
       omitirAvisoBackRef.current = true;
       history.back();
@@ -573,8 +583,15 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
     window.addEventListener('beforeunload', warn);
     return () => window.removeEventListener('beforeunload', warn);
   }, [cambiosSinGuardar]);
+  useLayoutEffect(() => {
+    if (!salidaGuardRef) return;
+    salidaGuardRef.current = () => !saveLock.current && !clienteBusyRef.current &&
+      (!cambiosRef.current || window.confirm('Hay cambios sin guardar. ¿Querés descartarlos y cerrar?'));
+    return () => { salidaGuardRef.current = null; };
+  }, [salidaGuardRef]);
   const cerrarConAviso = () => {
     if (saveLock.current || clienteBusyRef.current) return;
+    if (historialExterno) { onCerrar(); return; }
     if (!cambiosSinGuardar || window.confirm('Hay cambios sin guardar. ¿Querés descartarlos y cerrar?')) cerrarPanel();
   };
   const [historialRefresh, setHistorialRefresh] = useState(0);
@@ -595,7 +612,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
 
   useEffect(() => {
     if (!ordenProp?.id) return;
-    retornoDatosRef.current=false;setRevisionInicialId(undefined);
+    retornoDatosRef.current=false;
     setTab(modoForzadoFotos ? 'fotos' : tabInicial);
     setConfirmEliminar(false);
     setErrorFotos(null);
@@ -1183,9 +1200,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
                 onPreview={async (tipo,revision)=>{
                   if(saveLock.current||clienteBusyRef.current)return;
                   if(cambiosSinGuardar&&!await handleGuardar())return;
-                  setDocumentoInicialId(etapasRef.current?.documento(tipo));
-                  setRevisionInicialId(revision);
-                  setTipoInforme(tipo);setModalCierre(true);
+                  abrirInforme({tipo,documentoId:etapasRef.current?.documento(tipo),revisionId:revision});
                 }}
                 evidenciasIds={tipo=>{const fotos=tipo==='avance'?[...fotosAntes,...fotosDurante]:tipo==='cierre'?[...fotosAntes,...fotosDespues]:categoriaEtapa(tipo)?fotosAntes:[];return fotos.map(f=>f.id);}}
                 evidencia={(tipo,datos,readOnly)=>{
@@ -1374,7 +1389,7 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
                         </div>
                         <span className={`${styles.informeEstado} ${disponible ? styles.informeOk : styles.informeNo}`}>{disponible ? 'Disponible' : 'No disponible'}</span>
                       </div>
-                      <button className={styles.btnGenerar} onClick={() => { if (cambiosSinGuardar) { mostrar('Guardá los cambios de la OT antes de generar el informe.', 'info'); return; } const tipoModal: TipoInformeModal = tipo === 'acta_conformidad' ? 'acta' : tipo; setDocumentoInicialId(undefined); setRevisionInicialId(undefined); setTipoInforme(tipoModal); setModalCierre(true); }} disabled={!disponible} type="button">🖨️ Generar</button>
+                      <button className={styles.btnGenerar} onClick={() => { if (cambiosSinGuardar) { mostrar('Guardá los cambios de la OT antes de generar el informe.', 'info'); return; } const tipoModal: TipoInformeModal = tipo === 'acta_conformidad' ? 'acta' : tipo; abrirInforme({tipo:tipoModal}); }} disabled={!disponible} type="button">🖨️ Generar</button>
                     </div>
                   );
                 })}
@@ -1510,8 +1525,8 @@ export function PanelOT({ orden: ordenProp, onCerrar, proyectoNombre, modoForzad
       )}
 
       {modalCierre && (
-        <InformeErrorBoundary key={`${ordenFresca.id}:${tipoInforme}`} onClose={() => setModalCierre(false)}>
-          <ModalInformeOT isOpen={modalCierre} onClose={() => setModalCierre(false)} onDocumentoChange={(doc,borrador,revisiones)=>{etapasRef.current?.actualizarDocumento(doc,borrador,revisiones);if(doc.tipo==='relevamiento'&&borrador)void useOrdenesStore.getState().cargarOrdenes(ordenFresca.proyecto_id).then(()=>{const latest=useOrdenesStore.getState().ordenes.find(o=>o.id===ordenFresca.id);if(latest){baseEdicion.current=latest;setBaseVisible(latest);setForm(ordenToForm(latest));}}).catch(()=>mostrar('Plan guardado. Reabrí la OT para actualizar sus datos.','info'));}} documentoInicialId={documentoInicialId} revisionInicialId={revisionInicialId} orden={ordenFresca} proyectoNombre={proyectoNombre ?? (proyectoActivo?.id === ordenFresca.proyecto_id ? proyectoActivo.nombre : '')} tipo={tipoInforme} puedeRevisar={esSupervisor} />
+        <InformeErrorBoundary key={`${ordenFresca.id}:${tipoInforme}`} onClose={cerrarInforme}>
+          <ModalInformeOT salidaGuardRef={informeSalidaRef} isOpen={modalCierre} onClose={cerrarInforme} onDocumentoChange={(doc,borrador,revisiones)=>{etapasRef.current?.actualizarDocumento(doc,borrador,revisiones);if(doc.tipo==='relevamiento'&&borrador)void (async()=>{const ticket=sessionTicket();const result=await supabase.from('ordenes').select(ORDEN_SELECT).eq('id',ordenFresca.id).single();assertSession(ticket);if(result.error||!result.data)throw new Error('No se pudo actualizar la OT.');const latest=rowToOrden(result.data);useOrdenesStore.getState().agregarOActualizarOrden(latest);baseEdicion.current=latest;setBaseVisible(latest);setForm(ordenToForm(latest));})().catch(()=>mostrar('Plan guardado. Reabrí la OT para actualizar sus datos.','info'));}} documentoInicialId={documentoInicialId} revisionInicialId={revisionInicialId} orden={ordenFresca} proyectoNombre={proyectoNombre ?? (proyectoActivo?.id === ordenFresca.proyecto_id ? proyectoActivo.nombre : '')} tipo={tipoInforme} puedeRevisar={esSupervisor} />
         </InformeErrorBoundary>
       )}
 

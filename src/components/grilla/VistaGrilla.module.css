@@ -879,4 +879,12 @@
 .badgeWarn { background: #FEF3C7; color: #92400E; }
 .badgeCrit { background: #FEE2E2; color: #991B1B; }
 .compactToolbar button, .compactToolbar input, .compactToolbar select { min-height:36px; }
+.sortSelect { width:auto; max-width:155px; padding:4px 8px; border:1px solid var(--border-default); border-radius:6px; background:var(--bg-surface); color:var(--text-primary); font:inherit; font-size:12px; }
+.cardsBoard { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr)); align-content:start; align-items:start; gap:10px; padding:10px 16px; flex:1; min-height:0; overflow:auto; background:var(--bg-app, #F4F3F8); }
+.cardGroupHeader { padding:8px 10px; display:flex; align-items:center; gap:6px; flex-shrink:0; border:0; background:transparent; cursor:pointer; color:var(--text-primary); text-align:left; font:inherit; min-height:36px; }
+.pagination { display:flex; align-items:center; gap:10px; margin-left:auto; font-size:12px; color:var(--text-secondary); }
+.pagination button { min-width:36px; min-height:32px; border:1px solid var(--border-default); border-radius:6px; background:var(--bg-surface); color:var(--text-primary); cursor:pointer; }
+.pagination button:disabled { opacity:.45; cursor:default; }
+.loadStatus { padding:4px 16px; color:var(--text-secondary); font-size:12px; }
+.cardsBoard [role=button]:focus-visible, .table tr:focus-visible { outline:2px solid var(--accent); outline-offset:-2px; }
 @media (pointer:coarse) { .compactToolbar button, .compactToolbar input, .compactToolbar select, .compactToolbar label { min-height:44px; } }

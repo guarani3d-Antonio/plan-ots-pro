@@ -6,6 +6,7 @@ import { exigirPermiso, tienePermiso } from './accessStore';
 import { assertSession, sessionTicket } from '../security/sessionScope';
 import type { OrdenLocal } from '../types/orden';
 import { ORDEN_SELECT, ordenPatchToRow, ordenToRow, rowToOrden } from '../data/ordenMapper';
+import { leerPaginas } from '../services/paginatedRead';
 export { rowToOrden } from '../data/ordenMapper';
 
 interface OrdenesState {
@@ -28,6 +29,7 @@ interface OrdenesState {
   setOtsPendientesImport:(ids:string[])=>void;completarOtImport:(id:string)=>void;
 }
 let sequence=0,scope='*',scopeProjects=new Set<string>();
+let gridDeletions=new Set<string>();
 const message=(e:unknown)=>e instanceof Error?e.message:'No se pudo confirmar la operación en el servidor.';
 const equal=(a:unknown,b:unknown)=>JSON.stringify(a)===JSON.stringify(b);
 const newer=(incoming:OrdenLocal,current:OrdenLocal)=>
@@ -50,17 +52,35 @@ export const useOrdenesStore=create<OrdenesState>((set,get)=>({
   },
   cargarOrdenesDeProyectos:async(ids)=>{
     const request=++sequence;
+    const deleted=gridDeletions=new Set<string>();
     const key=`grilla:${[...ids].sort().join(',')}`;
     const mismasOrdenes=scope===key?get().ordenes:[];
     scope=key;scopeProjects=new Set(ids);set({ordenes:mismasOrdenes,ordenSeleccionada:null,cargando:true,error:null});
     try{
       const ticket=sessionTicket();
-      const {data,error}=ids.length
-        ? await supabase.from('ordenes').select(ORDEN_SELECT).in('proyecto_id',ids).is('deleted_at',null).order('updated_at',{ascending:false})
-        : {data:[],error:null};
-      assertSession(ticket);if(error)throw new Error(error.message);
-      if(request===sequence)set({ordenes:(data??[]).map(rowToOrden),cargando:false});
-    }catch(e){if(request===sequence)set({ordenes:mismasOrdenes,cargando:false,error:message(e)});}
+      const data = [];
+      const validar = () => {
+        assertSession(ticket);
+        if(request!==sequence)throw new Error('La consulta fue reemplazada.');
+      };
+      // Limitar también el tamaño de in(): no generar URLs con miles de IDs.
+      for(let start=0;start<ids.length;start+=100){
+        const batch=ids.slice(start,start+100);
+        data.push(...await leerPaginas((from,to)=>supabase.from('ordenes').select(ORDEN_SELECT,from===0?{count:'exact'}:{})
+          .in('proyecto_id',batch).is('deleted_at',null).order('id').range(from,to),validar));
+      }
+      validar();
+      const iniciales=new Set(mismasOrdenes.map(o=>o.id));
+      const actuales=new Map(get().ordenes.map(o=>[o.id,o]));
+      const completas=[...new Map(data.map(row=>[row.id,row])).values()].map(rowToOrden)
+        .filter(o=>!deleted.has(o.id)).map(o=>{
+          const actual=actuales.get(o.id);
+          return actual&&newer(actual,o)?actual:o;
+        });
+      const recibidas=new Set(completas.map(o=>o.id));
+      for(const actual of actuales.values())if(!iniciales.has(actual.id)&&!recibidas.has(actual.id)&&!deleted.has(actual.id))completas.push(actual);
+      if(request===sequence)set({ordenes:completas,cargando:false});
+    }catch(e){if(request===sequence)set({cargando:false,error:message(e)});}
   },
   cargarOrdenes:async(proyectoId)=>{
     const request=++sequence;
@@ -99,7 +119,7 @@ export const useOrdenesStore=create<OrdenesState>((set,get)=>({
     if(scope!=='*'&&scope!==orden.proyecto_id&&!scopeProjects.has(orden.proyecto_id))return;
     set(s=>({ordenes:s.ordenes.some(o=>o.id===orden.id)?s.ordenes.map(o=>o.id===orden.id&&newer(orden,o)?orden:o):[...s.ordenes,orden]}));
   },
-  aplicarEliminacionRemota:id=>set(s=>({ordenes:s.ordenes.filter(o=>o.id!==id),ordenSeleccionada:s.ordenSeleccionada===id?null:s.ordenSeleccionada})),
+  aplicarEliminacionRemota:id=>{gridDeletions.add(id);set(s=>({ordenes:s.ordenes.filter(o=>o.id!==id),ordenSeleccionada:s.ordenSeleccionada===id?null:s.ordenSeleccionada}));},
   moverOrden:async(id,posX,posY)=>{await get().actualizarOrden(id,{pos_x:posX as number,pos_y:posY as number});},
   actualizarOrden:async(id,cambios,base)=>{
     const previous=get().ordenes.find(o=>o.id===id);if(!previous)throw new Error('Vuelve a cargar la orden.');
@@ -145,7 +165,7 @@ export const useOrdenesStore=create<OrdenesState>((set,get)=>({
     get().aplicarEliminacionRemota(id);
   },
   seleccionar:id=>set({ordenSeleccionada:id}),
-  limpiar:()=>{sequence++;scope='';scopeProjects=new Set();set({ordenes:[],ordenSeleccionada:null,cargando:false,error:null,otsPendientesImport:[]});},
+  limpiar:()=>{sequence++;scope='';scopeProjects=new Set();gridDeletions=new Set();set({ordenes:[],ordenSeleccionada:null,cargando:false,error:null,otsPendientesImport:[]});},
   setOtsPendientesImport:ids=>set({otsPendientesImport:ids}),
   completarOtImport:id=>set(s=>({otsPendientesImport:s.otsPendientesImport.filter(x=>x!==id)})),
 }));

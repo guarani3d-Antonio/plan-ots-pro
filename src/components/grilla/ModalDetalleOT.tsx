@@ -64,6 +64,7 @@ interface Props {
   onGuardado: () => void;
   onEditar?: () => void;
   onVerInforme?: (tipo: TipoDocumento, documentoId?: string) => void;
+  historialExterno?: boolean;
 }
 
 // ─────────────────────────────────────────────────────────────────── Helpers ──
@@ -169,7 +170,7 @@ type FotoConId = FotoSubida & { id: string };
 // ─────────────────────────────────────────────────────────────────── Componente ──
 
 export const ModalDetalleOT: React.FC<Props> = ({
-  orden, onClose, onEditar, onVerInforme,
+  orden, onClose, onEditar, onVerInforme, historialExterno = false,
 }) => {
   const [fotos, setFotos] = useState<FotoConId[]>([]);
   const [documentos, setDocumentos] = useState<DocumentoRegistro[]>([]);
@@ -181,7 +182,7 @@ export const ModalDetalleOT: React.FC<Props> = ({
   useLayoutEffect(() => { onCloseRef.current = onClose; }, [onClose]);
 
   useEffect(() => {
-    if (!orden?.id) return;
+    if (!orden?.id || historialExterno) return;
     const marcador = `detalle:${orden.id}`;
     history.pushState({ ...history.state, planotsOT: marcador }, '');
     const alVolver = (event: PopStateEvent) => {
@@ -189,23 +190,28 @@ export const ModalDetalleOT: React.FC<Props> = ({
     };
     window.addEventListener('popstate', alVolver);
     return () => window.removeEventListener('popstate', alVolver);
-  }, [orden?.id]);
+  }, [orden?.id, historialExterno]);
 
   const cerrar = () => {
+    if (historialExterno) { onClose(); return; }
     if (history.state?.planotsOT === `detalle:${orden?.id}`) history.back();
     else onClose();
   };
 
   useEffect(() => {
     if (!ordenId) return;
+    let vigente = true;
+    setFotos([]);
     cargarFotosDeOrden(ordenId)
-      .then(setFotos)
+      .then(rows => { if (vigente) setFotos(rows); })
       .catch(err => console.error('[ModalDetalleOT] fotos:', err));
+    return () => { vigente = false; };
   }, [ordenId]);
 
   useEffect(() => {
     if (!ordenId) return;
     let vigente = true;
+    setCargandoDocumentos(true); setDocumentos([]); setErrorDocumentos(null);
     listarDocumentosDeOrden(ordenId).then(lista => {
       if (vigente) { setDocumentos(lista); setErrorDocumentos(null); }
     }).catch(error => {
@@ -241,7 +247,7 @@ export const ModalDetalleOT: React.FC<Props> = ({
 
   return (
     <div className={styles.overlay} onClick={handleOverlayClick}>
-      <div className={styles.modal}>
+      <div className={styles.modal} role="dialog" aria-modal="true" aria-label={`Detalle ${orden.ot}`}>
 
         {/* ─ Header ─ */}
         <header className={styles.header}>

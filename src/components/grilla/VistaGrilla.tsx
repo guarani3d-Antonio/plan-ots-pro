@@ -1,4 +1,4 @@
-import React, { Fragment, useEffect, useMemo, useState, useRef, useCallback } from 'react';
+import React, { Fragment, useDeferredValue, useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import type { CSSProperties } from 'react';
 import Papa from 'papaparse';
 import styles from './VistaGrilla.module.css';
@@ -10,14 +10,17 @@ import { assertSession, sessionTicket } from '../../security/sessionScope';
 import { ModalDetalleOT } from './ModalDetalleOT';
 import { PanelOT } from '../plano/PanelOT';
 import { ModalInformeOT } from '../informes/ModalInformeOT';
-import type { TipoDocumento } from '../../services/documentService';
 import { type CampoDefinicion } from '../../services/camposService';
-import { colorEstado, diasAbierto } from '../../utils/calculos';
+import { colorEstado } from '../../utils/calculos';
 import { usePuedeVerCostosMultiple } from '../../hooks/usePuedeVerCostos';
 import { scopedKey } from '../../security/sessionScope';
 import { fechaParaMostrar } from '../../utils/fechaCivil';
 import {EtiquetaObra} from '../ui/ColorObra';
 import {estiloObra} from '../../utils/colorObra';
+import { leerPaginas } from '../../services/paginatedRead';
+import { agruparOrdenes, compararValores, diasOrden, normalizarBusqueda, paginaGrilla } from '../../services/gridModel';
+import { GRID_ROOT, leerRutaGrilla } from '../../services/gridNavigation';
+import { useHistoryState } from '../../hooks/useHistoryState';
 
 type EstadoOT    = 'Pendiente' | 'En proceso' | 'Cerrada' | 'No aplica';
 type PrioridadOT = 'Alta' | 'Media' | 'Baja';
@@ -138,9 +141,6 @@ const DOC_KEYS = new Set([
 ]);
 const ARR_KEYS = new Set(['rubro_secundario', 'contratistas']);
 
-// Estados que usan fecha_fin como límite del cálculo de días
-const ESTADOS_CERRADOS = new Set<EstadoOT>(['Cerrada', 'No aplica']);
-
 const KANBAN_COLUMNAS: { estado: EstadoOT; label: string; color: string }[] = [
   { estado: 'Pendiente',  label: 'PENDIENTE',  color: '#DC2626' },
   { estado: 'En proceso', label: 'EN PROCESO', color: '#2563EB' },
@@ -213,10 +213,7 @@ function formatGuaranies(v?: number | null): string {
 // Helper para calcular días abierto según estado:
 // Cerrada / No aplica → fecha_fin_trabajos − fecha_ingreso
 // Pendiente / En proceso → hoy − fecha_ingreso
-function calcDiasAbierto(orden: OrdenTrabajo): number {
-  const fechaFin = ESTADOS_CERRADOS.has(orden.estado) ? orden.fecha_fin_trabajos : undefined;
-  return diasAbierto(orden.fecha_ingreso, fechaFin);
-}
+const calcDiasAbierto = diasOrden;
 
 const LOGO_G3D_SVG = `
 <svg width="160" height="44" viewBox="0 0 160 44" xmlns="http://www.w3.org/2000/svg">
@@ -545,7 +542,15 @@ function escapeHtml(s: string): string {
 
 // ─────────────────────────────────────────────── Componente ──
 
+function preferenciasGrilla() {
+  try { const value = JSON.parse(sessionStorage.getItem(scopedKey('grilla_contexto')) ?? '{}'); return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}; }
+  catch { return {}; }
+}
+const textoPreferencia = (p: Record<string, unknown>, key: string) => typeof p[key] === 'string' ? p[key] as string : '';
+const listaPreferencia = (p: Record<string, unknown>, key: string) => new Set(Array.isArray(p[key]) ? (p[key] as unknown[]).filter((x): x is string => typeof x === 'string') : []);
+
 export const VistaGrilla: React.FC = () => {
+  const [preferencias] = useState(preferenciasGrilla);
   const { ordenes, cargarOrdenesDeProyectos, cargando, error: errorOrdenes } = useOrdenesStore();
   const contexto = useAccessStore(s => s.contexto);
   const [proyectos, setProyectos] = useState<Proyecto[]>([]);
@@ -554,28 +559,32 @@ export const VistaGrilla: React.FC = () => {
   const [cargandoCatalogo, setCargandoCatalogo] = useState(true);
   const [errorCatalogo, setErrorCatalogo] = useState<string | null>(null);
   const [revisionCatalogo, setRevisionCatalogo] = useState(0);
-  const [empresaFiltro, setEmpresaFiltro] = useState('');
-  const [obraFiltro, setObraFiltro] = useState('');
-  const [carpetaFiltro, setCarpetaFiltro] = useState('');
-  const [planoFiltro, setPlanoFiltro] = useState('');
-  const [informeOrdenId, setInformeOrdenId] = useState<string | null>(null);
-  const [vistaPreviaInforme, setVistaPreviaInforme] = useState<{ ordenId: string; tipo: TipoDocumento; documentoId?: string } | null>(null);
-  const [panelTab, setPanelTab] = useState<'datos' | 'informes'>('informes');
-  const informeOrden = ordenes.find(o => o.id === informeOrdenId && proyectos.some(p => p.id === o.proyecto_id));
+  const [empresaFiltro, setEmpresaFiltro] = useState(() => textoPreferencia(preferencias, 'empresaFiltro'));
+  const [obraFiltro, setObraFiltro] = useState(() => textoPreferencia(preferencias, 'obraFiltro'));
+  const [carpetaFiltro, setCarpetaFiltro] = useState(() => textoPreferencia(preferencias, 'carpetaFiltro'));
+  const [planoFiltro, setPlanoFiltro] = useState(() => textoPreferencia(preferencias, 'planoFiltro'));
+  const salidaOTRef = useRef<(() => boolean) | null>(null);
+  const [ruta, abrirRuta, volverRuta] = useHistoryState('planotsGrilla', leerRutaGrilla,
+    (next, current) => current.editor && current.editor !== next.editor ? salidaOTRef.current?.() ?? true : true);
+  const informeOrden = ordenes.find(o => o.id === ruta.editor && proyectos.some(p => p.id === o.proyecto_id));
+  const modalOrden = ordenes.find(o => o.id === ruta.detalle && proyectos.some(p => p.id === o.proyecto_id));
+  const vistaPreviaInforme = ruta.informe;
   const ordenVistaPrevia = ordenes.find(o => o.id === vistaPreviaInforme?.ordenId && proyectos.some(p => p.id === o.proyecto_id));
+  const abrirDetalle = (o: OrdenTrabajo) => abrirRuta({ ...GRID_ROOT, detalle: o.id });
+  const abrirEditor = (id: string, tab: 'datos' | 'informes', conservarDetalle = false) =>
+    abrirRuta({ ...GRID_ROOT, detalle: conservarDetalle ? ruta.detalle : null, editor: id, tab });
 
   useEffect(() => {
     let vigente = true;
     const ticket = sessionTicket();
     void Promise.all([
-      supabase.from('proyectos').select('*').is('deleted_at', null).order('nombre'),
-      supabase.from('plan_carpetas').select('id,tenant_id,padre_id,nombre').order('nombre'),
+      leerPaginas((from,to) => supabase.from('proyectos').select('*',from===0?{count:'exact'}:{}).is('deleted_at', null).order('id').range(from,to), () => assertSession(ticket)),
+      leerPaginas((from,to) => supabase.from('plan_carpetas').select('id,tenant_id,padre_id,nombre',from===0?{count:'exact'}:{}).order('id').range(from,to), () => assertSession(ticket)),
     ]).then(async ([proyectosResult, carpetasResult]) => {
       assertSession(ticket);
       if (!vigente) return;
-      if (proyectosResult.error) throw new Error(proyectosResult.error.message);
-      if (carpetasResult.error) throw new Error(carpetasResult.error.message);
-      const ids=(proyectosResult.data as Proyecto[]).map(p=>p.id);
+
+      const ids=(proyectosResult as Proyecto[]).map(p=>p.id);
       const batches=Array.from({length:Math.ceil(ids.length/500)},(_,i)=>ids.slice(i*500,(i+1)*500));
       const colores=await Promise.all(batches.map(p_proyectos=>supabase.rpc('plan_colores_obras',{p_proyectos})));
       assertSession(ticket);if(!vigente)return;
@@ -583,8 +592,8 @@ export const VistaGrilla: React.FC = () => {
       const rows=colores.flatMap(r=>(r.data??[]) as {proyecto_id:string;obra_id:string;nombre:string;color:string|null}[]);
       setColoresObras(Object.fromEntries(rows.map(r=>[r.proyecto_id,r])));
       // Ambas consultas obedecen RLS: el catálogo nunca incluye obras ajenas.
-      setProyectos(proyectosResult.data as Proyecto[]);
-      setCarpetas(carpetasResult.data as Carpeta[]);
+      setProyectos((proyectosResult as Proyecto[]).sort((a,b)=>a.nombre.localeCompare(b.nombre,'es')));
+      setCarpetas((carpetasResult as Carpeta[]).sort((a,b)=>a.nombre.localeCompare(b.nombre,'es')));
       setErrorCatalogo(null);
     }).catch(error => {
       if (vigente) setErrorCatalogo(error instanceof Error ? error.message : 'No se pudieron cargar las obras.');
@@ -652,19 +661,20 @@ export const VistaGrilla: React.FC = () => {
     () => puedeVerCostos ? CAMPOS_TARJETA : CAMPOS_TARJETA.filter(c => c.key !== 'costo'),
     [puedeVerCostos],
   );
-  const [busqueda, setBusqueda]               = useState('');
-  const [filtroEstados, setFiltroEstados]     = useState<Set<string>>(new Set());
-  const [filtroPrioridades, setFiltroPrioridades] = useState<Set<string>>(new Set());
-  const [filtroRubros, setFiltroRubros]       = useState<Set<string>>(new Set());
-  const [filtroRiesgos, setFiltroRiesgos]     = useState<Set<string>>(new Set());
-  const [agruparPor, setAgruparPor]           = useState<string | null>(null);
-  const [gruposColapsados, setGruposColapsados] = useState<Set<string>>(new Set());
+  const [busqueda, setBusqueda] = useState(() => textoPreferencia(preferencias, 'busqueda'));
+  const busquedaDiferida = useDeferredValue(busqueda);
+  const [filtroEstados, setFiltroEstados] = useState<Set<string>>(() => listaPreferencia(preferencias, 'filtroEstados'));
+  const [filtroPrioridades, setFiltroPrioridades] = useState<Set<string>>(() => listaPreferencia(preferencias, 'filtroPrioridades'));
+  const [filtroRubros, setFiltroRubros] = useState<Set<string>>(() => listaPreferencia(preferencias, 'filtroRubros'));
+  const [filtroRiesgos, setFiltroRiesgos] = useState<Set<string>>(() => listaPreferencia(preferencias, 'filtroRiesgos'));
+  const [agruparPor, setAgruparPor]           = useState<string | null>(() => AGRUPABLES.some(a => a.key === preferencias.agruparPor) ? preferencias.agruparPor as string : null);
+  const [gruposColapsados, setGruposColapsados] = useState<Set<string>>(() => listaPreferencia(preferencias, 'gruposColapsados'));
   const [dropdownAbierto, setDropdownAbierto] = useState<string | null>(null);
-  const [sortKey, setSortKey]                 = useState<string>('ot');
-  const [sortAsc, setSortAsc]                 = useState(true);
-  const [modalOrden, setModalOrden]           = useState<OrdenTrabajo | null>(null);
+  const [sortKey, setSortKey]                 = useState<string>(() => COLUMNAS.some(c => c.key === preferencias.sortKey) ? preferencias.sortKey as string : 'ot');
+  const [sortAsc, setSortAsc]                 = useState(preferencias.sortAsc !== false);
   const [accionesMenuId, setAccionesMenuId]   = useState<string | null>(null);
-  const [vistaActiva, setVistaActiva]         = useState<'tabla' | 'tarjetas'>('tabla');
+  const [vistaActiva, setVistaActiva]         = useState<'tabla' | 'tarjetas'>(preferencias.vistaActiva === 'tarjetas' ? 'tarjetas' : 'tabla');
+  const [pagina, setPagina] = useState(() => typeof preferencias.pagina === 'number' ? Math.max(1, preferencias.pagina) : 1);
 
   const [camposTarjeta, setCamposTarjeta] = useState<Set<string>>(() => {
     try { const saved = localStorage.getItem(scopedKey(LS_CAMPOS_TARJETA_KEY)); if (saved) return new Set(JSON.parse(saved)); } catch { /* fallthrough */ }
@@ -710,11 +720,14 @@ export const VistaGrilla: React.FC = () => {
       if (!idsAlcance.length) { if (vigente) setCamposDefinicion([]); return; }
       try {
         const ticket = sessionTicket();
-        const { data, error } = await supabase.from('campos_definicion').select('*')
-          .in('proyecto_id', idsAlcance).order('orden', { ascending: true });
-        assertSession(ticket);
-        if (error) throw new Error(error.message);
-        if (vigente) setCamposDefinicion(data as CampoDefinicion[]);
+        const data: CampoDefinicion[] = [];
+        for (let start=0;start<idsAlcance.length;start+=100) {
+          data.push(...await leerPaginas((from,to) => supabase.from('campos_definicion').select('*',from===0?{count:'exact'}:{})
+            .in('proyecto_id', idsAlcance.slice(start,start+100)).order('id').range(from,to), () => {
+              assertSession(ticket); if (!vigente) throw new Error('Consulta reemplazada.');
+            }));
+        }
+        if (vigente) setCamposDefinicion(data.sort((a,b) => a.orden-b.orden));
       } catch (error) { if (vigente) console.error('[VistaGrilla] campos:', error); }
     };
     void cargar();
@@ -750,38 +763,59 @@ export const VistaGrilla: React.FC = () => {
     }), [ordenes, idsAlcanceSet, porId, empresas, rutaCarpeta,coloresObras]);
   const rubrosUnicos = useMemo(() => [...new Set(proyecto_ordenes.map(o => o.rubro).filter(Boolean))].sort(), [proyecto_ordenes]);
 
+  const indiceBusqueda = useMemo(() => new Map(proyecto_ordenes.map(o => [o.id, normalizarBusqueda([
+    o.ot,o.descripcion,o.comentarios,o.responsable,o.ubicacion,o.rubro,o.rubro_secundario,
+    o.contratistas,o.unidad_amenities,o.obra,o.empresa_nombre,o.obra_proyecto,o.plano_nombre,o.carpeta_ruta,
+    o.estado,o.prioridad,o.nivel_riesgo,o.fecha_ingreso,o.fecha_inicio_trabajos,o.fecha_fin_trabajos,
+    o.campos,
+  ])])), [proyecto_ordenes]);
   const filtradas = useMemo(() => {
-    let lista = [...proyecto_ordenes];
-    if (filtroEstados.size > 0)     lista = lista.filter(o => filtroEstados.has(o.estado));
-    if (filtroPrioridades.size > 0) lista = lista.filter(o => filtroPrioridades.has(o.prioridad));
-    if (filtroRubros.size > 0)      lista = lista.filter(o => !!o.rubro && filtroRubros.has(o.rubro));
-    if (filtroRiesgos.size > 0)     lista = lista.filter(o => !!o.nivel_riesgo && filtroRiesgos.has(o.nivel_riesgo));
-    if (busqueda) {
-      const q = busqueda.toLowerCase();
-      lista = lista.filter(o => o.ot.toLowerCase().includes(q) || (o.descripcion ?? '').toLowerCase().includes(q) || (o.comentarios ?? '').toLowerCase().includes(q) || (o.responsable ?? '').toLowerCase().includes(q) || (o.ubicacion ?? '').toLowerCase().includes(q) || (o.rubro ?? '').toLowerCase().includes(q) || (o.obra ?? '').toLowerCase().includes(q) || (o.empresa_nombre ?? '').toLowerCase().includes(q) || (o.obra_proyecto ?? '').toLowerCase().includes(q) || (o.plano_nombre ?? '').toLowerCase().includes(q) || (o.carpeta_ruta ?? '').toLowerCase().includes(q));
-    }
-    lista.sort((a, b) => {
-      const va = (a as unknown as Record<string, unknown>)[sortKey];
-      const vb = (b as unknown as Record<string, unknown>)[sortKey];
-      if (typeof va === 'number' && typeof vb === 'number') return sortAsc ? va - vb : vb - va;
-      return sortAsc ? String(va ?? '').localeCompare(String(vb ?? '')) : String(vb ?? '').localeCompare(String(va ?? ''));
+    const terms = normalizarBusqueda(busquedaDiferida).split(' ').filter(Boolean);
+    const lista = proyecto_ordenes.filter(o =>
+      (!filtroEstados.size || filtroEstados.has(o.estado)) &&
+      (!filtroPrioridades.size || filtroPrioridades.has(o.prioridad)) &&
+      (!filtroRubros.size || filtroRubros.has(o.rubro)) &&
+      (!filtroRiesgos.size || filtroRiesgos.has(o.nivel_riesgo ?? '')) &&
+      terms.every(term => indiceBusqueda.get(o.id)?.includes(term)));
+    lista.sort((a,b) => {
+      const value = (o: OrdenTrabajo) => sortKey === 'dias_abierto' ? calcDiasAbierto(o) : o[sortKey as keyof OrdenTrabajo];
+      const result = compararValores(value(a),value(b)) * (sortAsc ? 1 : -1);
+      return result || compararValores(a.ot,b.ot) || a.id.localeCompare(b.id);
     });
     return lista;
-  }, [proyecto_ordenes, filtroEstados, filtroPrioridades, filtroRubros, filtroRiesgos, busqueda, sortKey, sortAsc]);
-
-  const paginadas = filtradas;
-
-  const grupos = useMemo(() => {
-    if (!agruparPor) return null;
-    const map = new Map<string, OrdenTrabajo[]>();
-    for (const o of filtradas) {
-      const raw = (o as unknown as Record<string, unknown>)[agruparPor];
-      const key = (raw == null || raw === '') ? '— Sin valor —' : String(raw);
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(o);
-    }
-    return Array.from(map.entries());
-  }, [filtradas, agruparPor]);
+  }, [proyecto_ordenes, filtroEstados, filtroPrioridades, filtroRubros, filtroRiesgos, busquedaDiferida, indiceBusqueda, sortKey, sortAsc]);
+  const paginaActual = paginaGrilla(filtradas, pagina);
+  const paginadas = paginaActual.items;
+  const grupos = useMemo(() => agruparPor ? agruparOrdenes(paginadas, agruparPor) : null, [paginadas, agruparPor]);
+  const gruposTarjetas = useMemo(() => agruparPor ? agruparOrdenes(paginadas, agruparPor).map(([value,items]) => ({value,label:value,color:'var(--accent)',items}))
+    : KANBAN_COLUMNAS.map(col => ({value:col.estado,label:col.label,color:col.color,items:paginadas.filter(o => o.estado===col.estado)})), [paginadas,agruparPor]);
+  const totalesGrupo = useMemo(() => new Map(agruparOrdenes(filtradas,agruparPor ?? 'estado').map(([k,v]) => [k,v.length])), [filtradas,agruparPor]);
+  const firmaConsulta = JSON.stringify([empresaFiltro,obraFiltro,carpetaFiltro,planoFiltro,busquedaDiferida,[...filtroEstados],[...filtroPrioridades],[...filtroRubros],[...filtroRiesgos],sortKey,sortAsc,agruparPor]);
+  const consultaAnterior = useRef(firmaConsulta);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const restaurarScroll = useRef(true);
+  useEffect(() => {
+    if (consultaAnterior.current === firmaConsulta) return;
+    consultaAnterior.current = firmaConsulta; setPagina(1);
+    if(scrollRef.current)scrollRef.current.scrollTop=0;
+  }, [firmaConsulta]);
+  useEffect(() => {
+    try { sessionStorage.setItem(scopedKey('grilla_contexto'),JSON.stringify({empresaFiltro,obraFiltro,carpetaFiltro,planoFiltro,busqueda,filtroEstados:[...filtroEstados],filtroPrioridades:[...filtroPrioridades],filtroRubros:[...filtroRubros],filtroRiesgos:[...filtroRiesgos],agruparPor,gruposColapsados:[...gruposColapsados],sortKey,sortAsc,vistaActiva,pagina})); } catch { /* almacenamiento no disponible */ }
+  }, [empresaFiltro,obraFiltro,carpetaFiltro,planoFiltro,busqueda,filtroEstados,filtroPrioridades,filtroRubros,filtroRiesgos,agruparPor,gruposColapsados,sortKey,sortAsc,vistaActiva,pagina]);
+  const conectarScroll = useCallback((node: HTMLDivElement | null) => {
+    scrollRef.current=node;
+    if(node)restaurarScroll.current=true;
+  }, [vistaActiva]);
+  useEffect(() => {
+    const node=scrollRef.current;
+    if(!node || cargandoCatalogo || cargando || !restaurarScroll.current)return;
+    restaurarScroll.current=false;
+    try { const saved=JSON.parse(sessionStorage.getItem(scopedKey(`grilla_scroll_${vistaActiva}`)) ?? '{}');node.scrollTop=saved.top??0;node.scrollLeft=saved.left??0; } catch { /* sin posición previa */ }
+  }, [cargandoCatalogo,cargando,vistaActiva,paginadas.length]);
+  const guardarScroll = (event: React.UIEvent<HTMLDivElement>) => {
+    try { sessionStorage.setItem(scopedKey(`grilla_scroll_${vistaActiva}`),JSON.stringify({top:event.currentTarget.scrollTop,left:event.currentTarget.scrollLeft})); } catch { /* sin almacenamiento */ }
+  };
+  const cambiarPagina = (next: number) => {setPagina(next);if(scrollRef.current)scrollRef.current.scrollTop=0;};
 
   const toggleGrupo = (key: string) => setGruposColapsados(prev => { const next = new Set(prev); if (next.has(key)) next.delete(key); else next.add(key); return next; });
   const toggleSort = (key: string) => { if (sortKey === key) setSortAsc(a => !a); else { setSortKey(key); setSortAsc(true); } };
@@ -828,7 +862,7 @@ export const VistaGrilla: React.FC = () => {
     w.document.open(); w.document.write(html); w.document.close();
   }, [filtradas, visibleColumnas, camposCustomActivos, proyectoNombre, puedeVerCostos, nombreCampo]);
 
-  const onRowClick = (o: OrdenTrabajo) => setModalOrden(o);
+  const onRowClick = abrirDetalle;
 
   const workspaceStyle: CSSProperties  = { background: '#F9F9FE', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' };
   const mainPanelStyle: CSSProperties  = { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' };
@@ -840,7 +874,7 @@ export const VistaGrilla: React.FC = () => {
   const btnExport = (color: string): CSSProperties => ({ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 10px', height: 26, fontSize: 11, fontWeight: 600, background: color, color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 });
 
   const renderFila = (o: OrdenTrabajo, idx: number) => (
-    <tr key={o.id} onClick={() => onRowClick(o)}
+    <tr key={o.id} tabIndex={0} aria-label={`Abrir ${o.ot}`} onKeyDown={e => {if(e.target===e.currentTarget && (e.key==='Enter'||e.key===' ')){e.preventDefault();onRowClick(o);}}} onClick={() => onRowClick(o)}
       style={{ background: idx % 2 === 1 ? '#F1F4F9' : '#fff', cursor: 'pointer', height: 40, fontSize: 12 }}
       onMouseEnter={e => { (e.currentTarget as HTMLTableRowElement).style.background = '#EEF2FA'; }}
       onMouseLeave={e => { (e.currentTarget as HTMLTableRowElement).style.background = idx % 2 === 1 ? '#F1F4F9' : '#fff'; }}
@@ -861,10 +895,9 @@ export const VistaGrilla: React.FC = () => {
           <button type="button" className={styles.btnAcciones} onClick={() => setAccionesMenuId(prev => prev === o.id ? null : o.id)} title="Acciones">···</button>
           {accionesMenuId === o.id && (
             <div className={styles.accionesMenu}>
-              <button type="button" onClick={() => { setAccionesMenuId(null); setModalOrden(o); }}>👁 Ver detalle</button>
-              <button type="button" onClick={() => { setAccionesMenuId(null); setPanelTab('datos'); setInformeOrdenId(o.id); }}>✎ Editar</button>
-              <button type="button" onClick={() => { setAccionesMenuId(null); setPanelTab('informes'); setInformeOrdenId(o.id); }}>📄 Generar informe</button>
-              <button type="button" className={styles.accionDanger} onClick={() => { setAccionesMenuId(null); console.log('eliminar', o.id); }}>🗑 Eliminar</button>
+              <button type="button" onClick={() => { setAccionesMenuId(null); abrirDetalle(o); }}>👁 Ver detalle</button>
+              <button type="button" disabled={!tienePermiso('grilla.editar',o.proyecto_id)||!tienePermiso('ot.editar',o.proyecto_id)} onClick={() => { setAccionesMenuId(null); abrirEditor(o.id,'datos'); }}>✎ Editar</button>
+              <button type="button" disabled={!tienePermiso('informe.ver',o.proyecto_id)} onClick={() => { setAccionesMenuId(null); abrirEditor(o.id,'informes'); }}>📄 Generar informe</button>
             </div>
           )}
         </div>
@@ -922,16 +955,21 @@ export const VistaGrilla: React.FC = () => {
             </div>
           </div>
           {obraFiltro&&<div style={{padding:'0 12px 8px'}}><EtiquetaObra nombre={coloresObras[obraFiltro]?.nombre??porId.get(obraFiltro)?.nombre??'Obra'} color={coloresObras[obraFiltro]?.color}/></div>}
+          {(cargandoCatalogo || cargando) && <div role="status" className={styles.loadStatus}>Cargando órdenes autorizadas por bloques…</div>}
           {(errorCatalogo || errorOrdenes) && <div role="alert" className={styles.alcanceError}>{errorCatalogo || errorOrdenes}</div>}
 
           {/* TOOLBAR */}
           <div className={styles.compactToolbar} style={toolbarStyle}>
-            <input type="text" placeholder="Buscar OT, descripción..." value={busqueda} onChange={e => setBusqueda(e.target.value)} style={buscadorStyle} />
+            <input type="text" aria-label="Buscar en la grilla" placeholder="Buscar OT, contratista, unidad…" value={busqueda} onChange={e => setBusqueda(e.target.value)} style={buscadorStyle} />
             <FiltroPill label="Estado" opciones={ESTADOS as unknown as string[]} seleccion={filtroEstados} onToggle={toggleSet(setFiltroEstados)} onClear={() => setFiltroEstados(new Set())} abierto={dropdownAbierto === 'estado'} onToggleAbierto={() => setDropdownAbierto(d => d === 'estado' ? null : 'estado')} />
             <FiltroPill label="Prioridad" opciones={PRIORIDADES as unknown as string[]} seleccion={filtroPrioridades} onToggle={toggleSet(setFiltroPrioridades)} onClear={() => setFiltroPrioridades(new Set())} abierto={dropdownAbierto === 'prioridad'} onToggleAbierto={() => setDropdownAbierto(d => d === 'prioridad' ? null : 'prioridad')} />
             <FiltroPill label="Rubro" opciones={rubrosUnicos} seleccion={filtroRubros} onToggle={toggleSet(setFiltroRubros)} onClear={() => setFiltroRubros(new Set())} abierto={dropdownAbierto === 'rubro'} onToggleAbierto={() => setDropdownAbierto(d => d === 'rubro' ? null : 'rubro')} />
             <FiltroPill label="Riesgo" opciones={RIESGOS as unknown as string[]} seleccion={filtroRiesgos} onToggle={toggleSet(setFiltroRiesgos)} onClear={() => setFiltroRiesgos(new Set())} abierto={dropdownAbierto === 'riesgo'} onToggleAbierto={() => setDropdownAbierto(d => d === 'riesgo' ? null : 'riesgo')} />
             <GroupByPill agruparPor={agruparPor} onSet={setAgruparPor} abierto={dropdownAbierto === 'agruparPor'} onToggleAbierto={() => setDropdownAbierto(d => d === 'agruparPor' ? null : 'agruparPor')} />
+            <select aria-label="Ordenar por" value={sortKey} onChange={e=>setSortKey(e.target.value)} className={styles.sortSelect}>
+              {columnasRol.map(c=><option key={c.key} value={c.key}>{c.label}</option>)}
+            </select>
+            <button type="button" aria-label={sortAsc?'Orden ascendente':'Orden descendente'} onClick={()=>setSortAsc(v=>!v)}> {sortAsc?'↑':'↓'} </button>
             <OcultarColumnasPill columnasDisponibles={columnasRol} columnasOcultas={columnasOcultas} setColumnasOcultas={setColumnasOcultas} abierto={dropdownAbierto === 'ocultar'} onToggleAbierto={() => setDropdownAbierto(d => d === 'ocultar' ? null : 'ocultar')} />
 
             {vistaActiva === 'tarjetas' && (
@@ -965,8 +1003,8 @@ export const VistaGrilla: React.FC = () => {
             {filtrosActivos > 0 && <button type="button" onClick={limpiarTodos} style={{ padding: '3px 8px', height: 26, fontSize: 11, fontWeight: 600, background: 'transparent', color: '#64748B', border: '1px solid #E2E2E7', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>Limpiar todos</button>}
             <div style={{ flex: 1 }} />
             <span style={{ fontSize: 10, color: '#64748B', whiteSpace: 'nowrap', flexShrink: 0 }}><strong style={{ color: '#0F172A' }}>{filtradas.length}</strong> de <strong style={{ color: '#0F172A' }}>{proyecto_ordenes.length}</strong> · {totalColumnas}col</span>
-            <button type="button" onClick={handleExportarCSV} style={btnExport('#1E3A5F')} disabled={filtradas.length === 0||!filtradas.every(o=>tienePermiso('grilla.exportar',o.proyecto_id))} title="Exportar a CSV">↑ CSV</button>
-            <button type="button" onClick={handleExportarPDF} style={btnExport('#15803D')} disabled={filtradas.length === 0||!filtradas.every(o=>tienePermiso('grilla.exportar',o.proyecto_id))} title="Exportar a PDF imprimible">📄 PDF</button>
+            <button type="button" onClick={handleExportarCSV} style={btnExport('#1E3A5F')} disabled={cargandoCatalogo||cargando||!!errorCatalogo||!!errorOrdenes||filtradas.length === 0||!filtradas.every(o=>tienePermiso('grilla.exportar',o.proyecto_id))} title="Exportar a CSV">↑ CSV</button>
+            <button type="button" onClick={handleExportarPDF} style={btnExport('#15803D')} disabled={cargandoCatalogo||cargando||!!errorCatalogo||!!errorOrdenes||filtradas.length === 0||!filtradas.every(o=>tienePermiso('grilla.exportar',o.proyecto_id))} title="Exportar a PDF imprimible">📄 PDF</button>
             <div style={{ width: 1, height: 18, background: '#E2E2E7', flexShrink: 0 }} />
             <button type="button" onClick={() => setVistaActiva('tabla')} style={{ fontSize: 11, padding: '3px 10px', height: 26, borderRadius: 6, background: vistaActiva === 'tabla' ? '#1E3A5F' : 'white', color: vistaActiva === 'tabla' ? 'white' : '#6B7280', border: vistaActiva === 'tabla' ? 'none' : '1px solid #E2E2E7', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0 }}>□ Tabla</button>
             <button type="button" onClick={() => setVistaActiva('tarjetas')} style={{ fontSize: 11, padding: '3px 10px', height: 26, borderRadius: 6, background: vistaActiva === 'tarjetas' ? '#1E3A5F' : 'white', color: vistaActiva === 'tarjetas' ? 'white' : '#6B7280', border: vistaActiva === 'tarjetas' ? 'none' : '1px solid #E2E2E7', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0 }}>🃏 Tarjetas</button>
@@ -974,7 +1012,7 @@ export const VistaGrilla: React.FC = () => {
 
           {/* TABLA */}
           {vistaActiva === 'tabla' && (
-            <div className={styles.tableWrap} style={tableScrollStyle}>
+            <div ref={conectarScroll} onScroll={guardarScroll} className={styles.tableWrap} style={tableScrollStyle}>
               <table className={styles.table} style={{ borderCollapse: 'separate', borderSpacing: 0, width: 'max-content', minWidth: '100%' }}>
                 <thead style={{ position: 'sticky', top: 0, zIndex: 2 }}>
                   <tr>
@@ -1017,7 +1055,7 @@ export const VistaGrilla: React.FC = () => {
                   ) : agruparPor && grupos ? (
                     grupos.map(([groupValue, items]) => (
                       <Fragment key={groupValue}>
-                        {renderFilaGrupo(groupValue, items.length, totalColumnas + 2)}
+                        {renderFilaGrupo(groupValue, totalesGrupo.get(groupValue) ?? items.length, totalColumnas + 2)}
                         {!gruposColapsados.has(groupValue) && items.map((o, idx) => renderFila(o, idx))}
                       </Fragment>
                     ))
@@ -1029,18 +1067,19 @@ export const VistaGrilla: React.FC = () => {
 
           {/* KANBAN */}
           {vistaActiva === 'tarjetas' && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', alignContent: 'start', gap: 10, padding: '10px 16px', flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden', background: '#F4F3F8' }}>
-              {KANBAN_COLUMNAS.map(col => {
-                const items = filtradas.filter(o => o.estado === col.estado);
+            <div ref={conectarScroll} onScroll={guardarScroll} className={styles.cardsBoard}>
+              {!paginadas.length && <p role="status">{cargandoCatalogo || cargando ? 'Cargando órdenes autorizadas…' : filtradas.length === 0 && proyecto_ordenes.length > 0 ? 'No hay OTs que coincidan con los filtros.' : 'No hay órdenes de trabajo en este alcance.'}</p>}
+              {gruposTarjetas.map(col => {
+                const items = col.items;
                 return (
-                  <div key={col.estado} style={{ width: '100%', minWidth: 0, display: 'flex', flexDirection: 'column', background: 'rgba(255,255,255,0.6)', borderRadius: 12, overflow: 'hidden' }}>
-                    <div style={{ padding: '8px 10px', display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                  <div key={col.value} style={{ width: '100%', minWidth: 0, display: 'flex', flexDirection: 'column', background: 'rgba(255,255,255,0.6)', borderRadius: 12, overflow: 'hidden' }}>
+                    <button type="button" className={styles.cardGroupHeader} aria-expanded={!gruposColapsados.has(col.value)} onClick={()=>toggleGrupo(col.value)}>
                       <span style={{ background: col.color, color: 'white', padding: '2px 8px', borderRadius: 20, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{col.label}</span>
-                      <span style={{ background: '#E2E2E7', color: '#43474F', padding: '1px 6px', borderRadius: 10, fontSize: 10, fontWeight: 600 }}>{items.length}</span>
-                    </div>
-                    <div style={{ padding: '0 8px 8px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <span title="En esta página / total filtrado" style={{ background: '#E2E2E7', color: '#43474F', padding: '1px 6px', borderRadius: 10, fontSize: 10, fontWeight: 600 }}>{items.length} / {totalesGrupo.get(col.value) ?? 0}</span><span aria-hidden="true">{gruposColapsados.has(col.value)?'▸':'▾'}</span>
+                    </button>
+                    <div hidden={gruposColapsados.has(col.value)} style={{ padding: '0 8px 8px', display: gruposColapsados.has(col.value)?'none':'flex', flexDirection: 'column', gap: 6 }}>
                       {items.map(o => (
-                        <div key={o.id} onClick={() => setModalOrden(o)} style={{ background: 'white', border: '1px solid #E2E2E7', borderLeft: `4px solid ${colorEstado(o.estado)}`, borderRadius: 8, padding: '8px 10px', cursor: 'pointer', boxShadow: '0 1px 4px rgba(0,51,102,0.06)' }}
+                        <div key={o.id} role="button" tabIndex={0} aria-label={`Abrir ${o.ot}`} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();abrirDetalle(o);}}} onClick={() => abrirDetalle(o)} style={{ background: 'white', border: '1px solid #E2E2E7', borderLeft: `4px solid ${colorEstado(o.estado)}`, borderRadius: 8, padding: '8px 10px', cursor: 'pointer', boxShadow: '0 1px 4px rgba(0,51,102,0.06)' }}
                           onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = '0 4px 12px rgba(0,51,102,0.12)'; }}
                           onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = '0 1px 4px rgba(0,51,102,0.06)'; }}
                         >
@@ -1073,7 +1112,7 @@ export const VistaGrilla: React.FC = () => {
                           )}
                         </div>
                       ))}
-                      {items.length === 0 && <div style={{ border: '2px dashed #E2E2E7', borderRadius: 8, height: 80, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9CA3AF', fontSize: 12 }}>Sin órdenes</div>}
+                      {items.length === 0 && <div style={{ border: '2px dashed #E2E2E7', borderRadius: 8, height: 80, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9CA3AF', fontSize: 12 }}>{(totalesGrupo.get(col.value)??0)>0?'Sin órdenes en esta página':'Sin órdenes'}</div>}
                     </div>
                   </div>
                 );
@@ -1083,26 +1122,32 @@ export const VistaGrilla: React.FC = () => {
 
           {filtradas.length > 0 && (
             <div style={paginacionStyle}>
-              <span style={{ fontSize: 11, color: '#64748B' }}>Mostrando <strong style={{ color: '#0F172A' }}>{filtradas.length}</strong> orden{filtradas.length !== 1 ? 'es' : ''}</span>
+              <span style={{ fontSize: 11, color: '#64748B' }}>Mostrando <strong style={{ color: '#0F172A' }}>{paginadas.length}</strong> de {filtradas.length} órdenes{cargandoCatalogo||cargando?' · Actualizando…':''}</span>
+              <nav aria-label="Páginas de la grilla" className={styles.pagination}>
+                <button type="button" aria-label="Página anterior" disabled={paginaActual.page===1} onClick={()=>cambiarPagina(paginaActual.page-1)}>←</button>
+                <span>Página {paginaActual.page} de {paginaActual.total}</span>
+                <button type="button" aria-label="Página siguiente" disabled={paginaActual.page===paginaActual.total} onClick={()=>cambiarPagina(paginaActual.page+1)}>→</button>
+              </nav>
             </div>
           )}
         </div>
       </main>
 
-      {modalOrden && (
-        <ModalDetalleOT orden={modalOrden} proyectoId={modalOrden.proyecto_id} onClose={() => { setModalOrden(null); setVistaPreviaInforme(null); }}
-          onGuardado={() => { setModalOrden(null); void cargarOrdenesDeProyectos(idsCatalogo); }}
-          onEditar={() => { setModalOrden(null); setPanelTab('datos'); setInformeOrdenId(modalOrden.id); }}
-          onVerInforme={(tipo, documentoId) => setVistaPreviaInforme({ ordenId: modalOrden.id, tipo, documentoId })} />
-      )}
+      {modalOrden && <div hidden={!!informeOrden}>
+        <ModalDetalleOT key={modalOrden.id} orden={modalOrden} proyectoId={modalOrden.proyecto_id} historialExterno onClose={volverRuta}
+          onGuardado={() => { volverRuta(); void cargarOrdenesDeProyectos(idsCatalogo); }}
+          onEditar={() => abrirEditor(modalOrden.id,'datos',true)}
+          onVerInforme={(tipo, documentoId) => abrirRuta({...ruta,informe:{ordenId:modalOrden.id,tipo,documentoId}})} />
+      </div>}
       {vistaPreviaInforme && ordenVistaPrevia &&
         <ModalInformeOT key={`${ordenVistaPrevia.id}-${vistaPreviaInforme.tipo}-${vistaPreviaInforme.documentoId ?? 'borrador'}`}
           isOpen orden={ordenVistaPrevia} proyectoNombre={porId.get(ordenVistaPrevia.proyecto_id)?.nombre ?? ''}
           tipo={vistaPreviaInforme.tipo} documentoInicialId={vistaPreviaInforme.documentoId}
-          soloVistaPrevia onClose={() => setVistaPreviaInforme(null)} />}
-      {informeOrden && <PanelOT key={informeOrden.id} orden={informeOrden}
+          soloVistaPrevia onClose={volverRuta} />}
+      {informeOrden && <PanelOT key={informeOrden.id} orden={informeOrden} historialExterno salidaGuardRef={salidaOTRef}
         proyectoNombre={porId.get(informeOrden.proyecto_id)?.nombre ?? ''}
-        tabInicial={panelTab} onCerrar={() => setInformeOrdenId(null)} />}
+        tabInicial={ruta.tab} onCerrar={volverRuta} />}
+
     </div>
   );
 };

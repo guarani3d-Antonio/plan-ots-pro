@@ -35,7 +35,7 @@ await test('validación iniciada sin red puede reintentarse al reconectar',async
 });
 let response={data:[],error:null},allow=true,privateCalls=0;
 const remote={from(){privateCalls++;const q={};for(const m of ['select','insert','update','delete','eq','in','is','order','single'])q[m]=()=>q;q.then=(ok,bad)=>Promise.resolve(typeof response==='function'?response():response).then(ok,bad);return q;}};
-const store=await load('src/stores/ordenesStore.ts',{'zustand':{create},'uuid':{v4:()=> 'new-id'},'../db/supabase':{supabase:remote},'./authStore':{useAuthStore:{getState:()=>({user:{id:'A'}})}},'./accessStore':{exigirPermiso:()=>{if(!allow)throw Error('denied');}},'../security/sessionScope':security,'../data/ordenMapper':mapper});
+const store=await load('src/stores/ordenesStore.ts',{'zustand':{create},'uuid':{v4:()=> 'new-id'},'../db/supabase':{supabase:remote},'./authStore':{useAuthStore:{getState:()=>({user:{id:'A'}})}},'./accessStore':{exigirPermiso:()=>{if(!allow)throw Error('denied');}},'../security/sessionScope':security,'../data/ordenMapper':mapper,'../services/paginatedRead':await load('src/services/paginatedRead.ts')});
 const st=store.useOrdenesStore;
 await test('fallo de lectura vacía las órdenes y no lee caché',async()=>{security.bindIdentity('A');st.setState({ordenes:[{id:'old',proyecto_id:'P'}]});response={data:null,error:{message:'Sin permiso'}};await st.getState().cargarOrdenes('P');assert.equal(st.getState().ordenes.length,0);assert(st.getState().error);});
 await test('rechazo de creación no publica OT ni encola',async()=>{response={data:null,error:{message:'rechazado'}};await assert.rejects(()=>st.getState().crearOrdenEnPosicion('P',.2,.3));assert.equal(st.getState().ordenes.length,0);});
