@@ -1,6 +1,6 @@
-# Dashboard operativo y editor contextual — validación local
+# Dashboard operativo y editor contextual — implementación y publicación
 
-Alcance aprobado: implementación local, sin publicar ni modificar datos reales. Baseline publicado: `0169572`. Punto de retorno local anterior a la edición: `e5c60b3`.
+Alcance inicial: implementación local, sin modificar datos reales. Baseline publicado: `0169572`. Punto de retorno local anterior a la edición: `e5c60b3`. Luego el propietario autorizó publicar `a578afb` junto con búsqueda/pestañas y lectura configurable. Checkpoint previo a esas correcciones: `1b8c68d`.
 
 ## Resultado
 
@@ -10,7 +10,10 @@ Alcance aprobado: implementación local, sin publicar ni modificar datos reales.
 - Las preferencias anteriores conservan sus bloques y filtros. Un bloque antiguo de ingresos sigue mostrando ingresos hasta que su dueño cambie las series.
 - Editor contextual con vista previa del bloque seleccionado. Cancelar no altera el documento; aplicar deja el cambio pendiente de guardado privado.
 - Asistente de gráficos bajo MIA: interpretación local limitada de tipo, series y agrupación. No utiliza API de IA ni genera gastos. No es un constructor general de interfaces por IA.
-- Lectura operativa compacta: riesgo alto/extremo en activas, asignación faltante, fechas de fin inválidas en cerradas y, cuando hay espacio, saldo de eventos. Cada señal abre su regla y las OT que la sustentan.
+- Lectura operativa compacta: riesgo, asignación, fechas de cierre, saldo de eventos, prioridades y vinculación de contratistas; incorpora también un resumen por bloque del dashboard. Cada señal abre su regla y las OT que la sustentan. Los temas sin coincidencias no inventan alertas.
+- Lectura configurable por dashboard: elegir temas/bloques, títulos, explicación completa y 3/6/12 resúmenes al entrar, con ampliación a todos los disponibles. No hay un límite fijo de tres. Los indicadores numéricos se excluyen inicialmente para evitar duplicación y pueden incluirse.
+- Navegación con hasta cuatro pestañas abiertas, búsqueda textual entre los veinte dashboards permitidos y alta superpuesta. Cerrar una pestaña no elimina su dashboard. Las pestañas abiertas son estado de navegación de la sesión; las fechas y configuración son preferencias privadas persistentes.
+- La propiedad opcional `reading` se guarda en el documento v1 existente. Compatibilidad de lectura comprobada con el validador publicado `0169572`; no se requiere migración SQL ni cambio de permisos.
 
 ## Semántica de datos
 
@@ -36,4 +39,13 @@ El cliente recarga datos mediante la consulta existente y sus políticas RLS al 
 
 Ensayo: `node node_modules/vite/bin/vite.js --config scripts/qa-dashboard-operational-vite.config.mjs`, luego abrir `http://127.0.0.1:5233/scripts/qa-dashboard-operational.html`.
 
-El transporte del ensayo sustituye Supabase, bloquea escrituras operativas y rechaza solicitudes fetch fuera del origen local. Los únicos guardados ensayados son preferencias ficticias en almacenamiento local. No se publicaron commits, ejecutaron migraciones ni cambiaron OT, documentos, firmas, permisos, credenciales o respaldos de producción.
+El transporte del ensayo sustituye Supabase, bloquea escrituras operativas y rechaza solicitudes fetch fuera del origen local. Guardados locales ensayados con preferencias ficticias. La variante `?many=1` permite verificar veinte dashboards sin servicios externos.
+
+## Revisión adicional previa a publicación
+
+- Búsqueda entre veinte dashboards, apertura y cierre de pestañas sin eliminar registros; alta y cancelación de un dashboard ficticio.
+- Guardado y recarga de fechas, límite de doce resúmenes, explicaciones completas, selección de bloques y título personalizado en la cuenta ficticia A; preferencias independientes de B.
+- Resúmenes con más de tres resultados, ocultación de temas, cambios de datos, evidencia y compatibilidad antigua cubiertos por pruebas automatizadas.
+- Notebook de 1366 px y móvil de 390 px sin desbordamiento horizontal; editor contextual en diálogo contenido.
+- TypeScript, pruebas de modelo, aislamiento con PostgreSQL en memoria y compilación de producción correctos. Se conservan advertencias de empaquetado preexistentes (tamaño, pdfjs y mezcla de imports).
+- Huella inicial de producción tomada por consulta de solo lectura: 113 OT, 15 documentos, 16 revisiones, 15 borradores, 2 firmas. Evidencia y verificación posterior en `output/dashboard-publicacion-final-20261019/`.

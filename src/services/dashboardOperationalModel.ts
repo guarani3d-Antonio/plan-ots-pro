@@ -1,6 +1,6 @@
 import type { OrdenLocal } from '../types/orden';
 import type { Proyecto } from '../stores/proyectosStore';
-import { blockOrders, filterOrders, localDay, normalized, validDay, newBlock, type DashboardBlock, type DashboardFilters, type TemporalOptions } from './personalDashboardModel';
+import { blockOrders, filterOrders, groupOrders, measureOrders, localDay, normalized, validDay, newBlock, type DashboardBlock, type DashboardFilters, type TemporalOptions, type PersonalBoard, type ReadingOptions } from './personalDashboardModel';
 
 export const EVENT_LABELS = { ingresos: 'Ingresadas', cierres: 'Cerradas · fin registrado' };
 export type EventKey = keyof typeof EVENT_LABELS;
@@ -64,9 +64,46 @@ export function operationalSignals(orders: OrdenLocal[], projects: Proyecto[], f
   const temporal = temporalData(orders, projects, filters, { ...newBlock(), group: 'semana', temporal: { ...temporalOptions(newBlock()), series: ['ingresos', 'cierres'] } }, today);
   const ins = temporal.buckets.reduce((n, b) => n + b.ingresos.length, 0), outs = temporal.buckets.reduce((n, b) => n + b.cierres.length, 0);
   const delta = ins - outs;
-  if (signals.length < 3 && !temporal.error) signals.push({ id: 'flow', title: ins + outs === 0 ? 'Sin movimientos fechados en el período' : delta > 0 ? 'Ingresan más OT de las que cierran' : delta < 0 ? 'Más cierres registrados que ingresos' : 'Ingresos y cierres equilibrados', detail: `${ins} ingresos · ${outs} cierres → ver fundamento`, tone: delta > 0 ? 'info' : 'success', orders: uniqueEvents(temporal.buckets, ['ingresos', 'cierres']), reason: `Entre ${fullDate(temporal.from)} y ${fullDate(temporal.to)} inclusive: ${ins} ingresos y ${outs} cierres con fin válido. Cada serie usa su propia fecha; el selector de referencia de las demás tarjetas no cambia estos eventos. El saldo no prueba calidad, plazos ni cumplimiento.` });
+  if (!temporal.error) signals.push({ id: 'flow', title: ins + outs === 0 ? 'Sin movimientos fechados en el período' : delta > 0 ? 'Ingresan más OT de las que cierran' : delta < 0 ? 'Más cierres registrados que ingresos' : 'Ingresos y cierres equilibrados', detail: `${ins} ingresos · ${outs} cierres → ver fundamento`, tone: delta > 0 ? 'info' : 'success', orders: uniqueEvents(temporal.buckets, ['ingresos', 'cierres']), reason: `Entre ${fullDate(temporal.from)} y ${fullDate(temporal.to)} inclusive: ${ins} ingresos y ${outs} cierres con fin válido. Cada serie usa su propia fecha; el selector de referencia de las demás tarjetas no cambia estos eventos. El saldo no prueba calidad, plazos ni cumplimiento.` });
   if (!signals.length) signals.push({ id: 'empty', title: 'Sin OT para este alcance', detail: 'Revisar filtros y fechas', orders: [], tone: 'info', reason: 'No hay OT coincidentes. Esto no permite concluir que la operación esté sin problemas.' });
-  return signals.slice(0, 3);
+  return signals;
+}
+export const READING_TOPICS = { risk: 'Riesgo registrado', person: 'Asignación de responsables', date: 'Calidad de fechas de cierre', flow: 'Ingresos frente a cierres', priority: 'Prioridad alta pendiente de atención', contractor: 'Contratistas en trabajos activos' };
+export function readingOptions(board: PersonalBoard): ReadingOptions { return board.reading ?? { limit: 6, disabled: board.blocks.filter(b => b.type === 'metric').map(b => 'block:' + b.id), labels: {} }; }
+export function readingCatalog(board: PersonalBoard) { return [...Object.entries(READING_TOPICS).map(([id, label]) => ({ id, label })), ...board.blocks.map(b => ({ id: 'block:' + b.id, label: b.title }))]; }
+export function dashboardReadings(orders: OrdenLocal[], projects: Proyecto[], board: PersonalBoard, today = localDay()): OperationalSignal[] {
+  const rows = filterOrders(orders, projects, board.filters), active = rows.filter(o => ['Pendiente', 'En proceso'].includes(o.estado));
+  const signals = operationalSignals(orders, projects, board.filters, today).filter(s => s.id !== 'empty');
+  const highest = active.filter(o => o.prioridad === 'Alta'), noContractor = active.filter(o => !(o.contratistas ?? []).some(n => n.trim()));
+  if (highest.length) signals.push({ id: 'priority', title: `${highest.length} activas con prioridad alta`, detail: 'Revisar atención y distribución de carga', reason: 'OT filtradas actualmente Pendiente o En proceso con prioridad Alta. No se infiere una fecha comprometida ni un incumplimiento.', orders: highest, tone: 'warning' });
+  if (noContractor.length) signals.push({ id: 'contractor', title: `${noContractor.length} activas sin contratista vinculado`, detail: 'Revisar si requieren contratación o atención interna', reason: 'No hay nombres de contratistas vinculados en la OT. Puede corresponder a trabajo interno; no se considera por sí solo una falta.', orders: noContractor, tone: 'info' });
+  for (const b of board.blocks) {
+    const id = 'block:' + b.id;
+    if (isTemporal(b)) {
+      const data = temporalData(orders, projects, board.filters, b, today), series = temporalOptions(b).series;
+      if (data.error) { signals.push({ id, title: b.title, detail: data.error, reason: data.error, orders: [], tone: 'info' }); continue; }
+      const counts = series.map(s => `${data.buckets.reduce((n, bucket) => n + bucket[s].length, 0)} ${s === 'ingresos' ? 'ingresos' : 'cierres con fin válido'}`).join(' · ');
+      const incoming = data.buckets.reduce((n, bucket) => n + bucket.ingresos.length, 0), outgoing = data.buckets.reduce((n, bucket) => n + bucket.cierres.length, 0);
+      const review = series.length === 2 && incoming > outgoing ? 'Conviene revisar la carga que queda abierta.' : 'Abrí el detalle para revisar los movimientos.';
+      signals.push({ id, title: b.title, detail: counts, orders: uniqueEvents(data.buckets, series), tone: 'info', reason: `${counts}, entre ${fullDate(data.from)} y ${fullDate(data.to)}, inclusive. Cada serie aplica su propia fecha de evento y el filtro del bloque. ${review} El saldo no mide por sí solo calidad ni cumplimiento. ${data.missingOut} cerradas del alcance sin fin válido quedan fuera de la serie de cierres.` }); continue;
+    }
+    const source = blockOrders(rows, b, today), groups = groupOrders(source, projects, b), metric = measureOrders(source, b, projects), top = groups[0];
+    let detail: string;
+    if (metric.value === null) detail = 'Sin fechas válidas para calcular esta medida';
+    else if (b.measure === 'duration') detail = `${metric.value.toLocaleString('es-PY')} días registrados en promedio · ${metric.sample} cerradas válidas`;
+    else if (b.measure === 'entities') detail = `${metric.value} categorías distintas · ${source.length} OT únicas`;
+    else detail = b.type !== 'metric' && top ? `${top.label}: ${top.value ?? 'sin dato'} · ${source.length} OT únicas en el bloque` : `${source.length} OT únicas en el bloque`;
+    let reason = `${b.title}. Se aplican la obra, fechas, filtros generales, condición y rubro propios del bloque. ${detail}.`;
+    if (b.measure === 'duration') reason += ' Ingreso a fin registrado, ambos días incluidos; no acredita horas trabajadas ni ejecución.';
+    else if (b.group === 'contratista') reason += ' Una OT puede tener varios contratistas; las asignaciones no se suman como OT distintas. Revisar su carga antes de asignar nuevos trabajos.';
+    else if (b.condition === 'active' && b.group === 'responsable') reason += ' Revisar la distribución de carga y los trabajos sin asignación; la cantidad no califica el desempeño.';
+    else if (b.condition === 'pending') reason += ' Revisar prioridad, riesgo y atención asignada antes de decidir el orden de trabajo.';
+    else if (top && source.length) reason += ` ${top.label} encabeza los grupos por la medida elegida; conviene abrir sus registros para conocer las causas.`;
+    else if (!source.length) reason += ' La ausencia de coincidencias no demuestra ausencia de problemas; revisá los filtros.';
+    signals.push({ id, title: b.title, detail, reason, orders: source, tone: 'info' });
+  }
+  const disabled = new Set(readingOptions(board).disabled);
+  return signals.filter(s => !disabled.has(s.id));
 }
 // Assisted creation is local and bounded. No model response, SQL or record mutation is executed.
 export function proposeTemporalBlock(prompt: string, original?: DashboardBlock): DashboardBlock {

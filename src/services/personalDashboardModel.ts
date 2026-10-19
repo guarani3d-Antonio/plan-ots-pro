@@ -19,7 +19,8 @@ export interface DashboardFilters {
   project: string; rubro: string; responsible: string; contractor: string; estado: string; search: string;
   from: string; to: string; dateField: 'ingreso' | 'fin';
 }
-export interface PersonalBoard { id: string; name: string; blocks: DashboardBlock[]; filters: DashboardFilters }
+export interface ReadingOptions { limit: 3 | 6 | 12; disabled: string[]; labels: Record<string, string>; explain?: boolean }
+export interface PersonalBoard { id: string; name: string; blocks: DashboardBlock[]; filters: DashboardFilters; reading?: ReadingOptions }
 export interface DashboardDocument { version: 1; defaultId: string; boards: PersonalBoard[] }
 export const TYPE_LABELS: Record<ChartType, string> = { metric: 'Indicador', bars: 'Barras', line: 'Líneas', pie: 'Torta', donut: 'Dona', table: 'Tabla' };
 export const GROUP_LABELS: Record<GroupBy, string> = { estado: 'Estado', rubro: 'Rubro', responsable: 'Responsable', contratista: 'Contratista', obra: 'Obra', semana: 'Fecha de eventos' };
@@ -52,6 +53,10 @@ export function validateDocument(value: unknown): DashboardDocument {
   for (const board of d.boards) {
     if (!board || !text(board.id, 100) || ids.has(board.id) || !text(board.name, 80) || !board.name.trim() || !Array.isArray(board.blocks) || board.blocks.length > 30) throw Error('Revisá el nombre y los bloques del dashboard.');
     ids.add(board.id); const f = board.filters;
+    if (board.reading !== undefined) {
+      const r = board.reading;
+      if (!r || ![3, 6, 12].includes(r.limit) || !Array.isArray(r.disabled) || r.disabled.length > 100 || r.disabled.some(id => !text(id, 160)) || new Set(r.disabled).size !== r.disabled.length || !r.labels || typeof r.labels !== 'object' || Array.isArray(r.labels) || Object.keys(r.labels).length > 100 || Object.entries(r.labels).some(([id, label]) => id.length > 160 || !text(label, 100)) || r.explain !== undefined && typeof r.explain !== 'boolean') throw Error('Revisá las preferencias de lectura operativa.');
+    }
     if (!f || !['ingreso', 'fin'].includes(f.dateField) || ['project', 'rubro', 'responsible', 'contractor', 'estado', 'search'].some(k => !text(f[k as keyof DashboardFilters], 300)) || [f.from, f.to].some(v => v !== '' && !validDay(v)) || (f.from && f.to && f.from > f.to)) throw Error('Revisá los filtros y el intervalo de fechas.');
     const blockIds = new Set<string>();
     for (const b of board.blocks) {

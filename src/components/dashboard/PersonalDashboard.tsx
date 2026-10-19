@@ -14,9 +14,11 @@ import type { Proyecto } from '../../stores/proyectosStore';
 import { ModalDetalleOT } from '../grilla/ModalDetalleOT';
 import { ModalInformeOT } from '../informes/ModalInformeOT';
 import type { TipoDocumento } from '../../services/documentService';
-import { isTemporal, operationalSignals, proposeTemporalBlock, temporalData, temporalOptions, uniqueEvents } from '../../services/dashboardOperationalModel';
+import { isTemporal, proposeTemporalBlock, temporalData, temporalOptions, uniqueEvents } from '../../services/dashboardOperationalModel';
 import { TemporalChart } from './TemporalChart';
 import { ContextualBlockEditor } from './ContextualBlockEditor';
+import { DashboardPicker } from './DashboardPicker';
+import { OperationalReading } from './OperationalReading';
 import styles from './PersonalDashboard.module.css';
 
 const LIVE = { data: loadDashboardData, watch: watchDashboardData, load: loadPersonalDashboards, save: savePersonalDashboards };
@@ -163,14 +165,13 @@ export function DashboardWorkspace({ userId, services, onLegacy }: { userId: str
   const f = board.filters;
   const displayBlocks = block ? [block] : board.blocks;
   const startEditor = (next: DashboardBlock, mia = false) => { setAssisted(mia); setBlock(mia ? proposeTemporalBlock('Compará ingresos y cierres', next) : structuredClone(next)); setMessage(''); };
-  const signals = operationalSignals(data.ordenes, data.proyectos, f);
   function openDrill(next: Drilldown) { setDrillQuery(''); setDrill(next); }
   const invalidRange = !!f.from && !!f.to && f.from > f.to;
   return <section className={styles.page} aria-label="Dashboards personales" aria-busy={loading || busy}>
     <header className={styles.header}><div><span className={styles.eyebrow}>MI ESPACIO · SOLO YO</span><h1>Mis dashboards</h1></div>
       <div className={styles.actions}>
-        <label className={styles.srOnly} htmlFor="personal-board">Dashboard</label><select id="personal-board" value={board.id} disabled={editing || busy || !!block} onChange={e => switchBoard(e.target.value)}>{document.boards.map(b => <option key={b.id} value={b.id}>{b.name}{document.defaultId === b.id ? ' ★' : ''}</option>)}</select>
-        {!editing && <><button onClick={() => setNewBoard(true)} disabled={busy || !!block || document.boards.length >= 20}>+ Nuevo</button><button disabled={busy || !!block} onClick={() => startEditor({ ...newBlock(), title: 'Ingresos y cierres', group: 'semana', type: 'line', width: 12 }, true)}>Crear con MIA</button><button className={styles.primary} disabled={busy || !!block} onClick={() => { setEditing(true); setMessage(''); }}>Editar dashboard</button>
+        <DashboardPicker boards={document.boards} active={board.id} defaultId={document.defaultId} disabled={editing || busy || !!block} canCreate={document.boards.length < 20} onSelect={switchBoard} onNew={() => setNewBoard(true)} />
+        {!editing && <><button disabled={busy || !!block} onClick={() => startEditor({ ...newBlock(), title: 'Ingresos y cierres', group: 'semana', type: 'line', width: 12 }, true)}>Crear con MIA</button><button className={styles.primary} disabled={busy || !!block} onClick={() => { setEditing(true); setMessage(''); }}>Editar dashboard</button>
           <details className={styles.menu}><summary aria-label="Más opciones del dashboard">···</summary><div><button onClick={duplicate} disabled={busy || !!block || document.boards.length >= 20}>Duplicar dashboard</button><button disabled={busy || !!block || document.boards.length < 2} onClick={removeBoard}>Quitar dashboard</button><button onClick={exportCSV}>Exportar OT · CSV</button>{onLegacy && <button disabled={dirty || !!block} onClick={onLegacy}>Resumen y exportaciones anteriores</button>}<button disabled={refreshing || busy} onClick={() => refreshData.current()}>Actualizar datos</button></div></details></>}
       </div>
     </header>
@@ -193,7 +194,7 @@ export function DashboardWorkspace({ userId, services, onLegacy }: { userId: str
     </div>
     <div className={styles.context}><span>{rows.length} OT únicas · {f.from || 'Primer registro'} → {f.to || 'Sin fecha final'} · referencia: {f.dateField === 'ingreso' ? 'Ingreso' : 'Fin registrado'}</span><span>{refreshing ? 'Actualizando lectura…' : lastUpdate ? 'Lectura '+lastUpdate.toLocaleTimeString('es-PY',{hour:'2-digit',minute:'2-digit'}) : ''}</span>{dirty && !editing && <button disabled={busy || invalidRange || !!block} onClick={persist}>Guardar esta vista</button>}</div>
     {refreshError && <p role="status" className={styles.notice}>{refreshError}<button disabled={refreshing} onClick={() => refreshData.current()}>Reintentar lectura</button></p>}
-    {!invalidRange && <section className={styles.operational} aria-label="Lectura operativa"><header>Lectura operativa <span>Situación actual de las OT filtradas</span></header><div>{signals.map(signal => <button key={signal.id} className={styles.signal} data-tone={signal.tone} onClick={() => openDrill({title:signal.title,orders:signal.orders,reason:signal.reason})}><strong>{signal.title}</strong><span>{signal.detail} →</span></button>)}</div></section>}
+    {!invalidRange && <OperationalReading key={board.id} board={board} orders={data.ordenes} projects={data.proyectos} disabled={busy || !!block} onApply={reading => updateBoard({reading})} onSelect={signal => openDrill({title:signal.title,orders:signal.orders,reason:signal.reason})} />}
     {invalidRange && <p role="alert">La fecha inicial debe ser anterior o igual a la final.</p>}
     {error && <div className={styles.notice} role="alert">{error}<button disabled={busy} onClick={() => { if (!dirty || confirm('¿Descartar los cambios de esta ventana y cargar la versión guardada?')) { setEditing(false); setReload(n => n + 1); } }}>Descartar y recargar</button></div>}
     {(message || busy || loading) && <p className={styles.notice} role="status">{busy ? 'Guardando…' : loading ? 'Actualizando…' : message}</p>}

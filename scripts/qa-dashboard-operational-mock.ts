@@ -12,10 +12,12 @@ const rows: Record<string, unknown>[] = Array.from({ length: 160 }, (_, i) => {
 });
 let serial = 0;
 export function simulateData() { serial++; rows.push({ ...rows[1], id: 'QA-NEW-' + serial, ot: 'OT-QA-NUEVA-' + serial, fecha_ingreso: today, estado: 'Pendiente', responsable: '', nivel_riesgo: 'Alto' }); listeners.forEach(fn => fn()); }
-const key = 'qa-dashboard-operational-private-v1';
+const many = new URLSearchParams(location.search).get('many') === '1';
+const key = 'qa-dashboard-operational-private-v1' + (many ? '-twenty-boards' : '');
 const configs: Record<string, { config: unknown; revision: number }> = JSON.parse(localStorage.getItem(key) || '{}');
 const a = '10000000-0000-4000-8000-000000000001';
 if (!configs[a]) { const doc = initialDocument(); doc.boards[0] = createBoard('Dashboard anterior conservado'); doc.defaultId = doc.boards[0].id; const chart = doc.boards[0].blocks.find(b => b.group === 'semana')!; delete chart.temporal; chart.title = 'Ingresos por semana'; chart.width = 6; configs[a] = { config: doc, revision: 1 }; }
+if (many) { const id = '10000000-0000-4000-8000-000000000002'; if (!configs[id]) { const doc = initialDocument(); doc.boards = Array.from({length:20}, (_,i)=>createBoard('Dashboard '+String(i+1).padStart(2,'0'),i>0)); doc.defaultId = doc.boards[0].id; configs[id] = {config:doc,revision:1}; } }
 let fail = false;
 export const failNextRead = () => { fail = true; listeners.forEach(fn => fn()); };
 class Query {

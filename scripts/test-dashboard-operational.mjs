@@ -37,5 +37,15 @@ const doc = base.initialDocument(); doc.boards[0].blocks.push(b); base.validateD
 const legacy = structuredClone(doc); legacy.boards[0].blocks.forEach(b => delete b.temporal); assert.deepEqual(base.validateDocument(legacy), legacy); assert.deepEqual(Array.from(model.temporalOptions(legacy.boards[0].blocks.at(-1)).series), ['ingresos']);
 const area = model.proposeTemporalBlock('Áreas semanales de ingresos y cierres', b); assert.equal(area.type, 'line'); assert.equal(area.temporal.area, true);
 const old = await load('published-model', {}, execFileSync('git', ['show', '0169572:src/services/personalDashboardModel.ts'], { encoding: 'utf8' })); const compatible = base.initialDocument(); compatible.boards[0].blocks.push(area); old.validateDocument(compatible); // Cached older client still reads the preference document.
+const readingBoard = base.createBoard('Lectura personal'); readingBoard.filters = f;
+const readings = model.dashboardReadings(rows, projects, readingBoard, '2026-10-19'); assert.ok(readings.length > 3); assert.ok(readings.some(r => r.id.startsWith('block:'))); assert.ok(readings.every(r => r.reason && Array.isArray(r.orders)));
+readingBoard.reading = { limit: 12, disabled: ['risk'], labels: { flow: 'Mi evolución de trabajos' }, explain: true };
+assert.ok(!model.dashboardReadings(rows, projects, readingBoard, '2026-10-19').some(r => r.id === 'risk'));
+assert.equal(model.readingOptions(readingBoard).limit, 12);
+const readingDoc = base.initialDocument(); readingDoc.boards = [readingBoard]; readingDoc.defaultId = readingBoard.id; base.validateDocument(readingDoc); old.validateDocument(readingDoc);
+const invalidReading = structuredClone(readingDoc); invalidReading.boards[0].reading.limit = 500; assert.throws(() => base.validateDocument(invalidReading));
+const changed = { ...rows[0], id: 'changed', estado: 'Pendiente', nivel_riesgo: 'Alto' };
+assert.equal(model.dashboardReadings([changed], projects, { ...readingBoard, reading: undefined }, '2026-10-19').find(r => r.id === 'risk').orders.length, 1);
+assert.ok(model.readingCatalog(readingBoard).some(item => item.label === 'Ingresos y cierres'));
 for (const invalid of [{ ...b.temporal, series: [] }, { ...b.temporal, series: ['ingresos', 'ingresos'] }, { ...b.temporal, height: 50000 }]) { const wrong = structuredClone(doc); wrong.boards[0].blocks.at(-1).temporal = invalid; assert.throws(() => base.validateDocument(wrong)); }
 console.log('PASS temporal: límites inclusivos, día único, ceros, semana parcial, meses y años, bisiesto, cierre previo al rango, cierre sin ingreso, fechas faltantes/invertidas, sin updated_at inventado, filtros de obra y contratista, 730 puntos, agrupación automática, señales y fundamentos, MIA local, preferencias antiguas y validación. Sin red ni datos reales.');
