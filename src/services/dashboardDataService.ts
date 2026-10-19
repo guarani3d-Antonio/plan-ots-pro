@@ -17,3 +17,18 @@ export async function loadDashboardData() {
   const ordenes = rows.map(rowToOrden).filter(o => projectIds.has(o.proyecto_id));
   return { proyectos, ordenes };
 }
+
+// Invalidate and refetch through RLS; never merge event payloads into the global scope.
+export function watchDashboardData(onChange: () => void): () => void {
+  const ticket = sessionTicket();
+  let stopped = false, timer: ReturnType<typeof setTimeout> | undefined;
+  const invalidate = () => {
+    if (stopped) return;
+    try { assertSession(ticket); } catch { return; }
+    clearTimeout(timer); timer = setTimeout(() => { if (!stopped) onChange(); }, 400);
+  };
+  const channel = supabase.channel('dashboard-read-' + crypto.randomUUID())
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'ordenes' }, invalidate)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'proyectos' }, invalidate).subscribe();
+  return () => { stopped = true; clearTimeout(timer); void supabase.removeChannel(channel); };
+}

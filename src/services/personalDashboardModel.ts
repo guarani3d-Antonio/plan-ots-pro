@@ -4,12 +4,16 @@ import type { Proyecto } from '../stores/proyectosStore';
 export const STATUS_COLORS: Record<string, string> = { Pendiente: '#EF5261', 'En proceso': '#4D83E5', Cerrada: '#9BCB24', 'No aplica': '#94A3B8' };
 export const PALETTE = ['#4D83E5', '#24B5A4', '#A17CE0', '#F3AC42', '#EC729D', '#67ADCE', '#9BCB24', '#D58250'];
 export type ChartType = 'metric' | 'bars' | 'line' | 'pie' | 'donut' | 'table';
+export interface TemporalOptions {
+  grain: 'auto' | 'day' | 'week' | 'month'; series: ('ingresos' | 'cierres')[];
+  points: boolean; values: boolean; grid: boolean; height: 230 | 270 | 320; description: string; area?: boolean;
+}
 export type GroupBy = 'estado' | 'rubro' | 'responsable' | 'contratista' | 'obra' | 'semana';
 export type Condition = 'all' | 'active' | 'pending' | 'progress' | 'closed' | 'overdue';
 export type Measure = 'count' | 'entities' | 'duration';
 export interface DashboardBlock {
   id: string; title: string; type: ChartType; group: GroupBy; measure: Measure;
-  condition: Condition; width: 3 | 6 | 12; rubro: string; colors: Record<string, string>;
+  condition: Condition; width: 3 | 6 | 12; rubro: string; colors: Record<string, string>; temporal?: TemporalOptions;
 }
 export interface DashboardFilters {
   project: string; rubro: string; responsible: string; contractor: string; estado: string; search: string;
@@ -18,7 +22,7 @@ export interface DashboardFilters {
 export interface PersonalBoard { id: string; name: string; blocks: DashboardBlock[]; filters: DashboardFilters }
 export interface DashboardDocument { version: 1; defaultId: string; boards: PersonalBoard[] }
 export const TYPE_LABELS: Record<ChartType, string> = { metric: 'Indicador', bars: 'Barras', line: 'Líneas', pie: 'Torta', donut: 'Dona', table: 'Tabla' };
-export const GROUP_LABELS: Record<GroupBy, string> = { estado: 'Estado', rubro: 'Rubro', responsable: 'Responsable', contratista: 'Contratista', obra: 'Obra', semana: 'Semana de ingreso' };
+export const GROUP_LABELS: Record<GroupBy, string> = { estado: 'Estado', rubro: 'Rubro', responsable: 'Responsable', contratista: 'Contratista', obra: 'Obra', semana: 'Fecha de eventos' };
 export const CONDITION_LABELS: Record<Condition, string> = { all: 'Todas', active: 'Activas', pending: 'Pendientes', progress: 'En proceso', closed: 'Cerradas', overdue: 'Fuera de plazo registrado' };
 export function localDay(date = new Date()): string { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`; }
 export function validDay(value: unknown): string {
@@ -35,7 +39,7 @@ export function createBoard(name = 'Seguimiento de obra', empty = false): Person
     block('OT en alcance', 'metric', 'estado'), block('Pendientes', 'metric', 'estado', 'pending'),
     block('En proceso', 'metric', 'estado', 'progress'), block('Cerradas', 'metric', 'estado', 'closed'),
     block('Distribución de OT', 'donut', 'estado'), block('OT por rubro', 'bars', 'rubro'),
-    block('Ingresos por semana', 'line', 'semana'), block('Carga por responsable', 'table', 'responsable', 'active'),
+    { ...block('Ingresos y cierres', 'line', 'semana'), width: 12, temporal: { grain: 'auto', series: ['ingresos', 'cierres'], points: true, values: false, grid: true, height: 270, description: 'Movimiento de OT dentro del período' } }, block('Carga por responsable', 'table', 'responsable', 'active'),
   ] };
 }
 export function initialDocument(): DashboardDocument { const board = createBoard(); return { version: 1, defaultId: board.id, boards: [board] }; }
@@ -53,6 +57,10 @@ export function validateDocument(value: unknown): DashboardDocument {
     for (const b of board.blocks) {
       if (!b || !text(b.id, 100) || blockIds.has(b.id) || !text(b.title, 100) || !b.title.trim() || !Object.hasOwn(TYPE_LABELS, b.type) || !Object.hasOwn(GROUP_LABELS, b.group) || !Object.hasOwn(CONDITION_LABELS, b.condition) || !['count', 'entities', 'duration'].includes(b.measure) || ![3, 6, 12].includes(b.width) || !text(b.rubro, 300) || !b.colors || typeof b.colors !== 'object' || Array.isArray(b.colors) || Object.keys(b.colors).length > 100 || Object.entries(b.colors).some(([key, color]) => key.length > 400 || typeof color !== 'string' || !/^#[0-9a-f]{6}$/i.test(color))) throw Error('Hay un bloque con opciones no válidas.');
       blockIds.add(b.id);
+      if (b.temporal !== undefined) {
+        const t = b.temporal;
+        if (!t || !['auto', 'day', 'week', 'month'].includes(t.grain) || !Array.isArray(t.series) || !t.series.length || t.series.length > 2 || new Set(t.series).size !== t.series.length || t.series.some(s => !['ingresos', 'cierres'].includes(s)) || ['points', 'values', 'grid'].some(k => typeof t[k as keyof TemporalOptions] !== 'boolean') || ![230, 270, 320].includes(t.height) || !text(t.description, 100) || t.area !== undefined && typeof t.area !== 'boolean') throw Error('Revisá las opciones del gráfico temporal.');
+      }
     }
   }
   if (!ids.has(d.defaultId)) throw Error('Elegí un dashboard inicial válido.');
