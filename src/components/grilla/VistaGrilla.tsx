@@ -866,7 +866,7 @@ export const VistaGrilla: React.FC = () => {
 
   const workspaceStyle: CSSProperties  = { background: '#F9F9FE', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' };
   const mainPanelStyle: CSSProperties  = { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' };
-  const cardStyle: CSSProperties       = { background: '#fff', border: '1px solid #E2E2E7', borderRadius: 12, boxShadow: '0 2px 8px rgba(0,51,102,0.08)', margin: '0 16px 12px', overflow: 'hidden', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' };
+  const cardStyle: CSSProperties       = { background: '#fff', border: '1px solid #E2E2E7', borderRadius: 12, boxShadow: '0 2px 8px rgba(0,51,102,0.08)', margin: '0 16px 12px', overflowX: 'hidden', overflowY: 'auto', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' };
   const toolbarStyle: CSSProperties    = { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, padding: '8px 16px', minHeight: 44, borderBottom: '1px solid #E2E2E7', background: '#fff', flexShrink: 0 };
   const tableScrollStyle: CSSProperties = { flex: 1, minHeight: 0, overflowX: 'auto', overflowY: 'auto', background: '#fff' };
   const paginacionStyle: CSSProperties = { display: 'flex', alignItems: 'center', justifyContent: 'flex-start', padding: '6px 24px', background: '#F4F3F8', borderTop: '1px solid #E2E2E7', flexShrink: 0 };
