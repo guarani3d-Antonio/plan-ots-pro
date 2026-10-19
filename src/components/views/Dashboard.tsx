@@ -11,6 +11,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { ESTADO_COLOR } from '../../constants/estados';
 import { getWidgetConfig, DEFAULT_WIDGETS, type WidgetConfig, type WidgetId } from '../../services/dashboardConfigService';
 import { usePuedeVerCostosMultiple } from '../../hooks/usePuedeVerCostos';
+import PersonalDashboard from '../dashboard/PersonalDashboard';
 
 const ESTADOS = ['Pendiente', 'En proceso', 'Cerrada', 'No aplica'] as const;
 type PeriodoTendencia = 'dia' | 'semana' | 'mes';
@@ -74,6 +75,11 @@ function fechaCorta(iso?: string | null): string {
 // ─── Componente principal ─────────────────────────────────────────────────────
 
 export default function Dashboard() {
+  const [legacy, setLegacy] = useState(false);
+  return legacy ? <div style={{ height: '100%', overflow: 'auto' }}><button type="button" style={{ margin: '12px 28px 0' }} onClick={() => setLegacy(false)}>← Mis dashboards personales</button><LegacyDashboard /></div> : <PersonalDashboard onLegacy={() => setLegacy(true)} />;
+}
+
+function LegacyDashboard() {
   const [ordenes, setOrdenes] = useState<OrdenLocal[]>([]);
   const [proyectos, setProyectos] = useState<Proyecto[]>([]);
   const [loading, setLoading] = useState(true);
