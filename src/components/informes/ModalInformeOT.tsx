@@ -12,6 +12,7 @@ import { aplicarContextoCampos, IDENTIFICACION_EDITABLE, type ContextoCamposInfo
 import { VistaPreviaDocumento } from './VistaPreviaDocumento';
 import { registrarExportacion } from '../../services/trustService';
 import { borradorModificado } from '../../services/reportDraftComparison';
+import { preparacionVistaInforme } from '../../services/reportPreviewReadiness';
 // src/components/informes/ModalInformeOT.tsx
 //
 // Modal fullscreen para previsualizar/exportar los siete borradores de una OT.
@@ -586,6 +587,18 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
     void lectura.then(datos=>{if(active)setMarca({key:claveMarca,...datos});}).catch(e=>{if(active)setMarca({key:claveMarca,error:e.message||'No se pudo cargar el logo.'});});
     return()=>{active=false};
   },[isOpen,tenantMarca,claveMarca,marcaConservada,usaMarca,orden.proyecto_id]);
+  const preparacionPreview = preparacionVistaInforme({
+    cargandoDatos: cargandoComentario,
+    errorDatos: errorBorrador ?? (marcaConservada && revisionFirma && !fuentesVersion
+      ? 'No se pudieron recuperar las fuentes conservadas. Reabrí el informe.'
+      : usaMarca && marcaConservada && !fuentesVersion?.empresa
+        ? 'No se pudo recuperar la empresa de esta versión. Reabrí el informe.' : null),
+    firmas: marcaConservada && fuentesVersion && revisionFirma?.datos.firmantes
+      ? { clave: revisionFirma.id, claveCargada: firmasRevision, cargando: cargandoFirmas, error: errorFirmas } : undefined,
+    marca: usaMarca ? { clave: claveMarca, claveCargada: marca.key, error: marca.error } : undefined,
+  });
+  const fuentesPreviewPendientes = preparacionPreview.estado === 'cargando';
+  const errorFuentesPreview = preparacionPreview.estado === 'error' ? preparacionPreview.mensaje : null;
   const construirHtml = (textoActual: string): string => {
     if(!persistenciaDisponible || versionBorrador>0&&!correccionAbierta&&revisionActual&&!fuentesVersion)throw new Error('No se pudieron recuperar las fuentes conservadas. Reabrí el informe.');
     const conservada=versionBorrador>0&&!correccionAbierta&&fuentesVersion;
@@ -797,6 +810,11 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
   // Regeneración del preview ante cambios que requieren rebuild completo
   useEffect(() => {
     if (!isOpen || cargandoComentario) return;
+    if (fuentesPreviewPendientes || errorFuentesPreview) {
+      setGenerandoPreview(false);
+      setErrorInforme(errorFuentesPreview);
+      return;
+    }
     const incluirFotosCambio = prevIncluirFotosRef.current !== incluirFotos;
     prevIncluirFotosRef.current = incluirFotos;
     const delay = firstRenderRef.current || incluirFotosCambio ? 0 : DEBOUNCE_MS;
@@ -804,6 +822,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
     // Refleja una regeneración asíncrona del preview.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setGenerandoPreview(true);
+    setErrorInforme(null);
     let cancelado = false;
     const t = window.setTimeout(() => {
       Promise.resolve().then(() => hacerInformePortable(construirHtml(observaciones)))
@@ -829,6 +848,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
   }, [
     isOpen,
     cargandoComentario,
+    fuentesPreviewPendientes, errorFuentesPreview,
     incluirFotos,
     fotosAntes,
     fotosDespues,
@@ -876,7 +896,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
   };
 
   const handleActualizarAhora = async () => {
-    if (cargandoComentario) return;
+    if (fuentesPreviewPendientes) return;
     setGenerandoPreview(true);
     try {
       const result = await hacerInformePortable(construirHtml(observaciones));
@@ -1195,7 +1215,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
   };
   const verificandoEstado = soloVistaPrevia && !!documento && estadoEmisionConsultado !== documento.id;
   const pdfEmitidoPendiente = soloVistaPrevia && (emisiones.length > 0 || !!errorEmision) && !pdfBlobUrl;
-  const preparandoApertura = cargandoComentario || verificandoEstado || (!vistaPreparada && !errorBorrador && !(errorInforme && !htmlPreview) && !pdfEmitidoPendiente);
+  const preparandoApertura = fuentesPreviewPendientes || verificandoEstado || (!vistaPreparada && !errorBorrador && !(errorInforme && !htmlPreview) && !pdfEmitidoPendiente);
   const accionesInforme = <>
           {soloVistaPrevia ? <>
             <span className={styles.avisoImpresion}>{emisiones.length && pdfBlobUrl ? 'Documento definitivo emitido.' : 'Vista previa de borrador; no equivale a un documento emitido.'}</span>
@@ -1547,7 +1567,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
                 type="button"
                 className={styles.btnRefresh}
                 onClick={handleActualizarAhora}
-                disabled={cargandoComentario || generandoPreview}
+                disabled={fuentesPreviewPendientes || generandoPreview}
               >
                 Actualizar vista previa
               </button>
@@ -1589,7 +1609,7 @@ export function ModalInformeOT({ isOpen, onClose, orden, proyectoNombre, tipo, p
           </div>
         </div>
 
-        {preparandoApertura && <div className={styles.apertura} role="status"><span className={styles.spinner}/><span>{cargandoComentario ? 'Recuperando el informe guardado…' : verificandoEstado ? 'Verificando el estado documental…' : 'Preparando la primera página…'}</span></div>}
+        {preparandoApertura && <div className={styles.apertura} role="status"><span className={styles.spinner}/><span>{fuentesPreviewPendientes ? preparacionPreview.mensaje : verificandoEstado ? 'Verificando el estado documental…' : 'Preparando la primera página…'}</span></div>}
         {!previewAmpliada && <div className={styles.footer} inert={preparandoApertura}>{accionesInforme}</div>}
       </div>
     </div>
