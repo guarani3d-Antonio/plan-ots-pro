@@ -45,6 +45,14 @@ export function DashboardWorkspace({ userId, services, onLegacy }: { userId: str
   const refreshData = useRef<() => void>(() => {});
   const [dragged, setDragged] = useState<string | null>(null);
   const [newBoard, setNewBoard] = useState(false), [drill, setDrill] = useState<Drilldown | null>(null);
+  const [editorLeft, setEditorLeft] = useState<number | undefined>();
+  const pageRef = useRef<HTMLElement>(null);
+  const previewId = block?.id;
+  useEffect(() => {
+    if (previewId && document && !document.boards.some(b => b.blocks.some(item => item.id === previewId))) {
+      pageRef.current?.querySelector('article[data-editing=true]')?.scrollIntoView({ block: 'nearest' });
+    }
+  }, [previewId, document]);
   const [drillQuery, setDrillQuery] = useState('');
   const [order, setOrder] = useState<OrdenLocal | null>(null);
   const [report, setReport] = useState<{ tipo: TipoDocumento; documentoId?: string } | null>(null);
@@ -163,11 +171,15 @@ export function DashboardWorkspace({ userId, services, onLegacy }: { userId: str
   }
   if (!board || !document || !saved) return <section className={styles.page}><h1>Mis dashboards</h1>{loading ? <p role="status">Cargando tus dashboards y las OT autorizadas…</p> : <><p role="alert">{error}</p><button onClick={() => setReload(n => n + 1)}>Reintentar</button>{onLegacy && <button onClick={onLegacy}>Resumen general anterior</button>}</>}</section>;
   const f = board.filters;
-  const displayBlocks = block ? [block] : board.blocks;
-  const startEditor = (next: DashboardBlock, mia = false) => { setAssisted(mia); setBlock(mia ? proposeTemporalBlock('Compará ingresos y cierres', next) : structuredClone(next)); setMessage(''); };
+  const displayBlocks = block ? board.blocks.some(b => b.id === block.id) ? board.blocks.map(b => b.id === block.id ? block : b) : [...board.blocks, block] : board.blocks;
+  const startEditor = (next: DashboardBlock, mia = false, anchor?: HTMLElement) => {
+    const rect = anchor?.closest('article')?.getBoundingClientRect();
+    setEditorLeft(rect && rect.left + rect.width / 2 > window.innerWidth / 2 ? Math.max(12, (pageRef.current?.getBoundingClientRect().left ?? 0) + 16) : undefined);
+    setAssisted(mia); setBlock(mia ? proposeTemporalBlock('Compará ingresos y cierres', next) : structuredClone(next)); setMessage('');
+  };
   function openDrill(next: Drilldown) { setDrillQuery(''); setDrill(next); }
   const invalidRange = !!f.from && !!f.to && f.from > f.to;
-  return <section className={styles.page} aria-label="Dashboards personales" aria-busy={loading || busy}>
+  return <section ref={pageRef} className={styles.page} aria-label="Dashboards personales" aria-busy={loading || busy}>
     <header className={styles.header}><div><span className={styles.eyebrow}>MI ESPACIO · SOLO YO</span><h1>Mis dashboards</h1></div>
       <div className={styles.actions}>
         <DashboardPicker boards={document.boards} active={board.id} defaultId={document.defaultId} disabled={editing || busy || !!block} canCreate={document.boards.length < 20} onSelect={switchBoard} onNew={() => setNewBoard(true)} />
@@ -205,17 +217,17 @@ export function DashboardWorkspace({ userId, services, onLegacy }: { userId: str
       <div className={styles.actions}><button disabled={busy} onClick={discard}>Cancelar edición</button><button className={styles.primary} disabled={busy || invalidRange || !!block || !board.name.trim()} onClick={persist}>Guardar dashboard</button></div>
     </div>}
     {!board.blocks.length && <div className={styles.empty}>Tu dashboard está listo para personalizar. {editing ? <button onClick={() => startEditor(newBlock())}>Agregar primer bloque</button> : <button onClick={() => setEditing(true)}>Elegir indicadores y gráficos</button>}</div>}
-    <div className={`${styles.workspace} ${block ? styles.withEditor : ''}`}>
+    <div className={styles.workspace}>
     <div className={styles.grid}>
       {displayBlocks.map((b, index) => {
         const time = isTemporal(b) ? temporalData(data.ordenes, data.proyectos, f, b) : null;
         const source = blockOrders(rows, b), groups = groupOrders(source, data.proyectos, b), metric = measureOrders(source, b, data.proyectos);
         const accent = b.colors.accent ?? (b.condition === 'closed' ? STATUS_COLORS.Cerrada : b.condition === 'pending' ? STATUS_COLORS.Pendiente : b.condition === 'progress' ? STATUS_COLORS['En proceso'] : PALETTE[0]);
-        return <article key={b.id} className={`${styles.card} ${b.type === 'metric' ? styles.metricCard : ''}`} style={{ '--span': b.width, '--block-accent': accent } as CSSProperties} onDragOver={e => { if (editing && dragged && !busy) e.preventDefault(); }} onDrop={e => { e.preventDefault(); dropBlock(b.id); }}>
+        return <article key={b.id} data-editing={block?.id === b.id || undefined} className={`${styles.card} ${b.type === 'metric' ? styles.metricCard : ''}`} style={{ '--span': b.width, '--block-accent': accent } as CSSProperties} onDragOver={e => { if (editing && dragged && !busy) e.preventDefault(); }} onDrop={e => { e.preventDefault(); dropBlock(b.id); }}>
           <div className={styles.cardHeader}><div><h2>{b.title}</h2>{time && temporalOptions(b).description && <p className={styles.chartDescription}>{temporalOptions(b).description}</p>}</div><div className={styles.cardActions}>
             {time && <button aria-label={'Ver registros de '+b.title} onClick={() => openDrill({title:b.title,orders:uniqueEvents(time.buckets,temporalOptions(b).series),reason:'OT que aportan al gráfico temporal, sin duplicar entre series.'})}>Ver OT</button>}
-            <button aria-label={'Configurar '+b.title} disabled={busy || !!block} onClick={() => startEditor(b)}>Editar</button>
-            {editing && !block && <details className={styles.menu}><summary aria-label={'Organizar '+b.title}>···</summary><div><button disabled={busy} draggable onDragStart={e => {e.dataTransfer.setData('text/plain',b.id);setDragged(b.id);}} onDragEnd={() => setDragged(null)}>⠿ Arrastrar bloque</button><button disabled={busy || index===0} onClick={() => move(b.id,-1)}>Mover antes</button><button disabled={busy || index===board.blocks.length-1} onClick={() => move(b.id,1)}>Mover después</button><button disabled={busy} onClick={() => updateBoard({blocks:board.blocks.filter(v=>v.id!==b.id)})}>Quitar bloque</button></div></details>}
+            <button aria-label={'Configurar '+b.title} disabled={busy || !!block} onClick={e => startEditor(b, false, e.currentTarget)}>Editar</button>
+            {editing && <details className={styles.menu}><summary aria-label={'Organizar '+b.title} aria-disabled={!!block} onClick={e => { if (block) e.preventDefault(); }}>···</summary><div><button disabled={busy || !!block} draggable={!block} onDragStart={e => {e.dataTransfer.setData('text/plain',b.id);setDragged(b.id);}} onDragEnd={() => setDragged(null)}>⠿ Arrastrar bloque</button><button disabled={busy || !!block || index===0} onClick={() => move(b.id,-1)}>Mover antes</button><button disabled={busy || !!block || index===board.blocks.length-1} onClick={() => move(b.id,1)}>Mover después</button><button disabled={busy || !!block} onClick={() => updateBoard({blocks:board.blocks.filter(v=>v.id!==b.id)})}>Quitar bloque</button></div></details>}
           </div></div>
           {time ? <TemporalChart block={b} result={time} onSelect={(title,orders,reason) => openDrill({title,orders,reason})} onSeries={block ? undefined : series => updateBoard({blocks:board.blocks.map(v=>v.id===b.id?{...v,temporal:{...temporalOptions(v),series}}:v)})} /> : b.type === 'metric' ? <button className={styles.metric} onClick={() => openDrill({ title: b.title, orders: source })}><strong>{metric.value === null ? '—' : metric.value.toLocaleString('es-PY')}{b.measure === 'duration' && metric.value !== null ? ' d' : ''}</strong><span>{b.measure === 'entities' ? 'Categorías con OT' : CONDITION_LABELS[b.condition]} · ver {source.length} OT</span></button> : <DashboardChart block={b} groups={groups} onSelect={g => openDrill({ title: `${b.title} · ${g.label}`, orders: g.orders })} />}
           {b.measure === 'duration' && <p className={styles.footnote}>Ingreso → fin registrado, inclusive. {metric.sample} cerradas con fechas válidas; no acredita ejecución.</p>}
@@ -225,7 +237,7 @@ export function DashboardWorkspace({ userId, services, onLegacy }: { userId: str
         </article>;
       })}
     </div>
-    {block && <ContextualBlockEditor key={block.id} block={block} assisted={assisted} rubros={options.rubros} rows={rows} projects={data.proyectos} onPreview={setBlock} onClose={() => setBlock(null)} onApply={next => { const exists=board.blocks.some(b=>b.id===next.id); updateBoard({blocks:exists?board.blocks.map(b=>b.id===next.id?next:b):[...board.blocks,next]});setBlock(null);setMessage('Bloque aplicado a tu vista. Guardá para conservarlo en tu cuenta.'); }} />}
+    {block && <ContextualBlockEditor key={block.id} block={block} left={editorLeft} assisted={assisted} rubros={options.rubros} rows={rows} projects={data.proyectos} onPreview={setBlock} onClose={() => setBlock(null)} onApply={next => { const exists=board.blocks.some(b=>b.id===next.id); updateBoard({blocks:exists?board.blocks.map(b=>b.id===next.id?next:b):[...board.blocks,next]});setBlock(null);setMessage('Bloque aplicado a tu vista. Guardá para conservarlo en tu cuenta.'); }} />}
     </div>
     <p className={styles.footnote}>Preferencias privadas por cuenta · datos de las obras autorizadas · los gráficos no modifican las OT.</p>
     {newBoard && <NewBoardDialog onClose={() => setNewBoard(false)} onCreate={(name, empty) => { const next = createBoard(name, empty); setDocument({ ...document, boards: [...document.boards, next] }); setSelected(next.id); setEditing(true); setNewBoard(false); }} />}

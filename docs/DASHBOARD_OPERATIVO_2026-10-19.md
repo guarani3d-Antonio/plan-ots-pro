@@ -49,3 +49,9 @@ El transporte del ensayo sustituye Supabase, bloquea escrituras operativas y rec
 - Notebook de 1366 px y móvil de 390 px sin desbordamiento horizontal; editor contextual en diálogo contenido.
 - TypeScript, pruebas de modelo, aislamiento con PostgreSQL en memoria y compilación de producción correctos. Se conservan advertencias de empaquetado preexistentes (tamaño, pdfjs y mezcla de imports).
 - Huella inicial de producción tomada por consulta de solo lectura: 113 OT, 15 documentos, 16 revisiones, 15 borradores, 2 firmas. Evidencia y verificación posterior en `output/dashboard-publicacion-final-20261019/`.
+
+## Corrección de estabilidad visual al editar
+
+La revisión del propietario mostró que se ocultaban todos los bloques excepto el seleccionado y se aplicaban anchos especiales para el editor. Se eliminan ambas conductas: el borrador se representa en su posición dentro del dashboard completo, con un contorno de selección y un panel flotante sin redistribuir la grilla. El panel se coloca del lado opuesto al bloque en escritorio y como panel inferior contenido en móvil; sus campos tienen desplazamiento interno y sus acciones permanecen visibles. Escape/cancelar restaura el bloque y devuelve el foco. Un bloque nuevo se agrega solo como vista previa, se lleva a la vista y desaparece al cancelar.
+
+Comprobado con datos ficticios: ocho bloques antes y durante la edición, mismas coordenadas relativas y dimensiones tanto en consulta como en edición general, vista previa temporal/cancelación, aplicar y descartar edición general, alta asistida (8→9→8) y pantalla de 320×568 sin desborde horizontal y con pie del editor accesible. No cambian el formato de preferencias, el guardado ni los servicios de datos. Evidencia: `output/dashboard-stable-editor-20261019/`.

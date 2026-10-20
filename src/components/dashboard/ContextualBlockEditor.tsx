@@ -1,11 +1,18 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import type { OrdenLocal } from '../../types/orden';
 import type { Proyecto } from '../../stores/proyectosStore';
 import { CONDITION_LABELS, GROUP_LABELS, PALETTE, STATUS_COLORS, TYPE_LABELS, blockOrders, groupColor, groupOrders, normalized, type DashboardBlock, type TemporalOptions } from '../../services/personalDashboardModel';
 import { isTemporal, proposeTemporalBlock, temporalOptions, type EventKey } from '../../services/dashboardOperationalModel';
 import s from './PersonalDashboard.module.css';
 
-export function ContextualBlockEditor({ block: b, assisted, rubros, rows, projects, onPreview, onClose, onApply }: { block: DashboardBlock; assisted: boolean; rubros: string[]; rows: OrdenLocal[]; projects: Proyecto[]; onPreview: (b: DashboardBlock) => void; onClose: () => void; onApply: (b: DashboardBlock) => void }) {
+export function ContextualBlockEditor({ block: b, left, assisted, rubros, rows, projects, onPreview, onClose, onApply }: { block: DashboardBlock; left?: number; assisted: boolean; rubros: string[]; rows: OrdenLocal[]; projects: Proyecto[]; onPreview: (b: DashboardBlock) => void; onClose: () => void; onApply: (b: DashboardBlock) => void }) {
+  const panel = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const el = panel.current, previous = document.activeElement;
+    el?.showPopover?.();
+    el?.focus({ preventScroll: true });
+    return () => { if (el?.matches(':popover-open')) el.hidePopover(); if (previous instanceof HTMLElement && previous.isConnected) previous.focus({ preventScroll: true }); };
+  }, []);
   const [tab, setTab] = useState<'data' | 'chart' | 'look'>('chart'), [mia, setMia] = useState(assisted), [prompt, setPrompt] = useState('Compará ingresos y cierres por semana'), [proposal, setProposal] = useState(false), [error, setError] = useState(''), [search, setSearch] = useState('');
   const temporal = isTemporal(b), t = temporalOptions(b);
   const groups = groupOrders(blockOrders(rows, b), projects, b);
@@ -13,7 +20,7 @@ export function ContextualBlockEditor({ block: b, assisted, rubros, rows, projec
   const patchTime = (p: Partial<TemporalOptions>) => patch({ temporal: { ...t, ...p } });
   function series(key: EventKey, checked: boolean) { if (!checked && t.series.length === 1) { setError('El gráfico necesita al menos una serie.'); return; } setError(''); patchTime({ series: checked ? [...t.series, key] : t.series.filter(s => s !== key) }); }
   const colors = b.group === 'estado' ? Object.keys(STATUS_COLORS).map(key => ({ key, label: key })) : groups.filter(g => normalized(g.label).includes(normalized(search))).map(g => ({ key: g.key, label: g.label }));
-  return <aside className={s.inspector} aria-label="Editor contextual" aria-describedby="dashboard-preview-note"><header><strong>{mia ? 'Crear con MIA' : 'Editar bloque'}</strong><button type="button" aria-label="Cerrar editor contextual" onClick={onClose}>×</button></header>
+  return <aside ref={panel} popover="manual" tabIndex={-1} role="dialog" aria-modal="false" className={s.inspector} style={{ '--editor-left': left === undefined ? 'auto' : `${left}px`, '--editor-right': left === undefined ? '16px' : 'auto' } as CSSProperties} aria-label="Editor contextual" aria-describedby="dashboard-preview-note" onKeyDown={e => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onClose(); } }}><header><strong>{mia ? 'Crear con MIA' : 'Editar bloque'}</strong><button type="button" aria-label="Cerrar editor contextual" onClick={onClose}>×</button></header>
     {mia ? <div className={s.editorFields}>
       <p className={s.footnote}>Asistente local de gráficos · sin consumo de API</p>
       <label>¿Qué querés ver?<textarea value={prompt} onChange={e => { setPrompt(e.target.value); setProposal(false); }} /></label>
